@@ -248,6 +248,104 @@ class opencl_interface:
         # No main return
         return None
 
+    def run_saltlist(self, bufStructs, func, password, saltIter, paddedLenFunc=None, rtnSalts=None):
+        # PaddedLenFunc is just for checking: lower bound with original length if not supplied
+        if not paddedLenFunc: paddedLenFunc = lambda x, bs: x
+        # Checks on password list : not possible now we have iters!
+
+        inBufSize_bytes = self.bufStructs.inBufferSize_bytes
+        outBufSize_bytes = self.bufStructs.outBufferSize_bytes
+        outBufSize_hs = outBufSize_bytes * 2
+
+        # Main loop is taking chunks of at most the workgroup size
+        while True:
+            # Moved to bytearray initially, avoiding copying and above all
+            #   'np.append' which is horrific
+            saltArray = bytearray()
+
+            # For each password in our chunk, process it into pwArray, with length first
+            # Notice that this lines up with the struct declared in the .cl file!
+            chunkSize = self.workgroupsize
+            for i in range(self.workgroupsize):
+                try:
+                    salt = saltIter.__next__()
+                    # Since we take a iterator, we feed the passwords back if requested
+                    if rtnSalts != None:
+                        rtnSalts.append(salt)
+                except StopIteration:
+                    # Correct the chunk size and break
+                    chunkSize = i
+                    break
+
+                saltLen = len(salt)
+                # Now passing hash block size as a parameter.. could be None?
+                assert paddedLenFunc(saltLen, self.bufStructs.hashBlockSize_bits // 8) <= inBufSize_bytes, \
+                    "password #" + str(i) + ", '" + salt.decode() + "' (length " + str(
+                        saltLen) + ") exceeds the input buffer (length " + str(inBufSize_bytes) + ") when padded"
+
+                # Add the length to our saltLen, then pad with 0s to struct size
+                # prev code was np.array([saltLen], dtype=np.uint32), this ultimately is equivalent
+                saltArray.extend((saltLen).to_bytes(self.wordSize, 'little'))
+                saltArray.extend(salt)
+                saltArray.extend([0] * (inBufSize_bytes - saltLen))
+
+            if chunkSize == 0:
+                break
+            # print("Chunksize = {}".format(chunkSize))
+
+            # Convert the pwArray into a numpy array, just the once.
+            # Declare the numpy array for the digest output
+            saltArray = np.frombuffer(saltArray, dtype=self.wordType)
+            result = np.zeros(bufStructs.outBufferSize * chunkSize, dtype=self.wordType)
+
+            # Make the salty array, with length at the front
+            pwLen = len(password)
+            pwArray = bytearray((pwLen).to_bytes(self.wordSize, 'little'))
+            pwArray.extend(password)
+            ##saltArray.extend(b"\x00" * ((-saltLen) % 4))
+            pwArray.extend(b"\x00" * (bufStructs.pwdBufferSize_bytes - pwLen))
+            pwArray = np.frombuffer(pwArray, dtype=self.wordType)
+            assert pwArray.nbytes - self.wordSize == bufStructs.pwdBufferSize_bytes, "Password doesn't fit in the buffer!"
+
+            # Allocate memory for variables on the device
+            pass_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=pwArray)
+            salt_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=saltArray)
+            result_g = cl.Buffer(self.ctx, cl.mem_flags.WRITE_ONLY, result.nbytes)
+
+            # print("=========== Initial buffers ==============")
+            # print(" pass_g.nbytes = {}".format(pwArray.nbytes))
+            # print(" salt_g.nbytes = {}".format(saltArray.nbytes))
+            # print(" result_g.nbytes = {}".format(result.nbytes))
+
+            # Call Kernel. Automatically takes care of block/grid distribution
+            pwdim = (chunkSize,)
+
+            # Main function callback : could adapt to pass further data
+            func(self, pwdim, pass_g, salt_g, result_g)
+            ##self.prg.hmac_main(self.queue, pwdim, None, pass_g, salt_g, result_g)
+
+            # Read the results back into our array of int32s, then hexlify
+            # Some inefficiency here, unavoidable using hexlify
+            cl.enqueue_copy(self.queue, result, result_g)
+
+            # hexvalue = hexlify(result)
+
+            # Chop up into the individual hash digests, then trim to necessary hash length.
+            results = []
+            # for i in range(0, len(hexvalue), outBufSize_hs):
+            #    hexRes = hexvalue[i:i + outBufSize_hs].decode()
+            #    results.append(hexRes)
+
+            for i in range(0, len(result), outBufSize_bytes // bufStructs.wordSize):
+                v = bytes(result[i:i + outBufSize_bytes // bufStructs.wordSize])
+                results.append(v)
+
+            # Yield this block of results
+            yield results
+
+        # No main return
+        return None
+
     def determineWorkgroupsize(self, N_value=15):
         devices = cl.get_platforms()[self.platform_number].get_devices()
         wgSize = 0
@@ -589,6 +687,42 @@ class opencl_algos:
         return [prg, bufStructs]
 
     # ===========================================================================================
+
+    def cl_pbkdf2_saltlist(self, ctx, password, saltlist, iters, dklen):
+        prg = ctx[0]
+        bufStructs = ctx[1]
+        def func(s, pwdim, pass_g, salt_g, result_g):
+            prg.pbkdf2(s.queue, pwdim, None, pass_g, salt_g, result_g,
+                       (iters).to_bytes(4, 'little'), (dklen).to_bytes(4, 'little'))    # ! iters, dklen are always ints
+
+        result = self.concat(self.opencl_ctx.run_saltlist(bufStructs, func, password, iter(saltlist)))
+        if dklen != self.max_out_bytes:
+            # We may have made more space for a multiple of the digest size
+            result = [hexRes[:dklen] for hexRes in result]
+        return result
+
+    def cl_pbkdf2_saltlist_init(self, type, pwdlen, dklen):
+        bufStructs = buffer_structs()
+        if type == "md5":
+            self.max_out_bytes = bufStructs.specifyMD5(128, pwdlen, dklen)
+            ## hmac is defined in with pbkdf2, as a kernel function
+            prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2-saltlist.cl")
+        elif type == "sha1":
+            self.max_out_bytes = bufStructs.specifySHA1(128, pwdlen, dklen)
+            ## hmac is defined in with pbkdf2, as a kernel function
+            prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2-saltlist.cl")
+        elif type == "sha256":
+            self.max_out_bytes = bufStructs.specifySHA2(256, 128, pwdlen, dklen)
+            prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2-saltlist.cl")
+        elif type == "sha512":
+            self.max_out_bytes = bufStructs.specifySHA2(512, 256, pwdlen, dklen)
+            prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2-saltlist.cl")
+        else:
+            assert ("Error on hash type, unknown !!!")
+        return [prg, bufStructs]
+
+    # ===========================================================================================
+
     def cl_hash_iterations(self, ctx, passwordlist, iters, hash_size):
         prg = ctx[0]
         bufStructs = ctx[1]

@@ -21,6 +21,7 @@
 // Practical sizes of buffers, in words.
 #define inBufferSize ceilDiv(<inBufferSize_bytes>, wordSize)
 #define outBufferSize ceilDiv(<outBufferSize_bytes>, wordSize)
+#define pwdBufferSize ceilDiv(<pwdBufferSize_bytes>, wordSize)
 #define saltBufferSize ceilDiv(<saltBufferSize_bytes>, wordSize)
 #define ctBufferSize ceilDiv(<ctBufferSize_bytes>, wordSize)
 
