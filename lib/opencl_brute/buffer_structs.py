@@ -17,18 +17,21 @@ class buffer_structs:
         self.code = ""
         self.wordSize = 4
         
-    def setMaxBufferSizes(self, max_in_bytes, max_out_bytes, max_salt_bytes=32, max_ct_bytes=0):
+    def setMaxBufferSizes(self, max_in_bytes, max_out_bytes, max_salt_bytes=32, max_ct_bytes=0, max_pwd_bytes=32):
         # Ensure each are a multiple of 4
         max_in_bytes += (-max_in_bytes % self.wordSize)
         max_out_bytes += (-max_out_bytes % self.wordSize)
         max_salt_bytes += (-max_salt_bytes % self.wordSize)
+        max_pwd_bytes += (-max_pwd_bytes % self.wordSize)
 
         self.inBufferSize_bytes = max_in_bytes
         self.outBufferSize_bytes = max_out_bytes
         self.saltBufferSize_bytes = max_salt_bytes
+        self.pwdBufferSize_bytes = max_pwd_bytes
         self.inBufferSize = (max_in_bytes + 3) // self.wordSize
         self.outBufferSize = (max_out_bytes + 3) // self.wordSize
         self.saltBufferSize = (max_salt_bytes + 3) // self.wordSize
+        self.pwdBufferSize = (max_pwd_bytes + 3) // self.wordSize
         self.ctBufferSize_bytes = max_ct_bytes
 
     def specifyHashSizes(self, hashBlockSize_bits, hashDigestSize_bits):
@@ -49,6 +52,7 @@ class buffer_structs:
                 "<inBufferSize_bytes>" : str(self.inBufferSize_bytes),
                 "<outBufferSize_bytes>" : str(self.outBufferSize_bytes),
                 "<saltBufferSize_bytes>" : str(self.saltBufferSize_bytes),
+                "<pwdBufferSize_bytes>": str(self.pwdBufferSize_bytes),
                 "<ctBufferSize_bytes>" : str(self.ctBufferSize_bytes),
                 "<word_size>" : str(self.wordSize)
         }
