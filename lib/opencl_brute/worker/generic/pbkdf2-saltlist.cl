@@ -87,7 +87,7 @@ static void hmac(const word *K, const word K_len_bytes,
 }
 
 static void hmac_private(const word *K, const word K_len_bytes,
-    word *m, const word m_len_bytes, word *output)
+    const word *m, const word m_len_bytes, word *output)
 {
     // REQ: If K_len_bytes isn't divisible by 4/8, final word should be clean (0s to the end)
     // REQ: s digestSize is a multiple of 4/8 bytes
