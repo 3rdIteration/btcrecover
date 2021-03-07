@@ -32,14 +32,15 @@ def auto_select_opencl_platform(loaded_wallet):
     for i, platformNum in enumerate(pyopencl.get_platforms()):
         for device in platformNum.get_devices():
             cur_score = 0
-            if device.type & pyopencl.device_type.ACCELERATOR:
-                cur_score += 8  # always best
-            elif device.type & pyopencl.device_type.GPU:
-                cur_score += 4  # better than CPU
-            if "nvidia" in device.vendor.lower():
-                cur_score += 2  # is never an IGP: very good
-            elif "amd" in device.vendor.lower():
-                cur_score += 1  # sometimes an IGP: good
+            if device.type & pyopencl.device_type.ACCELERATOR: # always best
+                if "oclgrind" not in device.name.lower(): # Some simulators present as an accelerator...
+                    cur_score += 8
+            elif device.type & pyopencl.device_type.GPU: # better than CPU
+                cur_score += 4
+            if "nvidia" in device.vendor.lower(): # is never an IGP: very good
+                cur_score += 2
+            elif "amd" in device.vendor.lower(): # sometimes an IGP: good
+                cur_score += 1
             if cur_score >= best_score_sofar:  # (intel is always an IGP)
                 if cur_score > best_score_sofar:
                     best_score_sofar = cur_score
@@ -67,25 +68,42 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
     loaded_wallet.opencl_algo_3 = opencl.opencl_algos(platform, debug, write_combined_file, inv_memory_density=1,
                                                     openclDevice=openclDevice)
 
+    # Password recovery for blockchain.com wallet
     if type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchain:
         loaded_wallet.opencl_context_pbkdf2_sha1 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha1", len(
             loaded_wallet._salt_and_iv), dklen)
+    # Password recovery for blockchain.com wallet second password
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchainSecondpass:
         loaded_wallet.opencl_context_hash_iterations_sha256 = loaded_wallet.opencl_algo.cl_hash_iterations_init(
             "sha256")
+    # Password recovery for Yoroi Cardano wallet
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletYoroi:
         loaded_wallet.opencl_context_pbkdf2_sha512 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512", 32, 32)
+
+    # Password recovery for Bitcoin core wallet (or clones)
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBitcoinCore:
         loaded_wallet.opencl_context_hash_iterations_sha512 = loaded_wallet.opencl_algo.cl_hash_iterations_init(
             "sha512")
-    # Check if it's a BIP38 wallet, load sCrypt context with a custom kernel
+
+    # Password recovery for BIP38 wallet, load sCrypt context with a custom kernel
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP38:
         loaded_wallet.opencl_context_scrypt = loaded_wallet.opencl_algo.cl_scrypt_init(14, "sCrypt_Bip38fork.cl")
 
-    elif type(loaded_wallet) in (btcrecover.btcrpass.WalletBIP39, btcrecover.btcrpass.WalletElectrum28):
-        salt = b"mnemonic"
-        loaded_wallet.opencl_context_pbkdf2_sha512 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
-                                                                                              len(salt), dklen)
+    # Password recovery for Electrum28 Wallet files
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletElectrum28:
+        loaded_wallet.opencl_context_pbkdf2_sha512 = \
+            loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
+                                                              len(b""),
+                                                              dklen)
+
+    # Password recovery for BIP39 Passphrase or Electrum "Extra Words"
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP39:
+        loaded_wallet.opencl_context_pbkdf2_sha512 = \
+            loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512",
+                                                              len(loaded_wallet._mnemonic.encode()),
+                                                              dklen)
+
+    # Password recovery for brainwallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBrainwallet:
         loaded_wallet.opencl_context_sha256 = loaded_wallet.opencl_algo.cl_sha256_init()
         if loaded_wallet.isWarpwallet:
@@ -94,7 +112,7 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
                 loaded_wallet.opencl_algo_3.cl_pbkdf2_init(type="sha256",
                                                          saltlen=len(loaded_wallet.salt) + 1,
                                                          dklen=32)
-    else: # Must a btcrseed.WalletBIP39
+    else: # Must a btcrseed.WalletBIP39 (Seed recovery for BIP39 or Electrum)
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:
             loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",

@@ -2540,10 +2540,8 @@ class WalletBIP39(object):
         return "2048 PBKDF2-SHA512 iterations + ECC"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
-
-        return self._return_verified_password_or_false_cpu(mnemonic_ids_list)
-        #return _self.return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
-        #  else self.return_verified_password_or_false_cpu(mnemonic_ids_list)
+        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
+          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2556,39 +2554,44 @@ class WalletBIP39(object):
                 derivation_salt = b"electrum" + password
             else:
                 derivation_salt = b"mnemonic" + password
+
             seed_bytes = pbkdf2_hmac("sha512", self._mnemonic.encode(), derivation_salt, 2048)
+
             seed_bytes = hmac.new(b"Bitcoin seed", seed_bytes, hashlib.sha512).digest()
             if self.btcrseed_wallet._verify_seed(seed_bytes):
                 return password.decode("utf_8", "replace"), count
 
         return False, count
 
-    # This doesn't currently do anything until the OpenCL Kernel has been enhanced to support taking a list of salts, rather than a list of seeds
-    # def _return_verified_password_or_false_opencl(self, passwords):
-    #     # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
-    #     passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), passwords)
-    #
-    #     salt_list = []
-    #
-    #     for password in passwords:
-    #         salt_list.append(b"mnemonic" + password)
-    #
-    #     #print("CL-Chunk Size: ", len(cleaned_mnemonic_ids_list))
-    #     #clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context, self._mnemonic.encode(), salt_list, 2048, 64)
-    #
-    #     #Placeholder until OpenCL kernel can be patched to support this...
-    #     for salt in salt_list:
-    #         clResults = []
-    #         clResults.append(pbkdf2_hmac("sha512", self._mnemonic.encode(), bsalt, 2048))
-    #
-    #     results = zip(passwords,clResult)
-    #
-    #     for count, result in enumerate(results, 1):
-    #         seed_bytes = hmac.new(b"Bitcoin seed", results[1], hashlib.sha512).digest()
-    #         if self.btcrseed_wallet._verify_seed(seed_bytes):
-    #             return results[0].decode("utf_8", "replace"), count
-    #
-    #     return False, count
+    def _return_verified_password_or_false_opencl(self, arg_passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        salt_list = []
+        for password in passwords:
+            if type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2:
+                salt_list.append(b"electrum" + password)
+            else:
+                salt_list.append(b"mnemonic" + password)
+
+        clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512, self._mnemonic.encode(), salt_list, 2048, 64)
+
+        #Placeholder until OpenCL kernel can be patched to support this...
+        #clResult = []
+        #for salt in salt_list:
+        #    clResult.append(pbkdf2_hmac("sha512", self._mnemonic.encode(), salt, 2048))
+
+        # This list is consumed, so recreated it and zip
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        results = zip(passwords, clResult)
+
+        for count, (password, result) in enumerate(results, 1):
+            seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
+            if self.btcrseed_wallet._verify_seed(seed_bytes):
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
 
 ############### Cadano Yoroi Wallet ###############
 
@@ -2633,8 +2636,6 @@ class WalletYoroi(object):
         return "19162 PBKDF2-SHA512 iterations + ChaCha20_Poly1305"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # Yoroi Cadano Wallet
-
-        #return self._return_verified_password_or_false_cpu(mnemonic_ids_list)
         return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
           else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
 
@@ -4312,7 +4313,9 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             best_score_sofar = -1
             for dev in devices_avail:
                 cur_score = 0
-                if   dev.type & pyopencl.device_type.ACCELERATOR: cur_score += 8  # always best
+                if   dev.type & pyopencl.device_type.ACCELERATOR:
+                    if "oclgrind" not in device.name.lower():  # Some simulators present as an accelerator...
+                        cur_score += 8  # always best
                 elif dev.type & pyopencl.device_type.GPU:         cur_score += 4  # better than CPU
                 if   "nvidia" in dev.vendor.lower():              cur_score += 2  # is never an IGP: very good
                 elif "amd"    in dev.vendor.lower():              cur_score += 1  # sometimes an IGP: good

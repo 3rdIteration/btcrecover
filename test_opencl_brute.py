@@ -299,7 +299,7 @@ def main(argv):
     opencl_algos = opencl.opencl_algos(platform, debug, write_combined_file,inv_memory_density=1)
     # Call the tests
 
-    for salt in salts:
+    #for salt in salts:
         # print("Using salt: %s" % salt)
         # md5_test(opencl_algos,passwordlist)
         # sha1_test(opencl_algos,passwordlist)

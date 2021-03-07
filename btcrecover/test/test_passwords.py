@@ -1319,12 +1319,13 @@ class Test08BIP39Passwords(unittest.TestCase):
 
         # Perform the tests in the current process
         correct_pass = "btcr-test-password" if not unicode_pw else "btcr-тест-пароль"
-        self.assertEqual(wallet.return_verified_password_or_false(
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
-        self.assertEqual(wallet.return_verified_password_or_false(
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
+        wallet.opencl = False
         pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, False))
         password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
             ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
@@ -1334,6 +1335,38 @@ class Test08BIP39Passwords(unittest.TestCase):
         self.assertRaises(StopIteration, password_found_iterator.next)
         pool.close()
         pool.join()
+
+    def bip39_tester_opencl(self, force_purepython = False, unicode_pw = False, *args, **kwargs):
+
+        wallet = btcrpass.WalletBIP39(*args, **kwargs)
+        if force_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
+
+        # Perform the tests in the current process
+        correct_pass = "btcr-test-password" if not unicode_pw else "btcr-тест-пароль"
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
+
+        # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
+        wallet.opencl = True
+        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, False))
+        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+        self.assertEqual(password_found_iterator.__next__(), (False, 2))
+        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+        self.assertRaises(StopIteration, password_found_iterator.next)
+        pool.close()
+        pool.join()
+
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_bip39_mpk_opencl(self):
+        self.bip39_tester_opencl(
+            mpk=      "xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+            mnemonic= "certain come keen collect slab gauge photo inside mechanic deny leader drop"
+        )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_bip39_mpk(self):
@@ -1798,6 +1831,7 @@ class Test08KeyDecryption(unittest.TestCase):
         test_succeeded = False
         for dev in opencl_devices_list:
             if dev.name in dev_names_tested: continue
+            if "oclgrind" in dev.name.lower(): continue # Skip testing on oclgrind device if present...
             dev_names_tested.add(dev.name)
             try:
                 self.init_opencl_kernel([dev], [4])
@@ -1826,6 +1860,7 @@ class Test08KeyDecryption(unittest.TestCase):
         test_succeeded = False
         for dev in opencl_devices_list:
             if dev.name in dev_names_tested: continue
+            if "oclgrind" in dev.name.lower(): continue  # Skip testing on oclgrind device if present...
             dev_names_tested.add(dev.name)
             try:
                 self.init_opencl_kernel([dev], [4])
@@ -1850,6 +1885,7 @@ class Test08KeyDecryption(unittest.TestCase):
         test_succeeded = False
         for dev in opencl_devices_list:
             if dev.name in dev_names_tested: continue
+            if "oclgrind" in dev.name.lower(): continue  # Skip testing on oclgrind device if present...
             dev_names_tested.add(dev.name)
             try:
                 self.init_opencl_kernel([dev], [4], int_rate=10) #Interrupt rate defaults to 200
@@ -1872,6 +1908,7 @@ class Test08KeyDecryption(unittest.TestCase):
         global opencl_devices_list
         devices_by_name = dict()
         for dev in opencl_devices_list:
+            if "oclgrind" in dev.name.lower(): continue  # Skip testing on oclgrind device if present...
             if dev.name in devices_by_name: break
             else: devices_by_name[dev.name] = dev
         else:

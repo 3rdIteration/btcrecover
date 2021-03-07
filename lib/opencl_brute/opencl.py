@@ -251,7 +251,7 @@ class opencl_interface:
     def run_saltlist(self, bufStructs, func, password, saltIter, paddedLenFunc=None, rtnSalts=None):
         # PaddedLenFunc is just for checking: lower bound with original length if not supplied
         if not paddedLenFunc: paddedLenFunc = lambda x, bs: x
-        # Checks on password list : not possible now we have iters!
+        # Checks on salt list : not possible now we have iters!
 
         inBufSize_bytes = self.bufStructs.inBufferSize_bytes
         outBufSize_bytes = self.bufStructs.outBufferSize_bytes
@@ -280,7 +280,7 @@ class opencl_interface:
                 saltLen = len(salt)
                 # Now passing hash block size as a parameter.. could be None?
                 assert paddedLenFunc(saltLen, self.bufStructs.hashBlockSize_bits // 8) <= inBufSize_bytes, \
-                    "password #" + str(i) + ", '" + salt.decode() + "' (length " + str(
+                    "salt #" + str(i) + ", '" + salt.decode() + "' (length " + str(
                         saltLen) + ") exceeds the input buffer (length " + str(inBufSize_bytes) + ") when padded"
 
                 # Add the length to our saltLen, then pad with 0s to struct size
@@ -305,7 +305,7 @@ class opencl_interface:
             ##saltArray.extend(b"\x00" * ((-saltLen) % 4))
             pwArray.extend(b"\x00" * (bufStructs.pwdBufferSize_bytes - pwLen))
             pwArray = np.frombuffer(pwArray, dtype=self.wordType)
-            assert pwArray.nbytes - self.wordSize == bufStructs.pwdBufferSize_bytes, "Password doesn't fit in the buffer!"
+            assert pwArray.nbytes - self.wordSize == bufStructs.pwdBufferSize_bytes, "Salt doesn't fit in the buffer!"
 
             # Allocate memory for variables on the device
             pass_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=pwArray)
@@ -704,18 +704,18 @@ class opencl_algos:
     def cl_pbkdf2_saltlist_init(self, type, pwdlen, dklen):
         bufStructs = buffer_structs()
         if type == "md5":
-            self.max_out_bytes = bufStructs.specifyMD5(128, pwdlen, dklen)
+            self.max_out_bytes = bufStructs.specifyMD5(hashDigestSize_bits=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
             prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2-saltlist.cl")
         elif type == "sha1":
-            self.max_out_bytes = bufStructs.specifySHA1(128, pwdlen, dklen)
+            self.max_out_bytes = bufStructs.specifySHA1(hashDigestSize_bits=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
             prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2-saltlist.cl")
         elif type == "sha256":
-            self.max_out_bytes = bufStructs.specifySHA2(256, 128, pwdlen, dklen)
+            self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=256, max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2-saltlist.cl")
         elif type == "sha512":
-            self.max_out_bytes = bufStructs.specifySHA2(512, 256, pwdlen, dklen)
+            self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=512, max_in_bytes=256, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2-saltlist.cl")
         else:
             assert ("Error on hash type, unknown !!!")

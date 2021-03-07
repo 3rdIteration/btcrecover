@@ -61,7 +61,7 @@ class buffer_structs:
         pattern = re.compile("|".join(rep.keys()))
         self.code = pattern.sub(lambda m: rep[re.escape(m.group(0))], template)
 
-    def specifyMD5(self, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0):
+    def specifyMD5(self, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0, max_password_bytes = 32):
         self.specifyHashSizes(512, 128)
         maxNumBlocks = 3
         self.wordSize = 4
@@ -70,11 +70,11 @@ class buffer_structs:
         if dklen!=0:
             # Adjust output size to be a multiple of the digest
             max_out_bytes = self.ceilToMult(dklen, (self.hashDigestSize_bits // 8))
-        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes)
+        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes, max_password_bytes)
         self.fill_template()
         return max_out_bytes
 
-    def specifySHA1(self, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0):
+    def specifySHA1(self, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0, max_password_bytes = 32):
         self.specifyHashSizes(512,160)
         maxNumBlocks = 3
         self.wordSize = 4
@@ -83,11 +83,11 @@ class buffer_structs:
         if dklen!=0:
             # Adjust output size to be a multiple of the digest
             max_out_bytes = self.ceilToMult(dklen, (self.hashDigestSize_bits // 8))
-        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes)
+        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes, max_password_bytes)
         self.fill_template()
         return max_out_bytes
 
-    def specifySHA2(self, hashDigestSize_bits=256, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0):
+    def specifySHA2(self, hashDigestSize_bits=256, max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0, max_password_bytes = 32):
         assert hashDigestSize_bits in [224,256,384,512]
         hashBlockSize_bits = 512
         if hashDigestSize_bits >= 384:
@@ -105,7 +105,7 @@ class buffer_structs:
             # Adjust output size to be a multiple of the digest
             max_out_bytes = self.ceilToMult(dklen, (self.hashDigestSize_bits // 8))
 
-        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes)
+        self.setMaxBufferSizes(max_in_bytes, max_out_bytes, max_salt_bytes, max_ct_bytes, max_password_bytes)
         #bufStructs.setMaxBufferSizes(128, (bufStructs.hashDigestSize_bits * 2) // 8, 128)
         self.fill_template()
         return max_out_bytes
