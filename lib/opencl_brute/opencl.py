@@ -248,7 +248,7 @@ class opencl_interface:
         # No main return
         return None
 
-    def run_saltlist(self, bufStructs, func, password, saltIter, paddedLenFunc=None, rtnSalts=None):
+    def run_saltlist(self, bufStructs, func, saltIter, password = b"", paddedLenFunc=None, rtnSalts=None):
         # PaddedLenFunc is just for checking: lower bound with original length if not supplied
         if not paddedLenFunc: paddedLenFunc = lambda x, bs: x
         # Checks on salt list : not possible now we have iters!
@@ -695,7 +695,7 @@ class opencl_algos:
             prg.pbkdf2(s.queue, pwdim, None, pass_g, salt_g, result_g,
                        (iters).to_bytes(4, 'little'), (dklen).to_bytes(4, 'little'))    # ! iters, dklen are always ints
 
-        result = self.concat(self.opencl_ctx.run_saltlist(bufStructs, func, password, iter(saltlist)))
+        result = self.concat(self.opencl_ctx.run_saltlist(bufStructs, func, iter(saltlist), password))
         if dklen != self.max_out_bytes:
             # We may have made more space for a multiple of the digest size
             result = [hexRes[:dklen] for hexRes in result]
@@ -704,11 +704,11 @@ class opencl_algos:
     def cl_pbkdf2_saltlist_init(self, type, pwdlen, dklen):
         bufStructs = buffer_structs()
         if type == "md5":
-            self.max_out_bytes = bufStructs.specifyMD5(hashDigestSize_bits=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
+            self.max_out_bytes = bufStructs.specifyMD5(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
             prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2-saltlist.cl")
         elif type == "sha1":
-            self.max_out_bytes = bufStructs.specifySHA1(hashDigestSize_bits=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
+            self.max_out_bytes = bufStructs.specifySHA1(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
             prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2-saltlist.cl")
         elif type == "sha256":

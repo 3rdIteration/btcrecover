@@ -1341,24 +1341,16 @@ class Test08BIP39Passwords(unittest.TestCase):
         wallet = btcrpass.WalletBIP39(*args, **kwargs)
         if force_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
 
+        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
+
         # Perform the tests in the current process
         correct_pass = "btcr-test-password" if not unicode_pw else "btcr-тест-пароль"
         self.assertEqual(wallet._return_verified_password_or_false_opencl(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
         self.assertEqual(wallet._return_verified_password_or_false_opencl(
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
-
-        # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = True
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
 
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     @skipUnless(can_load_coincurve, "requires coincurve")

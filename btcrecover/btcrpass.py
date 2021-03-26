@@ -4135,7 +4135,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         if not args.enable_opencl or type(loaded_wallet) is WalletElectrum28: # Not (generally) worthwhile having more than 2 threads when using OpenCL due to the relatively simply hash verification (unlike seed recovery)
             args.threads = logical_cpu_cores
         else:
-            if args.btcrseed:
+            if args.btcrseed or args.bip39 or args.wallet_type: # BIP39 wallets generally benefit from as much CPU power as possible
                 args.threads = logical_cpu_cores
             else:
                 args.threads = 2
@@ -4191,6 +4191,33 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
     # Parse and syntax check all of the GPU related options
     if args.enable_opencl:
+        try:
+            if(len(loaded_wallet.btcrseed_wallet._path_indexes) > 1):
+                print("=======================================================================")
+                print()
+                print("Performance Warning:\n"
+                      "OpenCL Acceleration for BIP39 Passphrase (or Electrum extra words"
+                      "is very sensitive to extra CPU load, this can dramaticaly slow things down "
+                      "You are currently checking multiple derivation paths, (this is the default) "
+                      "and if you know which derivation path your wallet used, you should disable "
+                      "all unnecessary paths\n"
+                      "See https://btcrecover.readthedocs.io/en/latest/bip39-accounts-and-altcoins/")
+                print()
+                print("=======================================================================")
+
+            if(loaded_wallet.btcrseed_wallet._addrs_to_generate > 1):
+                print("=======================================================================")
+                print()
+                print("Performance Warning:\n"
+                      "OpenCL Acceleration for BIP39 Passphrase (or Electrum extra words"
+                      "is very sensitive to extra CPU load, this can dramaticaly slow things down"
+                      "You have selected an address generation limit greater than 1,"
+                      "and this may not be required depending on your wallet type"
+                      "See https://btcrecover.readthedocs.io/en/latest/Seedrecover_Quick_Start_Guide/#running-seedrecoverpy")
+                print()
+                print("=======================================================================")
+        except:
+            pass
         if args.warpwallet:
             print("=======================================================================")
             print()

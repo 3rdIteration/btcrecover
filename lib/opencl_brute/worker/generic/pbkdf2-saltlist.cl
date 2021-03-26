@@ -25,68 +25,9 @@
 __constant const word xoredPad = opad ^ ipad;
 
 // Slightly ugly: large enough for hmac_main usage, and tight for pbkdf2
-#define m_buffer_size (pwdBufferSize + 1)
+#define m_buffer_size (saltBufferSize + 1)
 
-static void hmac(const word *K, const word K_len_bytes,
-    __global word *m, const word m_len_bytes, word *output)
-{
-    // REQ: If K_len_bytes isn't divisible by 4/8, final word should be clean (0s to the end)
-    // REQ: s digestSize is a multiple of 4/8 bytes
-
-    /* Declare the space for input to the last hash function:
-         Compute and write K_ ^ opad to the first block of this. This will be the only place that we store K_ */
-
-    #define size_2 sizeForHash(hashBlockSize + hashDigestSize)
-    word input_2[size_2] = {0};
-    #undef size_2
-
-    word end;
-    if (K_len_bytes <= hashBlockSize_bytes)
-    {
-        end = ceilDiv(K_len_bytes, wordSize);
-        // XOR with opad and slightly pad with zeros..
-        for (int j = 0; j < end; j++){
-            input_2[j] = K[j] ^ opad;
-        }
-    } else {
-        end = hashDigestSize;
-        // Hash K to get K'. XOR with opad..
-        hash_private(K, K_len_bytes, input_2);
-        for (int j = 0; j < hashDigestSize; j++){
-            input_2[j] ^= opad;
-        }
-    }
-    // And if short, pad with 0s to the BLOCKsize, completing xor with opad
-    for (int j = end; j < hashBlockSize; j++){
-        input_2[j] = opad;
-    }
-
-    // Copy K' ^ ipad into the first block.
-    // Be careful: hash needs a whole block after the end. ceilDiv from buffer_structs
-    #define size_1 sizeForHash(hashBlockSize + m_buffer_size)
-
-    // K' ^ ipad into the first block
-    word input_1[size_1] = {0};
-    #undef size_1
-    for (int j = 0; j < hashBlockSize; j++){
-        input_1[j] = input_2[j]^xoredPad;
-    }
-
-    // Slightly inefficient copying m in..
-    word m_len_word = ceilDiv(m_len_bytes, wordSize);
-    for (int j = 0; j < m_len_word; j++){
-        input_1[hashBlockSize + j] = m[j];
-    }
-
-    // Hash input1 into the second half of input2
-    word leng = hashBlockSize_bytes + m_len_bytes;
-    hash_private(input_1, leng, input_2 + hashBlockSize);
-
-    // Hash input2 into output!
-    hash_private(input_2, hashBlockSize_bytes + hashDigestSize_bytes, output);
-}
-
-static void hmac_private(const word *K, const word K_len_bytes,
+static void hmac(__global word *K, const word K_len_bytes,
     const word *m, const word m_len_bytes, word *output)
 {
     // REQ: If K_len_bytes isn't divisible by 4/8, final word should be clean (0s to the end)
@@ -110,7 +51,7 @@ static void hmac_private(const word *K, const word K_len_bytes,
     } else {
         end = hashDigestSize;
         // Hash K to get K'. XOR with opad..
-        hash_private(K, K_len_bytes, input_2);
+        hash_glbl_to_priv(K, K_len_bytes, input_2);
         for (int j = 0; j < hashDigestSize; j++){
             input_2[j] ^= opad;
         }
@@ -155,8 +96,9 @@ static void hmac_private(const word *K, const word K_len_bytes,
 #define PRF(pwd, pwdLen_bytes, salt, saltLen_bytes, output) \
     hmac(pwd, pwdLen_bytes, salt, saltLen_bytes, output)
 
-static void F(word *pwd, const word pwdLen_bytes,
-    __global word *salt, const word saltLen_bytes,
+
+static void F(__global word *pwd, const word pwdLen_bytes,
+    word *salt, const word saltLen_bytes,
     const unsigned int iters, unsigned int callI,
     __global word *output)
 {
@@ -200,59 +142,60 @@ static void F(word *pwd, const word pwdLen_bytes,
 
     // Perform all the iterations, reading salt from- AND writing to- u.
     for (unsigned int j = 1; j < iters; j++){
-        hmac_private(pwd, pwdLen_bytes, u, PRF_output_bytes, u);
+        PRF(pwd, pwdLen_bytes, u, PRF_output_bytes, u);
         xor(u,output);
     }
 }
 
-__kernel void pbkdf2(__global inbuf *inbuffer, __global const pwdbuf *pwdbuffer, __global outbuf *outbuffer,
+__kernel void pbkdf2(__global const pwdbuf *pwdbuffer_arg, __global inbuf *inbuffer, __global outbuf *outbuffer,
     __private unsigned int iters, __private unsigned int dkLen_bytes)
 {
 
-    unsigned int idx = get_global_id(0);
-    word saltLen_bytes = inbuffer[idx].length;
-    __global word *saltBuffer = inbuffer[idx].buffer;
+	unsigned int idx = get_global_id(0);
+    word pwdLen_bytes = pwdbuffer_arg[0].length;
+    __global word *pwdBuffer = pwdbuffer_arg[0].buffer;
     __global word *currOutBuffer = outbuffer[idx].buffer;
 
-    // Copy password so that we can write our integer into the last 4 bytes
-    word pwdLen_bytes = pwdbuffer[0].length;
-    int pwdLen = ceilDiv(pwdLen_bytes, wordSize);
-    word personal_pwd[pwdBufferSize+2] = {0};
+    // Copy salt so that we can write our integer into the last 4 bytes
+    word saltLen_bytes = inbuffer[idx].length;
+    int saltLen = ceilDiv(saltLen_bytes, wordSize);
+    word personal_salt[saltBufferSize+2] = {0};
 
-    for (int j = 0; j < pwdLen; j++){
-        personal_pwd[j] = pwdbuffer[0].buffer[j];
+	
+    for (int j = 0; j < saltLen; j++){
+        personal_salt[j] = inbuffer[idx].buffer[j];
     }
 
     // Determine the number of calls to F that we need to make
     unsigned int nBlocks = ceilDiv(dkLen_bytes, PRF_output_bytes);
     for (unsigned int j = 1; j <= nBlocks; j++)
     {
-        F(personal_pwd, pwdbuffer[0].length, saltBuffer, saltLen_bytes, iters, j, currOutBuffer);
+        F(pwdBuffer, pwdLen_bytes, personal_salt, saltLen_bytes, iters, j, currOutBuffer);
         currOutBuffer += PRF_output_size;
     }
 }
 
 
 // Exposing HMAC in the same way. Useful for testing atleast.
-__kernel void hmac_main(__global inbuf *inbuffer, __global const pwdbuf *pwdbuffer, __global outbuf *outbuffer)
+__kernel void hmac_main(__global const pwdbuf *pwdbuffer, __global inbuf *inbuffer, __global outbuf *outbuffer)
 {
     unsigned int idx = get_global_id(0);
-    word saltLen_bytes = inbuffer[idx].length;
-    __global word *saltBuffer = inbuffer[idx].buffer;
+    word pwdLen_bytes = pwdbuffer[0].length;
+    __global word *pwdBuffer = inbuffer[0].buffer;
 
-    // Copy password just to cheer the compiler up
-    int pwdLen_bytes = (int)pwdbuffer[0].length;
-    int pwdLen = ceilDiv(pwdLen_bytes, wordSize);
-    word personal_pwd[pwdBufferSize] = {0};
+    // Copy salt just to cheer the compiler up
+    int saltLen_bytes = (int)inbuffer[idx].length;
+    int saltLen = ceilDiv(saltLen_bytes, wordSize);
+    word personal_salt[saltBufferSize] = {0};
 
-    for (int j = 0; j < pwdLen; j++){
-        personal_pwd[j] = pwdbuffer[0].buffer[j];
+    for (int j = 0; j < saltLen; j++){
+        personal_salt[j] = inbuffer[idx].buffer[j];
     }
 
     // Call hmac, with local
     word out[hashDigestSize];
-
-    hmac(personal_pwd, pwdLen_bytes, saltBuffer, saltLen_bytes, out);
+    
+    hmac(pwdBuffer, pwdLen_bytes, personal_salt, saltLen_bytes, out);
 
     for (int j = 0; j < hashDigestSize; j++){
         outbuffer[idx].buffer[j] = out[j];
