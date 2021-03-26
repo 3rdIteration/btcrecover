@@ -692,7 +692,7 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
         def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.pbkdf2(s.queue, pwdim, None, pass_g, salt_g, result_g,
+            prg.pbkdf2_saltlist(s.queue, pwdim, None, pass_g, salt_g, result_g,
                        (iters).to_bytes(4, 'little'), (dklen).to_bytes(4, 'little'))    # ! iters, dklen are always ints
 
         result = self.concat(self.opencl_ctx.run_saltlist(bufStructs, func, iter(saltlist), password))
@@ -706,17 +706,17 @@ class opencl_algos:
         if type == "md5":
             self.max_out_bytes = bufStructs.specifyMD5(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2-saltlist.cl")
+            prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif type == "sha1":
             self.max_out_bytes = bufStructs.specifySHA1(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2-saltlist.cl")
+            prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
         elif type == "sha256":
             self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=256, max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
-            prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2-saltlist.cl")
+            prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2.cl")
         elif type == "sha512":
             self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=512, max_in_bytes=256, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
-            prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2-saltlist.cl")
+            prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
             assert ("Error on hash type, unknown !!!")
         return [prg, bufStructs]

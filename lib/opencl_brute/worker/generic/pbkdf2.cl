@@ -200,3 +200,58 @@ __kernel void hmac_main(__global inbuf *inbuffer, __global const saltbuf *saltbu
         outbuffer[idx].buffer[j] = out[j];
     }
 }
+
+__kernel void pbkdf2_saltlist(__global const pwdbuf *pwdbuffer_arg, __global inbuf *inbuffer, __global outbuf *outbuffer,
+    __private unsigned int iters, __private unsigned int dkLen_bytes)
+{
+
+	unsigned int idx = get_global_id(0);
+    word pwdLen_bytes = pwdbuffer_arg[0].length;
+    __global word *pwdBuffer = pwdbuffer_arg[0].buffer;
+    __global word *currOutBuffer = outbuffer[idx].buffer;
+
+    // Copy salt so that we can write our integer into the last 4 bytes
+    word saltLen_bytes = inbuffer[idx].length;
+    int saltLen = ceilDiv(saltLen_bytes, wordSize);
+    word personal_salt[saltBufferSize+2] = {0};
+
+
+    for (int j = 0; j < saltLen; j++){
+        personal_salt[j] = inbuffer[idx].buffer[j];
+    }
+
+    // Determine the number of calls to F that we need to make
+    unsigned int nBlocks = ceilDiv(dkLen_bytes, PRF_output_bytes);
+    for (unsigned int j = 1; j <= nBlocks; j++)
+    {
+        F(pwdBuffer, pwdLen_bytes, personal_salt, saltLen_bytes, iters, j, currOutBuffer);
+        currOutBuffer += PRF_output_size;
+    }
+}
+
+
+// Exposing HMAC in the same way. Useful for testing atleast.
+__kernel void hmac_main_saltlist(__global const pwdbuf *pwdbuffer, __global inbuf *inbuffer, __global outbuf *outbuffer)
+{
+    unsigned int idx = get_global_id(0);
+    word pwdLen_bytes = pwdbuffer[0].length;
+    __global word *pwdBuffer = inbuffer[0].buffer;
+
+    // Copy salt just to cheer the compiler up
+    int saltLen_bytes = (int)inbuffer[idx].length;
+    int saltLen = ceilDiv(saltLen_bytes, wordSize);
+    word personal_salt[saltBufferSize] = {0};
+
+    for (int j = 0; j < saltLen; j++){
+        personal_salt[j] = inbuffer[idx].buffer[j];
+    }
+
+    // Call hmac, with local
+    word out[hashDigestSize];
+
+    hmac(pwdBuffer, pwdLen_bytes, personal_salt, saltLen_bytes, out);
+
+    for (int j = 0; j < hashDigestSize; j++){
+        outbuffer[idx].buffer[j] = out[j];
+    }
+}
