@@ -1312,6 +1312,39 @@ class Test07WalletDecryption(unittest.TestCase):
 
 class Test08BIP39Passwords(unittest.TestCase):
 
+    def bip39_tester_opencl(self, force_purepython = False, unicode_pw = False, *args, **kwargs):
+
+        wallet = btcrpass.WalletBIP39(*args, **kwargs)
+        if force_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
+
+        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
+
+        # Perform the tests in the current process
+        correct_pass = "btcr-test-password" if not unicode_pw else "btcr-тест-пароль"
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
+
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_bip39_mpk_opencl_brute(self):
+        self.bip39_tester_opencl(
+            mpk=      "xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+            mnemonic= "certain come keen collect slab gauge photo inside mechanic deny leader drop"
+        )
+
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_Electrum2_mpk_opencl_brute(self):
+        self.bip39_tester(
+            wallet_type=   "Electrum2",
+            mpk=     "zpub6oCYZXxa8YvFyR51r12U7q5B2cbeY25MqRnWTdXYex1EPuTvbfmeJmCFoo88xbqkgHyitfK1UW2q5CTPUW8fWqpZtsDF3jVwk6PTdGTbX2w",
+            mnemonic=      "quote voice evidence aspect warfare hire system black rate wing ask rug"
+        )
+
     def bip39_tester(self, force_purepython = False, unicode_pw = False, *args, **kwargs):
 
         wallet = btcrpass.WalletBIP39(*args, **kwargs)
@@ -1335,30 +1368,6 @@ class Test08BIP39Passwords(unittest.TestCase):
         self.assertRaises(StopIteration, password_found_iterator.next)
         pool.close()
         pool.join()
-
-    def bip39_tester_opencl(self, force_purepython = False, unicode_pw = False, *args, **kwargs):
-
-        wallet = btcrpass.WalletBIP39(*args, **kwargs)
-        if force_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
-
-        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
-
-        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
-
-        # Perform the tests in the current process
-        correct_pass = "btcr-test-password" if not unicode_pw else "btcr-тест-пароль"
-        self.assertEqual(wallet._return_verified_password_or_false_opencl(
-            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
-        self.assertEqual(wallet._return_verified_password_or_false_opencl(
-            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
-
-    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
-    @skipUnless(can_load_coincurve, "requires coincurve")
-    def test_bip39_mpk_opencl(self):
-        self.bip39_tester_opencl(
-            mpk=      "xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
-            mnemonic= "certain come keen collect slab gauge photo inside mechanic deny leader drop"
-        )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_bip39_mpk(self):
@@ -1991,6 +2000,25 @@ class OpenCL_Tests(unittest.TestSuite) :
                 "test_Electrum28_OpenCL_Brute")),
             module=sys.modules[__name__]
         ))
+        self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("Test08BIP39Passwords." + method_name
+            for method_name in (
+                "test_bip39_mpk_opencl_brute",
+                "test_Electrum2_mpk_opencl_brute")),
+            module=sys.modules[__name__]
+        ))
+        self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("Test10YoroiWalletDecryption." + method_name
+            for method_name in (
+                ["test_yoroi_opencl_brute"])),
+            module=sys.modules[__name__]
+        ))
+
+        self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("Test11BIP38WalletDecryption." + method_name
+            for method_name in (
+                ["test_bip38_bitcoin_opencl_brute"])),
+            module=sys.modules[__name__]
+        ))
+
+
 
 class Test09EndToEnd(unittest.TestCase):
 

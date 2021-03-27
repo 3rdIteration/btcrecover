@@ -201,6 +201,12 @@ __kernel void hmac_main(__global inbuf *inbuffer, __global const saltbuf *saltbu
     }
 }
 
+// A modified version of the pbkdf2 kernel that allows you to use these kernels in a situation where you have a password
+// and are attempting to brute-force the salt. (So this kernel takes a single password and an array of salts
+//
+// Originally created for BTCRecover by Stephen Rothery, available at https://github.com/3rdIteration/btcrecover
+//    MIT License
+
 __kernel void pbkdf2_saltlist(__global const pwdbuf *pwdbuffer_arg, __global inbuf *inbuffer, __global outbuf *outbuffer,
     __private unsigned int iters, __private unsigned int dkLen_bytes)
 {
@@ -229,29 +235,3 @@ __kernel void pbkdf2_saltlist(__global const pwdbuf *pwdbuffer_arg, __global inb
     }
 }
 
-
-// Exposing HMAC in the same way. Useful for testing atleast.
-__kernel void hmac_main_saltlist(__global const pwdbuf *pwdbuffer, __global inbuf *inbuffer, __global outbuf *outbuffer)
-{
-    unsigned int idx = get_global_id(0);
-    word pwdLen_bytes = pwdbuffer[0].length;
-    __global word *pwdBuffer = inbuffer[0].buffer;
-
-    // Copy salt just to cheer the compiler up
-    int saltLen_bytes = (int)inbuffer[idx].length;
-    int saltLen = ceilDiv(saltLen_bytes, wordSize);
-    word personal_salt[saltBufferSize] = {0};
-
-    for (int j = 0; j < saltLen; j++){
-        personal_salt[j] = inbuffer[idx].buffer[j];
-    }
-
-    // Call hmac, with local
-    word out[hashDigestSize];
-
-    hmac(pwdBuffer, pwdLen_bytes, personal_salt, saltLen_bytes, out);
-
-    for (int j = 0; j < hashDigestSize; j++){
-        outbuffer[idx].buffer[j] = out[j];
-    }
-}

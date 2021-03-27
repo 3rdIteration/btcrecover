@@ -15,6 +15,7 @@ For the sake of comparison, the CPU vs GPU performance for an i7-8750 vs an NVid
 | Blockchain.com Main Password      | 1  | 10  | 10x |
 | Blockchain.com Second Password    | 0.39  | 15.5  | 40x |
 | Electrum 2 Wallet Password        | 4.5  | 21  | 4.5x |
+| BIP39 Passphrase (Or Electrum 'Extra Words'  | 2.3 | 10.4 | 4.5 |
 | BIP39 12 Word Seed                | 33  | 134  | 4.3x |
 | BIP39 12 Word Seed (Tokenlist)    | 33  | 130  | 4x |
 | BIP39 24 Word Seed                | 160  | 180  | 1.15x |
@@ -81,7 +82,7 @@ To check if your PyOpenCL installation is working correctly, you can run the uni
 
 Assuming the tests do not fail, GPU support can be enabled by adding the `--enable-gpu` option to the command line. There are other additional options, specifically `--global-ws` and `--local-ws`, which should also be provided along with particular values to improve the search performance. Unfortunately, the exact values for these options can only be determined by trial and error, as detailed below.
 
-**Blockchain.com & Electrum Wallets via OpenCL_Brute Kernel (Supports Bitcoin core too, but slower than JTR)**
+**Blockchain.com, Electrum Wallets & BIP39 Passphrases (Or Electrum 'Extra words') via OpenCL_Brute Kernel (Supports Bitcoin core too, but slower than JTR)**
 
     python3 -m btcrecover.test.test_passwords -v OpenCL_Tests
     
@@ -135,10 +136,19 @@ Although this procedure can be tedious, with larger tokenlists or passwordlists 
 
 ### OpenCL performance tuning for other wallets ###
 
-#### Limiting Derivation Paths Searched
+#### Limiting Derivation Paths Searched for Seed Based Wallets
 By default, BTCRecover will now automatically search all common derivation paths for a given cryptocurrency. (eg: Bitcoin BIP44, 49 and 84) 
 
-For CPU based recovery, this doesn't present a major decrease in performance, but depending on your CPU, this may impact your OpenCL performance. As such, if you know the derivation path that you are searching for, you should manually specify it via the --bip32-path command.
+For CPU based recovery, this doesn't present a major decrease in performance, but depending on your CPU, this could **halve** your OpenCL performance. As such, if you know the derivation path that you are searching for, you should manually specify it via the --bip32-path command.
+
+#### Address Generation Limit for Seed Based Wallets
+Cryptocurrencies like Bitcoin will generally generate a new address each time you choose to "receive". The address generation limit (--addr-limit argument) tells BTCRecover how many addresses it should generate and search within for each seed. (This is why you want to use the earliest possible address from your wallet)
+
+For CPU based recovery, setting the address generation limit to something like 10 doesn't make a huge impact on performance, whereas for OpenCL based recovery, an address generation limit as long as 10 can **halve** your search performance.
+
+That said, if you are doing a recovery on something like an Ethereum or Ripple wallet, you can generally just leave your address generation limit at 1, as these account based cryptos tend to use a fixed receiving address. 
+
+It should also be noted that if you are using an Address Database, you can generally just leave the address generation limit at 1...
 
 #### Work Group Size
 
