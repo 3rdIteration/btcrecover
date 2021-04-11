@@ -1996,6 +1996,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
                 for i in range(iter_count):
                     running_hash = l_sha256(running_hash).digest()
                 if running_hash == password_hash:
+                    print("Debug: Matched Second pass (Iter-Count present)")
                     return password.decode("utf_8", "replace"), count
 
         # Older wallets used one of three password hashing schemes
@@ -2005,14 +2006,17 @@ class WalletBlockchainSecondpass(WalletBlockchain):
                 if isinstance(salt, bytes): running_hash = l_sha256(salt + password).digest()
                 # Just a single SHA-256 hash
                 if running_hash == password_hash:
+                    print("Debug: Matched Second pass (Single Hash)")
                     return password.decode("utf_8", "replace"), count
                 # Exactly 10 hashes (the first of which was done above)
                 for i in range(9):
                     running_hash = l_sha256(running_hash).digest()
                 if running_hash == password_hash:
+                    print("Debug: Matched Second pass (Exactly 10 hashes)")
                     return password.decode("utf_8", "replace"), count
                 # A single unsalted hash
                 if l_sha256(password).digest() == password_hash:
+                    print("Debug: Matched Second pass (Single Unsalted Hash)")
                     return password.decode("utf_8", "replace"), count
 
         return False, count
