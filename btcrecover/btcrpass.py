@@ -1609,8 +1609,109 @@ class WalletBlockchain(object):
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
 
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+    _using_extract = False
+
     def data_extract_id():
         return "bk"
+
+    #
+    # These are a bit fragile in the interest of simplicity because they assume that certain
+    # JSON data will be in the first block of the file
+    #
+
+    # Encryption scheme used in newer wallets
+    def decrypt_current(self,password, salt_and_iv, iter_count, data):
+        key = pbkdf2_hmac("sha1", password, salt_and_iv, iter_count, 32)
+        decrypted = aes256_cbc_decrypt(key, salt_and_iv, data)  # CBC mode
+        padding = ord(decrypted[-1:])  # ISO 10126 padding length
+        # A bit fragile because it assumes the guid is in the first encrypted block,
+        # although this has always been the case as of 6/2014 (since 12/2011)
+        # As of May 2020, guid no longer appears in the first block, but tx_notes appears there instead
+        return decrypted[:-padding] if 1 <= padding <= 16 and re.search(
+            b"\"guid\"|\"tx_notes\"|\"address_book|\"double", decrypted) else None
+
+    #
+    # Encryption scheme only used in version 0.0 wallets (N.B. this is untested)
+    def decrypt_old(self, password, salt_and_iv, data):
+        key = pbkdf2_hmac("sha1", password, salt_and_iv, 1, 32)  # only 1 iteration
+        decrypted = aes256_ofb_decrypt(key, salt_and_iv, data)  # OFB mode
+        # The 16-byte last block, reversed, with all but the first byte of ISO 7816-4 padding removed:
+        last_block = tuple(itertools.dropwhile(lambda x: x == b"\0", decrypted[:15:-1]))
+        padding = 17 - len(last_block)  # ISO 7816-4 padding length
+        return decrypted[:-padding] if 1 <= padding <= 16 and \
+                                       decrypted[-padding] == b"\x80" and \
+                                       re.match('{\s*"guid"',decrypted.decode()) else None
+
+    def decrypt_wallet(self,password):
+        from lib.cashaddress import base58
+
+        # Can't decrypt or dump an extract in any meaninful way...
+        if self._using_extract:
+            return
+
+        # If we aren't dumping these files, then just return...
+        if not (self._dump_wallet_file or self._dump_privkeys_file):
+            return
+
+        #print(self._encrypted_wallet)
+
+        # Convert and split encrypted private key
+        #encrypted = base64.b64decode(self._encrypted_wallet)
+        iv, encrypted = self._encrypted_wallet[:16], self._encrypted_wallet[16:]
+
+        if self._iter_count:  # v2.0 wallets have a single possible encryption scheme
+            data = self.decrypt_current(password, iv, self._iter_count, encrypted)
+        else:           # v0.0 wallets have three different possible encryption schemes
+            data = self.decrypt_current(password, iv, 10, encrypted) or \
+                   self.decrypt_current(password, iv, 1, encrypted) or \
+                   self.decrypt_old(password, iv, encrypted)
+
+        # Load and parse the now-decrypted wallet
+        self._wallet_json = json.loads(data)
+
+        # Add these items to the json for their associated address
+        for key in self._wallet_json['keys']:
+            try:
+                # Some versions of blockchain wallets can be inconsistent in whether they used compressed or uncompressed addresses
+                # Rather than do something clever like check the addr key for to check which, just dump both for now...
+                key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(key["priv"]) + bytes([0x1]))
+                key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(key["priv"]))
+            except ValueError:
+                print("Error: Private Key not correctly decrypted, likey due to second password being present...")
+
+        if self._dump_wallet_file:
+            self.dump_wallet()
+        if self._dump_privkeys_file:
+            self.dump_privkeys()
+
+    # This just dumps the wallet json as-is (regardless of whether the keys have been decrypted
+    def dump_wallet(self):
+        with open(self._dump_wallet_file, 'a') as logfile:
+                logfile.write(json.dumps(self._wallet_json, indent=4))
+
+    # This just dumps the wallet private keys
+    def dump_privkeys(self):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            logfile.write("Private Keys (For copy/paste in to Electrum)\n")
+
+            for key in self._wallet_json['keys']:
+                # Blockchain.com wallets are fairly inconsistent in whether they used
+                # compressed or uncompressed keys, so produce both...
+                try:
+                    logfile.write(key['privkey_compressed'] + "\n")
+                    logfile.write(key['privkey_uncompressed'] + "\n")
+                except KeyError:
+                    print("Error: Private Key not correctly decrypted, likey due to second password being present...")
+
+            # Older wallets don't have any hd_wallets at all, so handle this gracefully
+            try:
+                for hd_wallets in self._wallet_json['hd_wallets']:
+                    for accounts in hd_wallets['accounts']:
+                        logfile.write(accounts['xpriv'] + "\n")
+            except:
+                pass
 
     @staticmethod
     def is_wallet_file(wallet_file): return None  # there's no easy way to check this
@@ -1644,6 +1745,7 @@ class WalletBlockchain(object):
         self = cls(iter_count, loading=True)
         self._salt_and_iv     = data[:16]    # only need the salt_and_iv plus
         self._encrypted_block = data[16:32]  # the first 16-byte encrypted block
+        self._encrypted_wallet = data
         return self
 
     # Parse the contents of an encrypted blockchain wallet (v0 - v3) or config file returning two
@@ -1710,6 +1812,7 @@ class WalletBlockchain(object):
         self = cls(iter_count, loading=True)
         self._encrypted_block = encrypted_block
         self._salt_and_iv     = salt_and_iv
+        self._using_extract   = True
         return self
 
     def difficulty_info(self):
@@ -1817,7 +1920,9 @@ class WalletBlockchain(object):
             unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
 
             if self.check_blockchain_decrypted_block(unencrypted_block, password):
-                    return password.decode("utf_8", "replace"), count
+                # Decrypt and dump the wallet if required
+                self.decrypt_wallet(password)
+                return password.decode("utf_8", "replace"), count
 
         if v0:
             # Convert Unicode strings (lazily) to UTF-8 bytestrings
@@ -1863,11 +1968,78 @@ class WalletBlockchain(object):
 
         return False, count
 
+
 @register_wallet_class
 class WalletBlockchainSecondpass(WalletBlockchain):
 
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+    _using_extract = False
+
     def data_extract_id():
         return "bs"
+
+    def decrypt_secondpass_privkey(self, encrypted, password, iterations, legacy_decrypt):
+        # Convert and split encrypted private key
+        encrypted = base64.b64decode(encrypted)
+        iv, encrypted = encrypted[:16], encrypted[16:]
+
+        # Create the decryption key and decrypt the private key
+        aeshash = pbkdf2_hmac("sha1", password, iv, iterations, 32)
+        if not legacy_decrypt:
+            clear = aes256_cbc_decrypt(aeshash, iv, encrypted)
+        else:
+            clear = aes256_ofb_decrypt(aeshash, iv, encrypted)
+
+        # Remove ISO 10126 Padding
+        pad_len = clear[-1]
+        decrypted = clear[:-pad_len]
+        return decrypted
+
+    def decrypt_wallet(self, password, iter_count, legacy_decrypt = False):
+        from lib.cashaddress import base58
+
+        # Can't decrypt or dump an extract in any meaninful way...
+        if self._using_extract:
+            return
+
+        # If we aren't dumping these files, then just return...
+        if not (self._dump_wallet_file or self._dump_privkeys_file):
+            return
+
+        # Decrypt the keys and add these items to the json for their associated address
+        for key in self._wallet_json['keys']:
+            clear = self.decrypt_secondpass_privkey(key["priv"],
+                                                    self._wallet_json['sharedKey'].encode('ascii') + password,
+                                                    iter_count, legacy_decrypt)
+
+            # Some versions of blockchain wallets can be inconsistent in whether they used compressed or uncompressed addresses
+            # Rather than do something clever like check the addr key for to check which, just dump both for now...
+            key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(clear) + bytes([0x1]))
+            key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(clear))
+
+        if self._dump_wallet_file:
+            self.dump_wallet()
+
+        if self._dump_privkeys_file:
+            self.dump_privkeys()
+
+    # This just dumps the wallet json as-is (regardless of whether the keys have been decrypted
+    def dump_wallet(self):
+        with open(self._dump_wallet_file, 'a') as logfile:
+                logfile.write(json.dumps(self._wallet_json, indent=4))
+
+    # This just dumps the wallet private keys
+    def dump_privkeys(self):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            logfile.write("Private Keys (For copy/paste in to Electrum)\n")
+
+            for key in self._wallet_json['keys']:
+                # Blockchain.com wallets are fairly inconsistent in whether they used
+                # compressed or uncompressed keys, so produce both...
+                logfile.write(key['privkey_compressed'] + "\n")
+                logfile.write(key['privkey_uncompressed'] + "\n")
+
 
     @staticmethod
     def is_wallet_file(wallet_file): return False  # never auto-detected as this wallet type
@@ -1902,33 +2074,13 @@ class WalletBlockchainSecondpass(WalletBlockchain):
             data, salt_and_iv = data[16:], data[:16]
             load_pbkdf2_library(force_purepython)
             load_aes256_library(force_purepython)
-            #
-            # These are a bit fragile in the interest of simplicity because they assume the guid is the first
-            # name in the JSON object, although this has always been the case as of 6/2014 (since 12/2011)
-            #
-            # Encryption scheme used in newer wallets
-            def decrypt_current(iter_count):
-                key = pbkdf2_hmac("sha1", password, salt_and_iv, iter_count, 32)
-                decrypted = aes256_cbc_decrypt(key, salt_and_iv, data)    # CBC mode
-                padding   = ord(decrypted[-1:])                           # ISO 10126 padding length
-                # A bit fragile because it assumes the guid is in the first encrypted block,
-                # although this has always been the case as of 6/2014 (since 12/2011)
-                # As of May 2020, guid no longer appears in the first block, but tx_notes appears there instead
-                return decrypted[:-padding] if 1 <= padding <= 16 and re.search(b"\"guid\"|\"tx_notes\"|\"address_book|\"double", decrypted) else None
-            #
-            # Encryption scheme only used in version 0.0 wallets (N.B. this is untested)
-            def decrypt_old():
-                key = pbkdf2_hmac("sha1", password, salt_and_iv, 1, 32)  # only 1 iteration
-                decrypted  = aes256_ofb_decrypt(key, salt_and_iv, data)   # OFB mode
-                # The 16-byte last block, reversed, with all but the first byte of ISO 7816-4 padding removed:
-                last_block = tuple(itertools.dropwhile(lambda x: x==b"\0", decrypted[:15:-1]))
-                padding    = 17 - len(last_block)                         # ISO 7816-4 padding length
-                return decrypted[:-padding] if 1 <= padding <= 16 and decrypted[-padding] == b"\x80" and re.match('{\s*"guid"', decrypted.decode()) else None
-            #
+
             if iter_count:  # v2.0 wallets have a single possible encryption scheme
-                data = decrypt_current(iter_count)
+                data = cls.decrypt_current(cls, password, salt_and_iv, iter_count, data)
             else:           # v0.0 wallets have three different possible encryption schemes
-                data = decrypt_current(10) or decrypt_current(1) or decrypt_old()
+                data = cls.decrypt_current(cls, password, salt_and_iv, 10, data) or \
+                       cls.decrypt_current(cls, password, salt_and_iv, 1, data) or \
+                       cls.decrypt_old(cls, password, salt_and_iv, data)
             if not data:
                 error_exit("can't decrypt wallet (wrong main password?)")
 
@@ -1956,6 +2108,8 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         if str(UUID(self._salt.decode().replace("-",""))).encode() != self._salt:
             raise ValueError("Unrecognized Blockchain salt format")
 
+        self._wallet_json = data
+
         return self
 
     # Import extracted Blockchain file data necessary for second password checking
@@ -1967,6 +2121,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         self = cls(iter_count, loading=True)
         self._salt          = str(UUID(bytes=uuid_salt))
         self._password_hash = password_hash
+        self._using_extract = True
         return self
 
     def difficulty_info(self):
@@ -1996,7 +2151,9 @@ class WalletBlockchainSecondpass(WalletBlockchain):
                 for i in range(iter_count):
                     running_hash = l_sha256(running_hash).digest()
                 if running_hash == password_hash:
-                    print("Debug: Matched Second pass (Iter-Count present)")
+                    #print("Debug: Matched Second pass (Iter-Count present)")
+                    # Decrypt wallet and dump if required
+                    self.decrypt_wallet(password, iter_count)
                     return password.decode("utf_8", "replace"), count
 
         # Older wallets used one of three password hashing schemes
@@ -2006,17 +2163,23 @@ class WalletBlockchainSecondpass(WalletBlockchain):
                 if isinstance(salt, bytes): running_hash = l_sha256(salt + password).digest()
                 # Just a single SHA-256 hash
                 if running_hash == password_hash:
-                    print("Debug: Matched Second pass (Single Hash)")
+                    #print("Debug: Matched Second pass (Single Hash)")
+                    # Decrypt wallet and dump if required
+                    self.decrypt_wallet(password, 1)
                     return password.decode("utf_8", "replace"), count
                 # Exactly 10 hashes (the first of which was done above)
                 for i in range(9):
                     running_hash = l_sha256(running_hash).digest()
                 if running_hash == password_hash:
-                    print("Debug: Matched Second pass (Exactly 10 hashes)")
+                    #print("Debug: Matched Second pass (Exactly 10 hashes)")
+                    # Decrypt wallet and dump if required
+                    self.decrypt_wallet(password, 10)
                     return password.decode("utf_8", "replace"), count
                 # A single unsalted hash
                 if l_sha256(password).digest() == password_hash:
-                    print("Debug: Matched Second pass (Single Unsalted Hash)")
+                    #print("Debug: Matched Second pass (Single Unsalted Hash)")
+                    # Decrypt wallet and dump if required
+                    self.decrypt_wallet(password, 1, True)
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -2051,23 +2214,8 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         if iter_count:
             for count, (password, derived_key) in enumerate(results, 1):
                 if derived_key == password_hash:
-                    return password.decode("utf_8", "replace"), count
+                    self.decrypt_wallet(password, iter_count)
 
-        # Older wallets used one of three password hashing schemes
-        else:
-            for count, password in enumerate(passwords, 1):
-                if isinstance(salt,str): running_hash = l_sha256(salt.encode() + password).digest()
-                if isinstance(salt, bytes): running_hash = l_sha256(salt + password).digest()
-                # Just a single SHA-256 hash
-                if running_hash == password_hash:
-                    return password.decode("utf_8", "replace"), count
-                # Exactly 10 hashes (the first of which was done above)
-                for i in range(9):
-                    running_hash = l_sha256(running_hash).digest()
-                if running_hash == password_hash:
-                    return password.decode("utf_8", "replace"), count
-                # A single unsalted hash
-                if l_sha256(password).digest() == password_hash:
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -3512,6 +3660,8 @@ def init_parser_common():
         parser_common.add_argument("--dynamic-passwords-count", action="store_true", help=argparse.SUPPRESS) #help="start trying the passwords while they are being counted")
         parser_common.add_argument("--no-dupchecks", "-d", action="count", default=0, help="disable duplicate guess checking to save memory; specify up to four times for additional effect")
         parser_common.add_argument("--no-progress", action="store_true",   default=not sys.stdout.isatty(), help="disable the progress bar")
+        parser_common.add_argument("--dump-wallet", metavar="FILE",   help="Dump decrypted wallet to a file specified here.")
+        parser_common.add_argument("--dump-privkeys", metavar="FILE",   help="Dump a list of private keys (For import in to Electrum) to a file specified here")
         parser_common.add_argument("--android-pin", action="store_true", help="search for the spending pin instead of the backup password in a Bitcoin Wallet for Android/BlackBerry")
         parser_common.add_argument("--blockchain-secondpass", action="store_true", help="search for the second password instead of the main password in a Blockchain wallet")
         parser_common.add_argument("--blockchain-correct-mainpass", metavar="STRING", help="The main password for blockchain.com wallets, eithere entered using this argument, or prompted to enter at runtime")
@@ -4262,6 +4412,23 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         except AttributeError: # Not all wallet types will automatically prodce a logfile
             pass
 
+    if args.dump_wallet:
+        try:
+            if loaded_wallet._dump_wallet_file:
+                pass
+        except AttributeError:
+            exit("This wallet type does not currently support dumping the decrypted wallet file...")
+
+        loaded_wallet._dump_wallet_file = args.dump_wallet
+
+    if args.dump_privkeys:
+        try:
+            if loaded_wallet._dump_privkeys_file:
+                pass
+        except AttributeError:
+            exit("This wallet type does not currently support dumping the decrypted private keys...")
+
+        loaded_wallet._dump_privkeys_file = args.dump_privkeys
 
     ##############################
     # OpenCL related arguments
