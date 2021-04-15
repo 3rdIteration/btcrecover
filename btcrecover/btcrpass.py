@@ -22,7 +22,7 @@
 # TODO: put everything in a class?
 # TODO: pythonize comments/documentation
 
-__version__          =  "1.8.0-Cryptoguide"
+__version__          =  "1.9.0-Cryptoguide"
 __ordering_version__ = b"0.6.4"  # must be updated whenever password ordering changes
 disable_security_warnings = True
 
@@ -1700,7 +1700,7 @@ class WalletBlockchain(object):
     # This just dumps the wallet private keys
     def dump_privkeys(self):
         with open(self._dump_privkeys_file, 'a') as logfile:
-            logfile.write("Private Keys (For copy/paste in to Electrum)\n")
+            logfile.write("Private Keys (For copy/paste in to Electrum) are below...\n")
 
             for key in self._wallet_json['keys']:
                 # Blockchain.com wallets are fairly inconsistent in whether they used
@@ -2019,9 +2019,11 @@ class WalletBlockchainSecondpass(WalletBlockchain):
                                                     self._wallet_json['sharedKey'].encode('ascii') + password,
                                                     iter_count, legacy_decrypt)
 
+            key['priv_decrypted'] = base58.b58encode(base58.b58decode(privkey))
+
             # Need to check that the private key is actually 64 characters (32 bytes) long, as some blockchain wallets
             # have a bug where the base58 private keys in wallet files leave off any leading zeros...
-            privkey = binascii.hexlify(base58.b58decode(key["priv"]))
+            privkey = binascii.hexlify(base58.b58decode(privkey))
             privkey = privkey.zfill(64)
             privkey = binascii.unhexlify(privkey)
 
@@ -2044,7 +2046,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
     # This just dumps the wallet private keys
     def dump_privkeys(self):
         with open(self._dump_privkeys_file, 'a') as logfile:
-            logfile.write("Private Keys (For copy/paste in to Electrum)\n")
+            logfile.write("Private Keys (For copy/paste in to Electrum) are below...\n")
 
             for key in self._wallet_json['keys']:
                 # Blockchain.com wallets are fairly inconsistent in whether they used
@@ -3672,8 +3674,6 @@ def init_parser_common():
         parser_common.add_argument("--dynamic-passwords-count", action="store_true", help=argparse.SUPPRESS) #help="start trying the passwords while they are being counted")
         parser_common.add_argument("--no-dupchecks", "-d", action="count", default=0, help="disable duplicate guess checking to save memory; specify up to four times for additional effect")
         parser_common.add_argument("--no-progress", action="store_true",   default=not sys.stdout.isatty(), help="disable the progress bar")
-        parser_common.add_argument("--dump-wallet", metavar="FILE",   help="Dump decrypted wallet to a file specified here.")
-        parser_common.add_argument("--dump-privkeys", metavar="FILE",   help="Dump a list of private keys (For import in to Electrum) to a file specified here")
         parser_common.add_argument("--android-pin", action="store_true", help="search for the spending pin instead of the backup password in a Bitcoin Wallet for Android/BlackBerry")
         parser_common.add_argument("--blockchain-secondpass", action="store_true", help="search for the second password instead of the main password in a Blockchain wallet")
         parser_common.add_argument("--blockchain-correct-mainpass", metavar="STRING", help="The main password for blockchain.com wallets, eithere entered using this argument, or prompted to enter at runtime")
@@ -3691,6 +3691,11 @@ def init_parser_common():
         parser_common.add_argument("--disable-save-possible-passwords",       action="store_true", help="Disable saving possible matches to file")
         parser_common.add_argument("--version","-v",action="store_true", help="show full version information and exit")
         parser_common.add_argument("--disablesecuritywarnings", "--dsw", action="store_true", help="Disable Security Warning Messages")
+        dump_group = parser_common.add_argument_group("Wallet Decryption and Key Dumping")
+        dump_group.add_argument("--dump-wallet", metavar="FILE",   help="Dump decrypted wallet to a file specified here.")
+        dump_group.add_argument("--dump-privkeys", metavar="FILE",   help="Dump a list of private keys (For import in to Electrum) to a file specified here")
+        dump_group.add_argument("--correct-wallet-password", metavar="STRING", help="The correct wallet password (This can be used instead of a passwordlist or tokenlist)")
+        dump_group.add_argument("--correct-wallet-secondpassword", metavar="STRING", help="The correct wallet second password (This can be used instead of a passwordlist or tokenlist)")
         brainwallet_group = parser_common.add_argument_group("Brainwallet")
         brainwallet_group.add_argument("--brainwallet", action="store_true", help="Search for a brainwallet")
         brainwallet_group.add_argument("--addresses",      metavar="ADDRESS", nargs="+", help="The address(s) that correspond to the brainwallet")
@@ -4054,7 +4059,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # Either we're using a passwordlist file (though it's not yet opened),
     # or we're using a tokenlist file which should have been found and opened by now,
     # or we're running a performance test (and neither is open; already checked above).
-    if not (args.passwordlist or tokenlist_file or args.performance or base_iterator):
+    if not (args.passwordlist or tokenlist_file or args.performance or base_iterator or
+            ((args.correct_wallet_password or args.correct_wallet_password) and (args.dump_wallet or args.dump_privkeys))):
         error_exit("argument --tokenlist or --passwordlist is required (or file "+TOKENS_AUTO_FILENAME+" must be present)")
 
     if tokenlist_file and args.max_tokens < args.min_tokens:
@@ -4314,6 +4320,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         elif args.blockchain_secondpass:
             if args.blockchain_correct_mainpass:
                 loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet, args.blockchain_correct_mainpass)
+            elif args.correct_wallet_password:
+                loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet, args.correct_wallet_password)
             else:
                 loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet)
         elif args.wallet == "__null":
@@ -4415,14 +4423,11 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             else:
                 savestate["key_crc"] = key_crc
 
-    if args.disable_save_possible_passwords:
-        loaded_wallet._savepossiblematches = False
-    else:
-        try:
-            loaded_wallet._possible_passwords_file = args.possible_passwords_file
-            loaded_wallet.init_logfile()
-        except AttributeError: # Not all wallet types will automatically prodce a logfile
-            pass
+    #############################################
+    #
+    # Wallet is certainly loaded by this point...
+    #
+    #############################################
 
     if args.dump_wallet:
         try:
@@ -4441,6 +4446,32 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             exit("This wallet type does not currently support dumping the decrypted private keys...")
 
         loaded_wallet._dump_privkeys_file = args.dump_privkeys
+
+    if (args.dump_privkeys or args.dump_wallet) and \
+            (args.correct_wallet_password or args.correct_wallet_secondpassword) and \
+            (not (args.passwordlist or args.tokenlist or args.performance)):
+        print("\nDumping Wallet File\Keys...")
+        if args.correct_wallet_secondpassword:
+            result, count = loaded_wallet.return_verified_password_or_false([args.correct_wallet_secondpassword])
+        elif args.correct_wallet_password:
+            result, count = loaded_wallet.return_verified_password_or_false([args.correct_wallet_password])
+
+        if result:
+            print("\nWallet successfully dumped...")
+        else:
+            print("\nUnable to decrypt wallet, likely due to incorrect password..")
+
+        exit()
+
+
+    if args.disable_save_possible_passwords:
+        loaded_wallet._savepossiblematches = False
+    else:
+        try:
+            loaded_wallet._possible_passwords_file = args.possible_passwords_file
+            loaded_wallet.init_logfile()
+        except AttributeError: # Not all wallet types will automatically prodce a logfile
+            pass
 
     ##############################
     # OpenCL related arguments

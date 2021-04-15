@@ -1,0 +1,44 @@
+{
+    "guid": "9ebb4d4f-f36e-40d6-9a3e-5a3cca5f83d6",
+    "sharedKey": "41cf823f-2dcd-4967-88d1-ef9af8689fc6",
+    "double_encryption": false,
+    "options": {
+        "fee_policy": 0,
+        "html5_notifications": false,
+        "logout_time": 600000,
+        "tx_display": 0,
+        "always_keep_local_backup": false
+    },
+    "keys": [
+        {
+            "addr": "1AN6WAdSrXATk7mcosqhK7vvPusC3fmw8p",
+            "priv": "XxkpqJqs1449nLHX1WcCP5QbmyJhjrwTis9hyvqGKJc",
+            "privkey_compressed": "KwV8RDmA2o9WXhiuEBkWAYh8y6cYp9UquXryaEPS1evXUSXJfg43",
+            "privkey_uncompressed": "5HsnBUMsz3kch2ycrCxAnDAYiFsCHaBqgzk3PwEh73FPmLfVrsP"
+        },
+        {
+            "addr": "1Cp1xPTVdjePVcRAJHxesiLkNZbASgbkL",
+            "priv": "8uZW7qiz89NGtgwzdbqKZ9QDVPj1NeGV192RJUXdc946",
+            "privkey_compressed": "L1A4Ty9VVY5oF5vTWCUvSKHiLJ6PNosSVcNzWB7PTFgj4v56CJsn",
+            "privkey_uncompressed": "5Ji2EpAB5era8itzD449wDkfN8x9F1CRooz6KqxpgUoA5a3NY7c"
+        },
+        {
+            "addr": "1MsA1JJhgNMkuke9uttaXQfFyNBvmCyeiR",
+            "priv": "BH2MMphxoWQkynoo7HM8ukLSw8aNKFT9sWV2nu9QmNqe",
+            "privkey_compressed": "L2LWiEUFSmZaJNeV2hEgnx4A4j3gHi9oQpyJq19kvwKNY21Pz1Nj",
+            "privkey_uncompressed": "5JyXkKur3DMyUxCfXHpWQYxYWPffoqHwvRv5wq4oCmUj33X1DrZ"
+        },
+        {
+            "addr": "13m3hC95Pp3ZWth6XCmhr9qUVNZGqMchia",
+            "priv": "4TE4wCgz1fcjSPsxSUUig36a9JpNfPn9c2KFcT94hWtk",
+            "privkey_compressed": "KxwR9qWWd3jXyJirSuKZrasdQ5aa7WJH1zi1dXvn5PUNxksoDzrK",
+            "privkey_uncompressed": "5JCsnW7gnn2UruxFNjDN3AwWznu1htx7oSmBZkFuMUkMqTZ3n3G"
+        },
+        {
+            "addr": "17thFxEzSsR3fn2CpQrAYrcsUve6VN8JuX",
+            "priv": "2YARBSUuHrsuuvtEHoeTXiDXGdiDuHtfdLvvYCKkADCm",
+            "privkey_compressed": "Kwz7Q6xJNTM9ooVmWwPfGairubgJF7ur8UphFCkMpn6fHFc1E4E3",
+            "privkey_uncompressed": "5HzM2cLKtXth4MWB5yH1Wp4bR9mFL4Nwdawm1VwgcJ1q6aKqoHG"
+        }
+    ]
+}

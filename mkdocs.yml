@@ -41,6 +41,7 @@ nav:
         - Tokenlist Files: tokenlist_file.md
         - Passwordlist Files: passwordlist_file.md
         - Trustless (or Cloud) Recovery - Creating Wallet Extracts: Extract_Scripts.md
+        - Extracting Private Keys from Wallet Files (Decrypt & Dump): Decrypting_dumping_walletfiles.md
         - Basic Password/Passphrase Recovery Examples: Usage_Examples/basic_password_recoveries.md
     - Usage Examples:
         - Examples Overview: Usage_Examples/UsageExamples.md

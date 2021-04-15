@@ -1,0 +1,25 @@
+{
+    "guid": "9bb4c672-563e-4806-9012-a3e8f86a0eca",
+    "sharedKey": "728e769e-4c26-4301-a0b8-2db25c564c5a",
+    "double_encryption": true,
+    "dpasswordhash": "2de3fba5e1bce771e7425686b30970a70b6a5cac1aff5acbc9e1b3bca365f47a",
+    "options": {
+        "pbkdf2_iterations": 10000,
+        "fee_policy": 0,
+        "html5_notifications": false,
+        "logout_time": 600000,
+        "tx_display": 0,
+        "always_keep_local_backup": false,
+        "transactions_per_page": 30,
+        "additional_seeds": []
+    },
+    "keys": [
+        {
+            "addr": "1BUoAfr3N6RcH3JArntzoFGfk9hrgU4i5a",
+            "priv": "3BxRTG45Rf1v4V0zJLb1SdUULBIlAPPvTzo2lkMHbusI0MdaMO+wspiT7ZSorervEHq722+liMEu5azs6DUvsQ==",
+            "created_time": 0,
+            "created_device_name": "javascript_web",
+            "created_device_version": "1.0"
+        }
+    ]
+}
