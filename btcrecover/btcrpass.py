@@ -1674,10 +1674,16 @@ class WalletBlockchain(object):
         # Add these items to the json for their associated address
         for key in self._wallet_json['keys']:
             try:
+                # Need to check that the private key is actually 64 characters (32 bytes) long, as some blockchain wallets
+                # have a bug where the base58 private keys in wallet files leave off any leading zeros...
+                privkey = binascii.hexlify(base58.b58decode(key["priv"]))
+                privkey = privkey.zfill(64)
+                privkey = binascii.unhexlify(privkey)
+
                 # Some versions of blockchain wallets can be inconsistent in whether they used compressed or uncompressed addresses
                 # Rather than do something clever like check the addr key for to check which, just dump both for now...
-                key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(key["priv"]) + bytes([0x1]))
-                key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(key["priv"]))
+                key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + privkey + bytes([0x1]))
+                key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + privkey)
             except ValueError:
                 print("Error: Private Key not correctly decrypted, likey due to second password being present...")
 
@@ -2009,14 +2015,20 @@ class WalletBlockchainSecondpass(WalletBlockchain):
 
         # Decrypt the keys and add these items to the json for their associated address
         for key in self._wallet_json['keys']:
-            clear = self.decrypt_secondpass_privkey(key["priv"],
+            privkey = self.decrypt_secondpass_privkey(key["priv"],
                                                     self._wallet_json['sharedKey'].encode('ascii') + password,
                                                     iter_count, legacy_decrypt)
 
+            # Need to check that the private key is actually 64 characters (32 bytes) long, as some blockchain wallets
+            # have a bug where the base58 private keys in wallet files leave off any leading zeros...
+            privkey = binascii.hexlify(base58.b58decode(key["priv"]))
+            privkey = privkey.zfill(64)
+            privkey = binascii.unhexlify(privkey)
+
             # Some versions of blockchain wallets can be inconsistent in whether they used compressed or uncompressed addresses
             # Rather than do something clever like check the addr key for to check which, just dump both for now...
-            key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(clear) + bytes([0x1]))
-            key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + base58.b58decode(clear))
+            key['privkey_compressed'] = base58.b58encode_check(bytes([0x80]) + privkey + bytes([0x1]))
+            key['privkey_uncompressed'] = base58.b58encode_check(bytes([0x80]) + privkey)
 
         if self._dump_wallet_file:
             self.dump_wallet()
