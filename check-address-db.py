@@ -91,9 +91,9 @@ if __name__ == "__main__":
         try:
             hash160 = btcrseed.WalletBase._addresses_to_hash160s([address]).pop()
         except:
-            print("Invalid Address in Checklist:", address, comment)
-            continue
-            #hash160 = btcrseed.WalletEthereum._addresses_to_hash160s([address]).pop()
+            #print("Invalid Address in Checklist:", address, comment)
+            #continue
+            hash160 = btcrseed.WalletEthereum._addresses_to_hash160s([address]).pop()
 
         if hash160 in addressdb:
             found += 1
@@ -104,7 +104,7 @@ if __name__ == "__main__":
             if not args.suppress_notfound:
                 print(address, "Not Found!", comment)
 
-    print("Checked", addresses, addresses)
+    print("Checked", len(addresses), "addresses")
     print(found, "Found")
     print(not_found, "Not Found")
 
