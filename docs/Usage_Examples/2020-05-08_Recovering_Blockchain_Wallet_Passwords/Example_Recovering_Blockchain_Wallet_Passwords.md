@@ -17,7 +17,7 @@ Running BTCRecover with a wallet.aes.json file downloaded from blockchain.com. T
 
 Extracting a small amount of data from the wallet file and running BTCRecover with that... What this means is that you can either give this portion of data to someone else to recover for you, or run it on some cloud based machine, without having to worry about it leaking info that would allow someone to steal your crypto. (You therefore don't need to worry as much about the security of the environmen in which you run BTCRecover) 
 
-Using a wallet extract requires a few extra steps... [See here for more info about Extract Scripts...](./../../../docs/Extract_Scripts.md)
+Using a wallet extract requires a few extra steps... [See here for more info about Extract Scripts...](./../../../Extract_Scripts/)
 
 ## Example 1 - Using a TokenList to recover wallet Main Password from a wallet file
 

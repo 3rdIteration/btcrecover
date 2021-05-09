@@ -71,6 +71,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
      * [Litecoin Wallet for Android](https://litecoin.org/) encrypted backups
      * [Dogecoin Core](http://dogecoin.com/)
      * [MultiDoge](http://multidoge.org/)
+     * [Dogechain.info](https://dogechain.info/)
      * [Dogecoin Wallet for Android](http://dogecoin.com/) encrypted backups
      * [Yoroi Wallet for Cardano](https://yoroi-wallet.com/#/) Master_Passwords extracted from the wallet data (In browser or on rooted/jailbroken phones)
  * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...

@@ -67,6 +67,7 @@ static void hmac(__global word *K, const word K_len_bytes,
 
     // K' ^ ipad into the first block
     word input_1[size_1] = {0};
+    word temp_output[size_1] = {0};
     #undef size_1
     for (int j = 0; j < hashBlockSize; j++){
         input_1[j] = input_2[j]^xoredPad;
@@ -83,7 +84,10 @@ static void hmac(__global word *K, const word K_len_bytes,
     hash_private(input_1, leng, input_2 + hashBlockSize);
 
     // Hash input2 into output!
-    hash_private(input_2, hashBlockSize_bytes + hashDigestSize_bytes, output);
+    hash_private(input_2, hashBlockSize_bytes + hashDigestSize_bytes, temp_output);
+    for (int j = 0; j < hashBlockSize; j++){
+        output[j] = temp_output[j];
+    }
 }
 
 #undef sizeForHash

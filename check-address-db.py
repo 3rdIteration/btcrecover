@@ -32,6 +32,10 @@ if __name__ == "__main__":
     parser.add_argument("--dbfilename",   nargs="?", default="addresses.db", help="the name of the database file (default: addresses.db)")
     parser.add_argument("--checkaddresses", nargs="*", help="Check whether a single address is present in the addressDB")
     parser.add_argument("--checkaddresslist", metavar="PATH", help="Check whether all of the addresses in a list file are present in the addressDB")
+    parser.add_argument("--suppress-found", action="store_true",
+                        help="Suppress console messages for found addresses")
+    parser.add_argument("--suppress-notfound", action="store_true",
+                        help="Suppress console messages for not-found addresses")
 
     # Optional bash tab completion support
     try:
@@ -62,22 +66,45 @@ if __name__ == "__main__":
             print("Loading: ", args.checkaddresslist)
             for line in addressistfile:
                 if len(line) < 2: continue
-                address, comment = line.split("#")
+                if "#" in line:
+                    address, comment = line.split("#")
+                else:
+                    address = line
+                    comment = ""
+
                 addresses.append(address.strip())
                 comments.append(comment.strip())
 
     checklist = zip(addresses, comments)
 
+    found = 0
+    not_found = 0
+    checked = 0
+
     for address, comment in checklist:
+        checked += 1
+        if (checked % 100000 == 0):
+            print("Checked:", checked, "addresses in current file,", len(addresses),
+                  "lines in current addresslist")
+
         # Just use wallet base and walletethereum for now
         try:
             hash160 = btcrseed.WalletBase._addresses_to_hash160s([address]).pop()
         except:
-            hash160 = btcrseed.WalletEthereum._addresses_to_hash160s([address]).pop()
+            print("Invalid Address in Checklist:", address, comment)
+            continue
+            #hash160 = btcrseed.WalletEthereum._addresses_to_hash160s([address]).pop()
 
         if hash160 in addressdb:
-            print(address, "Found!", comment)
+            found += 1
+            if not args.suppress_found:
+                print(address, "Found!", comment)
         else:
-            print(address, "Not Found!", comment)
+            not_found += 1
+            if not args.suppress_notfound:
+                print(address, "Not Found!", comment)
 
+    print("Checked", addresses, addresses)
+    print(found, "Found")
+    print(not_found, "Not Found")
 

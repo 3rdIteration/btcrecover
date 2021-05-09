@@ -527,7 +527,11 @@ static void hmac(__global word *K, const word K_len_bytes,
     hash_private(input_1, leng, input_2 + 16);
 
     // Hash input2 into output!
-    hash_private(input_2, 64 + 32, output);
+    word temp_output[16 + 9] = {0};
+    hash_private(input_2, 64 + 32, temp_output);
+    for (int j = 0; j < (16 + 9); j++){
+        output[j] = temp_output[j];
+    }
 }
 
 #undef sizeForHash

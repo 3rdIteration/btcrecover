@@ -2236,12 +2236,11 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         return False, count
 
 
-############### Dogechain ###############
+############### Dogechain.info ###############
 
 @register_wallet_class
 class WalletDogechain(object):
     opencl_algo = -1
-
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
 
@@ -2308,7 +2307,6 @@ class WalletDogechain(object):
         wallet_file.seek(0)
         try:
             walletdata = wallet_file.read()
-            print(walletdata)
         except: return False
         return (b"email" in walletdata and b"two_fa_method" in walletdata)  # Dogechain.info wallets have email and 2fa fields that are fairly unique
 
@@ -2331,10 +2329,11 @@ class WalletDogechain(object):
     def passwords_per_seconds(self, seconds):
         return max(int(round(self._passwords_per_second * seconds)), 1)
 
-    # Load a Blockchain wallet file
+    # Load a Dogechain wallet file
     @classmethod
     def load_from_filename(cls, wallet_filename):
-        wallet_data = open(wallet_filename, "rb").read(64 * 2 ** 20)  # up to 64M, typical size is a few
+        with open(wallet_filename, "rb") as wallet_file:
+                wallet_data = wallet_file.read()
         wallet_json = json.loads(wallet_data)
         self = cls(wallet_json["pbkdf2_iterations"], loading=True)
         self.salt = base64.b64decode(wallet_json["salt"])
@@ -2422,15 +2421,6 @@ class WalletDogechain(object):
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def _return_verified_password_or_false_cpu(self, arg_passwords):  # Blockchain.com Main Password
-        # Copy a few globals into local for a small speed boost
-        l_pbkdf2_hmac = pbkdf2_hmac
-        l_aes256_cbc_decrypt = aes256_cbc_decrypt
-        l_aes256_ofb_decrypt = aes256_ofb_decrypt
-        encrypted_block = self._encrypted_block
-        salt_and_iv = self.salt
-        iter_count = self._iter_count
-
-
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
@@ -2451,30 +2441,32 @@ class WalletDogechain(object):
 
         return False, count
 
-    def _return_verified_password_or_false_opencl(self, arg_passwords):  # Blockchain.com Main Password
-        # Copy a few globals into local for a small speed boost
-        l_aes256_cbc_decrypt = aes256_cbc_decrypt
-        l_aes256_ofb_decrypt = aes256_ofb_decrypt
-        encrypted_block = self._encrypted_block
-        salt_and_iv = self._salt_and_iv
-        iter_count = self._iter_count
-
-        # Convert Unicode strings (lazily) to UTF-8 bytestrings
-        passwords = map(lambda p: base64.b64encode(hashlib.sha256(p.encode("utf_8", "ignore").digest())), arg_passwords)
-
-        clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, salt_and_iv, iter_count, 32)
-
-        # This list is consumed, so recreated it and zip
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
-
-        results = zip(passwords, clResult)
-
-        for count, (password, key) in enumerate(results, 1):
-            unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
-            if self.check_blockchain_decrypted_block(unencrypted_block, password):
-                return password.decode("utf_8", "replace"), count
-
-        return False, count
+    # This was never finished or tested (But is most of the way there...) Was part of an abandoned feature sponsorship...
+    #
+    # def _return_verified_password_or_false_opencl(self, arg_passwords):  # Blockchain.com Main Password
+    #     # Copy a few globals into local for a small speed boost
+    #     l_aes256_cbc_decrypt = aes256_cbc_decrypt
+    #     l_aes256_ofb_decrypt = aes256_ofb_decrypt
+    #     encrypted_block = self._encrypted_block
+    #     salt_and_iv = self._salt_and_iv
+    #     iter_count = self._iter_count
+    #
+    #     # Convert Unicode strings (lazily) to UTF-8 bytestrings
+    #     passwords = map(lambda p: base64.b64encode(hashlib.sha256(p.encode("utf_8", "ignore").digest())), arg_passwords)
+    #
+    #     clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, salt_and_iv, iter_count, 32)
+    #
+    #     # This list is consumed, so recreated it and zip
+    #     passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+    #
+    #     results = zip(passwords, clResult)
+    #
+    #     for count, (password, key) in enumerate(results, 1):
+    #         unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
+    #         if self.check_blockchain_decrypted_block(unencrypted_block, password):
+    #             return password.decode("utf_8", "replace"), count
+    #
+    #     return False, count
 
 
 ############### Bither ###############

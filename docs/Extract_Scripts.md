@@ -157,6 +157,15 @@ The *extract-blockchain-second-hash.py* script is a bit longer, but it should st
 
 Without access to the rest of your wallet file, the bits of information extracted by these scripts alone do not put any of your Bitcoin funds at risk, even after a successful password guess and decryption.
 
+## Usage for Dogechain.info ##
+
+The first step is to download your Dogechain.info wallet backup file. (This currently doesn't work if you have 2fa enabled, but could be easily added...)
+
+You will need to navigate to the `extract-scripts` folder of this package and run
+
+`python3 download-dogechain-wallet.py`
+
+When prompted, enter your wallet ID and your wallet.aes.json file will be saved to you PC. You can then use btcrecover.py with it in the same way that you would for any other wallet file.
 
 ## Usage for Electrum ##
 
