@@ -2476,6 +2476,100 @@ class WalletDogechain(object):
     #
     #     return False, count
 
+############### Metamask ###############
+
+@register_wallet_class
+class WalletMetamask(object):
+    opencl_algo = -1
+
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+    _using_extract = False
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        wallet_file.seek(0)
+        try:
+            walletdata = wallet_file.read()
+        except: return False
+        return (b"https://metamask" in walletdata or b"fiatToBnb" in walletdata or b"encryptedVault" in walletdata)  # Metamask wallets have links to metamask zendesk in them...
+
+    def __init__(self, iter_count, loading=False):
+        assert loading, 'use load_from_* to create a ' + self.__class__.__name__
+        pbkdf2_library_name = load_pbkdf2_library().__name__
+        aes_library_name = load_aes256_library().__name__
+        self._iter_count = iter_count
+        self._passwords_per_second = 400000 if pbkdf2_library_name == "hashlib" else 100000
+        self._passwords_per_second /= iter_count
+        if aes_library_name != "Crypto" and self._passwords_per_second > 2000:
+            self._passwords_per_second = 2000
+
+    def __setstate__(self, state):
+        # (re-)load the required libraries after being unpickled
+        load_pbkdf2_library(warnings=False)
+        load_aes256_library(warnings=False)
+        self.__dict__ = state
+
+    def passwords_per_seconds(self, seconds):
+        return max(int(round(self._passwords_per_second * seconds)), 1)
+
+    # Load a metamask wallet file
+    @classmethod
+    def load_from_filename(cls, wallet_filename):
+        with open(wallet_filename, "rb") as wallet_file:
+                wallet_data_raw = wallet_file.read()
+
+        walletStartText = "vault"
+
+        wallet_data_full =  wallet_data_raw.decode("utf-8","ignore").replace("\\","")
+        wallet_data_start = wallet_data_full.lower().find(walletStartText)
+
+        wallet_data_trimmed = wallet_data_full[wallet_data_start:]
+
+        wallet_data_start = wallet_data_trimmed.find("data")
+        wallet_data_trimmed = wallet_data_trimmed[wallet_data_start-2:]
+
+        wallet_data_end = wallet_data_trimmed.find("}")
+        wallet_data = wallet_data_trimmed[:wallet_data_end+1]
+        print(wallet_data)
+
+        wallet_json = json.loads(wallet_data)
+        self = cls(10000, loading=True)
+        self.salt = base64.b64decode(wallet_json["salt"])
+        self.encrypted_mnemonic = base64.b64decode(wallet_json["data"])
+        self.iv = base64.b64decode(wallet_json["iv"])
+        return self
+
+    def difficulty_info(self):
+        return "10,000 PBKDF2-SHA256 iterations"
+
+    def return_verified_password_or_false(self, passwords):  # Blockchain.com Main Password
+        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo, int)) \
+            else self._return_verified_password_or_false_cpu(passwords)
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def _return_verified_password_or_false_cpu(self, arg_passwords):  # Blockchain.com Main Password
+        # Convert Unicode strings (lazily) to UTF-8 bytestrings
+        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+
+        for count, password in enumerate(passwords, 1):
+            #if self.decrypt(password):
+            #    return password.decode("utf_8", "replace"), count
+
+            key = hashlib.pbkdf2_hmac('sha256', password, self.salt, self._iter_count, 32)
+
+            decrypted_mnemonic = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_mnemonic)
+
+            if b"mnemonic" in decrypted_mnemonic:
+                # This just dumps the wallet private keys
+                if self._dump_privkeys_file:
+                    with open(self._dump_privkeys_file, 'a') as logfile:
+                        logfile.write(decrypted_mnemonic.decode("ascii", "ignore"))
+
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
 
 ############### Bither ###############
 

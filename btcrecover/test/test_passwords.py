@@ -1084,6 +1084,10 @@ class Test07WalletDecryption(unittest.TestCase):
         self.wallet_tester("dogecoincore-1.14.2-wallet.dat")
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_tenupcore(self):
+        self.wallet_tester("tenup-1.1.0.4-wallet.dat")
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     def test_electrum(self):
         self.wallet_tester("electrum-wallet")
 
@@ -1258,6 +1262,15 @@ class Test07WalletDecryption(unittest.TestCase):
 
     def test_dogechain_info_cpu(self):
         self.wallet_tester("dogechain.wallet.aes.json")
+
+    def test_metamask_cpu(self):
+        self.wallet_tester("000003.log.metamask.9.8.4")
+
+    def test_binancechainwallet_cpu(self):
+        self.wallet_tester("000004.log.binancechainwallet.2.5.1", correct_pass="BTCR-test-passw0rd")
+
+    def test_ronin_cpu(self):
+        self.wallet_tester("000003.log.roninwallet.1.1.8_extract")
 
     def test_bitcoincore_pywallet(self):
         self.wallet_tester("bitcoincore-pywallet-dumpwallet.txt")
