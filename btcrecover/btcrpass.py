@@ -2482,9 +2482,15 @@ class WalletDogechain(object):
 class WalletMetamask(object):
     opencl_algo = -1
 
+    _savepossiblematches = True
+    _possible_passwords_file = "possible_passwords.log"
+
     _dump_privkeys_file = None
     _dump_wallet_file = None
     _using_extract = False
+
+    def data_extract_id():
+        return "mt"
 
     @staticmethod
     def is_wallet_file(wallet_file):
@@ -2536,43 +2542,123 @@ class WalletMetamask(object):
 
             wallet_data_end = wallet_data_trimmed.find("}")
             wallet_data = wallet_data_trimmed[:wallet_data_end+1]
-            print(wallet_data)
-
 
             wallet_json = json.loads(wallet_data)
 
         self = cls(10000, loading=True)
         self.salt = base64.b64decode(wallet_json["salt"])
-        self.encrypted_mnemonic = base64.b64decode(wallet_json["data"])
+        self.encrypted_vault = base64.b64decode(wallet_json["data"])
+        self.encrypted_block = base64.b64decode(wallet_json["data"])[:16]
         self.iv = base64.b64decode(wallet_json["iv"])
+        return self
+
+    # Import extracted Metamask vault data necessary for password checking
+    @classmethod
+    def load_from_data_extract(cls, file_data):
+        print(file_data)
+        # These are the same first encrypted block, iv and salt count retrieved above
+        encrypted_block, iv, salt = struct.unpack(b"< 16s 16s 32s", file_data)
+
+        self = cls(10000, loading=True)
+        self.encrypted_block = encrypted_block
+        self.iv = iv
+        self.salt = salt
+        self.encrypted_vault = ""
+        self._using_extract   = True
         return self
 
     def difficulty_info(self):
         return "10,000 PBKDF2-SHA256 iterations"
 
-    def return_verified_password_or_false(self, passwords):  # Blockchain.com Main Password
+    def init_logfile(self):
+        with open(self._possible_passwords_file, 'a') as logfile:
+            logfile.write(
+        "\n\n" +
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " New Recovery Started...\n" +
+        "This file contains passwords and blocks from passwords which `may` not exactly match those that "
+        "BTCRecover searches for by default. \n\n"
+        "Examples of successfully decrypted blocks will not just be random characters, "
+        "some examples of what correctly decryped blocks logs look like are:\n\n"
+        "Possible Password ==>btcr-test-password<== in Decrypted Block ==>[{\"type\":\"HD Key<==\n"
+        "Possible Password ==>btcr-test-password<== in Decrypted Block ==>\"{\\\"mnemonic\\\":\<==\n"
+        "Possible Password ==>BTCR-test-passw0rd<== in Decrypted Block ==>{\"version\":\"v2\",<==\n"
+        "Note: The markers ==> and <== are not part of either your password or the decrypted block...\n\n"
+        "If the password works and was not correctly found, or your wallet detects a false positive, please report the decrypted block data at "
+        "https://github.com/3rdIteration/btcrecover/issues/\n\n")
+        print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+        print("*               Note for Metamask (And related) Wallets...              *")
+        print("*                                                                       *")
+        print("*   Writing all `possibly matched` and fully matched Passwords &        *")
+        print("*   Decrypted blocks to ", self._possible_passwords_file)
+        print("*   This can be disabled with the --disablesavepossiblematches argument *")
+        print("* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+        print()
+
+    # A bit fragile because it assumes that some specific text is in the first encrypted block,
+    def check_decrypted_block(self, unencrypted_block, password):
+        if unencrypted_block[0] == ord("{") or unencrypted_block[0] == ord("[") or unencrypted_block[0] == ord('"'):
+            if b'"' in unencrypted_block[:4]:  # If it really is a json wallet fragment, there will be a double quote in there within the first few characters...
+                try:
+                    # Try to decode the decrypted block to ascii, this will pretty much always fail on anything other
+                    # than the correct password
+                    unencrypted_block.decode("ascii")
+                    if self._savepossiblematches:
+                        with open(self._possible_passwords_file, 'a') as logfile:
+                            logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
+                                          " Possible Password ==>" +
+                                          password.decode("utf_8") +
+                                          "<== in Decrypted Block ==>" +
+                                          unencrypted_block.decode("ascii") +
+                                          "<==\n")
+                except UnicodeDecodeError:
+                    pass
+
+            # Return True if
+            if re.search(b"\"type\"|version|mnemonic", unencrypted_block):
+                if self._savepossiblematches:
+                    try:
+                        with open('possible_passwords.log', 'a') as logfile:
+                            logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
+                                          " Found Password ==>" +
+                                          password.decode("utf_8") +
+                                          "<== in Decrypted Block ==>" +
+                                          unencrypted_block.decode("ascii") +
+                                          "<==\n")
+                            return True  # Only return true if we can successfully decode the block in to ascii
+
+                    except UnicodeDecodeError:  # Likely a false positive if we can't...
+                        with open('possible_passwords.log', 'a') as logfile:
+                            logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
+                                          " Found Likely False Positive Password (with non-Ascii characters in decrypted block) ==>" +
+                                          password.decode("utf_8") +
+                                          "<== in Decrypted Block ==>" +
+                                          unencrypted_block.decode("utf-8", "ignore") +
+                                          "<==\n")
+
+        return False
+
+    def return_verified_password_or_false(self, passwords):  # Metamask
         return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo, int)) \
             else self._return_verified_password_or_false_cpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
-    def _return_verified_password_or_false_cpu(self, arg_passwords):  # Blockchain.com Main Password
+    def _return_verified_password_or_false_cpu(self, arg_passwords):  # Metamask
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
         for count, password in enumerate(passwords, 1):
-            #if self.decrypt(password):
-            #    return password.decode("utf_8", "replace"), count
 
             key = hashlib.pbkdf2_hmac('sha256', password, self.salt, self._iter_count, 32)
 
-            decrypted_mnemonic = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_mnemonic)
+            decrypted_block = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
 
-            if b"mnemonic" in decrypted_mnemonic:
+            if self.check_decrypted_block(decrypted_block, password):
                 # This just dumps the wallet private keys
-                if self._dump_privkeys_file:
+                if self._dump_privkeys_file and not self._using_extract:
+                    decrypted_vault = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_vault)
                     with open(self._dump_privkeys_file, 'a') as logfile:
-                        logfile.write(decrypted_mnemonic.decode("ascii", "ignore"))
+                        logfile.write(decrypted_vault.decode("ascii", "ignore"))
 
                 return password.decode("utf_8", "replace"), count
 

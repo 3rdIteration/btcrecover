@@ -18,13 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
-# If you find this program helpful, please consider a small
-# donation to the developer at the following Bitcoin address:
-#
-#           3Au8ZodNHPei7MQiSVAWb7NB2yqsb48GW4
-#
-#                      Thank You!
-
 # Special thanks to Bitcointalk.org user Wotan777 who discovered a better way
 # to work with Electrum wallets, and who made this extract script possible.
 

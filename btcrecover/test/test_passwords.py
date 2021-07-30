@@ -1267,13 +1267,13 @@ class Test07WalletDecryption(unittest.TestCase):
         self.wallet_tester("metamask.9.8.4_000003.log")
 
     def test_metamask_firefox_cpu(self):
-        self.wallet_tester("metamask.9.8.4_firefox")
+        self.wallet_tester("metamask.9.8.4_firefox_vault")
 
-    def test_binancechainwallet_cpu(self):
+    def test_metamask_binancechainwallet_cpu(self):
         self.wallet_tester("metamask-binancechainwallet.2.5.1_000004.log", correct_pass="BTCR-test-passw0rd")
 
-    def test_ronin_cpu(self):
-        self.wallet_tester("metamask-roninwallet.1.1.8_000003.log_extract")
+    def test_metamask_ronin_cpu(self):
+        self.wallet_tester("metamask-roninwallet.1.1.8_000003.log_vault")
 
     def test_bitcoincore_pywallet(self):
         self.wallet_tester("bitcoincore-pywallet-dumpwallet.txt")
@@ -1661,12 +1661,12 @@ class Test08BIP39Passwords(unittest.TestCase):
 
 class Test08KeyDecryption(unittest.TestCase):
 
-    def key_tester(self, key_crc_base64, force_purepython = False, force_kdf_purepython = False, unicode_pw = False):
+    def key_tester(self, key_crc_base64, force_purepython = False, force_kdf_purepython = False, unicode_pw = False, correct_password = "btcr-test-password"):
         btcrpass.load_from_base64_key(key_crc_base64)
         if force_purepython:     btcrpass.load_aes256_library(force_purepython=True)
         if force_kdf_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
 
-        correct_pw = tstr("btcr-test-password") if not unicode_pw else "btcr-тест-пароль"
+        correct_pw = tstr(correct_password) if not unicode_pw else "btcr-тест-пароль"
         self.assertEqual(btcrpass.return_verified_password_or_false(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
         self.assertEqual(btcrpass.return_verified_password_or_false(
@@ -1813,6 +1813,22 @@ class Test08KeyDecryption(unittest.TestCase):
 
     def test_blockchain_secondpass_no_iter_count(self):  # extracted from blockchain-unencrypted-wallet.aes.json which is missing a second password iter_count
         self.key_tester("YnM6ujsYxz3SE7fEEekfMuIC1oII7KY//j5FMObBn7HydqVyjnaeTCZDAaC4LbJcVkxaAAAAAE/24yM=")
+
+    @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
+    def test_metamask_chrome(self):
+        self.key_tester("bXQ6OPVDHxjM+v/xc4huqhl/aiOkWBZnJa7GUezuA6vkeVBlUk/YNT7Tjx1JSZTxl4YB3DikbP3pb2rido6eNWR6rjVKjyE=")
+
+    @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
+    def test_metamask_firefox(self):
+        self.key_tester("bXQ6bB5JP1EW0xwBmWZ9vI/iw9IRkorRs9rI6wJCNrd8KUw61ubkQxf9JF9jDv9kZIlxVVkKb7lIwnt7+519MLodzoK0sOw=")
+
+    @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
+    def test_metamask_ronin(self):
+        self.key_tester("bXQ6FQ0wjJ1vWwk2/bQ0Tg39pN8WxzDiFm0fRNiSfMIhIX8aruNecrWhlqMv7OBzcwP7icNxEfVRgrY0o6qn8e43IwkWD9Q=")
+
+    @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
+    def test_metamask_binancechainwallet(self):
+        self.key_tester("bXQ6JwWcqX5WXs26UvmAmYXVewSCrFvZDUc1JKLWX1+St3ygigmNpv1IVK7TI/4JqktX1lN7pK2C/rtp3jcQjMmbD6i561M=", correct_password="BTCR-test-passw0rd")
 
     def test_bitcoincore_pp(self):
         self.key_tester("YmM65iRhIMReOQ2qaldHbn++T1fYP3nXX5tMHbaA/lqEbLhFk6/1Y5F5x0QJAQBI/maR", force_purepython=True)
