@@ -2490,9 +2490,9 @@ class WalletMetamask(object):
     def is_wallet_file(wallet_file):
         wallet_file.seek(0)
         try:
-            walletdata = wallet_file.read()
+            walletdata = wallet_file.read().decode("utf-8","ignore").replace("\\","")
         except: return False
-        return (b"https://metamask" in walletdata or b"fiatToBnb" in walletdata or b"encryptedVault" in walletdata)  # Metamask wallets have links to metamask zendesk in them...
+        return ("\"data\"" in walletdata and "\"iv\"" in walletdata and "\"salt\"" in walletdata)  # Metamask wallets have these three keys in the json (Other supported wallet times have one or the other, but not all three)
 
     def __init__(self, iter_count, loading=False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -2517,23 +2517,30 @@ class WalletMetamask(object):
     @classmethod
     def load_from_filename(cls, wallet_filename):
         with open(wallet_filename, "rb") as wallet_file:
-                wallet_data_raw = wallet_file.read()
+                wallet_data_full = wallet_file.read().decode("utf-8","ignore").replace("\\","")
 
-        walletStartText = "vault"
+        # Try loading the file directly to see if it is valid JSON (Will be if it was extracted from javascript console)
+        try:
+            wallet_json = json.loads(wallet_data_full)
 
-        wallet_data_full =  wallet_data_raw.decode("utf-8","ignore").replace("\\","")
-        wallet_data_start = wallet_data_full.lower().find(walletStartText)
+        # Try finding extracting just the fault data (Will be if it was taken from the extension files directly)
+        except json.decoder.JSONDecodeError:
+            walletStartText = "vault"
 
-        wallet_data_trimmed = wallet_data_full[wallet_data_start:]
+            wallet_data_start = wallet_data_full.lower().find(walletStartText)
 
-        wallet_data_start = wallet_data_trimmed.find("data")
-        wallet_data_trimmed = wallet_data_trimmed[wallet_data_start-2:]
+            wallet_data_trimmed = wallet_data_full[wallet_data_start:]
 
-        wallet_data_end = wallet_data_trimmed.find("}")
-        wallet_data = wallet_data_trimmed[:wallet_data_end+1]
-        print(wallet_data)
+            wallet_data_start = wallet_data_trimmed.find("data")
+            wallet_data_trimmed = wallet_data_trimmed[wallet_data_start-2:]
 
-        wallet_json = json.loads(wallet_data)
+            wallet_data_end = wallet_data_trimmed.find("}")
+            wallet_data = wallet_data_trimmed[:wallet_data_end+1]
+            print(wallet_data)
+
+
+            wallet_json = json.loads(wallet_data)
+
         self = cls(10000, loading=True)
         self.salt = base64.b64decode(wallet_json["salt"])
         self.encrypted_mnemonic = base64.b64decode(wallet_json["data"])

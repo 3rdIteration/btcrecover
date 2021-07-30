@@ -1263,14 +1263,17 @@ class Test07WalletDecryption(unittest.TestCase):
     def test_dogechain_info_cpu(self):
         self.wallet_tester("dogechain.wallet.aes.json")
 
-    def test_metamask_cpu(self):
-        self.wallet_tester("000003.log.metamask.9.8.4")
+    def test_metamask_chrome_cpu(self):
+        self.wallet_tester("metamask.9.8.4_000003.log")
+
+    def test_metamask_firefox_cpu(self):
+        self.wallet_tester("metamask.9.8.4_firefox")
 
     def test_binancechainwallet_cpu(self):
-        self.wallet_tester("000004.log.binancechainwallet.2.5.1", correct_pass="BTCR-test-passw0rd")
+        self.wallet_tester("metamask-binancechainwallet.2.5.1_000004.log", correct_pass="BTCR-test-passw0rd")
 
     def test_ronin_cpu(self):
-        self.wallet_tester("000003.log.roninwallet.1.1.8_extract")
+        self.wallet_tester("metamask-roninwallet.1.1.8_000003.log_extract")
 
     def test_bitcoincore_pywallet(self):
         self.wallet_tester("bitcoincore-pywallet-dumpwallet.txt")
