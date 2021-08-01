@@ -1002,6 +1002,10 @@ class WalletCoinomi(WalletBitcoinj):
         self._scrypt_p    = pb_wallet.encryption_parameters.p
         self._mnemonic = pb_wallet.seed.encrypted_data.encrypted_private_key
         self._mnemonic_iv = pb_wallet.seed.encrypted_data.initialisation_vector
+        self._masterkey_encrypted = pb_wallet.master_key.encrypted_data.encrypted_private_key
+        self._masterkey_encrypted_iv = pb_wallet.master_key.encrypted_data.initialisation_vector
+        self._masterkey_chaincode = pb_wallet.master_key.deterministic_key.chain_code
+        self._masterkey_pubkey = pb_wallet.master_key.public_key
         return self
 
 
@@ -1043,7 +1047,16 @@ class WalletCoinomi(WalletBitcoinj):
             if part_key == b"\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10":
                 if not self._using_extract:
                     mnemonic = l_aes256_cbc_decrypt(derived_key, self._mnemonic_iv, self._mnemonic)
-                    #print("BIP39 Mnemonic: ", mnemonic.decode()[:-1], "\n")
+                    mnemonic = mnemonic.decode()[:-1]
+                    if mnemonic[-2:-1] != b'\x0c':
+                        mnemonic = mnemonic.replace('\x0c',"") + " (BIP39 Passphrase In Use, if you don't have it use BIP32 root key to recover wallet)"
+
+                    print("BIP39 Mnemonic: ", mnemonic)
+                    master_key = l_aes256_cbc_decrypt(derived_key, self._masterkey_encrypted_iv, self._masterkey_encrypted)
+                    from lib.cashaddress import convert, base58
+                    xprv = base58.b58encode_check(b'\x04\x88\xad\xe4\x00\x00\x00\x00\x00\x00\x00\x00\x00' + self._masterkey_chaincode + b'\x00' + master_key[:-16])
+                    print("BIP32 Root Key:", xprv)
+
                 password = password.decode("utf_16_be", "replace")
                 return password, count
 
