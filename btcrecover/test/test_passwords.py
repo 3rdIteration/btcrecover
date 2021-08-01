@@ -907,7 +907,7 @@ def can_load_protobuf():
     global is_protobuf_loadable
     if is_protobuf_loadable is None:
         try:
-            from .. import wallet_pb2
+            from .. import bitcoinj_pb2
             is_protobuf_loadable = True
         except ImportError:
             is_protobuf_loadable = False
@@ -1140,6 +1140,24 @@ class Test07WalletDecryption(unittest.TestCase):
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     def test_multibit(self):
         self.wallet_tester("multibit-wallet.key")
+
+    @skipUnless(can_load_protobuf, "requires protobuf")
+    @skipUnless(can_load_scrypt,   "requires a binary implementation of pylibscrypt")
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_bitcoinj_multibit(self):
+        self.wallet_tester("multibit.wallet.bitcoinj.encrypted")
+
+    @skipUnless(can_load_protobuf, "requires protobuf")
+    @skipUnless(can_load_scrypt,   "requires a binary implementation of pylibscrypt")
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_coinomi_android(self):
+        self.wallet_tester("coinomi.wallet.android")
+
+    @skipUnless(can_load_protobuf, "requires protobuf")
+    @skipUnless(can_load_scrypt,   "requires a binary implementation of pylibscrypt")
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_coinomi_desktop(self):
+        self.wallet_tester("coinomi.wallet.desktop")
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     def test_multidoge(self):
@@ -1813,6 +1831,11 @@ class Test08KeyDecryption(unittest.TestCase):
 
     def test_blockchain_secondpass_no_iter_count(self):  # extracted from blockchain-unencrypted-wallet.aes.json which is missing a second password iter_count
         self.key_tester("YnM6ujsYxz3SE7fEEekfMuIC1oII7KY//j5FMObBn7HydqVyjnaeTCZDAaC4LbJcVkxaAAAAAE/24yM=")
+
+    @skipUnless(can_load_scrypt, "requires a binary implementation of pylibscrypt")
+    @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
+    def test_coinomi(self):
+        self.key_tester("Y246wmkdyRJJWG85XUTWYe9r9UUBkSrGN43WWUg5xXDelnEAGXs/lDcBMQBAAAAIAAEARsFrJw==")
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_metamask_chrome(self):

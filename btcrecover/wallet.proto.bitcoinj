@@ -1,6 +1,6 @@
 /* This file is copied from version 0.12 of bitcoinj. Aside from this
  * introductory message, the rest remains unchanged from the original.
- * To generate wallet_pb2.py, run: protoc --python_out=. wallet.proto
+ * To generate wallet_pb2.py, run: protoc --python_out=. wallet.proto.bitcoinj
  */
 
 /** Copyright 2013 Google Inc.

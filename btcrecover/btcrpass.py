@@ -808,10 +808,9 @@ class WalletMultiBit(object):
 
         return False, count
 
-
 ############### bitcoinj ###############
 
-# A namedtuple with the same attributes as the protobuf message object from wallet_pb2
+# A namedtuple with the same attributes as the protobuf message object from bitcoinj_pb2
 # (it's a global so that it's pickleable)
 EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
 
@@ -871,22 +870,22 @@ class WalletBitcoinj(object):
     @classmethod
     def _load_from_filedata(cls, filedata):
         try:
-            from . import wallet_pb2
+            from . import bitcoinj_pb2
         except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+            print("Warning: Cannot load protobuf module, unable to check if this is a Coinomi wallet"
+                  "... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
-        pb_wallet = wallet_pb2.Wallet()
+        pb_wallet = bitcoinj_pb2.Wallet()
         pb_wallet.ParseFromString(filedata)
-        if pb_wallet.encryption_type == wallet_pb2.Wallet.UNENCRYPTED:
+        if pb_wallet.encryption_type == bitcoinj_pb2.Wallet.UNENCRYPTED:
             raise ValueError("bitcoinj wallet is not encrypted")
-        if pb_wallet.encryption_type != wallet_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
+        if pb_wallet.encryption_type != bitcoinj_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
             raise NotImplementedError("Unsupported bitcoinj encryption type "+str(pb_wallet.encryption_type))
         if not pb_wallet.HasField("encryption_parameters"):
             raise ValueError("bitcoinj wallet is missing its scrypt encryption parameters")
 
         for key in pb_wallet.key:
-            if  key.type in (wallet_pb2.Key.ENCRYPTED_SCRYPT_AES, wallet_pb2.Key.DETERMINISTIC_KEY) and key.HasField("encrypted_data"):
+            if  key.type in (bitcoinj_pb2.Key.ENCRYPTED_SCRYPT_AES, bitcoinj_pb2.Key.DETERMINISTIC_KEY) and key.HasField("encrypted_data"):
                 encrypted_len = len(key.encrypted_data.encrypted_private_key)
                 if encrypted_len == 48:
                     # only need the final 2 encrypted blocks (half of it padding) plus the scrypt parameters
@@ -942,6 +941,115 @@ class WalletBitcoinj(object):
         return False, count
 
 
+
+############### Coinomi ###############
+
+# A namedtuple with the same attributes as the protobuf message object from coinomi_pb2
+# (it's a global so that it's pickleable)
+EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
+
+@register_wallet_class
+class WalletCoinomi(WalletBitcoinj):
+    opencl_algo = -1
+    _using_extract = False
+
+    def data_extract_id():
+        return "cn"
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        try:
+            from . import coinomi_pb2
+        except ModuleNotFoundError:
+            exit(
+                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+
+        try:
+            wallet_file.seek(0)
+            pb_wallet = coinomi_pb2.Wallet()
+            pb_wallet.ParseFromString(wallet_file.read())
+            pockets = pb_wallet.pockets #Pockets is a fairly unique coinomi key... #This will certainly fail on non-coinomi protobuf wallets
+            return True
+        except:
+            pass
+
+        return False
+
+    @classmethod
+    def _load_from_filedata(cls, filedata):
+        try:
+            from . import coinomi_pb2
+        except ModuleNotFoundError:
+            exit(
+                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+
+        pb_wallet = coinomi_pb2.Wallet()
+        pb_wallet.ParseFromString(filedata)
+        #print(pb_wallet)
+        if pb_wallet.encryption_type == coinomi_pb2.Wallet.UNENCRYPTED:
+            raise ValueError("Coinomi wallet is not encrypted")
+        if pb_wallet.encryption_type != coinomi_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
+            raise NotImplementedError("Unsupported Coinomi wallet encryption type "+str(pb_wallet.encryption_type))
+        if not pb_wallet.HasField("encryption_parameters"):
+            raise ValueError("Coinomi wallet is missing its scrypt encryption parameters")
+
+        # only need the final 2 encrypted blocks (half of it padding) plus the scrypt parameters
+        self = cls(loading=True)
+        self._encrypted_masterkey_part = pb_wallet.master_key.encrypted_data.encrypted_private_key[-32:]
+        self._scrypt_salt = pb_wallet.encryption_parameters.salt
+        self._scrypt_n    = pb_wallet.encryption_parameters.n
+        self._scrypt_r    = pb_wallet.encryption_parameters.r
+        self._scrypt_p    = pb_wallet.encryption_parameters.p
+        self._mnemonic = pb_wallet.seed.encrypted_data.encrypted_private_key
+        self._mnemonic_iv = pb_wallet.seed.encrypted_data.initialisation_vector
+        return self
+
+
+    # Import a bitcoinj private key that was extracted by extract-bitcoinj-privkey.py
+    @classmethod
+    def load_from_data_extract(cls, privkey_data):
+        self = cls(loading=True)
+        # The final 2 encrypted blocks
+        self._encrypted_masterkey_part = privkey_data[:32]
+        # The scrypt parameters
+        self._scrypt_salt = privkey_data[32:40]
+        (self._scrypt_n, self._scrypt_r, self._scrypt_p) = struct.unpack(b"< I H H", privkey_data[40:])
+        self._using_extract = True
+        return self
+
+    def difficulty_info(self):
+        return "scrypt N, r, p = {}, {}, {}".format(self._scrypt_n, self._scrypt_r, self._scrypt_p)
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, passwords): # Bitcoinj
+        # Copy a few globals into local for a small speed boost
+        l_scrypt             = pylibscrypt.scrypt
+        l_aes256_cbc_decrypt = aes256_cbc_decrypt
+        _encrypted_masterkey_part   = self._encrypted_masterkey_part
+        scrypt_salt          = self._scrypt_salt
+        scrypt_n             = self._scrypt_n
+        scrypt_r             = self._scrypt_r
+        scrypt_p             = self._scrypt_p
+
+        # Convert strings (lazily) to UTF-16BE bytestrings
+        passwords = map(lambda p: p.encode("utf_16_be", "ignore"), passwords)
+
+        for count, password in enumerate(passwords, 1):
+            derived_key = l_scrypt(password, scrypt_salt, scrypt_n, scrypt_r, scrypt_p, 32)
+            part_key    = l_aes256_cbc_decrypt(derived_key, _encrypted_masterkey_part[:16], _encrypted_masterkey_part[16:])
+
+            # If the last block (bytes 16-31) of part_encrypted_key is all padding, we've found it
+            if part_key == b"\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10":
+                if not self._using_extract:
+                    mnemonic = l_aes256_cbc_decrypt(derived_key, self._mnemonic_iv, self._mnemonic)
+                    #print("BIP39 Mnemonic: ", mnemonic.decode()[:-1], "\n")
+                password = password.decode("utf_16_be", "replace")
+                return password, count
+
+        return False, count
+
+
 ############### MultiBit HD ###############
 
 @register_wallet_class
@@ -964,7 +1072,7 @@ class WalletMultiBitHD(WalletBitcoinj):
             raise ValueError("MultiBit HD wallet files must be named mbhd.wallet.aes")
 
         with open(wallet_filename, "rb") as wallet_file:
-            encrypted_data = wallet_file.read(16384)  # typical size is >= 23k
+            encrypted_data = wallet_file.read()
             if len(encrypted_data) < 32:
                 raise ValueError("MultiBit HD wallet files must be at least 32 bytes long")
 
@@ -978,6 +1086,8 @@ class WalletMultiBitHD(WalletBitcoinj):
         self._iv                   = encrypted_data[:16]    # the AES initialization vector (v0.5.0+)
         self._encrypted_block_iv   = encrypted_data[16:32]  # the first 16-byte encrypted block (v0.5.0+)
         self._encrypted_block_noiv = encrypted_data[:16]    # the first 16-byte encrypted block w/hardcoded IV (< v0.5.0)
+        self._encrypted_data = encrypted_data[16:]  # Encrypted Data
+        self._encrypted_data_noiv = encrypted_data  # Encrypted Data w/hardcoded IV (< v0.5.0)
         return self
 
     # Import a MultiBit HD encrypted block that was extracted by extract-multibit-hd-data.py
@@ -992,6 +1102,41 @@ class WalletMultiBitHD(WalletBitcoinj):
 
     def difficulty_info(self):
         return "scrypt N, r, p = 16384, 8, 1"
+
+    def extract_mnemonic(self, pb_wallet, password):
+        from . import bitcoinj_pb2
+        """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
+
+        :param pb_wallet: a Wallet protobuf message
+        :type pb_wallet: wallet_pb2.Wallet
+        :param get_password_fn: a callback returning a password that's called iff one is required
+        :type get_password_fn: function
+        :return: the first BIP39 mnemonic found in the wallet or None if no password was entered when required
+        :rtype: str
+        """
+        for key in pb_wallet.key:
+            if key.type == bitcoinj_pb2.Key.DETERMINISTIC_MNEMONIC:
+
+                if key.HasField('secret_bytes'):  # if not encrypted
+                    return key.secret_bytes
+
+                elif key.HasField('encrypted_data'):  # if encrypted (w/scrypt)
+                    # Derive the encryption key
+                    aes_key = pylibscrypt.scrypt(
+                        password,
+                        pb_wallet.encryption_parameters.salt,
+                        pb_wallet.encryption_parameters.n,
+                        pb_wallet.encryption_parameters.r,
+                        pb_wallet.encryption_parameters.p,
+                        32)
+
+                    # Decrypt the mnemonic
+                    ciphertext = key.encrypted_data.encrypted_private_key
+                    iv = key.encrypted_data.initialisation_vector
+                    return aes256_cbc_decrypt(aes_key, iv, ciphertext).decode().replace("\\t", "")
+
+        else:  # if the loop exists normally, no mnemonic was found
+            raise ValueError('no BIP39 mnemonic found')
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -1018,6 +1163,15 @@ class WalletMultiBitHD(WalletBitcoinj):
             # (there's a 1 in 2 trillion chance this hits but the password is wrong)
             for block in (block_iv, block_noiv):
                 if block[2:6] == b"org." and block[0] == 10 and block[1] < 128:
+                    #decrypted_data = l_aes256_cbc_decrypt(derived_key, iv, self._encrypted_data)
+                    #padding_len = decrypted_data[-1]
+                    #f = open("mbhd.file", "wb")
+                    #f.write(decrypted_data[:-padding_len])
+                    #from . import bitcoinj_pb2
+                    #pb_wallet = bitcoinj_pb2.Wallet()
+                    #pb_wallet.ParseFromString(decrypted_data[:-padding_len])
+                    # mnemonic = self.extract_mnemonic(pb_wallet, password)
+                    #print("BIP39 Seed:", mnemonic)
                     password = password.decode("utf_16_be", "replace")
                     return password, count
 
