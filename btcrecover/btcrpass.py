@@ -952,9 +952,27 @@ EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
 class WalletCoinomi(WalletBitcoinj):
     opencl_algo = -1
     _using_extract = False
+    _dump_privkeys_file = None
 
     def data_extract_id():
         return "cn"
+
+    # This just dumps the wallet private keys
+    def dump_privkeys(self, derived_key):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            logfile.write("Private Keys (BIP39 seed and BIP32 Root Key) are below...\n")
+            mnemonic = aes256_cbc_decrypt(derived_key, self._mnemonic_iv, self._mnemonic)
+            mnemonic = mnemonic.decode()[:-1]
+            if mnemonic[-2:-1] != b'\x0c':
+                mnemonic = mnemonic.replace('\x0c', "") + " (BIP39 Passphrase In Use, if you don't have it use BIP32 root key to recover wallet)"
+
+            logfile.write("BIP39 Mnemonic: " + mnemonic + "\n")
+            master_key = aes256_cbc_decrypt(derived_key, self._masterkey_encrypted_iv, self._masterkey_encrypted)
+            from lib.cashaddress import convert, base58
+            xprv = base58.b58encode_check(
+                b'\x04\x88\xad\xe4\x00\x00\x00\x00\x00\x00\x00\x00\x00' + self._masterkey_chaincode + b'\x00' + master_key[
+                                                                                                                :-16])
+            logfile.write("\nBIP32 Root Key: " + xprv)
 
     @staticmethod
     def is_wallet_file(wallet_file):
@@ -1008,7 +1026,6 @@ class WalletCoinomi(WalletBitcoinj):
         self._masterkey_pubkey = pb_wallet.master_key.public_key
         return self
 
-
     # Import a bitcoinj private key that was extracted by extract-bitcoinj-privkey.py
     @classmethod
     def load_from_data_extract(cls, privkey_data):
@@ -1045,17 +1062,8 @@ class WalletCoinomi(WalletBitcoinj):
 
             # If the last block (bytes 16-31) of part_encrypted_key is all padding, we've found it
             if part_key == b"\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10":
-                if not self._using_extract:
-                    mnemonic = l_aes256_cbc_decrypt(derived_key, self._mnemonic_iv, self._mnemonic)
-                    mnemonic = mnemonic.decode()[:-1]
-                    if mnemonic[-2:-1] != b'\x0c':
-                        mnemonic = mnemonic.replace('\x0c',"") + " (BIP39 Passphrase In Use, if you don't have it use BIP32 root key to recover wallet)"
-
-                    print("BIP39 Mnemonic: ", mnemonic)
-                    master_key = l_aes256_cbc_decrypt(derived_key, self._masterkey_encrypted_iv, self._masterkey_encrypted)
-                    from lib.cashaddress import convert, base58
-                    xprv = base58.b58encode_check(b'\x04\x88\xad\xe4\x00\x00\x00\x00\x00\x00\x00\x00\x00' + self._masterkey_chaincode + b'\x00' + master_key[:-16])
-                    print("BIP32 Root Key:", xprv)
+                if not self._using_extract and self._dump_privkeys_file:
+                    self.dump_privkeys(derived_key)
 
                 password = password.decode("utf_16_be", "replace")
                 return password, count
@@ -1067,11 +1075,60 @@ class WalletCoinomi(WalletBitcoinj):
 
 @register_wallet_class
 class WalletMultiBitHD(WalletBitcoinj):
+    _dump_privkeys_file = None
 
     def data_extract_id():
         return "m5"
     # id "m2", which *only* supported MultiBit HD prior to v0.5.0 ("m5" supports
     # both before and after), is no longer supported as of btcrecover version 0.15.7
+
+    # This just dumps the wallet private keys
+    def dump_privkeys(self, derived_key, password):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            decrypted_data = aes256_cbc_decrypt(derived_key, self._iv, self._encrypted_data)
+            padding_len = decrypted_data[-1]
+
+            from . import bitcoinj_pb2
+            pb_wallet = bitcoinj_pb2.Wallet()
+            pb_wallet.ParseFromString(decrypted_data[:-padding_len])
+            mnemonic = self.extract_mnemonic(pb_wallet, password)
+            logfile.write("BIP39 Seed: " + mnemonic)
+
+    # From https://github.com/gurnec/decrypt_bitcoinj_seed
+    def extract_mnemonic(self, pb_wallet, password):
+        from . import bitcoinj_pb2
+        """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
+
+        :param pb_wallet: a Wallet protobuf message
+        :type pb_wallet: wallet_pb2.Wallet
+        :param get_password_fn: a callback returning a password that's called iff one is required
+        :type get_password_fn: function
+        :return: the first BIP39 mnemonic found in the wallet or None if no password was entered when required
+        :rtype: str
+        """
+        for key in pb_wallet.key:
+            if key.type == bitcoinj_pb2.Key.DETERMINISTIC_MNEMONIC:
+
+                if key.HasField('secret_bytes'):  # if not encrypted
+                    return key.secret_bytes
+
+                elif key.HasField('encrypted_data'):  # if encrypted (w/scrypt)
+                    # Derive the encryption key
+                    aes_key = pylibscrypt.scrypt(
+                        password,
+                        pb_wallet.encryption_parameters.salt,
+                        pb_wallet.encryption_parameters.n,
+                        pb_wallet.encryption_parameters.r,
+                        pb_wallet.encryption_parameters.p,
+                        32)
+
+                    # Decrypt the mnemonic
+                    ciphertext = key.encrypted_data.encrypted_private_key
+                    iv = key.encrypted_data.initialisation_vector
+                    return aes256_cbc_decrypt(aes_key, iv, ciphertext).decode().replace("\\t", "")
+
+        else:  # if the loop exists normally, no mnemonic was found
+            raise ValueError('no BIP39 mnemonic found')
 
     @staticmethod
     def is_wallet_file(wallet_file): return None  # there's no easy way to check this
@@ -1116,41 +1173,6 @@ class WalletMultiBitHD(WalletBitcoinj):
     def difficulty_info(self):
         return "scrypt N, r, p = 16384, 8, 1"
 
-    def extract_mnemonic(self, pb_wallet, password):
-        from . import bitcoinj_pb2
-        """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
-
-        :param pb_wallet: a Wallet protobuf message
-        :type pb_wallet: wallet_pb2.Wallet
-        :param get_password_fn: a callback returning a password that's called iff one is required
-        :type get_password_fn: function
-        :return: the first BIP39 mnemonic found in the wallet or None if no password was entered when required
-        :rtype: str
-        """
-        for key in pb_wallet.key:
-            if key.type == bitcoinj_pb2.Key.DETERMINISTIC_MNEMONIC:
-
-                if key.HasField('secret_bytes'):  # if not encrypted
-                    return key.secret_bytes
-
-                elif key.HasField('encrypted_data'):  # if encrypted (w/scrypt)
-                    # Derive the encryption key
-                    aes_key = pylibscrypt.scrypt(
-                        password,
-                        pb_wallet.encryption_parameters.salt,
-                        pb_wallet.encryption_parameters.n,
-                        pb_wallet.encryption_parameters.r,
-                        pb_wallet.encryption_parameters.p,
-                        32)
-
-                    # Decrypt the mnemonic
-                    ciphertext = key.encrypted_data.encrypted_private_key
-                    iv = key.encrypted_data.initialisation_vector
-                    return aes256_cbc_decrypt(aes_key, iv, ciphertext).decode().replace("\\t", "")
-
-        else:  # if the loop exists normally, no mnemonic was found
-            raise ValueError('no BIP39 mnemonic found')
-
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def return_verified_password_or_false(self, passwords): # MultibitHD
@@ -1176,15 +1198,9 @@ class WalletMultiBitHD(WalletBitcoinj):
             # (there's a 1 in 2 trillion chance this hits but the password is wrong)
             for block in (block_iv, block_noiv):
                 if block[2:6] == b"org." and block[0] == 10 and block[1] < 128:
-                    #decrypted_data = l_aes256_cbc_decrypt(derived_key, iv, self._encrypted_data)
-                    #padding_len = decrypted_data[-1]
-                    #f = open("mbhd.file", "wb")
-                    #f.write(decrypted_data[:-padding_len])
-                    #from . import bitcoinj_pb2
-                    #pb_wallet = bitcoinj_pb2.Wallet()
-                    #pb_wallet.ParseFromString(decrypted_data[:-padding_len])
-                    # mnemonic = self.extract_mnemonic(pb_wallet, password)
-                    #print("BIP39 Seed:", mnemonic)
+                    if self._dump_privkeys_file:
+                        self.dump_privkeys(derived_key, password)
+
                     password = password.decode("utf_16_be", "replace")
                     return password, count
 
@@ -5112,7 +5128,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             if loaded_wallet._dump_wallet_file:
                 pass
         except AttributeError:
-            exit("This wallet type does not currently support dumping the decrypted wallet file...")
+            exit("This wallet type does not currently support dumping the decrypted wallet file... (But it might support decrypting private keys, so give that I try)")
 
         loaded_wallet._dump_wallet_file = args.dump_wallet
 
