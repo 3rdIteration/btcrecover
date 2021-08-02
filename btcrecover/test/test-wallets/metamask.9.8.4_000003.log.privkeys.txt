@@ -1,0 +1,1 @@
+[{"type":"HD Key Tree","data":{"mnemonic":"ocean hidden kidney famous rich season gloom husband spring convince attitude boy","numberOfAccounts":1,"hdPath":"m/44'/60'/0'/0"}}]'aD]o

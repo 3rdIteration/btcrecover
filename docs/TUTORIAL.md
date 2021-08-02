@@ -152,16 +152,19 @@ As you can see, the Windows command prompt was incapable of rendering some of th
 
  1. Unzip the `btcrecover-master.zip` file, it contains a single directory named "btcrecover-master". Inside the btcrecover-master directory is the Python script (program) file `btcrecover.py`.
  2. **Make a copy of your wallet file** into the directory which contains `btcrecover.py`. On Windows, you can usually find your wallet file by clicking on the Start Menu, then “Run...” (or for Windows 8+ by holding down the *Windows* key and pressing `r`), and then typing in one of the following paths and clicking OK. Some wallet software allows you to create multiple wallets. Of course, you need to be sure to copy the correct wallet file.
+     * BIP-39 passphrases - Please see the [BIP-39 Passphrases](#bip-39-passphrases) section below.     
      * Bitcoin Core - `%appdata%\Bitcoin` (it's named `wallet.dat`)
      * Bitcoin Wallet for Android/BlackBerry, lost spending PINs - Please see the [Bitcoin Wallet for Android/BlackBerry Spending PINs](#bitcoin-wallet-for-androidblackberry-spending-pins) section below.
-     * MultiBit Classic - Please see the [Finding MultiBit Classic Wallet Files](#finding-multibit-classic-wallet-files) section below.
-     * MultiBit HD - `%appdata%\MultiBitHD` (it's in one of the folders here, it's named `mbhd.wallet.aes`)
-     * Electrum - `%appdata%\Electrum\wallets`
-     * BIP-39 passphrases - Please see the [BIP-39 Passphrases](#bip-39-passphrases) section below.
-     * mSIGNA - `%homedrive%%homepath%` (it's a `.vault` file)
      * Bither - `%appdata%\Bither` (it's named `address.db`)
      * Blockchain.com - it's usually named `wallet.aes.json`; if you don't have a backup of your wallet file, you can download one by running the `download-blockchain-wallet.py` tool in the `extract-scripts` directory if you know your wallet ID (and 2FA if enabled)
+     * Coinomi - Please see the [Finding Coinomi Wallet Files](#finding-coinomi-wallet-files) section below. 
+     * Electrum - `%appdata%\Electrum\wallets`
      * Litecoin-Qt - `%appdata%\Litecoin` (it's named `wallet.dat`)
+     * Metamask (And Metamask clones like Binance Chain Wallet, Ronin Wallet, etc) - Please see the [Finding Metamask Wallet Files](#finding-metamask-wallet-files) section below.
+     * MultiBit Classic - Please see the [Finding MultiBit Classic Wallet Files](#finding-multibit-classic-wallet-files) section below.
+     * MultiBit HD - `%appdata%\MultiBitHD` (it's in one of the folders here, it's named `mbhd.wallet.aes`)
+     * mSIGNA - `%homedrive%%homepath%` (it's a `.vault` file)
+
  3. If you have a `btcrecover-tokens-auto.txt` file, you're almost done. Copy it into the directory which contains `btcrecover.py`, and then simply double-click the `btcrecover.py` file, and *btcrecover* should begin testing passwords. (You may need to rename your wallet file if it doesn't match the file name listed insided the `btcrecover-tokens-auto.txt` file.) If you don't have a `btcrecover-tokens-auto.txt` file, continue reading below.
  4. Copy your `tokens.txt` file, or your passwordlist file if you're using one, into the directory which contains `btcrecover.py`.
  5. You will need to run `btcrecover.py` with at least two command-line options, `--wallet FILE` to identify the wallet file name and either `--tokenlist FILE` or `--passwordlist FILE` (the FILE is optional for `--passwordlist`), depending on whether you're using a [Token File](#the-token-file) or [Passwordlist](#the-passwordlist). If you're using [Typos](#typos) or [Autosave](#autosave), please refer the sections above for additional options you'll want to add.
@@ -212,6 +215,32 @@ The `| more` at the end (the `|` symbol is a shifted `\` backslash) will introdu
 The key files have names which look like `walletname-20140407200743.key`. If you've created additional wallets, their `key-backup` directories will be located elsewhere and it's up to you to locate them. Once you have, choose the most recent `.key` file and copy it into the directory containing `btcrecover.py` for it to use.
 
 For more details on locating your MultiBit private key backup files, see: <https://www.multibit.org/en/help/v0.5/help_fileDescriptions.html>
+
+### Finding Metamask Wallet Files ###
+For Chrome Based Browsers, you will need to locate the data file for the browser extension.
+
+For Metamask this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\nkbihfbeogaeaoehlefnkodbefgpgknn\000003.log
+
+For Binance Wallet Extension this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fhbohimaelbohpjbbldcngcnapndodjp\000004.log
+
+For Ronin Wallet this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fnjhmkhhmkbjkkabndcnnogagogbneec\000003.log
+
+_Some wallets like Ronin will have multiple vaults in the file, so you will need to select the right one and copy/paste the correct vault (It will have your wallet address after it in clear text)_
+
+For Firefox, you will need to retrieve your Metamask vault using the process described here:
+https://metamask.zendesk.com/hc/en-us/articles/360018766351-How-to-use-the-Vault-Decryptor-with-the-MetaMask-Vault-Data
+
+### Finding Coinomi Wallet Files ###
+**Note: This only supports wallets that are protected by a password. If you selected "no password", "biometrics" or "password + biometrics" then you will also need information from your phones keystore... (Which may be impossible to retrieve)**
+
+The first step for Coinomi depends on which platform you are running it on.
+
+For Windows users, it's simply a case of navigating to %localappdata%\Coinomi\Coinomi\wallets and you will find your wallet files. 
+
+For Android users, you will need to have a rooted phone which will allow you to access the .wallet file in the Coinomi. (It should be found in the folder data\data\com.coinomi.wallet\files\wallets) How to get root access on your particular phone is beyond the scope of this document, but be warned that some methods of rooting your phone will involve a factory reset.
+
+If there are mulitiple wallets there and you are not sure which is the correct one, the name of each wallet can be found in clear text at the end of the file. [See the test wallets included with this repository in ./btcrecover/test/test-wallets](https://github.com/3rdIteration/btcrecover/tree/master/btcrecover/test/test-wallets) for an example)
+
 
 ### Bitcoin Wallet for Android/BlackBerry Spending PINs ###
 

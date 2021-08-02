@@ -99,3 +99,40 @@ This command will produce the following dump.
 ```
 
 These can then be copy/pasted directly in to a wallet like Electrum.
+
+### Coinomi Wallets
+
+You can use the following command to decrypt/dump one of the wallets that is included with the repository... The main and second passwords for this wallet are "btcr-test-password"...
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/coinomi.wallet.desktop --correct-wallet-password btcr-test-password --dump-privkeys coinomi.wallet.desktop.privkeys.txt
+
+This command will produce the following dump.
+
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/coinomi.wallet.desktop.privkeys.txt" %}
+```
+
+### Metamask Wallets
+
+You can use the following command to decrypt/dump one of the wallets that is included with the repository... The main and second passwords for this wallet are "btcr-test-password"...
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/metamask.9.8.4_000003.log --correct-wallet-password btcr-test-password --dump-privkeys metamask.9.8.4_000003.log.privkeys.txt
+
+This command will produce the following dump.
+
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/metamask.9.8.4_000003.log.privkeys.txt" %}
+```
+
+### Multibit HD Wallets
+
+You can use the following command to decrypt/dump one of the wallets that is included with the repository... The main and second passwords for this wallet are "btcr-test-password"...
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/multibithd-v0.5.0/mbhd.wallet.aes --correct-wallet-password btcr-test-password --dump-privkeys mbhd.wallet.aes.privkeys.txt
+
+This command will produce the following dump.
+
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/multibithd-v0.5.0/mbhd.wallet.aes.privkeys.txt" %}
+```
+

@@ -112,6 +112,14 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
                 loaded_wallet.opencl_algo_3.cl_pbkdf2_init(rtype="sha256",
                                                          saltlen=len(loaded_wallet.salt) + 1,
                                                          dklen=32)
+
+    # Password recovery for Metamask wallets
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletMetamask:
+        loaded_wallet.opencl_context_pbkdf2_sha256 = \
+            loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha256",
+                                                              len(b""),
+                                                              32)
+
     else: # Must a btcrseed.WalletBIP39 (Seed recovery for BIP39 or Electrum)
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:

@@ -1387,6 +1387,28 @@ class Test07WalletDecryption(unittest.TestCase):
         self.assertIn("unrecognized wallet format", cm.exception.code)
 
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    def test_metamask_chrome_OpenCL_Brute(self):
+        wallet_filename = os.path.join(WALLET_DIR, "metamask.9.8.4_000003.log")
+        temp_dir        = tempfile.mkdtemp("-test-btcr")
+        temp_wallet_filename = os.path.join(temp_dir, os.path.basename(wallet_filename))
+        shutil.copyfile(wallet_filename, temp_wallet_filename)
+
+        btcrpass.loaded_wallet = btcrpass.WalletMetamask.load_from_filename(temp_wallet_filename)
+
+        btcrecover.opencl_helpers.auto_select_opencl_platform(btcrpass.loaded_wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(btcrpass.loaded_wallet)
+
+        self.assertEqual(btcrpass.WalletMetamask._return_verified_password_or_false_opencl(btcrpass.loaded_wallet,
+            [tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2")]), (False, 2),
+            "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " found a false positive")
+        self.assertEqual(btcrpass.WalletMetamask._return_verified_password_or_false_opencl(btcrpass.loaded_wallet,
+            [tstr("btcr-wrong-password-3"), tstr("btcr-test-password"), tstr("btcr-wrong-password-4")]), (tstr("btcr-test-password"), 2),
+            "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " failed to find password")
+
+        del btcrpass.loaded_wallet
+
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_blockchain_second_OpenCL_Brute(self):
         wallet_filename = os.path.join(WALLET_DIR, "blockchain-v2.0-wallet.aes.json")
         temp_dir        = tempfile.mkdtemp("-test-btcr")

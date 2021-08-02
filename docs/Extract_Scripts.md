@@ -157,6 +157,24 @@ The *extract-blockchain-second-hash.py* script is a bit longer, but it should st
 
 Without access to the rest of your wallet file, the bits of information extracted by these scripts alone do not put any of your Bitcoin funds at risk, even after a successful password guess and decryption.
 
+## Usage for Coinomi ##
+
+**Note: This only supports wallets that are protected by a password. If you selected "no password", "biometrics" or "password + biometrics" then you will also need information from your phones keystore... (Which may be impossible to retrieve)**
+
+The first step for Coinomi depends on which platform you are running it on.
+
+For Windows users, it's simply a case of navigating to %localappdata%\Coinomi\Coinomi\wallets and you will find your wallet files. 
+
+For Android users, you will need to have a rooted phone which will allow you to access the .wallet file in the Coinomi. (It should be found in the folder data\data\com.coinomi.wallet\files\wallets) How to get root access on your particular phone is beyond the scope of this document, but be warned that some methods of rooting your phone will involve a factory reset.
+
+If there are mulitiple wallets there and you are not sure which is the correct one, the name of each wallet can be found in clear text at the end of the file. [See the test wallets included with this repository in ./btcrecover/test/test-wallets](https://github.com/3rdIteration/btcrecover/tree/master/btcrecover/test/test-wallets) for an example)
+
+Once you have the file, you can either use it directly with BTCRecover, or you can create an extract.
+
+    python extract-coinomi-privkey.py ../btcrecover/test/test-wallets/coinomi.wallet.android
+    Coinomi partial first encrypted private key, salt, n, r, p and crc in base64:
+    Y246uwodSaelErkb7GIYls3xaeX5i5YWtmh814zgsBCx+y8xgjp7Mul0TQBAAAAIAAEASAgdvw==
+
 ## Usage for Dogechain.info ##
 
 The first step is to download your Dogechain.info wallet backup file. (This currently doesn't work if you have 2fa enabled, but could be easily added...)
@@ -209,6 +227,26 @@ Once decrypted, these 16 characters always begin with the string "xprv", and the
 
 Without access to the rest of your wallet file, it is impossible the decrypted header information could ever lead to a loss of funds.
 
+## Usage for Metamask ##
+
+For Chrome Based Browsers, you will need to locate the data file for the browser extension.
+
+For Metamask this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\nkbihfbeogaeaoehlefnkodbefgpgknn\000003.log
+
+For Binance Wallet Extension this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fhbohimaelbohpjbbldcngcnapndodjp\000004.log
+
+For Ronin Wallet this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fnjhmkhhmkbjkkabndcnnogagogbneec\000003.log
+
+_Some wallets like Ronin will have multiple vaults in the file, so you will need to select the right one and copy/paste the correct vault (It will have your wallet address after it in clear text)_
+
+For Firefox, you will need to retrieve your Metamask vault using the process described here:
+https://metamask.zendesk.com/hc/en-us/articles/360018766351-How-to-use-the-Vault-Decryptor-with-the-MetaMask-Vault-Data
+
+Once you have the file, you can either use it directly with BTCRecover, or you can create an extract.
+
+    python extract-metamask-data.py ../btcrecover/test/test-wallets/metamask.9.8.4_000003.log
+    Metamask first 16 encrypted bytes, iv, and salt in base64:
+    bXQ6OPVDHxjM+v/xc4huqhl/aiOkWBZnJa7GUezuA6vkeVBlUk/YNT7Tjx1JSZTxl4YB3DikbP3pb2rido6eNWR6rjVKjyE=
 
 ## Usage for mSIGNA ##
 

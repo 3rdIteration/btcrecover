@@ -1,0 +1,4 @@
+Private Keys (BIP39 seed and BIP32 Root Key) are below...
+BIP39 Mnemonic: refuse enrich brisk special hand display feed more stove elder bracket skin impact domain ready evolve age south idea suffer family retire pair kiwi (BIP39 Passphrase In Use, if you don't have it use BIP32 root key to recover wallet)
+
+BIP32 Root Key: xprv9s21ZrQH143K486Bs1fmVBXA563h8yezak7YNmJqvDE7xwBVDnAdhK71CaAiVSjXqm7a1DmyPeJwrYP8g6Aj2TUzcDTu8WE9sW9Pqk76sSb

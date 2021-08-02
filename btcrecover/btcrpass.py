@@ -2687,6 +2687,8 @@ class WalletMetamask(object):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
         pbkdf2_library_name = load_pbkdf2_library().__name__
         aes_library_name = load_aes256_library().__name__
+        global normalize
+        from unicodedata import normalize
         self._iter_count = iter_count
         self._passwords_per_second = 400000 if pbkdf2_library_name == "hashlib" else 100000
         self._passwords_per_second /= iter_count
@@ -2697,6 +2699,8 @@ class WalletMetamask(object):
         # (re-)load the required libraries after being unpickled
         load_pbkdf2_library(warnings=False)
         load_aes256_library(warnings=False)
+        global normalize
+        from unicodedata import normalize
         self.__dict__ = state
 
     def passwords_per_seconds(self, seconds):
@@ -2836,6 +2840,30 @@ class WalletMetamask(object):
 
             decrypted_block = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
 
+            if self.check_decrypted_block(decrypted_block, password):
+                # This just dumps the wallet private keys
+                if self._dump_privkeys_file and not self._using_extract:
+                    decrypted_vault = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_vault)
+                    with open(self._dump_privkeys_file, 'a') as logfile:
+                        logfile.write(decrypted_vault.decode("ascii", "ignore"))
+
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
+    def _return_verified_password_or_false_opencl(self, arg_passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, self.salt, self._iter_count, 32)
+
+        # This list is consumed, so recreated it and zip
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        results = zip(passwords, clResult)
+
+        for count, (password, result) in enumerate(results, 1):
+            decrypted_block = AES.new(result, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
             if self.check_decrypted_block(decrypted_block, password):
                 # This just dumps the wallet private keys
                 if self._dump_privkeys_file and not self._using_extract:
