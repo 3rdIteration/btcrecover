@@ -976,20 +976,27 @@ class WalletCoinomi(WalletBitcoinj):
 
     @staticmethod
     def is_wallet_file(wallet_file):
-        try:
-            from . import coinomi_pb2
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+        wallet_file.seek(0)
+        if wallet_file.read(1) == b"\x0a":  # protobuf field number 1 of type length-delimited
+            network_identifier_len = ord(wallet_file.read(1))
+            if 1 <= network_identifier_len < 128:
+                wallet_file.seek(2 + network_identifier_len)
+                c = wallet_file.read(1)
+                if c and c in b"\x12\x1a":   # field number 2 or 3 of type length-delimited
+                    try:
+                        from . import coinomi_pb2
+                    except ModuleNotFoundError:
+                        exit(
+                            "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
-        try:
-            wallet_file.seek(0)
-            pb_wallet = coinomi_pb2.Wallet()
-            pb_wallet.ParseFromString(wallet_file.read())
-            pockets = pb_wallet.pockets #Pockets is a fairly unique coinomi key... #This will certainly fail on non-coinomi protobuf wallets
-            return True
-        except:
-            pass
+                    try:
+                        wallet_file.seek(0)
+                        pb_wallet = coinomi_pb2.Wallet()
+                        pb_wallet.ParseFromString(wallet_file.read())
+                        pockets = pb_wallet.pockets #Pockets is a fairly unique coinomi key... #This will certainly fail on non-coinomi protobuf wallets
+                        return True
+                    except:
+                        pass
 
         return False
 
