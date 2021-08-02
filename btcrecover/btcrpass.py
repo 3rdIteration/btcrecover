@@ -977,8 +977,23 @@ class WalletCoinomi(WalletBitcoinj):
     @staticmethod
     def is_wallet_file(wallet_file):
         wallet_file.seek(0)
-        if wallet_file.read(3) == b'\x08\x14\x12':  # protobuf field number 1 of type length-delimited
-            return True
+        if wallet_file.read(1) == b'\x08':  # protobuf field number 1 of type length-delimited
+            wallet_file.read(1)
+            if wallet_file.read(1) == b'\x12':
+                try:
+                    from . import coinomi_pb2
+                except ModuleNotFoundError:
+                    exit(
+                        "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+
+                try:
+                    wallet_file.seek(0)
+                    pb_wallet = coinomi_pb2.Wallet()
+                    pb_wallet.ParseFromString(wallet_file.read())
+                    pockets = pb_wallet.pockets  # Pockets is a fairly unique coinomi key... #This will certainly fail on non-coinomi protobuf wallets in Python 3.9+
+                    return True
+                except:
+                    pass
 
         return False
 
