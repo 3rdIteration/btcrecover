@@ -5,4 +5,6 @@
 # To check the second (or third) account for a given wallet type, you can generally increment the last number
 # Eg: Ledger Eth - Second Account would be m/44'/60'/1'
 #
-1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi, Deadalus, Atomic)
+icarus:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi, Deadalus, Atomic)
+ledger:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi) when used with a Ledger Nano
+trezor:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi) when used with a Trezor T

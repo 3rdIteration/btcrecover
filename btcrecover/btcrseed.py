@@ -1779,7 +1779,9 @@ class WalletCardano(WalletBIP39):
             address_data = bech32.bech32_decode(address)
             address_hexlist = bech32.convertbits(address_data[1], 5, 8, False)
             addr_hash = ''.join([f'{c:02x}' for c in address_hexlist])
-            hash160s.add(addr_hash)
+
+            #hash160s.add(addr_hash)
+            hash160s.add(addr_hash[-56:])
 
         return hash160s
 
@@ -1789,12 +1791,13 @@ class WalletCardano(WalletBIP39):
         seedList = []
         for salt in self._derivation_salts:
             salt = salt[8:] # Remove "mnemonic" text that is automatically added to BIP39 wallets TODO: Neaten up how this is handled
+            seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
 
-            seedList.append(cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()))
+            seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
 
-        return zip(seedList,self._derivation_salts)
+        return seedList
 
-    def _verify_seed(self, root_node, salt = None):
+    def _verify_seed(self, derivation_type, root_node, salt = None):
         self._path_list = []
         self._path_list.append("1852'/1815'/0'")
         if salt is None:
@@ -1802,30 +1805,54 @@ class WalletCardano(WalletBIP39):
         # Derive the chain of private keys for the specified path as per BIP32
 
         for current_path in self._path_list:
+            # Note:
+            # Address generation limit isn't actually relevant for most Cardano wallets, as all "base addresses"
+            # include the same account staking key.
+            # As such, you can simply derive the stake public key and check against that.
+            # (This gives a performance boost, even for an address limit of 1)
 
-            account_node = cardano.derive_child_keys(root_node, current_path, True)
+            #account_node = cardano.derive_child_keys(root_node, current_path, True)
+            ((Stake_kLP, Stake_kRP), Stake_AP, Stake_cP) = cardano.derive_child_keys(root_node, current_path + "/2/0", True)
+            stake_pubkeyhash = hashlib.blake2b(Stake_AP, digest_size=28).digest()
+            bech32_data = stake_pubkeyhash.hex()
+            if bech32_data in self._known_hash160s:  # Check if this hash160 is in our list of known hash160s
+                global seedfoundpath
+                seedfoundpath = "m/" + current_path
 
-            for i in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                      ": ***MATCHING SEED FOUND***, Matched on Address at derivation path:", seedfoundpath)
+                # print("Found match with Hash160: ", binascii.hexlify(test_hash160))
 
-                Spend_AP, Spend_cP = cardano.derive_child_keys(account_node, "0/%d"%i, False)
-                Stake_AP, Stake_cP = cardano.derive_child_keys(account_node, "2/0", False)
+                if (len(self._derivation_salts) > 1):
+                    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                          ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt[8:])
 
-                spend_pubkeyhash = hashlib.blake2b(Spend_AP, digest_size=28).digest()
-                stake_pubkeyhash = hashlib.blake2b(Stake_AP, digest_size=28).digest()
+                return True
 
-                bech32_data = (b"\x01" + spend_pubkeyhash + stake_pubkeyhash).hex()
+            # Child key derivation for Cardano is not required (see above) but leaving it here as it might be useful in the future
 
-                if bech32_data in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
-                        global seedfoundpath
-                        seedfoundpath = "m/" + current_path + "/0/%d"%i
-
-                        print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched on Address at derivation path:", seedfoundpath)
-                        #print("Found match with Hash160: ", binascii.hexlify(test_hash160))
-
-                        if(len(self._derivation_salts) > 1):
-                            print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt[8:])
-
-                        return True
+            # for i in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+            #
+            #    Spend_AP, Spend_cP = cardano.derive_child_keys(account_node, "0/%d"%i, False)
+            #    Stake_AP, Stake_cP = cardano.derive_child_keys(account_node, "2/0", False)
+            #
+            #    spend_pubkeyhash = hashlib.blake2b(Spend_AP, digest_size=28).digest()
+            #    stake_pubkeyhash = hashlib.blake2b(Stake_AP, digest_size=28).digest()
+            #
+            #    bech32_data = (b"\x01" + spend_pubkeyhash + stake_pubkeyhash).hex()
+            #    bech32_data = stake_pubkeyhash.hex()
+            #
+            #    if bech32_data in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
+            #            global seedfoundpath
+            #            seedfoundpath = "m/" + current_path + "/0/%d"%i
+            #
+            #            print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched on Address at derivation path:", seedfoundpath)
+            #            #print("Found match with Hash160: ", binascii.hexlify(test_hash160))
+            #
+            #            if(len(self._derivation_salts) > 1):
+            #                print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt[8:])
+            #
+            #            return True
         return False
 
 
@@ -1851,9 +1878,8 @@ class WalletCardano(WalletBIP39):
             # Convert the mnemonic sentence to seed bytes
             _derive_seed_list = self._derive_seed(mnemonic_ids)
 
-            for derived_seed, salt in _derive_seed_list:
-
-                if self._verify_seed(derived_seed, salt):
+            for derivation_type, derived_seed, salt in _derive_seed_list:
+                if self._verify_seed(derivation_type, derived_seed, salt):
                     return mnemonic_ids, count  # found it
 
         return False, count

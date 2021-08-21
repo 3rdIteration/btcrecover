@@ -107,10 +107,6 @@ def derive_child_keys(parent_node, path, private):
 
     return node
 
-def create_base_addresses(master_key, account_path, spend_path, stake_path, addr_count):
-
-    pass
-
 # Note: This doesn't appear to work when compared to the CIP-003 Test Vectors, haven't validated them any further
 def generateMasterKey_Byron(mnemonic):
     mnemo = Mnemonic("english")
