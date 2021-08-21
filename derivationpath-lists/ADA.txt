@@ -7,4 +7,5 @@
 #
 icarus:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi, Deadalus, Atomic)
 ledger:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi) when used with a Ledger Nano
-trezor:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi) when used with a Trezor T
+#trezor:1852'/1815'/0' #Shelly Era Wallets (Adalite, Yoroi) when used with a Trezor T (Only needed if 24 word seed used, if 12 word seed used then Icarus derivation works)
+#byron:1852'/1815'/0' #Byron Era Yoroi Wallets (Currently unsupported)

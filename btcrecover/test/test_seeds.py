@@ -388,6 +388,41 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (correct_mnemonic_ids,)), (False, 1))
 
+    def address_tester_cardano(self, the_address, correct_mnemonic):
+
+        test_path = btcrseed.load_pathlist("./derivationpath-lists/ADA.txt")
+
+        wallet = btcrseed.WalletCardano.create_from_params(addresses=[the_address])
+
+        # Convert the mnemonic string into a mnemonic_ids_guess
+        wallet.config_mnemonic(correct_mnemonic)
+        correct_mnemonic_ids = btcrseed.mnemonic_ids_guess
+
+        # Creates wrong mnemonic id guesses
+        wrong_mnemonic_iter = wallet.performance_iterator()
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (wrong_mnemonic_iter.__next__(), wrong_mnemonic_iter.__next__())), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (wrong_mnemonic_iter.__next__(), correct_mnemonic_ids, wrong_mnemonic_iter.__next__())),
+            (correct_mnemonic_ids, 2))
+
+    def test_cardano_icarus_baseaddress(self):
+        self.address_tester_cardano("addr1q9pv008mvhh22rney454j4z07nyyj9ygal57juv9xct4kayyk6y9htlyut67pks8j3s0jjs3f5z40rd9afd35ehwny4s4va2du",
+                                    "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand")
+
+    def test_cardano_icarus_stakeaddress(self):
+        self.address_tester_cardano("stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy",
+                                    "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand")
+
+    def test_cardano_ledger_baseaddress(self):
+        self.address_tester_cardano("addr1q9wwzskx6c3mc4zh4mud9wrcg6yhj6pv96apf9hed0ewjr7aeyz04x3n0hpuw4c9882chhndfc47gk77kyqml5f4s38qeqlxk7",
+                                    "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
+
+    def test_cardano_trezor_12word_baseaddress(self):
+        self.address_tester_cardano("addr1q8k0u70k6sxkcl6x539k84ntldh32de47ac8tn4us9q7hufv7g4xxwuezu9q6xqnx7mr3ejhg0jdlczkyv3fs6p477fqxwz930",
+                                    "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
+
     def test_electrum1_addr_legacy_BTC(self):
         self.address_tester(btcrseed.WalletElectrum1, "12zAz6pAB6LhzGSZFCc6g9uBSWzwESEsPT", 3,
                             "straight subject wild ask clean possible age hurt squeeze cost stuck softly")

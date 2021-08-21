@@ -1745,9 +1745,24 @@ class WalletZilliqa(WalletBIP39):
 class WalletCardano(WalletBIP39):
 
     def __init__(self, path = None, loading = False):
+        super(WalletCardano, self).__init__(None, loading)
         if not path: path = load_pathlist("./derivationpath-lists/ADA.txt")
-        super(WalletCardano, self).__init__(path, loading)
+        self._path_list = path
 
+        self._check_icarus = False
+        self._check_ledger = False
+        self._check_trezor = False
+
+        for current_path in self._path_list:
+            root_node_derivation_type, current_path = current_path.split(":")
+            if root_node_derivation_type == "icarus": self._check_icarus = True
+            if root_node_derivation_type == "ledger": self._check_ledger = True
+            if root_node_derivation_type == "trezor":
+                print("Trezor T with 24 word seed not yet supported, for Trezor with 12 word seed, use icarus derivation")
+                exit()
+            if root_node_derivation_type == "byron":
+                print("Byron derivation not currently supported")
+                exit()
 
     def __setstate__(self, state):
         super(WalletCardano, self).__setstate__(state)
@@ -1755,6 +1770,7 @@ class WalletCardano(WalletBIP39):
 
     @classmethod
     def create_from_params(cls, *args, **kwargs):
+        kwargs["address_limit"] = 1 #Address limit not relevant in Cardano-Shelly
         self = super(WalletCardano, cls).create_from_params(*args, **kwargs)
         return self
 
@@ -1777,6 +1793,9 @@ class WalletCardano(WalletBIP39):
         hash160s = set()
         for address in addresses:
             address_data = bech32.bech32_decode(address)
+
+            if address_data[0] not in ("addr","stake"):
+                raise ValueError("Error: Invalid Cardano-Shelly Address")
             address_hexlist = bech32.convertbits(address_data[1], 5, 8, False)
             addr_hash = ''.join([f'{c:02x}' for c in address_hexlist])
 
@@ -1791,20 +1810,25 @@ class WalletCardano(WalletBIP39):
         seedList = []
         for salt in self._derivation_salts:
             salt = salt[8:] # Remove "mnemonic" text that is automatically added to BIP39 wallets TODO: Neaten up how this is handled
-            seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
 
-            seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
+            if self._check_icarus:
+                seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
+
+            if self._check_ledger:
+                seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
 
         return seedList
 
     def _verify_seed(self, derivation_type, root_node, salt = None):
-        self._path_list = []
-        self._path_list.append("1852'/1815'/0'")
         if salt is None:
             salt = self._derivation_salts[0]
         # Derive the chain of private keys for the specified path as per BIP32
 
         for current_path in self._path_list:
+            root_node_derivation_type, current_path = current_path.split(":")
+            if root_node_derivation_type != derivation_type:
+                continue
+
             # Note:
             # Address generation limit isn't actually relevant for most Cardano wallets, as all "base addresses"
             # include the same account staking key.
