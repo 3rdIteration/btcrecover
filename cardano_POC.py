@@ -75,21 +75,36 @@ tests = [
 print("\n\n==Test Address Derivation==")
 description, mk_type, mnemonic, passphrase, correct_mk = tests[0]
 print(description)
-root = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode())
-(iL, iR), cc, rootkey_public = root
-print("kL:",iL.hex())
-print("kR:",iR.hex())
-print(" A:",rootkey_public.hex())
-print(" c:",cc.hex())
+masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode())
+(kL, kR), AP ,cP = masterkey
+print("Master Key")
+print("kL:",kL.hex())
+print("kR:",kR.hex())
+print("AP:",AP.hex())
+print("cP:",cP.hex())
 
-account_node = cardano.derive_child_keys(root, "1852'/1815'/0'", True)
+account_node = cardano.derive_child_keys(masterkey, "1852'/1815'/0'", True)
+(kL, kR), AP, cP = account_node
+print("Account Key")
+print("kL:",kL.hex())
+print("kR:",kR.hex())
+print("AP:",AP.hex())
+print("cP:",cP.hex())
 
-node = cardano.derive_child_keys(account_node, "0/0", False)
-(AP, cP) = node
+spend_node = cardano.derive_child_keys(account_node, "0/0", False)
+(AP, cP) = spend_node
+print("Spending Key")
+print("AP:",AP.hex())
+print("cP:",cP.hex())
+
 spend_pubkeyhash = hashlib.blake2b(AP, digest_size=28).digest()
 
-node = cardano.derive_child_keys(account_node, "2/0", False)
-(AP, cP) = node
+stake_node = cardano.derive_child_keys(account_node, "2/0", False)
+(AP, cP) = stake_node
+print("Staking Key")
+print("AP:",AP.hex())
+print("cP:",cP.hex())
+
 stake_pubkeyhash = hashlib.blake2b(AP, digest_size=28).digest()
 
 bech32_data = b"\x01" + spend_pubkeyhash + stake_pubkeyhash

@@ -48,7 +48,7 @@ OS/Python Equivalence:
 """
 
 
-TRACE=True
+TRACE=False
 INDENT=0
 def trace(x):
     global TRACE

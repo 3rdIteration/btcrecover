@@ -36,6 +36,8 @@ from lib.base58_tools import base58_tools
 from lib.eth_hash.auto import keccak
 import btcrecover.opencl_helpers
 from lib.pyzil.account import Account as zilliqa_account
+import lib.bech32 as bech32
+import lib.cardano.cardano_utils as cardano
 
 # Import modules from requirements.txt
 try:
@@ -1736,6 +1738,125 @@ class WalletZilliqa(WalletBIP39):
         hash160 = hashlib.sha256(compress_pubkey(uncompressed_pubkey)).digest()[-20:]
 
         return hash160
+
+############### Cardano ###############
+
+@register_selectable_wallet_class('Cardano Shelly-Era BIP39/44')
+class WalletCardano(WalletBIP39):
+
+    def __init__(self, path = None, loading = False):
+        if not path: path = load_pathlist("./derivationpath-lists/ADA.txt")
+        super(WalletCardano, self).__init__(path, loading)
+
+
+    def __setstate__(self, state):
+        super(WalletCardano, self).__setstate__(state)
+        # (re-)load the required libraries after being unpickled
+
+    @classmethod
+    def create_from_params(cls, *args, **kwargs):
+        self = super(WalletCardano, cls).create_from_params(*args, **kwargs)
+        return self
+
+    def passwords_per_seconds(self, seconds):
+        if not self._passwords_per_second:
+            scalar_multiplies = 0
+            for i in self._path_indexes[0]: # Just use the first derivation path for this...
+                if i < 2147483648:          # if it's a normal child key
+                    scalar_multiplies += 1  # then it requires a scalar multiply
+            if not self._chaincode:
+                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
+            self._passwords_per_second = \
+                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
+        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
+        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
+        return  passwords_per_second / len(self._derivation_salts) / 3
+
+    @staticmethod
+    def _addresses_to_hash160s(addresses):
+        hash160s = set()
+        for address in addresses:
+            address_data = bech32.bech32_decode(address)
+            address_hexlist = bech32.convertbits(address_data[1], 5, 8, False)
+            addr_hash = ''.join([f'{c:02x}' for c in address_hexlist])
+            hash160s.add(addr_hash)
+
+        return hash160s
+
+    # Called by WalletCardano.return_verified_password_or_false() to create a binary seed
+    def _derive_seed(self, mnemonic_words):
+
+        seedList = []
+        for salt in self._derivation_salts:
+            salt = salt[8:] # Remove "mnemonic" text that is automatically added to BIP39 wallets TODO: Neaten up how this is handled
+
+            seedList.append(cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()))
+
+        return zip(seedList,self._derivation_salts)
+
+    def _verify_seed(self, root_node, salt = None):
+        self._path_list = []
+        self._path_list.append("1852'/1815'/0'")
+        if salt is None:
+            salt = self._derivation_salts[0]
+        # Derive the chain of private keys for the specified path as per BIP32
+
+        for current_path in self._path_list:
+
+            account_node = cardano.derive_child_keys(root_node, current_path, True)
+
+            for i in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+
+                Spend_AP, Spend_cP = cardano.derive_child_keys(account_node, "0/%d"%i, False)
+                Stake_AP, Stake_cP = cardano.derive_child_keys(account_node, "2/0", False)
+
+                spend_pubkeyhash = hashlib.blake2b(Spend_AP, digest_size=28).digest()
+                stake_pubkeyhash = hashlib.blake2b(Stake_AP, digest_size=28).digest()
+
+                bech32_data = (b"\x01" + spend_pubkeyhash + stake_pubkeyhash).hex()
+
+                if bech32_data in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
+                        global seedfoundpath
+                        seedfoundpath = "m/" + current_path + "/0/%d"%i
+
+                        print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched on Address at derivation path:", seedfoundpath)
+                        #print("Found match with Hash160: ", binascii.hexlify(test_hash160))
+
+                        if(len(self._derivation_salts) > 1):
+                            print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt[8:])
+
+                        return True
+        return False
+
+
+    def return_verified_password_or_false(self, mnemonic_ids_list):
+        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
+          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
+    # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
+    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
+
+            if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
+                # Check the (BIP39 or Electrum2) checksum; most guesses will fail this test (Only required at the benchmark step, this is handled in the password generator now)
+                if not self._verify_checksum(mnemonic_ids):
+                    continue
+
+            # If we are writing out the checksummed seeds, add them to the queue
+            if self._savevalidseeds and not self.pre_start_benchmark:
+                self.worker_out_queue.put(mnemonic_ids)
+                continue
+
+            # Convert the mnemonic sentence to seed bytes
+            _derive_seed_list = self._derive_seed(mnemonic_ids)
+
+            for derived_seed, salt in _derive_seed_list:
+
+                if self._verify_seed(derived_seed, salt):
+                    return mnemonic_ids, count  # found it
+
+        return False, count
 
 ############### BCH ###############
 
