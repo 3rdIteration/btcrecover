@@ -919,8 +919,13 @@ class WalletBIP32(WalletBase):
                     cleaned_mnemonic_ids_list.append(" ".join(mnemonic).encode())
 
         for i, salt in enumerate(self._derivation_salts,0):
+            if type(self) is WalletElectrum2:
+                salt = b"electrum" + salt
+            else:
+                salt = b"mnemonic" + salt
+
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512[i], cleaned_mnemonic_ids_list,
-                                                      b"mnemonic"+salt, 2048, 64)
+                                                      salt, 2048, 64)
 
             results = zip(cleaned_mnemonic_ids_list,clResult)
 
@@ -1318,6 +1323,7 @@ class WalletBIP39(WalletBIP32):
         # Note: the words are already in BIP39's normalized form
         seedList = []
         for salt in self._derivation_salts:
+
             seedList.append(btcrpass.pbkdf2_hmac("sha512", " ".join(mnemonic_words).encode('utf-8'), b"mnemonic" + salt, 2048))
 
         return zip(seedList,self._derivation_salts)
@@ -1607,9 +1613,9 @@ class WalletElectrum2(WalletBIP39):
                 and any(intvl[0] <= ord(passphrase[i-1]) <= intvl[1] for intvl in self.CJK_INTERVALS)
                 and any(intvl[0] <= ord(passphrase[i+1]) <= intvl[1] for intvl in self.CJK_INTERVALS)))
 
-            _derivation_salt = "electrum" + passphrase
+            _derivation_salt = passphrase
 
-            self._derivation_salts.append(_derivation_salt)
+            self._derivation_salts.append(_derivation_salt.encode())
 
         # Electrum 2.x doesn't separate mnemonic words with spaces in sentences for any CJK
         # scripts when calculating the checksum or deriving a binary seed (even though this
@@ -1634,7 +1640,7 @@ class WalletElectrum2(WalletBIP39):
         # Note: the words are already in Electrum2's normalized form
         seedList = []
         for salt in self._derivation_salts:
-            seedList.append(btcrpass.pbkdf2_hmac("sha512", self._space.join(mnemonic_words).encode(), salt.encode(), 2048))
+            seedList.append(btcrpass.pbkdf2_hmac("sha512", self._space.join(mnemonic_words).encode(), b"electrum" + salt, 2048))
 
         return zip(seedList,self._derivation_salts)
 

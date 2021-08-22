@@ -124,4 +124,4 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:
             loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
-                                                                                              len(salt), dklen))
+                                                                                              len(b"mnemonic"+salt), dklen))
