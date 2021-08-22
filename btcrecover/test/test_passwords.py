@@ -1492,7 +1492,7 @@ class Test08BIP39Passwords(unittest.TestCase):
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_Electrum2_mpk_opencl_brute(self):
-        self.bip39_tester(
+        self.bip39_tester_opencl(
             wallet_type=   "Electrum2",
             mpk=     "zpub6oCYZXxa8YvFyR51r12U7q5B2cbeY25MqRnWTdXYex1EPuTvbfmeJmCFoo88xbqkgHyitfK1UW2q5CTPUW8fWqpZtsDF3jVwk6PTdGTbX2w",
             mnemonic=      "quote voice evidence aspect warfare hire system black rate wing ask rug"
@@ -1521,6 +1521,43 @@ class Test08BIP39Passwords(unittest.TestCase):
         self.assertRaises(StopIteration, password_found_iterator.next)
         pool.close()
         pool.join()
+
+    def cardano_tester(self, *args, **kwargs):
+
+        wallet = btcrpass.WalletCardano(*args, **kwargs)
+
+        # Perform the tests in the current process
+        correct_pass = "btcr-test-password"
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
+
+        # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
+        wallet.opencl = False
+        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+        self.assertEqual(password_found_iterator.__next__(), (False, 2))
+        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+        self.assertRaises(StopIteration, password_found_iterator.next)
+        pool.close()
+        pool.join()
+
+
+    def test_address_cardano_ledger(self):
+        self.cardano_tester(
+            addresses=  ["addr1qy0efqgj8vv85jlltlpjqe2sz4yuw27zqfczpcw8lavzq9flnqg3r29wezptgt8jzya9j5cya9jg4xgy3p7x9tcrqdmqfu7thk"],
+            mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+        )
+
+    def test_address_cardano_trezor(self):
+        self.cardano_tester(
+            addresses=  ["addr1q90kk6lsmk3fdy54mqfr50hy025ymnmn5hhj8ztthcv3qlzh5aynphrad3d26hzxg7xzzf8hnmdpxwtwums4nmryj3jqk8kvak"],
+            mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+        )
+
 
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_bip39_mpk(self):

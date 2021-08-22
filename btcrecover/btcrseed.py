@@ -920,7 +920,7 @@ class WalletBIP32(WalletBase):
 
         for i, salt in enumerate(self._derivation_salts,0):
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512[i], cleaned_mnemonic_ids_list,
-                                                      salt.encode(), 2048, 64)
+                                                      b"mnemonic"+salt, 2048, 64)
 
             results = zip(cleaned_mnemonic_ids_list,clResult)
 
@@ -1110,9 +1110,9 @@ class WalletBIP39(WalletBIP32):
                     if 0xD800 <= c <= 0xDBFF or 0xDC00 <= c <= 0xDFFF:
                         raise ValueError("this version of Python doesn't support passphrases with Unicode code points > "+str(sys.maxunicode))
 
-            _derivation_salt = "mnemonic" + self._unicode_to_bytes(passphrase)
+            _derivation_salt = self._unicode_to_bytes(passphrase)
 
-            self._derivation_salts.append(_derivation_salt)
+            self._derivation_salts.append(_derivation_salt.encode())
 
         # Special case for wallets which tell users to record only the first four letters of each word;
         # convert all short words into long ones (intentionally done *after* the finding of close words).
@@ -1318,7 +1318,7 @@ class WalletBIP39(WalletBIP32):
         # Note: the words are already in BIP39's normalized form
         seedList = []
         for salt in self._derivation_salts:
-            seedList.append(btcrpass.pbkdf2_hmac("sha512", " ".join(mnemonic_words).encode('utf-8'), salt.encode('utf-8'), 2048))
+            seedList.append(btcrpass.pbkdf2_hmac("sha512", " ".join(mnemonic_words).encode('utf-8'), b"mnemonic" + salt, 2048))
 
         return zip(seedList,self._derivation_salts)
 
@@ -1791,11 +1791,12 @@ class WalletCardano(WalletBIP39):
     @staticmethod
     def _addresses_to_hash160s(addresses):
         hash160s = set()
+
         for address in addresses:
             address_data = bech32.bech32_decode(address)
 
             if address_data[0] not in ("addr","stake"):
-                raise ValueError("Error: Invalid Cardano-Shelly Address")
+                raise ValueError("Error: Invalid Cardano-Shelly Address: ", address)
             address_hexlist = bech32.convertbits(address_data[1], 5, 8, False)
             addr_hash = ''.join([f'{c:02x}' for c in address_hexlist])
 
@@ -1805,17 +1806,19 @@ class WalletCardano(WalletBIP39):
         return hash160s
 
     # Called by WalletCardano.return_verified_password_or_false() to create a binary seed
-    def _derive_seed(self, mnemonic_words):
+    def _derive_seed(self, mnemonic_words, passphrase_list = None):
+        if not passphrase_list:
+            salts = self._derivation_salts
+        else:
+            salts = passphrase_list
 
         seedList = []
-        for salt in self._derivation_salts:
-            salt = salt[8:] # Remove "mnemonic" text that is automatically added to BIP39 wallets TODO: Neaten up how this is handled
-
+        for salt in salts:
             if self._check_icarus:
-                seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
+                seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt),salt))
 
             if self._check_ledger:
-                seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt.encode()),salt))
+                seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt),salt))
 
         return seedList
 
