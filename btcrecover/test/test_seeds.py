@@ -423,6 +423,10 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester_cardano("addr1q8k0u70k6sxkcl6x539k84ntldh32de47ac8tn4us9q7hufv7g4xxwuezu9q6xqnx7mr3ejhg0jdlczkyv3fs6p477fqxwz930",
                                     "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
 
+    def test_cardano_trezor_24word_baseaddress(self):
+        self.address_tester_cardano("addr1q97tp64cz7ec7gx09a7caucf0drglwtane9v23f8g0w5yxj727mx0j8stldrvcuh6zh6dfkj407enp3hc39s338982xq5c0yaq",
+                                    "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
+
     def test_electrum1_addr_legacy_BTC(self):
         self.address_tester(btcrseed.WalletElectrum1, "12zAz6pAB6LhzGSZFCc6g9uBSWzwESEsPT", 3,
                             "straight subject wild ask clean possible age hurt squeeze cost stuck softly")

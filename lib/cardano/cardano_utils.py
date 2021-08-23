@@ -16,14 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
-from lib.mnemonic import Mnemonic
 from lib.ecpy.curves import Curve,Point
 import lib.cardano.orakolo.HDEd25519 as HDEd25519
 import hashlib, hmac
+import bisect
+from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
-def generateMasterKey_Icarus(mnemonic, passphrase):
-    mnemo = Mnemonic("english")
-    seed = mnemo.to_entropy(mnemonic)
+_T = TypeVar("_T")
+
+def generateMasterKey_Icarus(mnemonic, passphrase, wordlist, langcode, trezor = False):
+    seed = to_entropy(words=mnemonic, wordlist=wordlist, langcode=langcode, trezorDerivation=trezor)
+
     data = hashlib.pbkdf2_hmac("SHA512", password=passphrase, salt=seed, iterations=4096, dklen=96)
     kL, kR, cP = data[:32], data[32:64], data[64:]
 
@@ -106,6 +109,64 @@ def derive_child_keys(parent_node, path, private):
           (AP, cP) = node
 
     return node
+
+# Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
+# See https://github.com/trezor/trezor-firmware/pull/1388
+def to_entropy(words: Union[List[str], str], wordlist, langcode, trezorDerivation = False ) -> bytearray:
+    if not isinstance(words, list):
+        words = words.split(" ")
+    if len(words) not in [12, 15, 18, 21, 24]:
+        raise ValueError(
+            "Number of words must be one of the following: [12, 15, 18, 21, 24], but it is not (%d)."
+            % len(words)
+        )
+    # Look up all the words in the list and construct the
+    # concatenation of the original entropy and the checksum.
+    concatLenBits = len(words) * 11
+    concatBits = [False] * concatLenBits
+    wordindex = 0
+    if langcode == "en":
+        use_binary_search = True
+    else:
+        use_binary_search = False
+    for word in words:
+        # Find the words index in the wordlist
+        ndx = (
+            binary_search(wordlist, word)
+            if use_binary_search
+            else wordlist.index(word)
+        )
+        if ndx < 0:
+            raise LookupError('Unable to find "%s" in word list.' % word)
+        # Set the next 11 bits to the value of the index.
+        for ii in range(11):
+            concatBits[(wordindex * 11) + ii] = (ndx & (1 << (10 - ii))) != 0
+        wordindex += 1
+    checksumLengthBits = concatLenBits // 33
+
+    if trezorDerivation and len(words) == 24:
+        entropyLengthBits = concatLenBits# - checksumLengthBits
+    else:
+        entropyLengthBits = concatLenBits - checksumLengthBits
+    # Extract original entropy as bytes.
+    entropy = bytearray(entropyLengthBits // 8)
+    for ii in range(len(entropy)):
+        for jj in range(8):
+            if concatBits[(ii * 8) + jj]:
+                entropy[ii] |= 1 << (7 - jj)
+    return entropy
+
+# Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
+# From <https://stackoverflow.com/questions/212358/binary-search-bisection-in-python/2233940#2233940>
+def binary_search(
+        a: Sequence[_T],
+        x: _T,
+        lo: int = 0,
+        hi: Optional[int] = None,  # can't use a to specify default for hi
+) -> int:
+    hi = hi if hi is not None else len(a)  # hi defaults to len(a)
+    pos = bisect.bisect_left(a, x, lo, hi)  # find insertion position
+    return pos if pos != hi and a[pos] == x else -1  # don't walk off the end
 
 # Note: This doesn't appear to work when compared to the CIP-003 Test Vectors, haven't validated them any further
 def generateMasterKey_Byron(mnemonic):

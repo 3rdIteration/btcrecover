@@ -1552,10 +1552,16 @@ class Test08BIP39Passwords(unittest.TestCase):
             mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
         )
 
-    def test_address_cardano_trezor(self):
+    def test_address_cardano_trezor_12word(self):
         self.cardano_tester(
             addresses=  ["addr1q90kk6lsmk3fdy54mqfr50hy025ymnmn5hhj8ztthcv3qlzh5aynphrad3d26hzxg7xzzf8hnmdpxwtwums4nmryj3jqk8kvak"],
             mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+        )
+
+    def test_address_cardano_trezor_24word(self):
+        self.cardano_tester(
+            addresses=  ["addr1qxy8p3rpnpnszuz3xjn7r220g0mls2s7y40u60856haqzvqugjuyvl52aplawmqtthwf98pusznhzy7m7v3vpy5tlydqpd86x9"],
+            mnemonic=   "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique"
         )
 
 

@@ -4,6 +4,7 @@ import lib.cardano.orakolo.HDEd25519 as HDEd25519
 import lib.cardano.cardano_utils as cardano
 import lib.bech32 as bech32
 import binascii
+import btcrecover.btcrseed
 
 tests = [
 ( 
@@ -68,14 +69,21 @@ tests = [
 "ocean hidden kidney famous rich season gloom husband spring convince attitude boy",
 "",
 ""
-)
+),
+    ("Trezor 24 word vector", #9
+     "trezor-icarus",
+     "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique",
+     "",
+     "")
 ]
 
 #Test address derivation
 print("\n\n==Test Address Derivation==")
-description, mk_type, mnemonic, passphrase, correct_mk = tests[0]
+description, mk_type, mnemonic, passphrase, correct_mk = tests[9]
 print(description)
-masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode())
+btcrseed_obj = btcrecover.btcrseed.WalletBIP39.create_from_params(addresses=["bc1qztc99re7ml7hv4q4ds3jv29w7u4evwqd6t76kz"], address_limit=1)
+
+masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode(), wordlist=btcrseed_obj._language_words["en"], langcode="en", trezor=True)
 (kL, kR), AP ,cP = masterkey
 print("Master Key")
 print("kL:",kL.hex())

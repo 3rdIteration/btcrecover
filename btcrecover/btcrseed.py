@@ -1211,6 +1211,7 @@ class WalletBIP39(WalletBIP32):
         #
         try:
             words = self._language_words[lang]
+            self.current_wordlist = words
         except KeyError:  # consistently raise ValueError for any bad inputs
             raise ValueError("can't find wordlist for language code '{}'".format(lang))
         self._lang = lang
@@ -1763,9 +1764,7 @@ class WalletCardano(WalletBIP39):
             root_node_derivation_type, current_path = current_path.split(":")
             if root_node_derivation_type == "icarus": self._check_icarus = True
             if root_node_derivation_type == "ledger": self._check_ledger = True
-            if root_node_derivation_type == "trezor":
-                print("Trezor T with 24 word seed not yet supported, for Trezor with 12 word seed, use icarus derivation")
-                exit()
+            if root_node_derivation_type == "trezor": self._check_trezor = True
             if root_node_derivation_type == "byron":
                 print("Byron derivation not currently supported")
                 exit()
@@ -1821,10 +1820,28 @@ class WalletCardano(WalletBIP39):
         seedList = []
         for salt in salts:
             if self._check_icarus:
-                seedList.append(("icarus", cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words), passphrase=salt),salt))
+                seedList.append(("icarus",
+                                 cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words),
+                                                                            passphrase=salt,
+                                                                            wordlist=self.current_wordlist,
+                                                                            langcode=self._lang,
+                                                                            trezor=False)
+                                 ,salt))
 
             if self._check_ledger:
-                seedList.append(("ledger", cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words), passphrase=salt),salt))
+                seedList.append(("ledger",
+                                 cardano.generateMasterKey_Ledger(mnemonic=" ".join(mnemonic_words),
+                                                                            passphrase=salt)
+                                 ,salt))
+
+            if self._check_trezor:
+                seedList.append(("trezor",
+                                 cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words),
+                                                                            passphrase=salt,
+                                                                            wordlist=self.current_wordlist,
+                                                                            langcode=self._lang,
+                                                                            trezor=True)
+                                 ,salt))
 
         return seedList
 
