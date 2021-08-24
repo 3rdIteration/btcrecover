@@ -92,8 +92,8 @@ btcrseed_obj = btcrecover.btcrseed.WalletBIP39.create_from_params(addresses=["bc
 #masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode(), wordlist=btcrseed_obj._language_words["en"], langcode="en", trezor=True)
 #masterkey = cardano.generateMasterKey_Ledger(mnemonic, passphrase.encode())
 
-entropy = cardano.mnemonic_to_entropy(words=mnemonic, wordlist=btcrseed_obj._language_words["en"], langcode="en", trezorDerivation=False)
-
+entropy = cardano.mnemonic_to_entropy(words=mnemonic, wordlist=btcrseed_obj._language_words["en"], langcode="en", trezorDerivation=True)
+print("Entropy Length:", len(entropy))
 data = hashlib.pbkdf2_hmac("SHA512", password=passphrase.encode(), salt=entropy, iterations=4096, dklen=96)
 
 masterkey = cardano.generateRootKey_Icarus(data)

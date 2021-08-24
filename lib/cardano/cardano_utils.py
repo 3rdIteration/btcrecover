@@ -127,7 +127,7 @@ def derive_child_keys(parent_node, path, private):
 # Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
 # See https://github.com/trezor/trezor-firmware/pull/1388
 def mnemonic_to_entropy(words: Union[List[str], str], wordlist, langcode, trezorDerivation = False ) -> bytearray:
-    if not isinstance(words, tuple):
+    if not isinstance(words, tuple) and not isinstance(words, list):
         words = words.split(" ")
     if len(words) not in [12, 15, 18, 21, 24]:
         raise ValueError(

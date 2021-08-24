@@ -112,17 +112,6 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
                                                               dklen)
         return
 
-    # Seed Recovery for Cardano Wallets
-    elif type(loaded_wallet) is btcrecover.btcrseed.WalletCardano:
-        loaded_wallet.opencl_context_pbkdf2_sha512_saltlist = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512", 200, dklen=96)
-        loaded_wallet.opencl_context_pbkdf2_sha512 = []
-        for salt in loaded_wallet._derivation_salts:
-            loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
-                                                                                                       len(
-                                                                                                           b"mnemonic" + salt),
-                                                                                                       dklen))
-        return
-
     # Password recovery for brainwallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBrainwallet:
         loaded_wallet.opencl_context_sha256 = loaded_wallet.opencl_algo.cl_sha256_init()
@@ -140,6 +129,17 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
             loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha256",
                                                               len(b""),
                                                               32)
+        return
+
+    # Seed Recovery for Cardano Wallets
+    elif type(loaded_wallet) is btcrecover.btcrseed.WalletCardano:
+        loaded_wallet.opencl_context_pbkdf2_sha512_saltlist = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512", 64, dklen=96)
+        loaded_wallet.opencl_context_pbkdf2_sha512 = []
+        for salt in loaded_wallet._derivation_salts:
+            loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
+                                                                                                       len(
+                                                                                                           b"mnemonic" + salt),
+                                                                                                       dklen))
         return
 
     else: # Must a btcrseed.WalletBIP39 (Seed recovery for BIP39 or Electrum)
