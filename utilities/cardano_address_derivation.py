@@ -1,3 +1,7 @@
+import sys
+sys.path.append('./')
+import lib.cardano.cardano_utils as cardano
+
 import hashlib
 import hmac
 import lib.cardano.orakolo.HDEd25519 as HDEd25519
@@ -81,9 +85,19 @@ tests = [
 print("\n\n==Test Address Derivation==")
 description, mk_type, mnemonic, passphrase, correct_mk = tests[9]
 print(description)
+print(mnemonic)
+
 btcrseed_obj = btcrecover.btcrseed.WalletBIP39.create_from_params(addresses=["bc1qztc99re7ml7hv4q4ds3jv29w7u4evwqd6t76kz"], address_limit=1)
 
-masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode(), wordlist=btcrseed_obj._language_words["en"], langcode="en", trezor=True)
+#masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode(), wordlist=btcrseed_obj._language_words["en"], langcode="en", trezor=True)
+#masterkey = cardano.generateMasterKey_Ledger(mnemonic, passphrase.encode())
+
+entropy = cardano.mnemonic_to_entropy(words=mnemonic, wordlist=btcrseed_obj._language_words["en"], langcode="en", trezorDerivation=False)
+
+data = hashlib.pbkdf2_hmac("SHA512", password=passphrase.encode(), salt=entropy, iterations=4096, dklen=96)
+
+masterkey = cardano.generateRootKey_Icarus(data)
+
 (kL, kR), AP ,cP = masterkey
 print("Master Key")
 print("kL:",kL.hex())

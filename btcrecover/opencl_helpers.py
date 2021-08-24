@@ -72,22 +72,29 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
     if type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchain:
         loaded_wallet.opencl_context_pbkdf2_sha1 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha1", len(
             loaded_wallet._salt_and_iv), 32)
+        return
+
     # Password recovery for blockchain.com wallet second password
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchainSecondpass:
         loaded_wallet.opencl_context_hash_iterations_sha256 = loaded_wallet.opencl_algo.cl_hash_iterations_init(
             "sha256")
+        return
+
     # Password recovery for Yoroi Cardano wallet
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletYoroi:
         loaded_wallet.opencl_context_pbkdf2_sha512 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512", 32, 32)
+        return
 
     # Password recovery for Bitcoin core wallet (or clones)
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBitcoinCore:
         loaded_wallet.opencl_context_hash_iterations_sha512 = loaded_wallet.opencl_algo.cl_hash_iterations_init(
             "sha512")
+        return
 
     # Password recovery for BIP38 wallet, load sCrypt context with a custom kernel
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP38:
         loaded_wallet.opencl_context_scrypt = loaded_wallet.opencl_algo.cl_scrypt_init(14, "sCrypt_Bip38fork.cl")
+        return
 
     # Password recovery for Electrum28 Wallet files
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletElectrum28:
@@ -95,6 +102,7 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
             loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
                                                               len(b""),
                                                               dklen)
+        return
 
     # Password recovery for BIP39 Passphrase or Electrum "Extra Words"
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP39:
@@ -102,6 +110,18 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
             loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512",
                                                               len(loaded_wallet._mnemonic.encode()),
                                                               dklen)
+        return
+
+    # Seed Recovery for Cardano Wallets
+    elif type(loaded_wallet) is btcrecover.btcrseed.WalletCardano:
+        loaded_wallet.opencl_context_pbkdf2_sha512_saltlist = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512", 200, dklen=96)
+        loaded_wallet.opencl_context_pbkdf2_sha512 = []
+        for salt in loaded_wallet._derivation_salts:
+            loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
+                                                                                                       len(
+                                                                                                           b"mnemonic" + salt),
+                                                                                                       dklen))
+        return
 
     # Password recovery for brainwallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBrainwallet:
@@ -112,6 +132,7 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
                 loaded_wallet.opencl_algo_3.cl_pbkdf2_init(rtype="sha256",
                                                          saltlen=len(loaded_wallet.salt) + 1,
                                                          dklen=32)
+        return
 
     # Password recovery for Metamask wallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletMetamask:
@@ -119,9 +140,11 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
             loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha256",
                                                               len(b""),
                                                               32)
+        return
 
     else: # Must a btcrseed.WalletBIP39 (Seed recovery for BIP39 or Electrum)
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:
             loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
                                                                                               len(b"mnemonic"+salt), dklen))
+        return

@@ -20,15 +20,23 @@ from lib.ecpy.curves import Curve,Point
 import lib.cardano.orakolo.HDEd25519 as HDEd25519
 import hashlib, hmac
 import bisect
+
 from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
 _T = TypeVar("_T")
 
 def generateMasterKey_Icarus(mnemonic, passphrase, wordlist, langcode, trezor = False):
-    seed = to_entropy(words=mnemonic, wordlist=wordlist, langcode=langcode, trezorDerivation=trezor)
+    return generateRootKey_Icarus(generateHashKey_Icarus(mnemonic, passphrase, wordlist, langcode, trezor))
+
+def generateHashKey_Icarus(mnemonic, passphrase, wordlist, langcode, trezor = False):
+    seed = mnemonic_to_entropy(words=mnemonic, wordlist=wordlist, langcode=langcode, trezorDerivation=trezor)
 
     data = hashlib.pbkdf2_hmac("SHA512", password=passphrase, salt=seed, iterations=4096, dklen=96)
-    kL, kR, cP = data[:32], data[32:64], data[64:]
+
+    return data
+
+def generateRootKey_Icarus(keyData):
+    kL, kR, cP = keyData[:32], keyData[32:64], keyData[64:]
 
     kL = tweakBits_shelly(bytearray(kL));
 
@@ -37,14 +45,20 @@ def generateMasterKey_Icarus(mnemonic, passphrase, wordlist, langcode, trezor = 
     return (kL, kR), AP, cP
 
 def generateMasterKey_Ledger(mnemonic, passphrase):
+    return generateRootKey_Ledger(generateHashKey_Ledger(mnemonic, passphrase))
+
+def generateHashKey_Ledger(mnemonic, passphrase):
     derivation_salt = b"mnemonic" + passphrase
     derivation_password = mnemonic.encode()
 
     data = hashlib.pbkdf2_hmac("SHA512", password=derivation_password, salt=derivation_salt, iterations=2048, dklen=64)
 
-    cP = hmac.new(key=b"ed25519 seed", msg=b'\x01' + data, digestmod=hashlib.sha256).digest()
+    return data
 
-    kL, kR = hashRepeatedly_ledger(data);
+def generateRootKey_Ledger(keyData):
+    cP = hmac.new(key=b"ed25519 seed", msg=b'\x01' + keyData, digestmod=hashlib.sha256).digest()
+
+    kL, kR = hashRepeatedly_ledger(keyData);
 
     kL = tweakBits_shelly(bytearray(kL))
 
@@ -112,8 +126,8 @@ def derive_child_keys(parent_node, path, private):
 
 # Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
 # See https://github.com/trezor/trezor-firmware/pull/1388
-def to_entropy(words: Union[List[str], str], wordlist, langcode, trezorDerivation = False ) -> bytearray:
-    if not isinstance(words, list):
+def mnemonic_to_entropy(words: Union[List[str], str], wordlist, langcode, trezorDerivation = False ) -> bytearray:
+    if not isinstance(words, tuple):
         words = words.split(" ")
     if len(words) not in [12, 15, 18, 21, 24]:
         raise ValueError(

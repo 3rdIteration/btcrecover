@@ -1791,7 +1791,7 @@ class WalletCardano(WalletBIP39):
                 calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
         passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
         # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 3
+        return  passwords_per_second / len(self._derivation_salts) / 5
 
     @staticmethod
     def _addresses_to_hash160s(addresses):
@@ -1821,7 +1821,7 @@ class WalletCardano(WalletBIP39):
         for salt in salts:
             if self._check_icarus:
                 seedList.append(("icarus",
-                                 cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words),
+                                 cardano.generateMasterKey_Icarus(mnemonic=mnemonic_words,
                                                                             passphrase=salt,
                                                                             wordlist=self.current_wordlist,
                                                                             langcode=self._lang,
@@ -1836,7 +1836,7 @@ class WalletCardano(WalletBIP39):
 
             if self._check_trezor:
                 seedList.append(("trezor",
-                                 cardano.generateMasterKey_Icarus(mnemonic=" ".join(mnemonic_words),
+                                 cardano.generateMasterKey_Icarus(mnemonic=mnemonic_words,
                                                                             passphrase=salt,
                                                                             wordlist=self.current_wordlist,
                                                                             langcode=self._lang,
@@ -1933,6 +1933,77 @@ class WalletCardano(WalletBIP39):
                     return mnemonic_ids, count  # found it
 
         return False, count
+
+    def _return_verified_password_or_false_opencl(self, mnemonic_ids_list):
+        checksummed_mnemonic_ids_list = []
+        for mnemonic in mnemonic_ids_list:
+            if self._verify_checksum(mnemonic):
+                checksummed_mnemonic_ids_list.append(mnemonic)
+
+        rootKeys = []
+
+        for i, salt in enumerate(self._derivation_salts,0):
+            if self._check_ledger:
+                mnemonic_list = []
+                for mnemonic in checksummed_mnemonic_ids_list:
+
+                    mnemonic_list.append(" ".join(mnemonic).encode())
+
+                clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512[i], mnemonic_list, b"mnemonic"+salt, 2048, 64)
+
+                results = zip(checksummed_mnemonic_ids_list, clResult)
+
+                for mnemonic, result in results:
+                    rootKeys.append((mnemonic, "ledger", cardano.generateRootKey_Ledger(result), salt))
+
+            if self._check_icarus or self._check_trezor:
+                if self._check_icarus:
+                    entropy_list = []
+                    for mnemonic in checksummed_mnemonic_ids_list:
+                        entropy_list.append(cardano.mnemonic_to_entropy(words=mnemonic,
+                                                                        wordlist=self.current_wordlist,
+                                                                        langcode=self._lang,
+                                                                        trezorDerivation=False))
+
+                    clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512_saltlist, salt, entropy_list, 4096, 96)
+
+                    results = zip(checksummed_mnemonic_ids_list, clResult)
+
+                    for mnemonic, result in results:
+                        rootKeys.append((mnemonic, "icarus", cardano.generateRootKey_Icarus(result), salt))
+
+                if self._check_trezor:
+                    entropy_list = []
+                    for mnemonic in checksummed_mnemonic_ids_list:
+                        entropy_list.append(cardano.mnemonic_to_entropy(words=mnemonic,
+                                                                        wordlist=self.current_wordlist,
+                                                                        langcode=self._lang,
+                                                                        trezorDerivation=True))
+
+                    clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512_saltlist, salt, entropy_list, 4096, 96)
+
+                    results = zip(checksummed_mnemonic_ids_list, clResult)
+
+                    for mnemonic, result in results:
+                        rootKeys.append((mnemonic, "trezor", cardano.generateRootKey_Icarus(result), salt))
+
+            for (mnemonic_full, derivationType, masterkey, salt) in rootKeys:
+                # if " ".join(mnemonic_full) == "ocean hidden kidney famous rich season gloom husband spring convince attitude boy":
+                #     print("Derivation Type:", derivationType)
+                #     (kL, kR), AP, cP = masterkey
+                #     print("Master Key")
+                #     print("kL:", kL.hex())
+                #     print("kR:", kR.hex())
+                #     print("AP:", AP.hex())
+                #     print("cP:", cP.hex())
+                #
+                #     print("#Rootkeys:", len(rootKeys))
+
+                if self._verify_seed(derivationType, masterkey, salt):
+                    return mnemonic_full, mnemonic_ids_list.index(mnemonic_full)+1  # found it
+
+        return False, len(mnemonic_ids_list)
+
 
 ############### BCH ###############
 
