@@ -1988,16 +1988,16 @@ class WalletCardano(WalletBIP39):
                         rootKeys.append((mnemonic, "trezor", cardano.generateRootKey_Icarus(result), salt))
 
             for (mnemonic_full, derivationType, masterkey, salt) in rootKeys:
-                # if " ".join(mnemonic_full) == "ocean hidden kidney famous rich season gloom husband spring convince attitude boy":
-                #     print("Derivation Type:", derivationType)
-                #     (kL, kR), AP, cP = masterkey
-                #     print("Master Key")
-                #     print("kL:", kL.hex())
-                #     print("kR:", kR.hex())
-                #     print("AP:", AP.hex())
-                #     print("cP:", cP.hex())
-                #
-                #     print("#Rootkeys:", len(rootKeys))
+                if " ".join(mnemonic_full) == "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand":
+                    print("Derivation Type:", derivationType)
+                    (kL, kR), AP, cP = masterkey
+                    print("Master Key")
+                    print("kL:", kL.hex())
+                    print("kR:", kR.hex())
+                    print("AP:", AP.hex())
+                    print("cP:", cP.hex())
+
+                    print("#Rootkeys:", len(rootKeys))
 
                 if self._verify_seed(derivationType, masterkey, salt):
                     return mnemonic_full, mnemonic_ids_list.index(mnemonic_full)+1  # found it

@@ -20,6 +20,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
 * Seed/Passphrase Recovery when for: (Recovery without a known address requires an [Address Database](Creating_and_Using_AddressDB.md))
     * Bitcoin
     * Bitcoin Cash
+    * Cardano (Shelly Era Addresses)
     * Ethereum
     * Litecoin
     * Dash

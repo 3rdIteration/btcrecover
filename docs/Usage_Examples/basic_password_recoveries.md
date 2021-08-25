@@ -103,6 +103,11 @@ Basic Bitcoin Cash Command, so need to specifcy the `--wallet-type` (But can lea
 python btcrecover.py --wallet-type bch --addrs bitcoincash:qqv8669jcauslc88ty5v0p7xj6p6gpmlgv04ejjq97 --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "cable top mango offer mule air lounge refuse stove text cattle opera"
 ```
 <br>
+Basic Cardano, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) For Cardano recovers, [see the notes here as well.](bip39-accounts-and-altcoins.md) This will accept either base or stake addresses... (Byron-Era addresses are not supported))
+```
+python btcrecover.py --wallet-type cardano --addrs addr1q90kk6lsmk3fdy54mqfr50hy025ymnmn5hhj8ztthcv3qlzh5aynphrad3d26hzxg7xzzf8hnmdpxwtwums4nmryj3jqk8kvak --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+```
+<br>
 
 Basic Dash Command, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) 
 ```

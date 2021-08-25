@@ -25,6 +25,7 @@ It will automatically run through four search phases that should take a few hour
     * Safepal
     * Coldcard
     * Bitbox02
+    * Keystone
     * Cobo Vault
     * CoolWallet S (You will need both convert the seed numbers to BIP39 seed words and to use the --force-p2sh argument for Bitcoin and Litecoin...)
 * Software Wallets
@@ -34,6 +35,8 @@ It will automatically run through four search phases that should take a few hour
     * Edge Wallet
     * Mycelium
     * Exodus
+    * Trust Wallet
+    * Metamask (Including clones like Binance Chain Wallet Extension)
 
 **Wallets with Compatibility Issues**(Due to not following derivation standards...)
 
@@ -53,3 +56,21 @@ With a P2SH Segwit Address - One missing word, address generation limit of 5. (S
 ```
 python seedrecover.py --wallet-type bip39 --addrs 3NiRFNztVLMZF21gx6eE1nL3Q57GMGuunG --mnemonic "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform advice pen praise soap lizard festival connect" --addr-limit 5
 ```
+### Basic Cardano Recoveries
+For Cardano recovers, [see the notes here as well.](bip39-accounts-and-altcoins.md) You can use any Shelly-Era base or stake addresses. (Byron-Era not supported)
+
+Seed from a Ledger Nano, missing one word, using a standard base address. (Address generation limit isn't appliable in Cardano)
+```
+python seedrecover.py --wallet-type cardano --addrs addr1qyr2c43g33hgwzyufdd6fztpvn5uq5lwc74j0kuqr7gdrq5dgrztddqtl8qhw93ay8r3g8kw67xs097u6gdspyfcrx5qfv739l --mnemonic "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon basket fine culture boil render special enforce dish middle antique"
+```
+
+Seed from a Trezor, missing one word, using a standard base address. (Address generation limit isn't appliable in Cardano)
+```
+python seedrecover.py --wallet-type cardano --addrs addr1q8k0u70k6sxkcl6x539k84ntldh32de47ac8tn4us9q7hufv7g4xxwuezu9q6xqnx7mr3ejhg0jdlczkyv3fs6p477fqxwz930 --mnemonic "ocean kidney famous rich season gloom husband spring convince attitude boy"
+```
+
+Seed from Yoroi, Adalite or Daedalus (Working as a software wallet), using a standard stake address
+```
+python seedrecover.py --wallet-type cardano --addrs stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy --mnemonic "cave table seven there limit fat decorate middle gold ten battle trigger luggage demand"
+```
+

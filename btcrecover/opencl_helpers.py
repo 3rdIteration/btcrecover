@@ -142,6 +142,12 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
                                                                                                        dklen))
         return
 
+    # Passphrase Recovery for Cardano Wallets
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletCardano:
+        loaded_wallet.opencl_context_pbkdf2_sha512_saltlist = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512", len(loaded_wallet._mnemonic.encode()), dklen=64)
+        loaded_wallet.opencl_context_pbkdf2_sha512 = loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512", 33, dklen=96)
+        return
+
     else: # Must a btcrseed.WalletBIP39 (Seed recovery for BIP39 or Electrum)
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:

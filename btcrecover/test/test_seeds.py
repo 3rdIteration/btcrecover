@@ -43,10 +43,7 @@ wallet_dir = os.path.join(os.path.dirname(__file__), "test-wallets")
 # def tearDownModule():
 #     orig_warnings.__exit__(None, None, None)  # restore the original warnings settings
 
-
 opencl_device_count = None
-
-
 def has_any_opencl_devices():
     global opencl_device_count
     if opencl_device_count is None:
@@ -401,9 +398,32 @@ class TestRecoveryFromAddress(unittest.TestCase):
         # Creates wrong mnemonic id guesses
         wrong_mnemonic_iter = wallet.performance_iterator()
 
-        self.assertEqual(wallet.return_verified_password_or_false(
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
             (wrong_mnemonic_iter.__next__(), wrong_mnemonic_iter.__next__())), (False, 2))
-        self.assertEqual(wallet.return_verified_password_or_false(
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+            (wrong_mnemonic_iter.__next__(), correct_mnemonic_ids, wrong_mnemonic_iter.__next__())),
+            (correct_mnemonic_ids, 2))
+
+    def address_tester_cardano_opencl(self, the_address, correct_mnemonic):
+
+        test_path = btcrseed.load_pathlist("./derivationpath-lists/ADA.txt")
+
+        wallet = btcrseed.WalletCardano.create_from_params(addresses=[the_address])
+
+        # Convert the mnemonic string into a mnemonic_ids_guess
+        wallet.config_mnemonic(correct_mnemonic)
+        correct_mnemonic_ids = btcrseed.mnemonic_ids_guess
+
+        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
+
+        # Creates wrong mnemonic id guesses
+        wrong_mnemonic_iter = wallet.performance_iterator()
+
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (wrong_mnemonic_iter.__next__(), wrong_mnemonic_iter.__next__())), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
             (wrong_mnemonic_iter.__next__(), correct_mnemonic_ids, wrong_mnemonic_iter.__next__())),
             (correct_mnemonic_ids, 2))
 
@@ -426,6 +446,41 @@ class TestRecoveryFromAddress(unittest.TestCase):
     def test_cardano_trezor_24word_baseaddress(self):
         self.address_tester_cardano("addr1q97tp64cz7ec7gx09a7caucf0drglwtane9v23f8g0w5yxj727mx0j8stldrvcuh6zh6dfkj407enp3hc39s338982xq5c0yaq",
                                     "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
+
+    # def test_cardano_icarus_15word_baseaddress_opencl(self):
+    #     self.address_tester_cardano_opencl("addr1q9pv008mvhh22rney454j4z07nyyj9ygal57juv9xct4kayyk6y9htlyut67pks8j3s0jjs3f5z40rd9afd35ehwny4s4va2du",
+    #                                 "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand")
+
+    # def test_cardano_icarus_15word_stakeaddress_opencl(self):
+    #     self.address_tester_cardano_opencl("stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy",
+    #                                 "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand")
+
+    def test_cardano_ledger_baseaddress_opencl(self):
+        self.address_tester_cardano_opencl("addr1q9wwzskx6c3mc4zh4mud9wrcg6yhj6pv96apf9hed0ewjr7aeyz04x3n0hpuw4c9882chhndfc47gk77kyqml5f4s38qeqlxk7",
+                                    "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
+
+    def test_cardano_trezor_12word_baseaddress_opencl(self):
+        self.address_tester_cardano_opencl("addr1q8k0u70k6sxkcl6x539k84ntldh32de47ac8tn4us9q7hufv7g4xxwuezu9q6xqnx7mr3ejhg0jdlczkyv3fs6p477fqxwz930",
+                                    "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
+
+    # def test_cardano_trezor_24word_baseaddress_opencl(self):
+    #     self.address_tester_cardano_opencl("addr1q97tp64cz7ec7gx09a7caucf0drglwtane9v23f8g0w5yxj727mx0j8stldrvcuh6zh6dfkj407enp3hc39s338982xq5c0yaq",
+    #                                 "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
+
+
+    def test_cardano_icarus_18word_baseaddress_opencl(self):
+        self.address_tester_cardano_opencl("addr1qypv06cpahxc0lv9az2wlexeupzztfdnnag5swgrjwp40eppwhmrsyru6y7auplxrautystcsav5e4hssr8pte2l6khsxeehlc",
+                                    "around lawn weird blanket sense near west depth speak boy tourist found chief easy cheese pulp stand coast")
+
+    # def test_cardano_icarus_21word_baseaddress_opencl(self):
+    #     self.address_tester_cardano_opencl("addr1q902er275re9qg9p7zdu7dud64px7uzkqxn53vyqnykz3rtkpsj7jrzhlwqh4x3u23cgn23jpkxhsualemyylfqxc60snmt3xp",
+    #                                 "despair chimney canyon rather crunch crumble night write lab chest shove check pear spatial craft faint brother amused pony tank neutral")
+
+
+    def test_cardano_icarus_24word_baseaddress_opencl(self):
+        self.address_tester_cardano_opencl("addr1qx3f4r3qqvynsnvhxrkkycp83v93jg2fqkn7scxnvpe6t99f4evt0tdad8cvsdvenma8t68gfdkyvf3efjzslcn7r4ys72w3qh",
+                                    "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
+
 
     def test_electrum1_addr_legacy_BTC(self):
         self.address_tester(btcrseed.WalletElectrum1, "12zAz6pAB6LhzGSZFCc6g9uBSWzwESEsPT", 3,

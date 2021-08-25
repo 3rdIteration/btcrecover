@@ -23,6 +23,15 @@ To use the 2nd account, etc, you typically increment the last digit of the deriv
 {% include "../derivationpath-lists/BCH.txt" %}
 ```
 
+### Cardano
+Cardano handles this a bit differently as there are major differences between how different vendors implement Cardano account derivation.
+As such, you will notice that derivation paths for Cardano have an additional prefix for the derivation type. 
+By default, BTCRecover will check all three "Shelly" derivation types and this can have a major performance impact. As such, if you know which wallet the seed came from, you should disable the other unnecessary derivation paths.
+
+**ADA.txt**
+``` linenums="1"
+{% include "../derivationpath-lists/ADA.txt" %}
+```
 
 ### Dash
 **Dash.txt**

@@ -87,16 +87,16 @@ description, mk_type, mnemonic, passphrase, correct_mk = tests[9]
 print(description)
 print(mnemonic)
 
-btcrseed_obj = btcrecover.btcrseed.WalletBIP39.create_from_params(addresses=["bc1qztc99re7ml7hv4q4ds3jv29w7u4evwqd6t76kz"], address_limit=1)
+#btcrseed_obj = btcrecover.btcrseed.WalletBIP39.create_from_params(addresses=["bc1qztc99re7ml7hv4q4ds3jv29w7u4evwqd6t76kz"], address_limit=1)
 
 #masterkey = cardano.generateMasterKey_Icarus(mnemonic=mnemonic,passphrase=passphrase.encode(), wordlist=btcrseed_obj._language_words["en"], langcode="en", trezor=True)
-#masterkey = cardano.generateMasterKey_Ledger(mnemonic, passphrase.encode())
+masterkey = cardano.generateMasterKey_Ledger(mnemonic, passphrase.encode())
 
-entropy = cardano.mnemonic_to_entropy(words=mnemonic, wordlist=btcrseed_obj._language_words["en"], langcode="en", trezorDerivation=True)
-print("Entropy Length:", len(entropy))
-data = hashlib.pbkdf2_hmac("SHA512", password=passphrase.encode(), salt=entropy, iterations=4096, dklen=96)
+#entropy = cardano.mnemonic_to_entropy(words=mnemonic, wordlist=btcrseed_obj._language_words["en"], langcode="en", trezorDerivation=True)
+#print("Entropy Length:", len(entropy))
+#data = hashlib.pbkdf2_hmac("SHA512", password=passphrase.encode(), salt=entropy, iterations=4096, dklen=96)
 
-masterkey = cardano.generateRootKey_Icarus(data)
+#masterkey = cardano.generateRootKey_Icarus(data)
 
 (kL, kR), AP ,cP = masterkey
 print("Master Key")
@@ -104,7 +104,33 @@ print("kL:",kL.hex())
 print("kR:",kR.hex())
 print("AP:",AP.hex())
 print("cP:",cP.hex())
-
+#
+# from nacl.encoding import RawEncoder, HexEncoder
+# from nacl.signing import SigningKey
+# from nacl.bindings import crypto_scalarmult_ed25519_base
+#
+# nacl = SigningKey(kL, RawEncoder)
+# print("NaCL Privkey:", nacl.encode(encoder=HexEncoder))
+# # Obtain the verify key for a given signing key
+# verify_key = nacl.verify_key
+#
+# # Serialize the verify key to send it to a third party
+# verify_key_hex = verify_key.encode(encoder=HexEncoder)
+#
+# print("NaCL Pubkey: ", verify_key_hex)
+# from lib.ecpy.curves import Curve,Point
+# # root public key
+# # A = _crypto_scalarmult_curve25519_base(bytes(kL))
+# cv25519 = Curve.get_curve("Ed25519")
+# k_scalar = int.from_bytes(bytes(kL), 'little')
+# P = k_scalar * cv25519.generator
+# print("ECPY:", P)
+# A = cv25519.encode_point(P)
+#
+# test = crypto_scalarmult_ed25519_base(k_scalar)
+# print("NACL", test)
+#
+# exit()
 account_node = cardano.derive_child_keys(masterkey, "1852'/1815'/0'", True)
 (kL, kR), AP, cP = account_node
 print("Account Key")

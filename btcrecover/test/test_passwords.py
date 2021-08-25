@@ -1545,6 +1545,20 @@ class Test08BIP39Passwords(unittest.TestCase):
         pool.close()
         pool.join()
 
+    def cardano_tester_opencl(self, *args, **kwargs):
+
+        wallet = btcrpass.WalletCardano(*args, **kwargs)
+
+        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
+
+        # Perform the tests in the current process
+        correct_pass = "btcr-test-password"
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
     def test_address_cardano_ledger(self):
         self.cardano_tester(
@@ -1558,11 +1572,29 @@ class Test08BIP39Passwords(unittest.TestCase):
             mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
         )
 
-    def test_address_cardano_trezor_24word(self):
-        self.cardano_tester(
-            addresses=  ["addr1qxy8p3rpnpnszuz3xjn7r220g0mls2s7y40u60856haqzvqugjuyvl52aplawmqtthwf98pusznhzy7m7v3vpy5tlydqpd86x9"],
-            mnemonic=   "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique"
+    # def test_address_cardano_trezor_24word(self):
+    #     self.cardano_tester(
+    #         addresses=  ["addr1qxy8p3rpnpnszuz3xjn7r220g0mls2s7y40u60856haqzvqugjuyvl52aplawmqtthwf98pusznhzy7m7v3vpy5tlydqpd86x9"],
+    #         mnemonic=   "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique"
+    #     )
+
+    def test_address_cardano_ledger_opencl(self):
+        self.cardano_tester_opencl(
+            addresses=  ["addr1qy0efqgj8vv85jlltlpjqe2sz4yuw27zqfczpcw8lavzq9flnqg3r29wezptgt8jzya9j5cya9jg4xgy3p7x9tcrqdmqfu7thk"],
+            mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
         )
+
+    def test_address_cardano_trezor_12word(self):
+        self.cardano_tester_opencl(
+            addresses=  ["addr1q90kk6lsmk3fdy54mqfr50hy025ymnmn5hhj8ztthcv3qlzh5aynphrad3d26hzxg7xzzf8hnmdpxwtwums4nmryj3jqk8kvak"],
+            mnemonic=   "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+        )
+
+    # def test_address_cardano_trezor_24word(self):
+    #     self.cardano_tester_opencl(
+    #         addresses=  ["addr1qxy8p3rpnpnszuz3xjn7r220g0mls2s7y40u60856haqzvqugjuyvl52aplawmqtthwf98pusznhzy7m7v3vpy5tlydqpd86x9"],
+    #         mnemonic=   "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique"
+    #     )
 
 
     @skipUnless(can_load_coincurve, "requires coincurve")
