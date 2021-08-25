@@ -455,32 +455,35 @@ class TestRecoveryFromAddress(unittest.TestCase):
     #     self.address_tester_cardano_opencl("stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy",
     #                                 "cave table seven there praise limit fat decorate middle gold ten battle trigger luggage demand")
 
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_cardano_ledger_baseaddress_opencl(self):
         self.address_tester_cardano_opencl("addr1q9wwzskx6c3mc4zh4mud9wrcg6yhj6pv96apf9hed0ewjr7aeyz04x3n0hpuw4c9882chhndfc47gk77kyqml5f4s38qeqlxk7",
                                     "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
 
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_cardano_trezor_12word_baseaddress_opencl(self):
         self.address_tester_cardano_opencl("addr1q8k0u70k6sxkcl6x539k84ntldh32de47ac8tn4us9q7hufv7g4xxwuezu9q6xqnx7mr3ejhg0jdlczkyv3fs6p477fqxwz930",
                                     "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
 
+    # @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     # def test_cardano_trezor_24word_baseaddress_opencl(self):
     #     self.address_tester_cardano_opencl("addr1q97tp64cz7ec7gx09a7caucf0drglwtane9v23f8g0w5yxj727mx0j8stldrvcuh6zh6dfkj407enp3hc39s338982xq5c0yaq",
     #                                 "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
 
-
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_cardano_icarus_18word_baseaddress_opencl(self):
         self.address_tester_cardano_opencl("addr1qypv06cpahxc0lv9az2wlexeupzztfdnnag5swgrjwp40eppwhmrsyru6y7auplxrautystcsav5e4hssr8pte2l6khsxeehlc",
                                     "around lawn weird blanket sense near west depth speak boy tourist found chief easy cheese pulp stand coast")
 
+    # @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     # def test_cardano_icarus_21word_baseaddress_opencl(self):
     #     self.address_tester_cardano_opencl("addr1q902er275re9qg9p7zdu7dud64px7uzkqxn53vyqnykz3rtkpsj7jrzhlwqh4x3u23cgn23jpkxhsualemyylfqxc60snmt3xp",
     #                                 "despair chimney canyon rather crunch crumble night write lab chest shove check pear spatial craft faint brother amused pony tank neutral")
 
-
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_cardano_icarus_24word_baseaddress_opencl(self):
         self.address_tester_cardano_opencl("addr1qx3f4r3qqvynsnvhxrkkycp83v93jg2fqkn7scxnvpe6t99f4evt0tdad8cvsdvenma8t68gfdkyvf3efjzslcn7r4ys72w3qh",
                                     "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
-
 
     def test_electrum1_addr_legacy_BTC(self):
         self.address_tester(btcrseed.WalletElectrum1, "12zAz6pAB6LhzGSZFCc6g9uBSWzwESEsPT", 3,
