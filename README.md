@@ -18,7 +18,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
 * Seed/Passphrase Recovery when for: (Recovery without a known address requires an [Address Database](docs/Creating_and_Using_AddressDB.md))
     * Bitcoin
     * Bitcoin Cash
-    * Cardano (Shelly Era Addresses)
+    * Cardano (Shelley Era Addresses)
     * Ethereum
     * Litecoin
     * Dash
