@@ -1,11 +1,10 @@
 import os
 import sys
 import argparse
-import time
 import subprocess
 
 
-global_ws = '171032'
+global_ws = '131072'
 
 if __name__ == "__main__":
     password = ''

@@ -2,10 +2,8 @@ import os
 import sys
 import argparse
 import subprocess
-import time
 
-global_ws = '171032'
-pwd = os.getcwd()
+global_ws = '131072'
 
 
 if __name__ == "__main__":
