@@ -1,7 +1,15 @@
+from pathlib import Path
+import os
+import sys
 import subprocess
-from typing_extensions import TypeGuard
+import time
+
 
 if __name__ == '__main__':
+    print('if you get any issue running script run this command\nexport PATH=$PATH:~/.local/bin')
+    time.sleep(2)
+    localDir = os.path.join(Path.home(), '.local', 'bin')
+    sys.path.append(localDir)
     subprocess.run('sudo apt-get clean', shell=True)
     subprocess.run('sudo apt-get update', shell=True)
     subprocess.run(
@@ -17,9 +25,8 @@ if __name__ == '__main__':
     subprocess.run('sudo apt-get update', shell=True)
     subprocess.run('sudo apt-get -y install cuda', shell=True)
     subprocess.run('pip3 install -r requirements.txt')
-    localDir = subprocess.run('cd ~/.local/bin ; pwd', shell=True, stdout=True)
-    subprocess.run(f'export PATH=$PATH:{localDir}', shell=True)
+    print('Enter you telegram bot token search @Botfather in telegram')
     subprocess.run('telegram-send --configure', shell=True)
     subprocess.run(
-        'telegram-send --pre "Yoo boi you are good to go we will alert you on your progress\nYou can send message to your bot by telegram-send --pre message"')
+        'telegram-send --pre "Yoo boi you are good to go we will alert you on your progress\nYou can send message to your bot by telegram-send --pre message"', shell=True)
     exit()
