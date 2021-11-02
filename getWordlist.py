@@ -30,7 +30,7 @@ if __name__ == '__main__':
     if(clean is not None):
         if(clean == 'all'):
             subprocess.run('rm -rf wordlist/*', shell=True)
-            print('All wordlist has been deleted')
+            print('All wordlist has been deleted successfully')
         else:
             subprocess.run(f'rm -rf wordlist/{clean}/*', shell=True)
         sys.exit()
@@ -56,8 +56,8 @@ if __name__ == '__main__':
         subprocess.run(f'mkdir wordlist/{folder}', shell=True)
         for file in file_names:
             print(f'Downloading {file}...')
-            command = f'wget http://{host}/{location}/{file} -o wordlist/{folder}/{file}'
-            subprocess.run('command', shell=True)
+            command = f'wget http://{host}/{location}/{file} -P wordlist/{folder}'
+            subprocess.run(command, shell=True)
         print('All files are reterived from server')
         sys.exit()
     else:
