@@ -15,7 +15,7 @@ if __name__ == "__main__":
     argparser.add_argument('--passlist', type=str,
                            help='path to wordlists', required=True)
     args = argparser.parse_args()
-    input_path = args.password
+    input_path = args.passlist
     wallet = args.wallet
     if not os.path.isfile(wallet):
         print('The path specified does not exist')
