@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import subprocess
+import time
 
 global_ws = '171032'
 pwd = os.getcwd()
@@ -23,13 +24,13 @@ if __name__ == "__main__":
         print('The path specified does not exist')
         sys.exit()
     included_extensions = ['dat']
-    file_names = [fn for fn in os.listdir(input_path)
-                  if any(fn.endswith(ext) for ext in included_extensions)]
-    for wallet in file_names:
-        wallet = input_path + '/' + wallet
-        telegram = f'telegram-send --pre "Cracking {wallet} with {passlist}" '
+    file_names = os.listdir(input_path)
+    for folder in file_names:
+        wallet = input_path + '/' + folder + '/' + 'wallet.dat'
+        telegram = f'telegram-send --pre "Finished {wallet} with wordlist {passlist}"'
         command = f'python3 btcrecover.py --wallet {wallet} --passwordlist {passlist} --enable-opencl --dsw --enable-gpu --global-ws {global_ws}'
-        subprocess.run(command, shell=True)
+        subprocess.run(command)
+        time.sleep(2)
         subprocess.run(telegram, shell=True)
 print('All wordlist are checked')
 sys.exit()

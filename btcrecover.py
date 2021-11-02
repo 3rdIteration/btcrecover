@@ -62,7 +62,7 @@ if __name__ == "__main__":
         print()
         btcrpass.safe_print("Password found: '" + password_found + "'")
         subprocess.run(
-            f'telegram-send --pre "Password Found: {password_found}"')
+            f'telegram-send --pre "Password Found: {password_found}"', shell=True)
         if any(ord(c) < 32 or ord(c) > 126 for c in password_found):
             print("HTML Encoded Password:   '" +
                   password_found.encode("ascii", "xmlcharrefreplace").decode() + "'")

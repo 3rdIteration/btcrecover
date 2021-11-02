@@ -1,7 +1,7 @@
 import os
 import sys
 import argparse
-import glob
+import time
 import subprocess
 
 
@@ -28,8 +28,11 @@ if __name__ == "__main__":
     file_names = [fn for fn in os.listdir(input_path)
                   if any(fn.endswith(ext) for ext in included_extensions)]
     for wordlist in file_names:
+        telegram = f'telegram-send --pre "Finished {wallet} with wordlist {wordlist}"'
         wordlist = input_path + '/' + wordlist
         command = f'python3 btcrecover.py --wallet {wallet} --passwordlist {wordlist} --enable-opencl --dsw --enable-gpu --global-ws {global_ws}'
-        subprocess.run(command)
+        subprocess.run(command, shell=True)
+        time.sleep(2)
+        subprocess.run(telegram, shell=True)
 print('All wordlist are checked')
 sys.exit()
