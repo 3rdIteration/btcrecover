@@ -16,9 +16,7 @@ if __name__ == '__main__':
         'sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"', shell=True)
     subprocess.run('sudo apt-get update', shell=True)
     subprocess.run('sudo apt-get -y install cuda', shell=True)
-    subprocess.run(
-        'git clone https://github.com/vishalkumar2806/btcrecover', shell=True)
-    subprocess.run('cd btcrecover; pip3 install -r requirements.txt')
+    subprocess.run('pip3 install -r requirements.txt')
     localDir = subprocess.run('cd ~/.local/bin ; pwd', shell=True, stdout=True)
     subprocess.run(f'export PATH=$PATH:{localDir}', shell=True)
     subprocess.run('telegram-send --configure', shell=True)
