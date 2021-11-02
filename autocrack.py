@@ -29,7 +29,10 @@ if __name__ == "__main__":
         finished = f'telegram-send --pre "Finished {wallet} with wordlist {wordlist}"'
         command = f'python3 btcrecover.py --wallet {wallet} --passwordlist {wordlist} --enable-opencl --dsw --enable-gpu --global-ws {global_ws}'
         subprocess.run(starting, shell=True)
-        subprocess.run(command, shell=True)
+        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE)
+        result = str(result.stdout.decode())
+        if "Password found:" in result:
+            sys.exit()
         subprocess.run(finished, shell=True)
 print('All wordlist are checked')
 sys.exit()
