@@ -20,13 +20,15 @@ if __name__ == '__main__':
                            help='clean all wordlist on specific folder\nif no folder specified all for all wordlist')
     argparser.add_argument('--delete', type=str,
                            help='delete wordlist from a specific folder')
+    argparser.add_argument('--get', type=str,
+                           help='download a file from server')
     args = argparser.parse_args()
     location = str(args.location)
     host = args.host
     output = args.output
     clean = args.clean
     delete = args.delete
-
+    get = args.get
     if(clean is not None):
         if(clean == 'all'):
             subprocess.run('rm -rf wordlist/*', shell=True)
@@ -38,6 +40,13 @@ if __name__ == '__main__':
         subprocess.run(f'rm {delete}', shell=True)
         print(f'{delete} has been deleted successfully')
         sys.exit()
+    if(get is not None):
+        command = f'wget {get}'
+        if(output is not None):
+            folder = output
+            command += f' -P {folder}'
+        subprocess.run(command, shell=True)
+        print(f'get has been downladed successfully')
     if(output is not None):
         folder = output
     else:
