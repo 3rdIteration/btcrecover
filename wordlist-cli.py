@@ -4,9 +4,23 @@ import requests
 from bs4 import BeautifulSoup
 import subprocess
 
+helpmessage = '''
+A simple utility for downloading and managing wordlist in wordlist folder 
+
+SYNTAX : 
+    python3 wordlist-cli.py --host SERVER --location PATH 
+
+--host abc.com OR 1.2.3.4   host or domain of server[REQUIRED]
+--location  wordlist/list   location where all files are hosted[REQUIRED]
+--output list     download all files to wordlist/list
+--clean             Clean all files in wordlist
+--delete                    delete file from specified location
+--get                       download files from link and server
+'''
+
 if __name__ == '__main__':
     if (len(sys.argv) < 2):
-        print('it a comand line utility to manage wordlist from other servers\n-h for more help')
+        print()
         sys.exit()
     argparser = argparse.ArgumentParser(
         description='A simple utility for managing and download wordlist from other webserver')
@@ -22,6 +36,8 @@ if __name__ == '__main__':
                            help='delete wordlist from a specific folder')
     argparser.add_argument('--get', type=str,
                            help='download a file from server')
+    argparser.add_argument('--showlist', default=False,
+                           help='display all the wordlist', action='store_true')
     args = argparser.parse_args()
     location = str(args.location)
     host = args.host
@@ -29,6 +45,7 @@ if __name__ == '__main__':
     clean = args.clean
     delete = args.delete
     get = args.get
+    showlist = args.showlist
     if(clean is not None):
         if(clean == 'all'):
             subprocess.run('rm -rf wordlist/*', shell=True)
@@ -62,6 +79,11 @@ if __name__ == '__main__':
         included_extensions = ['txt']
         file_names = [fn for fn in urls
                       if any(fn.endswith(ext) for ext in included_extensions)]
+        file_names.sort()
+        if(showlist):
+            for wordlist in file_names:
+                print(wordlist)
+            sys.exit()
         subprocess.run(f'mkdir wordlist/{folder}', shell=True)
         for file in file_names:
             print(f'Downloading {file}...')
