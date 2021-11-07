@@ -1,12 +1,10 @@
-from pathlib import Path
-import os
 import sys
 import subprocess
 import time
 
 
 if __name__ == '__main__':
-    subprocess.run('sudo export PATH=$PATH:~/.local/bin', shell=True)
+    subprocess.run('export PATH=$PATH:~/.local/bin', shell=True)
     path = subprocess.run('echo $PATH', shell=True, stdout=subprocess.PIPE)
     path = (path.stdout.decode()).split(':')
     path = path[len(path) - 1]
@@ -40,6 +38,6 @@ if __name__ == '__main__':
             'telegram-send --pre "Yoo boi you are good to go we will alert you on your progress\nYou can send message to your bot by telegram-send --pre message"', shell=True)
         sys.exit()
     else:
-        print('Run this command to continue\nsudo export=$PATH:~/.local/bin')
+        print('Run this command to continue\nexport=$PATH:~/.local/bin')
         time.sleep(2)
         sys.exit()

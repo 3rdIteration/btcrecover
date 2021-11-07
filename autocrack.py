@@ -39,7 +39,7 @@ if __name__ == "__main__":
     showlist = args.showlist
     startpos = args.start
     if(input_path != 'None'):
-        if not os.path.exit(input_path):
+        if not os.path.exists(input_path):
             print('The specified wallet.dat does not exist')
             sys.exit()
         included_extensions = ['txt']
@@ -52,6 +52,7 @@ if __name__ == "__main__":
                 print(wordlist)
             sys.exit()
         if(startpos is not None):
+            startpos = int(startpos)
             startpos -= 1
         else:
             startpos = 0
@@ -66,7 +67,7 @@ if __name__ == "__main__":
                     finished = f'telegram-send --pre "Finished {wallet} with wordlist {wordlist}\nRemaining wordlist {total_files}"'
                     command = f'python3 btcrecover.py --wallet {wallet} --passwordlist {wordlist} --enable-opencl --dsw --enable-gpu'
                     if(global_ws is not None):
-                        command += f' --global_ws {global_ws}'
+                        command += f' --global-ws {global_ws}'
                     subprocess.run(starting, shell=True)
                     result = subprocess.run(
                         command, shell=True, stdout=subprocess.PIPE)
