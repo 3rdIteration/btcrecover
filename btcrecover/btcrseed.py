@@ -2109,7 +2109,7 @@ class WalletSolana(WalletPyCryptoHDWallet):
 
 ############### Avax ###############
 
-@register_selectable_wallet_class('Avalanche BIP39/44')
+@register_selectable_wallet_class('Avalanche BIP39/44 (X-Addresses)')
 class WalletAvalanche(WalletPyCryptoHDWallet):
 
     def _verify_seed(self, mnemonic):
