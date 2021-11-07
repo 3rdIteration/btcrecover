@@ -849,12 +849,17 @@ class WalletBIP32(WalletBase):
             if not address_limit:
                 init_gui()  # might not have been called yet
                 before_the = "one(s) you just entered" if addresses else "first one in actual use"
+
+                suggested_addr_limit = 10
+                if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana]:
+                    suggested_addr_limit = 1
+
                 if tk_root:  # Skip if TK is not available...
                     address_limit = tk.simpledialog.askinteger("Address limit",
                         "Please enter the address generation limit. Smaller will\n"
                         "be faster, but it must be equal to at least the number\n"
                         "of addresses created before the "+before_the+":\n"
-                        "(If unsure, 10 is a sensible default...)", minvalue=1, initialvalue=10)
+                        "(If unsure, the number below is a sensible default...)", minvalue=1, initialvalue=suggested_addr_limit)
                 else:
                     print("No address generation limit specified... Exiting...")
                     exit()
@@ -2012,29 +2017,24 @@ class WalletCardano(WalletBIP39):
 
         return False, len(mnemonic_ids_list)
 
-
-############### Solana ###############
-
-@register_selectable_wallet_class('Solana BIP39/44')
-class WalletSolana(WalletBIP39):
-
+############### Py_Crypto_HD_Wallet Based Wallets ####################
+class WalletPyCryptoHDWallet(WalletBIP39):
     def __init__(self, path = None, loading = False):
         if not py_crypto_hd_wallet_available:
             print()
             print("ERROR: Cannot import py_crypto_hd_wallet which is required for Solana wallets, install it via 'pip3 install py_crypto_hd_wallet'")
             exit()
 
-        super(WalletSolana, self).__init__(None, loading)
+        super(WalletPyCryptoHDWallet, self).__init__(None, loading)
 
 
     def __setstate__(self, state):
-        super(WalletSolana, self).__setstate__(state)
+        super(WalletPyCryptoHDWallet, self).__setstate__(state)
         # (re-)load the required libraries after being unpickled
 
     @classmethod
     def create_from_params(cls, *args, **kwargs):
-        kwargs["address_limit"] = 1 #Address limit not relevant in Solana
-        self = super(WalletSolana, cls).create_from_params(*args, **kwargs)
+        self = super(WalletPyCryptoHDWallet, cls).create_from_params(*args, **kwargs)
         return self
 
     def passwords_per_seconds(self, seconds):
@@ -2049,43 +2049,19 @@ class WalletSolana(WalletBIP39):
                 calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
         passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
         # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 5
+        return  passwords_per_second / len(self._derivation_salts) / 10
 
+    # Default method for adding addresses, doesn't worry about validating the addresses
     @staticmethod
     def _addresses_to_hash160s(addresses):
         hash160s = set()
 
-        print(addresses)
-
-        #With Solana we don't worry about converting to hash160 for now
+        #With Py_Crypto_HD_Wallet type wallets we don't worry about converting to hash160
+        # (Minor performancce hit, but not an issue)
         for address in addresses:
             hash160s.add(address)
 
         return hash160s
-
-    def _verify_seed(self, mnemonic):
-        # if salt is None:
-        #     salt = self._derivation_salts[0]
-        # # Derive the chain of private keys for the specified path as per BIP32
-        #
-        # for current_path in self._path_list:
-        #     root_node_derivation_type, current_path = current_path.split(":")
-        #     if root_node_derivation_type != derivation_type:
-        #         continue
-
-        wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.SOLANA)
-
-        wallet2 = wallet.CreateFromMnemonic("Solana"," ".join(mnemonic))
-        wallet2.Generate()
-
-        testAddress = wallet2.ToDict()['change_key']['address']
-
-        if testAddress in self._known_hash160s:
-            return True
-
-
-        return False
-
 
     def return_verified_password_or_false(self, mnemonic_ids_list):
         return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
@@ -2112,53 +2088,29 @@ class WalletSolana(WalletBIP39):
 
         return False, len(mnemonic_ids_list)
 
+############### Solana ###############
+
+@register_selectable_wallet_class('Solana BIP39/44')
+class WalletSolana(WalletPyCryptoHDWallet):
+
+    def _verify_seed(self, mnemonic):
+
+        wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.SOLANA)
+
+        wallet2 = wallet.CreateFromMnemonic("Solana"," ".join(mnemonic))
+        wallet2.Generate()
+
+        testAddress = wallet2.ToDict()['change_key']['address']
+
+        if testAddress in self._known_hash160s:
+            return True
+
+        return False
+
 ############### Avax ###############
 
 @register_selectable_wallet_class('Avalanche BIP39/44')
-class WalletAvalanche(WalletBIP39):
-
-    def __init__(self, path = None, loading = False):
-        if not py_crypto_hd_wallet_available:
-            print()
-            print("ERROR: Cannot import py_crypto_hd_wallet which is required for Avalanche wallets, install it via 'pip3 install py_crypto_hd_wallet'")
-            exit()
-
-        super(WalletAvalanche, self).__init__(None, loading)
-
-    def __setstate__(self, state):
-        super(WalletAvalanche, self).__setstate__(state)
-        # (re-)load the required libraries after being unpickled
-
-    @classmethod
-    def create_from_params(cls, *args, **kwargs):
-        self = super(WalletAvalanche, cls).create_from_params(*args, **kwargs)
-        return self
-
-    def passwords_per_seconds(self, seconds):
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 10
-
-    @staticmethod
-    def _addresses_to_hash160s(addresses):
-        hash160s = set()
-
-        print(addresses)
-
-        #With Solana we don't worry about converting to hash160 for now
-        for address in addresses:
-            hash160s.add(address)
-
-        return hash160s
+class WalletAvalanche(WalletPyCryptoHDWallet):
 
     def _verify_seed(self, mnemonic):
         for salt in self._derivation_salts:
@@ -2178,79 +2130,10 @@ class WalletAvalanche(WalletBIP39):
 
         return False
 
-
-    def return_verified_password_or_false(self, mnemonic_ids_list):
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
-
-    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
-    # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
-
-        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
-
-            if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
-                # Check the (BIP39 or Electrum2) checksum; most guesses will fail this test (Only required at the benchmark step, this is handled in the password generator now)
-                if not self._verify_checksum(mnemonic_ids):
-                    continue
-
-            # If we are writing out the checksummed seeds, add them to the queue
-            if self._savevalidseeds and not self.pre_start_benchmark:
-                self.worker_out_queue.put(mnemonic_ids)
-                continue
-
-            if self._verify_seed(mnemonic_ids):
-                return mnemonic_ids, mnemonic_ids_list.index(mnemonic_ids)+1  # found it
-
-        return False, len(mnemonic_ids_list)
-
 ############### Tron ###############
 
 @register_selectable_wallet_class('Tron BIP39/44')
-class WalletTron(WalletBIP39):
-
-    def __init__(self, path = None, loading = False):
-        if not py_crypto_hd_wallet_available:
-            print()
-            print("ERROR: Cannot import py_crypto_hd_wallet which is required for Avalanche wallets, install it via 'pip3 install py_crypto_hd_wallet'")
-            exit()
-
-        super(WalletTron, self).__init__(None, loading)
-
-    def __setstate__(self, state):
-        super(WalletTron, self).__setstate__(state)
-        # (re-)load the required libraries after being unpickled
-
-    @classmethod
-    def create_from_params(cls, *args, **kwargs):
-        self = super(WalletTron, cls).create_from_params(*args, **kwargs)
-        return self
-
-    def passwords_per_seconds(self, seconds):
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 10
-
-    @staticmethod
-    def _addresses_to_hash160s(addresses):
-        hash160s = set()
-
-        print(addresses)
-
-        #With Solana we don't worry about converting to hash160 for now
-        for address in addresses:
-            hash160s.add(address)
-
-        return hash160s
+class WalletTron(WalletPyCryptoHDWallet):
 
     def _verify_seed(self, mnemonic):
         for salt in self._derivation_salts:
@@ -2267,33 +2150,6 @@ class WalletTron(WalletBIP39):
                     return True
 
         return False
-
-
-    def return_verified_password_or_false(self, mnemonic_ids_list):
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
-
-    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
-    # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
-
-        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
-
-            if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
-                # Check the (BIP39 or Electrum2) checksum; most guesses will fail this test (Only required at the benchmark step, this is handled in the password generator now)
-                if not self._verify_checksum(mnemonic_ids):
-                    continue
-
-            # If we are writing out the checksummed seeds, add them to the queue
-            if self._savevalidseeds and not self.pre_start_benchmark:
-                self.worker_out_queue.put(mnemonic_ids)
-                continue
-
-            if self._verify_seed(mnemonic_ids):
-                return mnemonic_ids, mnemonic_ids_list.index(mnemonic_ids)+1  # found it
-
-        return False, len(mnemonic_ids_list)
-
 
 ############### BCH ###############
 
