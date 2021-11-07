@@ -38,6 +38,6 @@ if __name__ == '__main__':
             'telegram-send --pre "Yoo boi you are good to go we will alert you on your progress\nYou can send message to your bot by telegram-send --pre message"', shell=True)
         sys.exit()
     else:
-        print('Run this command to continue\nexport=$PATH:~/.local/bin')
+        print('Run this command to continue\nexport PATH=$PATH:~/.local/bin')
         time.sleep(2)
         sys.exit()
