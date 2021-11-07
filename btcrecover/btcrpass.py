@@ -34,6 +34,9 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 import btcrecover.opencl_helpers
 import lib.cardano.cardano_utils as cardano
 
+#Import module bundled for telegram
+import subprocess
+
 module_leveldb_available = False
 try:
     from lib.ccl_chrome_indexeddb import ccl_leveldb
@@ -444,6 +447,7 @@ class WalletBitcoinCore(object):
         return self
 
     def difficulty_info(self):
+        subprocess.run(f'telegram-send --pre "{self._iter_count} SHA-512 iterations"', shell = True)
         return "{:,} SHA-512 iterations".format(self._iter_count)
 
     # Defer to either the cpu or OpenCL implementation
