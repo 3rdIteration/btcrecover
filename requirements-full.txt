@@ -5,4 +5,4 @@ pycryptodome~=3.9.9
 ecdsa==0.16.0
 groestlcoin_hash~=1.0.3
 eth-keyfile~=0.5.1
-py_crypto_hd_wallet~1.0.1
+py_crypto_hd_wallet~=1.0.1

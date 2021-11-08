@@ -68,6 +68,16 @@ def can_load_groestlcoin_hash():
 
     return is_groestlcoin_hash_loadable
 
+is_PyCryptoHDWallet_loadable = None
+def can_load_PyCryptoHDWallet():
+    global is_PyCryptoHDWallet_loadable
+    if is_PyCryptoHDWallet_loadable is None:
+        try:
+            import py_crypto_hd_wallet
+            is_PyCryptoHDWallet_loadable = True
+        except:
+            is_PyCryptoHDWallet_loadable = False
+    return is_PyCryptoHDWallet_loadable
 
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
@@ -829,14 +839,17 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletBCH, "bitcoincash:qz7753xzek843j50cgtc526wdmlpm5v5eyt92gznrt", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Tron(self):
         self.address_tester(btcrseed.WalletTron, "TLDrhbxkBGa1doxtez2bEx4iQ3DmKg9UdM", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Avalanche(self):
         self.address_tester(btcrseed.WalletAvalanche, "X-avax1mpf7j47w7t3xt32g3vzm0zvzy35d7t5twv2ax3", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Solana(self):
         self.address_tester(btcrseed.WalletSolana, "HDnS8HELzQ4oef1TLzxyifhiWgmnWALvJXBjkva9JMyU", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
