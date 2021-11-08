@@ -16,18 +16,21 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
 
 ## Features ##
 * Seed/Passphrase Recovery when for: (Recovery without a known address requires an [Address Database](docs/Creating_and_Using_AddressDB.md))
+    * Avalanche
     * Bitcoin
     * Bitcoin Cash
     * Cardano (Shelley Era Addresses)
-    * Ethereum
-    * Litecoin
     * Dash
-    * Dogecoin
-    * Vertcoin
-    * Monacoin
     * DigiByte
-    * Groestlcoin (Requires groestlcoin_hash module installed via PIP)
+    * Dogecoin
+    * Ethereum
+    * Groestlcoin
+    * Litecoin
+    * Monacoin
     * Ripple
+    * Solana
+    * Tron
+    * Vertcoin
     * Zilliqa
     * And many other 'Bitcoin Like' cryptos
  * [Descrambling 12 word seeds](docs/BIP39_descrambling_seedlists.md) (Using Tokenlist feature for BIP39 seeds via seedrecover.py)

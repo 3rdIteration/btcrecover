@@ -73,4 +73,8 @@ Seed from Yoroi, Adalite or Daedalus (Working as a software wallet), using a sta
 ```
 python seedrecover.py --wallet-type cardano --addrs stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy --mnemonic "cave table seven there limit fat decorate middle gold ten battle trigger luggage demand"
 ```
-
+### Basic Tron Recoveries
+One missing word, address generation limit of 1. (So address needs to be in the first account)
+```
+python seedrecover.py --wallet-type tron --addrs TLxkYzNpMCEz5KThVuZzoyjde1UfsJKof6 --mnemonic "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch" --addr-limit 1
+```

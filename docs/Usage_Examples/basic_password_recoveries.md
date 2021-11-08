@@ -159,6 +159,12 @@ python btcrecover.py --wallet-type ripple --addrs rwv2s1wPjaCxmEFRm4j724yQ5Lh161
 ```
 <br>
 
+Basic Tron Command, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) 
+```
+python btcrecover.py --wallet-type tron --addrs TGvJrj5D8qdzhcppg9RoLdfbEjDYCne8xc --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch" 
+```
+<br>
+
 ## Brainwallets
 **Notes**
 Brainwallets are a very old (**and very unsafe**) type of wallet. Given this, most of them still produce addresses based on "uncompressed"

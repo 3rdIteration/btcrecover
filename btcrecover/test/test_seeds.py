@@ -837,6 +837,11 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletAvalanche, "X-avax1mpf7j47w7t3xt32g3vzm0zvzy35d7t5twv2ax3", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
 
+    def test_WalletPyCryptoHDWallet_Solana(self):
+        self.address_tester(btcrseed.WalletSolana, "HDnS8HELzQ4oef1TLzxyifhiWgmnWALvJXBjkva9JMyU", 2,
+                            "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
+
+
     # Test to ensure that bundled derivation path files work correctly
     def test_pathfile_BTC_Electrum_Legacy(self):
         self.address_tester(btcrseed.WalletElectrum2, "LcgWmmHWX3FdysFCFaNGDTywQBcCepvrQ8", 5,

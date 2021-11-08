@@ -56,11 +56,21 @@ try:
 except:
     pass
 
+# Eth Keystore Libraries
 module_eth_keyfile_available = False
 try:
     import eth_keyfile
 
     module_eth_keyfile_available = True
+except:
+    pass
+
+# PY Crypto HD wallet module
+py_crypto_hd_wallet_available = False
+try:
+    import py_crypto_hd_wallet
+
+    py_crypto_hd_wallet_available = True
 except:
     pass
 
@@ -3643,6 +3653,75 @@ class WalletCardano(WalletBIP39):
 
         return False, len(arg_passwords)
 
+############### Py_Crypto_HD_Wallet Based Wallets ####################
+class WalletPyCryptoHDWallet(WalletBIP39):
+    def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
+                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
+        from . import btcrseed
+
+        wallet_type = wallet_type.lower()
+
+        wallet_type_names = []
+        for cls, desc in btcrseed.selectable_wallet_classes:
+            wallet_type_name = cls.__name__.replace("Wallet", "", 1).lower()
+            wallet_type_names.append(cls.__name__.replace("Wallet", "", 1).lower())
+            if wallet_type_names[-1] == wallet_type:
+                btcrseed_cls = cls
+                break
+        else:
+            wallet_type_names.sort()
+            sys.exit("--wallet-type must be one of: " + ", ".join(wallet_type_names))
+
+        global disable_security_warnings
+        btcrseed_cls.set_securityWarningsFlag(disable_security_warnings)
+        global normalize, hmac
+        from unicodedata import normalize
+        import hmac
+
+        # Create a btcrseed.WalletBIP39 object which will do most of the work;
+        # this also interactively prompts the user if not enough command-line options were included
+        if addressdb_filename:
+            from .addressset import AddressSet
+            print("Loading address database ...")
+            hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
+        else:
+            hash160s = None
+
+        self.btcrseed_wallet = btcrseed_cls.create_from_params(
+            mpk, addresses, address_limit, hash160s, path, is_performance)
+
+        if is_performance and not mnemonic:
+            mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
+        self.btcrseed_wallet.config_mnemonic(mnemonic, lang)
+
+        # Verify that the entered mnemonic is valid
+        if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
+            error_exit("one or more words are missing from the mnemonic")
+        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+            error_exit("invalid mnemonic (the checksum is wrong)")
+        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        self.btcrseed_wallet._checksum_ratio = 1
+
+        self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
+
+    def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
+        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
+          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def _return_verified_password_or_false_cpu(self, passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), passwords)
+
+        for count, password in enumerate(passwords, 1):
+
+            if self.btcrseed_wallet._verify_seed(mnemonic = self._mnemonic.split(" "), passphrase = password):
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
+
 ############### Cadano Yoroi Wallet ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
@@ -5278,6 +5357,9 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         if args.wallet_type == "cardano":
             loaded_wallet = WalletCardano(args.addrs, args.addressdb, mnemonic,
                                         args.language, args.bip32_path, args.performance)
+        elif args.wallet_type in ['avalanche', 'tron', 'solana']:
+            loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+                                    args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)

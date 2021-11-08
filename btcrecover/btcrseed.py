@@ -2090,20 +2090,29 @@ class WalletPyCryptoHDWallet(WalletBIP39):
 
 ############### Solana ###############
 
-@register_selectable_wallet_class('Solana BIP39/44')
+@register_selectable_wallet_class('Solana BIP39/44 (Currently only on m/44\'/501\'/0\'/0\' derivation path)')
 class WalletSolana(WalletPyCryptoHDWallet):
 
-    def _verify_seed(self, mnemonic):
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
 
-        wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.SOLANA)
+        for salt in testSaltList:
 
-        wallet2 = wallet.CreateFromMnemonic("Solana"," ".join(mnemonic))
-        wallet2.Generate()
+            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.SOLANA)
 
-        testAddress = wallet2.ToDict()['change_key']['address']
+            wallet2 = wallet.CreateFromMnemonic("Solana", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
 
-        if testAddress in self._known_hash160s:
-            return True
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
+                                 change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
+
+                testAddress = wallet2.ToDict()['change_key']['address']
+
+                if testAddress in self._known_hash160s:
+                    return True
 
         return False
 
@@ -2112,8 +2121,13 @@ class WalletSolana(WalletPyCryptoHDWallet):
 @register_selectable_wallet_class('Avalanche BIP39/44 (X-Addresses)')
 class WalletAvalanche(WalletPyCryptoHDWallet):
 
-    def _verify_seed(self, mnemonic):
-        for salt in self._derivation_salts:
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
 
             wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.AVAX_X_CHAIN)
 
@@ -2135,8 +2149,13 @@ class WalletAvalanche(WalletPyCryptoHDWallet):
 @register_selectable_wallet_class('Tron BIP39/44')
 class WalletTron(WalletPyCryptoHDWallet):
 
-    def _verify_seed(self, mnemonic):
-        for salt in self._derivation_salts:
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
 
             wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.TRON)
 
