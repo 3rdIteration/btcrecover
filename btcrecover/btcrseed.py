@@ -2170,6 +2170,27 @@ class WalletTron(WalletPyCryptoHDWallet):
 
         return False
 
+############### Cosmos ###############
+    
+@register_selectable_wallet_class('Cosmos BIP44')
+class WalletCosmos(WalletPyCryptoHDWallet):
+
+    def _verify_seed(self, mnemonic):
+        for salt in self._derivation_salts:
+
+            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.COSMOS)
+
+            wallet2 = wallet.CreateFromMnemonic("Cosmos", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
+                                 change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
+
+                if wallet2.ToDict()['address']['address_0']['address'] in self._known_hash160s:
+                    return True
+
+        return False
+
 ############### BCH ###############
 
 @register_selectable_wallet_class('BCH Standard BIP39/44')
