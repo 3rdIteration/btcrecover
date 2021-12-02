@@ -883,11 +883,16 @@ class WalletBIP32(WalletBase):
                         print("notice: address database file '"+ADDRESSDB_DEF_FILENAME+"' does not exist in current directory", file=sys.stderr)
                         sys.exit("canceled")
 
+            # There are some wallets where address generation limit doesn't apply at all...
+            if type(self) in [btcrecover.btcrseed.WalletPolkadotSubstrate]:
+                address_limit = 1
+
             if not address_limit:
                 init_gui()  # might not have been called yet
                 before_the = "one(s) you just entered" if addresses else "first one in actual use"
 
                 suggested_addr_limit = 10
+                # There are some wallets where account Generation limit isn't generally relevant, so suggest to set it as 1
                 if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana]:
                     suggested_addr_limit = 1
 
@@ -2206,6 +2211,42 @@ class WalletTron(WalletPyCryptoHDWallet):
 
         return False
 
+############### Polkadot (Substrate) ###############
+
+@register_selectable_wallet_class('Polkdadot Substrate Wallet (sr25519)')
+class WalletPolkadotSubstrate(WalletPyCryptoHDWallet):
+    substratePaths = [""]
+
+    def __init__(self, path = None, loading = False):
+        if not py_crypto_hd_wallet_available:
+            print()
+            print("ERROR: Cannot import py_crypto_hd_wallet which is required for Solana wallets, install it via 'pip3 install py_crypto_hd_wallet'")
+            exit()
+
+        if path:
+            self.substratePaths = path
+
+        super(WalletPyCryptoHDWallet, self).__init__(None, loading)
+
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+            wallet = py_crypto_hd_wallet.HdWalletSubstrateFactory(py_crypto_hd_wallet.HdWalletSubstrateCoins.POLKADOT)
+
+            wallet2 = wallet.CreateFromMnemonic("PolkadotSubstrate", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+            for path in self.substratePaths:
+                wallet2.Generate(path = path)
+                if wallet2.ToDict()['key']['address'] in self._known_hash160s:
+                    return True
+
+        return False
+
 ############### Helium ###############
 
 @register_selectable_wallet_class('Helium BIP39/44 & Mobile')
@@ -2767,6 +2808,7 @@ def main(argv):
         parser.add_argument("--min-typos",   type=int, metavar="COUNT", help="enforce a min # of mistakes per guess")
         parser.add_argument("--close-match",type=float,metavar="CUTOFF",help="try words which are less/more similar for each mistake (0.0 to 1.0, default: 0.65)")
         parser.add_argument("--passphrase",  action="store_true",       help="the mnemonic is augmented with a known passphrase (BIP39 or Electrum 2.x only)")
+        parser.add_argument("--passphrase-arg",  metavar="PASSPHRASE", nargs="+", help="the mnemonic is augmented with a known passphrase, entered directly as an argument (BIP39 or Electrum 2.x only)")
         parser.add_argument("--passphrase-list", metavar="FILE", help="Path to a file containing a list of passphrases to test")
         parser.add_argument("--passphrase-prompt", action="store_true", help="prompt for the mnemonic passphrase via the terminal (default: via the GUI)")
         parser.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
@@ -2774,6 +2816,7 @@ def main(argv):
         parser.add_argument("--mnemonic-length", type=int, metavar="WORD-COUNT", help="the length of the correct mnemonic (default: auto)")
         parser.add_argument("--language",    metavar="LANG-CODE",       help="the wordlist language to use (see wordlists/README.md, default: auto)")
         parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
+        parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
@@ -2961,6 +3004,8 @@ def main(argv):
                     break
                 print("The passphrases did not match, try again.")
             config_mnemonic_params["passphrases"] = [passphrase,]
+        elif args.passphrase_arg:
+            config_mnemonic_params["passphrases"] = args.passphrase_arg
         elif args.passphrase or args.passphrase_list:
             config_mnemonic_params["passphrases"] = True  # config_mnemonic() will prompt for one
 
@@ -2998,9 +3043,15 @@ def main(argv):
             else:
                 create_from_params["path"] = args.bip32_path
 
+        if args.substrate_path and not args.pathlist:
+            if args.wallet:
+                print("warning: --bip32-path is ignored when a wallet is provided", file=sys.stderr)
+            else:
+                create_from_params["path"] = args.substrate_path
+
         if args.pathlist:
             if args.bip32_path:
-                print("warning: Pathlist overrides any --bip32-path provided", file=sys.stderr)
+                print("warning: Pathlist overrides any --bip32-path or --substrate-path provided", file=sys.stderr)
             create_from_params["path"] = load_pathlist(args.pathlist)
 
         if args.force_p2sh:

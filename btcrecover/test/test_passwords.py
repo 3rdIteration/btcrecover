@@ -1577,12 +1577,11 @@ class Test08BIP39Passwords(unittest.TestCase):
         pool.close()
         pool.join()
 
-    def WalletPyCryptoHDWallet_tester(self, *args, **kwargs):
+    def WalletPyCryptoHDWallet_tester(self, correct_pass = "btcr-test-password", *args, **kwargs):
 
         wallet = btcrpass.WalletPyCryptoHDWallet(*args, **kwargs)
 
         # Perform the tests in the current process
-        correct_pass = "btcr-test-password"
         self.assertEqual(wallet._return_verified_password_or_false_cpu(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
         self.assertEqual(wallet._return_verified_password_or_false_cpu(
@@ -1659,6 +1658,17 @@ class Test08BIP39Passwords(unittest.TestCase):
             address_limit=1,
             addresses=  ["X-avax170r6a4nwudym6tx494nxgdatpep2gvpm40h4tg"],
             mnemonic=   "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch"
+        )
+
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_address_PyCryptoHDWallet_polkadotsubstrate(self):
+        self.WalletPyCryptoHDWallet_tester(
+            path = ["//hard/soft"],
+            correct_pass = "btcr-test-password",
+            wallet_type="polkadotsubstrate",
+            address_limit=1,
+            addresses=  ["12uMBgecqfkHTYZE4GFRx847CwR7sfs2bTdPbPLpzeMDGFwC"],
+            mnemonic=   "toilet assume drama keen dust warrior stick quote palace imitate music disease"
         )
 
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")

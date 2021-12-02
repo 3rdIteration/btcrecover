@@ -4716,6 +4716,7 @@ def init_parser_common():
         bip39_group.add_argument("--addr-limit", type=int, metavar="COUNT",    help="if using addrs or addressdb, the generation limit")
         bip39_group.add_argument("--language",   metavar="LANG-CODE",   help="the wordlist language to use (see wordlists/README.md, default: auto)")
         bip39_group.add_argument("--bip32-path", metavar="PATH",        nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
+        bip39_group.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         bip39_group.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
         bip39_group.add_argument("--mnemonic-prompt", action="store_true", help="prompt for the mnemonic guess via the terminal (default: via the GUI)")
         bip39_group.add_argument("--wallet-type",     metavar="TYPE",      help="the wallet type, e.g. ethereum (default: bitcoin)")
@@ -5362,6 +5363,9 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         elif args.wallet_type in ['avalanche', 'tron', 'solana']:
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
+        elif args.wallet_type in ['polkadotsubstrate']:
+            loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+                                    args.language, args.substrate_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)

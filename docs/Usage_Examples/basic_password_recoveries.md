@@ -165,6 +165,15 @@ python btcrecover.py --wallet-type tron --addrs TGvJrj5D8qdzhcppg9RoLdfbEjDYCne8
 ```
 <br>
 
+Basic Polkadot(Substrate) Command, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) 
+
+This command will search for the correct "secret derivation path"
+```
+python btcrecover.py --wallet-type polkadotsubstrate --addrs 12uMBgecqfkHTYZE4GFRx847CwR7sfs2bTdPbPLpzeMDGFwC --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "toilet assume drama keen dust warrior stick quote palace imitate music disease" --substrate-path "//hard/soft"
+```
+<br>
+
+
 ## Brainwallets
 **Notes**
 Brainwallets are a very old (**and very unsafe**) type of wallet. Given this, most of them still produce addresses based on "uncompressed"
