@@ -3536,7 +3536,7 @@ class WalletSLIP39(object):
     opencl_algo = -1
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = "SLIP39 Placeholder", lang = None, path = None, wallet_type = "bip39", is_performance = False):
+                 slip39_shares = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
@@ -3544,7 +3544,7 @@ class WalletSLIP39(object):
         wallet_type_names = []
         for cls, desc in btcrseed.selectable_wallet_classes:
             wallet_type_name = cls.__name__.replace("Wallet", "", 1).lower()
-            if "electrum" in wallet_type_name: # Don't include seeds in the list of options for passphrase recovery
+            if wallet_type_name not in ["ethereum", "bip39", "litecoin", "dogecoin", "bch", "dash", "ripple"]: # SLIP39 implementation only supports common coins for now (Covers most of Trezor T)
                 continue
             else:
                 wallet_type_names.append(cls.__name__.replace("Wallet", "", 1).lower())
@@ -3553,7 +3553,7 @@ class WalletSLIP39(object):
                 break
         else:
             wallet_type_names.sort()
-            sys.exit("--wallet-type must be one of: " + ", ".join(wallet_type_names))
+            sys.exit("For SLIP39, --wallet-type must be one of: " + ", ".join(wallet_type_names))
 
         global disable_security_warnings
         btcrseed_cls.set_securityWarningsFlag(disable_security_warnings)
@@ -3576,10 +3576,10 @@ class WalletSLIP39(object):
 
         self.btcrseed_wallet._derivation_salts = [""]
 
-        print(mnemonic)
+        if is_performance and not slip39_shares:
+            slip39_shares = ["duckling enlarge academic academic agency result length solution fridge kidney coal piece deal husband erode duke ajar critical decision keyboard"]
 
         # Gather the SLIP39 Shares
-
         recovery_state = shamir_mnemonic.recovery.RecoveryState()
 
         def print_group_status(idx: int) -> None:
@@ -3604,7 +3604,10 @@ class WalletSLIP39(object):
 
         while not recovery_state.is_complete():
             try:
-                mnemonic_str = click.prompt("Enter a recovery share")
+                if len(slip39_shares) > 0:
+                    mnemonic_str = slip39_shares.pop()
+                else:
+                    mnemonic_str = click.prompt("Enter a recovery share")
                 share = shamir_mnemonic.share.Share.from_mnemonic(mnemonic_str)
                 if not recovery_state.matches(share):
                     error("This mnemonic is not part of the current set. Please try again.")
@@ -3621,17 +3624,9 @@ class WalletSLIP39(object):
             except Exception as e:
                 error(str(e))
 
-
         self.recovery_state = recovery_state
 
-        # if is_performance and not mnemonic:
-        #     mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
-        # self.btcrseed_wallet.config_mnemonic(mnemonic, lang)
-        #
-
         self.btcrseed_wallet._checksum_ratio = 1
-        #
-        # self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
@@ -3642,7 +3637,7 @@ class WalletSLIP39(object):
         self.__dict__ = state
 
     def passwords_per_seconds(self, seconds):
-        return 5000
+        return 500
 
     def difficulty_info(self):
         return "40,000 PBKDF2-SHA256 iterations + ECC"
@@ -4904,6 +4899,7 @@ def init_parser_common():
         bip39_group = parser_common.add_argument_group("BIP-39/SLIP39 passwords")
         bip39_group.add_argument("--bip39",      action="store_true",   help="search for a BIP-39 passphrase instead of from a wallet")
         bip39_group.add_argument("--slip39",      action="store_true",   help="search for a SLIP-39 passphrase instead of from a wallet")
+        bip39_group.add_argument("--slip39-shares",  metavar="SLIP39-MNEMONIC", nargs="+",   help="SLIP39 Share Mnemonics")
         bip39_group.add_argument("--mpk",        metavar="XPUB",        help="the master public key")
         bip39_group.add_argument("--addrs",      metavar="ADDRESS", nargs="+", help="if not using an mpk, address(es) in the wallet")
         bip39_group.add_argument("--addressdb",  metavar="FILE",    nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
@@ -5561,7 +5557,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.substrate_path, args.wallet_type, args.performance)
         elif args.slip39:
-            loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+            loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
