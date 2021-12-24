@@ -268,3 +268,20 @@ Do a basic recovery with a command like the one below. (This command uses a samp
 ```
 python btcrecover.py --wallet ./btcrecover/test/test-wallets/utc-keystore-v3-scrypt-myetherwallet.json --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
+
+## SLIP39 Passphrases
+This uses much of the same syntax as recovering BIP39 passphrases. BTCRecover currently supports most of the coins that are supported by the Trezor T.
+
+The main difference is that instead of entering a single mnemonic, you can either enter the SLIP39 shares via the command line as below, or you will be promtpted for them. You need to have a quorum of SLIP39 shares to be able to do a passphrase recovery...
+
+Basic Bitcoin Command, so no need to specify `--wallet-type` This will support all Bitcoin address types (Legacy, Segwit or Native Segwit) without the need to add any additional parameters.
+```
+python btcrecover.py --slip39 --addrs bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"
+```
+<br>
+
+Basic Ethereum Command, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied)
+```
+python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcBee4D51646cA6247487Ef91a --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"
+```
+<br>

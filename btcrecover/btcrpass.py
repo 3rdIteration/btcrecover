@@ -3537,6 +3537,12 @@ class WalletSLIP39(object):
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
                  slip39_shares = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
+
+        if not shamir_mnemonic_available:
+            print()
+            print("ERROR: Cannot import shamir-mnemonic which is required for SLIP39 wallets, install it via 'pip3 install shamir-mnemonic'")
+            exit()
+
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
@@ -3544,7 +3550,7 @@ class WalletSLIP39(object):
         wallet_type_names = []
         for cls, desc in btcrseed.selectable_wallet_classes:
             wallet_type_name = cls.__name__.replace("Wallet", "", 1).lower()
-            if wallet_type_name not in ["ethereum", "bip39", "litecoin", "dogecoin", "bch", "dash", "ripple"]: # SLIP39 implementation only supports common coins for now (Covers most of Trezor T)
+            if wallet_type_name not in ["ethereum", "bip39", "litecoin", "dogecoin", "bch", "dash", "ripple", "digibyte", "vertcoin"]: # SLIP39 implementation only supports common coins for now (Covers most of Trezor T)
                 continue
             else:
                 wallet_type_names.append(cls.__name__.replace("Wallet", "", 1).lower())
@@ -3579,7 +3585,13 @@ class WalletSLIP39(object):
         if is_performance and not slip39_shares:
             slip39_shares = ["duckling enlarge academic academic agency result length solution fridge kidney coal piece deal husband erode duke ajar critical decision keyboard"]
 
+        print("\nLoading SLIP39 Shares")
+
         # Gather the SLIP39 Shares
+        # Implementation is a lightly modified version of the recover function from cli.py in the shamir-mnemonic repository
+        # https://github.com/trezor/python-shamir-mnemonic/blob/master/shamir_mnemonic/cli.py
+        # Licence in the Licences folder...
+
         recovery_state = shamir_mnemonic.recovery.RecoveryState()
 
         def print_group_status(idx: int) -> None:
@@ -3623,6 +3635,8 @@ class WalletSLIP39(object):
                 return
             except Exception as e:
                 error(str(e))
+
+        print("\nSLIP39 Shares Successfully Loaded\n")
 
         self.recovery_state = recovery_state
 
