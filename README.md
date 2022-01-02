@@ -30,6 +30,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
     * Monacoin
     * Ripple
     * Solana
+    * Stellar
     * Tron
     * Vertcoin
     * Zilliqa

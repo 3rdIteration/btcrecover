@@ -2180,6 +2180,32 @@ class WalletAvalanche(WalletPyCryptoHDWallet):
 
         return False
 
+
+############### Stellar ###############
+
+@register_selectable_wallet_class('Stellar BIP39/44')
+class WalletStellar(WalletPyCryptoHDWallet):
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.STELLAR)
+
+            wallet2 = wallet.CreateFromMnemonic("Stellar", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
+                                 change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
+
+                if wallet2.ToDict()['account_key']['address'] in self._known_hash160s:
+                    return True
+
+        return False
+
 ############### Tron ###############
 
 @register_selectable_wallet_class('Tron BIP39/44')
@@ -2514,26 +2540,6 @@ class WalletRipple(WalletBIP39):
         self = super(WalletRipple, cls).create_from_params(*args, **kwargs)
         return self
 
-############### Stellar ###############
-
-@register_selectable_wallet_class('Stellar BIP44')
-class WalletStellar(WalletPyCryptoHDWallet):
-
-    def _verify_seed(self, mnemonic):
-        for salt in self._derivation_salts:
-
-            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.STELLAR)
-
-            wallet2 = wallet.CreateFromMnemonic("Stellar", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
-
-            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
-                wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
-                                 change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
-
-                if wallet2.ToDict()['address']['address_0']['address'] in self._known_hash160s:
-                    return True
-
-        return False
 
 ################################### Main ###################################
 
