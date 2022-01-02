@@ -95,6 +95,8 @@ This command will take a few minutes to run and should complete without errors, 
 
 # Wallet Python Package Requirements #
 
+If you want to install all requirements for all wallet types, you can simply use the command `pip3 install -r requirements-full.txt`
+
 Locate your wallet type in the list below, and follow the instructions for only the sections listed next to your wallet.
 
  * Bitcoin Core - optional: [PyCryptoDome](#pycryptodome)
@@ -117,7 +119,15 @@ Locate your wallet type in the list below, and follow the instructions for only 
  * Dogecoin Core -  optional: [PyCryptoDome](#pycryptodome)
  * MultiDoge - recommended: [PyCryptoDome](#pycryptodome)
  * Dogecoin Wallet for Android - recommended: [PyCryptoDome](#pycryptodome)
-
+ * SLIP39 Wallets: [shamir-mnemonic](#shamir-mnemonic)
+ * Py_Crypto_HD_Wallet Based BIP39 Wallets: [py_crypto_hd_wallet](#py_crypto_hd_wallet)
+    * Avalanche
+    * Solana
+    * Tron
+ * Helium BIP39 Wallets: [pynacl](#pynacl) and [bitstring](#bitstring)
+ * Eth Keystore Files: [eth-keyfile](#eth-keyfile)
+ * Groestlecoin BIP39 Wallets: [groestlcoin_hash](#groestlcoin_hash)
+ * BIP38 Encrypted Private Keys: [ecdsa](#ecdsa)
 
 ----------
 

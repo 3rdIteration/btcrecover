@@ -1,4 +1,4 @@
-coincurve~=15.0.0
-green~=3.2.5
-protobuf~=3.14.0
-pycryptodome~=3.9.9
+coincurve~=15.0.1
+green~=3.3.0
+protobuf~=3.19.1
+pycryptodome~=3.12.0

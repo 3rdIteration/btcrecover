@@ -886,6 +886,11 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletStellar, "GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z", 2,
                             "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_WalletPyCryptoHDWallet_PolkadotSubstrate(self):
+        self.address_tester(btcrseed.WalletPolkadotSubstrate, "13SsWBQSN6Se72PCaMa6huPXEosRNUXN3316yAycS6rpy3tK", 1,
+                            "toilet assume drama keen dust warrior stick quote palace imitate music disease")
+
     @skipUnless(can_load_nacl, "requires nacl module")
     @skipUnless(can_load_bitstring, "requires bitstring module")
     def test_Helium_mobile(self):
