@@ -442,8 +442,8 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
             progress_bar = progressbar.ProgressBar(maxval=filenum-first_filenum, widgets=block_bar_widgets)
             progress_bar.start()
         else:
-            print("Started Timestamp     Block file       Address Count")
-            print("-------------------   ------------     -------------")
+            print("Started Timestamp     Block file       Address Count     Last Block DateTime")
+            print("-------------------   ------------     -------------     -------------------")
             # e.g. blk00943.dat   255,212,706
 
         for filenum in itertools.count(first_filenum):
@@ -549,7 +549,8 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                     progress_bar.maxval = nextval
                 progress_bar.update(nextval)
             else:
-                print("   {:13,}".format(len(address_set)))
+                print("   {:13,}".format(len(address_set)), end="")
+                print("    ", blockDate)
 
         if progress_bar:
             progress_bar.widgets.pop()  # remove the ETA

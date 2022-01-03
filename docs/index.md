@@ -28,14 +28,27 @@ If you have found a bug, please open an issue on Github here: [https://github.co
     * Dogecoin
     * Ethereum
     * Groestlcoin
+    * Helium
     * Litecoin
     * Monacoin
+    * Polkadot (sr25519, like those produced by polkadot.js)
     * Ripple
     * Solana
+    * Stellar
     * Tron
     * Vertcoin
     * Zilliqa
     * And many other 'Bitcoin Like' cryptos
+ * SLIP39 Passphrase Recovery for most coins supported by the Trezor T
+    * Bitcoin
+    * Bitcoin Cash
+    * Dash
+    * Digibyte
+    * Dogecoin
+    * Ethereum
+    * Litecoin
+    * Ripple
+    * Vertcoin
  * [Descrambling 12 word seeds](BIP39_descrambling_seedlists.md) (Using Tokenlist feature for BIP39 seeds via seedrecover.py)
  * Wallet File password recovery for a range of wallets
 

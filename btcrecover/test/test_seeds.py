@@ -79,6 +79,28 @@ def can_load_PyCryptoHDWallet():
             is_PyCryptoHDWallet_loadable = False
     return is_PyCryptoHDWallet_loadable
 
+is_nacl_loadable = None
+def can_load_nacl():
+    global is_nacl_loadable
+    if is_nacl_loadable is None:
+        try:
+            import nacl.bindings
+            is_nacl_loadable = True
+        except:
+            is_nacl_loadable = False
+    return is_nacl_loadable
+
+is_bitstring_loadable = None
+def can_load_bitstring():
+    global is_bitstring_loadable
+    if is_bitstring_loadable is None:
+        try:
+            import bitstring
+            is_bitstring_loadable = True
+        except:
+            is_bitstring_loadable = False
+    return is_bitstring_loadable
+
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
 # permits checking the character mode (which isn't set until later) and prevents multiprocessing
@@ -353,7 +375,6 @@ class TestRecoveryFromAddress(unittest.TestCase):
 
     def address_tester(self, wallet_type, the_address, the_address_limit, correct_mnemonic, test_path=None,
                        pathlist_file=None, addr_start_index = 0, force_p2sh = False, **kwds):
-        assert the_address_limit > 1
 
         if pathlist_file:
             test_path = btcrseed.load_pathlist("./derivationpath-lists/" + pathlist_file)
@@ -384,16 +405,17 @@ class TestRecoveryFromAddress(unittest.TestCase):
             (wrong_mnemonic_iter.__next__(), correct_mnemonic_ids, wrong_mnemonic_iter.__next__())),
             (correct_mnemonic_ids, 2))
 
-        # Make sure the address_limit is respected (note the "the_address_limit-1" below)
-        if test_path == None:
-            wallet = wallet_type.create_from_params(addresses=[the_address], address_limit=the_address_limit - 1)
-        else:
-            wallet = wallet_type.create_from_params(addresses=[the_address], address_limit=the_address_limit - 1,
-                                                    path=test_path)
+        if the_address_limit > 1:
+            # Make sure the address_limit is respected (note the "the_address_limit-1" below)
+            if test_path == None:
+                wallet = wallet_type.create_from_params(addresses=[the_address], address_limit=the_address_limit - 1)
+            else:
+                wallet = wallet_type.create_from_params(addresses=[the_address], address_limit=the_address_limit - 1,
+                                                        path=test_path)
 
-        wallet.config_mnemonic(correct_mnemonic, **kwds)
-        self.assertEqual(wallet.return_verified_password_or_false(
-            (correct_mnemonic_ids,)), (False, 1))
+            wallet.config_mnemonic(correct_mnemonic, **kwds)
+            self.assertEqual(wallet.return_verified_password_or_false(
+                (correct_mnemonic_ids,)), (False, 1))
 
     def address_tester_cardano(self, the_address, correct_mnemonic):
 
@@ -864,6 +886,27 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletSolana, "HDnS8HELzQ4oef1TLzxyifhiWgmnWALvJXBjkva9JMyU", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_WalletPyCryptoHDWallet_Stellar(self):
+        self.address_tester(btcrseed.WalletStellar, "GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z", 2,
+                            "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
+
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_WalletPyCryptoHDWallet_PolkadotSubstrate(self):
+        self.address_tester(btcrseed.WalletPolkadotSubstrate, "13SsWBQSN6Se72PCaMa6huPXEosRNUXN3316yAycS6rpy3tK", 1,
+                            "toilet assume drama keen dust warrior stick quote palace imitate music disease")
+
+    @skipUnless(can_load_nacl, "requires nacl module")
+    @skipUnless(can_load_bitstring, "requires bitstring module")
+    def test_Helium_mobile(self):
+        self.address_tester(btcrseed.WalletHelium, "13hP2Vb1XVcMYrVNdwUW4pF3ZDj8CnET92zzUHqYp7DxxzVASbB", 1,
+                            "arm hundred pride female steel describe tip physical weapon peace write advice")
+
+    @skipUnless(can_load_nacl, "requires nacl module")
+    @skipUnless(can_load_bitstring, "requires bitstring module")
+    def test_Helium_bip39(self):
+        self.address_tester(btcrseed.WalletHelium, "14qWwWH3JZcYkqvbmziU4J12nKQPabp5GkKUmmZi4n94YQ7LbwS", 1,
+                            "rather ensure noble bargain armor hold embody friend ahead senior earth result")
 
     # Test to ensure that bundled derivation path files work correctly
     def test_pathfile_BTC_Electrum_Legacy(self):

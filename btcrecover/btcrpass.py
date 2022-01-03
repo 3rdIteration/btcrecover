@@ -74,6 +74,31 @@ try:
 except:
     pass
 
+# Shamir-Mnemonic module
+shamir_mnemonic_available = False
+try:
+    import shamir_mnemonic
+
+    from shamir_mnemonic.recovery import RecoveryState
+    from shamir_mnemonic.shamir import generate_mnemonics
+    from shamir_mnemonic.share import Share
+    from shamir_mnemonic.utils import MnemonicError
+
+    import click
+    from click import style
+
+    FINISHED = style("\u2713", fg="green", bold=True)
+    EMPTY = style("\u2717", fg="red", bold=True)
+    INPROGRESS = style("\u25cf", fg="yellow", bold=True)
+
+
+    def error(s: str) -> None:
+        click.echo(style("ERROR: ", fg="red") + s)
+
+    shamir_mnemonic_available = True
+except:
+    pass
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 # The progressbar module is recommended but optional; it is typically
@@ -3504,6 +3529,183 @@ class WalletBIP39(object):
 
         return False, count
 
+############### SLIP-39 ###############
+
+# @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
+class WalletSLIP39(object):
+    opencl_algo = -1
+
+    def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
+                 slip39_shares = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
+
+        if not shamir_mnemonic_available:
+            print()
+            print("ERROR: Cannot import shamir-mnemonic which is required for SLIP39 wallets, install it via 'pip3 install shamir-mnemonic'")
+            exit()
+
+        from . import btcrseed
+
+        wallet_type = wallet_type.lower()
+
+        wallet_type_names = []
+        for cls, desc in btcrseed.selectable_wallet_classes:
+            wallet_type_name = cls.__name__.replace("Wallet", "", 1).lower()
+            if wallet_type_name not in ["ethereum", "bip39", "litecoin", "dogecoin", "bch", "dash", "ripple", "digibyte", "vertcoin"]: # SLIP39 implementation only supports common coins for now (Covers most of Trezor T)
+                continue
+            else:
+                wallet_type_names.append(cls.__name__.replace("Wallet", "", 1).lower())
+            if wallet_type_names[-1] == wallet_type:
+                btcrseed_cls = cls
+                break
+        else:
+            wallet_type_names.sort()
+            sys.exit("For SLIP39, --wallet-type must be one of: " + ", ".join(wallet_type_names))
+
+        global disable_security_warnings
+        btcrseed_cls.set_securityWarningsFlag(disable_security_warnings)
+        global normalize, hmac
+        from unicodedata import normalize
+        import hmac
+        load_pbkdf2_library()
+
+        # Create a btcrseed.WalletBIP39 object which will do most of the work;
+        # this also interactively prompts the user if not enough command-line options were included
+        if addressdb_filename:
+            from .addressset import AddressSet
+            print("Loading address database ...")
+            hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
+        else:
+            hash160s = None
+
+        self.btcrseed_wallet = btcrseed_cls.create_from_params(
+            mpk, addresses, address_limit, hash160s, path, is_performance)
+
+        self.btcrseed_wallet._derivation_salts = [""]
+
+        if is_performance and not slip39_shares:
+            slip39_shares = ["duckling enlarge academic academic agency result length solution fridge kidney coal piece deal husband erode duke ajar critical decision keyboard"]
+
+        print("\nLoading SLIP39 Shares")
+
+        # Gather the SLIP39 Shares
+        # Implementation is a lightly modified version of the recover function from cli.py in the shamir-mnemonic repository
+        # https://github.com/trezor/python-shamir-mnemonic/blob/master/shamir_mnemonic/cli.py
+        # Licence in the Licences folder...
+
+        recovery_state = shamir_mnemonic.recovery.RecoveryState()
+
+        def print_group_status(idx: int) -> None:
+            group_size, group_threshold = recovery_state.group_status(idx)
+            group_prefix = style(recovery_state.group_prefix(idx), bold=True)
+            bi = style(str(group_size), bold=True)
+            if not group_size:
+                click.echo(f"{EMPTY} {bi} shares from group {group_prefix}")
+            else:
+                prefix = FINISHED if group_size >= group_threshold else INPROGRESS
+                bt = style(str(group_threshold), bold=True)
+                click.echo(f"{prefix} {bi} of {bt} shares needed from group {group_prefix}")
+
+        def print_status() -> None:
+            bn = style(str(recovery_state.groups_complete()), bold=True)
+            bt = style(str(recovery_state.parameters.group_threshold), bold=True)
+            click.echo()
+            if recovery_state.parameters.group_count > 1:
+                click.echo(f"Completed {bn} of {bt} groups needed:")
+            for i in range(recovery_state.parameters.group_count):
+                print_group_status(i)
+
+        while not recovery_state.is_complete():
+            try:
+                if len(slip39_shares) > 0:
+                    mnemonic_str = slip39_shares.pop()
+                else:
+                    mnemonic_str = click.prompt("Enter a recovery share")
+                share = shamir_mnemonic.share.Share.from_mnemonic(mnemonic_str)
+                if not recovery_state.matches(share):
+                    error("This mnemonic is not part of the current set. Please try again.")
+                    continue
+                if share in recovery_state:
+                    error("Share already entered.")
+                    continue
+
+                recovery_state.add_share(share)
+                print_status()
+
+            except click.Abort:
+                return
+            except Exception as e:
+                error(str(e))
+
+        print("\nSLIP39 Shares Successfully Loaded\n")
+
+        self.recovery_state = recovery_state
+
+        self.btcrseed_wallet._checksum_ratio = 1
+
+    def __setstate__(self, state):
+        # (re-)load the required libraries after being unpickled
+        global normalize, hmac
+        from unicodedata import normalize
+        import hmac
+        load_pbkdf2_library(warnings=False)
+        self.__dict__ = state
+
+    def passwords_per_seconds(self, seconds):
+        return 500
+
+    def difficulty_info(self):
+        return "40,000 PBKDF2-SHA256 iterations + ECC"
+
+    def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
+        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
+          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def _return_verified_password_or_false_cpu(self, passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), passwords)
+
+        for count, password in enumerate(passwords, 1):
+            master_secret = self.recovery_state.recover(password)
+
+            seed_bytes = hmac.new(b"Bitcoin seed", master_secret, hashlib.sha512).digest()
+
+            if self.btcrseed_wallet._verify_seed(seed_bytes):
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
+    def _return_verified_password_or_false_opencl(self, arg_passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        salt_list = []
+        for password in passwords:
+            if type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2:
+                salt_list.append(b"electrum" + password)
+            else:
+                salt_list.append(b"mnemonic" + password)
+
+        clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512, self._mnemonic.encode(), salt_list, 2048, 64)
+
+        #Placeholder until OpenCL kernel can be patched to support this...
+        #clResult = []
+        #for salt in salt_list:
+        #    clResult.append(pbkdf2_hmac("sha512", self._mnemonic.encode(), salt, 2048))
+
+        # This list is consumed, so recreated it and zip
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+
+        results = zip(passwords, clResult)
+
+        for count, (password, result) in enumerate(results, 1):
+            seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
+            if self.btcrseed_wallet._verify_seed(seed_bytes):
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
 
 ############### Cardano ###############
 
@@ -4708,14 +4910,17 @@ def init_parser_common():
         bip38_group = parser_common.add_argument_group("BIP-38 Encrypted Private Keys (eg: From Bitaddress Paper Wallets)")
         bip38_group.add_argument("--bip38-enc-privkey", metavar="ENC-PRIVKEY", help="encrypted private key")
         bip38_group.add_argument("--bip38-currency", metavar="Coin Code", help="Currency name from Bitcoinlib (eg: bitcoin, litecoin, dash)")
-        bip39_group = parser_common.add_argument_group("BIP-39 passwords")
-        bip39_group.add_argument("--bip39",      action="store_true",   help="search for a BIP-39 password instead of from a wallet")
+        bip39_group = parser_common.add_argument_group("BIP-39/SLIP39 passwords")
+        bip39_group.add_argument("--bip39",      action="store_true",   help="search for a BIP-39 passphrase instead of from a wallet")
+        bip39_group.add_argument("--slip39",      action="store_true",   help="search for a SLIP-39 passphrase instead of from a wallet")
+        bip39_group.add_argument("--slip39-shares",  metavar="SLIP39-MNEMONIC", nargs="+",   help="SLIP39 Share Mnemonics")
         bip39_group.add_argument("--mpk",        metavar="XPUB",        help="the master public key")
         bip39_group.add_argument("--addrs",      metavar="ADDRESS", nargs="+", help="if not using an mpk, address(es) in the wallet")
         bip39_group.add_argument("--addressdb",  metavar="FILE",    nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
         bip39_group.add_argument("--addr-limit", type=int, metavar="COUNT",    help="if using addrs or addressdb, the generation limit")
         bip39_group.add_argument("--language",   metavar="LANG-CODE",   help="the wordlist language to use (see wordlists/README.md, default: auto)")
         bip39_group.add_argument("--bip32-path", metavar="PATH",        nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
+        bip39_group.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         bip39_group.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
         bip39_group.add_argument("--mnemonic-prompt", action="store_true", help="prompt for the mnemonic guess via the terminal (default: via the GUI)")
         bip39_group.add_argument("--wallet-type",     metavar="TYPE",      help="the wallet type, e.g. ethereum (default: bitcoin)")
@@ -5362,9 +5567,16 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         elif args.wallet_type in ['avalanche', 'tron', 'solana']:
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
+        elif args.wallet_type in ['polkadotsubstrate']:
+            loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+                                    args.language, args.substrate_path, args.wallet_type, args.performance)
+        elif args.slip39:
+            loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
+                                    args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
+
 
     if args.yoroi_master_password:
         loaded_wallet = WalletYoroi(args.yoroi_master_password, args.performance)

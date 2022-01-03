@@ -26,6 +26,9 @@ disable_security_warnings = True
 # Import modules included in standard libraries
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
        unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
+import bisect
+from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
+
 
 # Import modules bundled with BTCRecover
 from . import btcrpass
@@ -38,6 +41,7 @@ import btcrecover.opencl_helpers
 from lib.pyzil.account import Account as zilliqa_account
 import lib.bech32 as bech32
 import lib.cardano.cardano_utils as cardano
+
 
 # Import modules from requirements.txt
 try:
@@ -62,6 +66,39 @@ try:
     py_crypto_hd_wallet_available = True
 except:
     pass
+
+nacl_available = False
+try:
+    import nacl.bindings
+
+    nacl_available = True
+except:
+    pass
+
+bitstring_available = False
+try:
+    from bitstring import BitArray
+
+    bitstring_available = True
+except:
+    pass
+
+
+
+_T = TypeVar("_T")
+
+# Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
+# From <https://stackoverflow.com/questions/212358/binary-search-bisection-in-python/2233940#2233940>
+def binary_search(
+        a: Sequence[_T],
+        x: _T,
+        lo: int = 0,
+        hi: Optional[int] = None,  # can't use a to specify default for hi
+) -> int:
+    hi = hi if hi is not None else len(a)  # hi defaults to len(a)
+    pos = bisect.bisect_left(a, x, lo, hi)  # find insertion position
+    return pos if pos != hi and a[pos] == x else -1  # don't walk off the end
+
 
 # Order of the base point generator, from SEC 2
 GENERATOR_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
@@ -846,11 +883,16 @@ class WalletBIP32(WalletBase):
                         print("notice: address database file '"+ADDRESSDB_DEF_FILENAME+"' does not exist in current directory", file=sys.stderr)
                         sys.exit("canceled")
 
+            # There are some wallets where address generation limit doesn't apply at all...
+            if type(self) in [btcrecover.btcrseed.WalletPolkadotSubstrate]:
+                address_limit = 1
+
             if not address_limit:
                 init_gui()  # might not have been called yet
                 before_the = "one(s) you just entered" if addresses else "first one in actual use"
 
                 suggested_addr_limit = 10
+                # There are some wallets where account Generation limit isn't generally relevant, so suggest to set it as 1
                 if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana,
                                   btcrecover.btcrseed.WalletCosmos, btcrecover.btcrseed.WalletStellar]:
                     suggested_addr_limit = 1
@@ -1036,7 +1078,7 @@ class WalletBIP32(WalletBase):
                             #print("Found match with Hash160: ", binascii.hexlify(test_hash160))
 
                             if(len(self._derivation_salts) > 1):
-                                print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt[8:])
+                                print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt.decode())
 
                             return True
         return False
@@ -2039,6 +2081,9 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         return self
 
     def passwords_per_seconds(self, seconds):
+        if self.opencl:
+            exit("Error: Wallet Type does not support OpenCL acceleration")
+
         if not self._passwords_per_second:
             scalar_multiplies = 0
             for i in self._path_indexes[0]: # Just use the first derivation path for this...
@@ -2064,13 +2109,9 @@ class WalletPyCryptoHDWallet(WalletBIP39):
 
         return hash160s
 
-    def return_verified_password_or_false(self, mnemonic_ids_list):
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
-
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
+    def return_verified_password_or_false(self, mnemonic_ids_list):
 
         for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
 
@@ -2145,6 +2186,32 @@ class WalletAvalanche(WalletPyCryptoHDWallet):
 
         return False
 
+
+############### Stellar ###############
+
+@register_selectable_wallet_class('Stellar BIP39/44')
+class WalletStellar(WalletPyCryptoHDWallet):
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.STELLAR)
+
+            wallet2 = wallet.CreateFromMnemonic("Stellar", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
+                                 change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
+
+                if wallet2.ToDict()['account_key']['address'] in self._known_hash160s:
+                    return True
+
+        return False
+
 ############### Tron ###############
 
 @register_selectable_wallet_class('Tron BIP39/44')
@@ -2171,12 +2238,46 @@ class WalletTron(WalletPyCryptoHDWallet):
 
         return False
 
+############### Polkadot (Substrate) ###############
+
+@register_selectable_wallet_class('Polkdadot Substrate Wallet (sr25519)')
+class WalletPolkadotSubstrate(WalletPyCryptoHDWallet):
+    substratePaths = [""]
+
+    def __init__(self, path = None, loading = False):
+        if not py_crypto_hd_wallet_available:
+            print()
+            print("ERROR: Cannot import py_crypto_hd_wallet which is required for Polkadot wallets, install it via 'pip3 install py_crypto_hd_wallet'")
+            exit()
+
+        if path:
+            self.substratePaths = path
+
+        super(WalletPyCryptoHDWallet, self).__init__(None, loading)
+
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+            wallet = py_crypto_hd_wallet.HdWalletSubstrateFactory(py_crypto_hd_wallet.HdWalletSubstrateCoins.POLKADOT)
+
+            wallet2 = wallet.CreateFromMnemonic("PolkadotSubstrate", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+            for path in self.substratePaths:
+                wallet2.Generate(path = path)
+                if wallet2.ToDict()['key']['address'] in self._known_hash160s:
+                  return True
+                
+        return False
+
 ############### Cosmos ###############
 
 @register_selectable_wallet_class('Cosmos BIP44')
 class WalletCosmos(WalletPyCryptoHDWallet):
-
-    def _verify_seed(self, mnemonic, passphrase = None):
+      def _verify_seed(self, mnemonic, passphrase = None):
         if passphrase:
             testSaltList = [passphrase]
         else:
@@ -2196,6 +2297,136 @@ class WalletCosmos(WalletPyCryptoHDWallet):
                     return True
 
         return False
+
+############### Helium ###############
+
+@register_selectable_wallet_class('Helium BIP39/44 & Mobile')
+class WalletHelium(WalletBIP39):
+
+    def __init__(self, path = None, loading = False):
+        if not nacl_available:
+            exit("Helium Wallet Requires the nacl module, this can be installed via pip3 install pynacl")
+        if not bitstring_available:
+            exit("Helium Wallet Requires the bitstring module, this can be installed via pip3 install bitstring")
+        super(WalletHelium, self).__init__(None, loading)
+
+
+    def __setstate__(self, state):
+        super(WalletHelium, self).__setstate__(state)
+        # (re-)load the required libraries after being unpickled
+
+    @classmethod
+    def create_from_params(cls, *args, **kwargs):
+        kwargs["address_limit"] = 1 #Address limit not relevant in Helium Wallets
+
+        self = super(WalletHelium, cls).create_from_params(*args, **kwargs)
+        return self
+
+    def passwords_per_seconds(self, seconds):
+        # A bit ugly to put this here, but a good spot in that it only gets called once before anyhting starts...
+        if self._savevalidseeds:
+            exit("Error: Save Valid Seeds not supported for Helium Wallets")
+        if self._checksum_in_generator:
+            exit("Error: Checksum in Generator not supported for Helium Wallets")
+        if self.opencl:
+            exit("Error: Wallet Type does not support OpenCL acceleration")
+
+        return 20000
+
+    @staticmethod
+    def _addresses_to_hash160s(addresses):
+        hash160s = set()
+
+        for address in addresses:
+
+            address_data = base58.b58decode_check(address)
+
+            hash160s.add(address_data[2:])
+
+        return hash160s
+
+    # Pulled from https://github.com/trezor/python-mnemonic and modified to fix bug in Trezor derivation
+    # See https://github.com/trezor/trezor-firmware/pull/1388
+    def _verify_seed(self, words: Union[List[str], str]):
+        wordlist = self.current_wordlist
+        langcode = self._lang
+        if not isinstance(words, tuple) and not isinstance(words, list):
+            words = words.split(" ")
+        if len(words) not in [12, 15, 18, 21, 24]:
+            raise ValueError(
+                "Number of words must be one of the following: [12, 15, 18, 21, 24], but it is not (%d)."
+                % len(words)
+            )
+        # Look up all the words in the list and construct the
+        # concatenation of the original entropy and the checksum.
+        concatLenBits = len(words) * 11
+        concatBits = [False] * concatLenBits
+        wordindex = 0
+        if langcode == "en":
+            use_binary_search = True
+        else:
+            use_binary_search = False
+        for word in words:
+            # Find the words index in the wordlist
+            ndx = (
+                binary_search(wordlist, word)
+                if use_binary_search
+                else wordlist.index(word)
+            )
+            if ndx < 0:
+                raise LookupError('Unable to find "%s" in word list.' % word)
+            # Set the next 11 bits to the value of the index.
+            for ii in range(11):
+                concatBits[(wordindex * 11) + ii] = (ndx & (1 << (10 - ii))) != 0
+            wordindex += 1
+        checksumLengthBits = concatLenBits // 33
+        entropyLengthBits = concatLenBits - checksumLengthBits
+        # Extract original entropy as bytes.
+        entropy = bytearray(entropyLengthBits // 8)
+
+        for ii in range(len(entropy)):
+            for jj in range(8):
+                if concatBits[(ii * 8) + jj]:
+                    entropy[ii] |= 1 << (7 - jj)
+        # Take the digest of the entropy.
+        hashBytes = hashlib.sha256(entropy).digest()
+        hashBits = list(
+            itertools.chain.from_iterable(
+                [c & (1 << (7 - i)) != 0 for i in range(8)] for c in hashBytes
+            )
+        )
+
+        # Need to just keep a copy of the BIP39 checksum
+        entropyLengthBits = concatLenBits - checksumLengthBits
+        checksumBits = BitArray(concatBits).bin[-checksumLengthBits:]
+
+        # Mobile wallet generates seeds with a checksum of 0000
+        if (checksumBits != '0000'):
+            # Check all the checksum bits for BIP39 seeds
+            for i in range(checksumLengthBits):
+                if concatBits[entropyLengthBits + i] != hashBits[i]:
+                    if not self._skip_worker_checksum: #Can ignore the checksum if forced
+                        return False
+
+        seed = bytes(entropy + entropy)
+
+        public_key, secret_key = nacl.bindings.crypto_sign_seed_keypair(seed)
+
+        if public_key in self._known_hash160s:
+            return True
+
+        return False
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
+    # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
+    def return_verified_password_or_false(self, mnemonic_ids_list):
+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
+
+            if self._verify_seed(mnemonic_ids):
+                return mnemonic_ids, count  # found it
+
+        return False, count
+
 
 ############### BCH ###############
 
@@ -2375,6 +2606,7 @@ class WalletRipple(WalletBIP39):
     def create_from_params(cls, *args, **kwargs):
         self = super(WalletRipple, cls).create_from_params(*args, **kwargs)
         return self
+
 
 ################################### Main ###################################
 
@@ -2629,6 +2861,7 @@ def main(argv):
         parser.add_argument("--min-typos",   type=int, metavar="COUNT", help="enforce a min # of mistakes per guess")
         parser.add_argument("--close-match",type=float,metavar="CUTOFF",help="try words which are less/more similar for each mistake (0.0 to 1.0, default: 0.65)")
         parser.add_argument("--passphrase",  action="store_true",       help="the mnemonic is augmented with a known passphrase (BIP39 or Electrum 2.x only)")
+        parser.add_argument("--passphrase-arg",  metavar="PASSPHRASE", nargs="+", help="the mnemonic is augmented with a known passphrase, entered directly as an argument (BIP39 or Electrum 2.x only)")
         parser.add_argument("--passphrase-list", metavar="FILE", help="Path to a file containing a list of passphrases to test")
         parser.add_argument("--passphrase-prompt", action="store_true", help="prompt for the mnemonic passphrase via the terminal (default: via the GUI)")
         parser.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
@@ -2636,6 +2869,7 @@ def main(argv):
         parser.add_argument("--mnemonic-length", type=int, metavar="WORD-COUNT", help="the length of the correct mnemonic (default: auto)")
         parser.add_argument("--language",    metavar="LANG-CODE",       help="the wordlist language to use (see wordlists/README.md, default: auto)")
         parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
+        parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
@@ -2823,6 +3057,8 @@ def main(argv):
                     break
                 print("The passphrases did not match, try again.")
             config_mnemonic_params["passphrases"] = [passphrase,]
+        elif args.passphrase_arg:
+            config_mnemonic_params["passphrases"] = args.passphrase_arg
         elif args.passphrase or args.passphrase_list:
             config_mnemonic_params["passphrases"] = True  # config_mnemonic() will prompt for one
 
@@ -2860,9 +3096,15 @@ def main(argv):
             else:
                 create_from_params["path"] = args.bip32_path
 
+        if args.substrate_path and not args.pathlist:
+            if args.wallet:
+                print("warning: --bip32-path is ignored when a wallet is provided", file=sys.stderr)
+            else:
+                create_from_params["path"] = args.substrate_path
+
         if args.pathlist:
             if args.bip32_path:
-                print("warning: Pathlist overrides any --bip32-path provided", file=sys.stderr)
+                print("warning: Pathlist overrides any --bip32-path or --substrate-path provided", file=sys.stderr)
             create_from_params["path"] = load_pathlist(args.pathlist)
 
         if args.force_p2sh:

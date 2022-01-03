@@ -1012,6 +1012,17 @@ def can_load_PyCryptoHDWallet():
             is_PyCryptoHDWallet_loadable = False
     return is_PyCryptoHDWallet_loadable
 
+is_ShamirMnemonic_loadable = None
+def can_load_ShamirMnemonic():
+    global is_ShamirMnemonic_loadable
+    if is_ShamirMnemonic_loadable is None:
+        try:
+            import shamir_mnemonic
+            is_ShamirMnemonic_loadable = True
+        except:
+            is_ShamirMnemonic_loadable = False
+    return is_ShamirMnemonic_loadable
+
 # Wrapper for btcrpass.init_worker() which clears btcrpass.loaded_wallet to simulate the way
 # multiprocessing works on Windows (even on other OSs) and permits pure python library testing
 def init_worker(wallet, char_mode, force_purepython, force_kdf_purepython):
@@ -1577,12 +1588,33 @@ class Test08BIP39Passwords(unittest.TestCase):
         pool.close()
         pool.join()
 
-    def WalletPyCryptoHDWallet_tester(self, *args, **kwargs):
+    def WalletPyCryptoHDWallet_tester(self, correct_pass = "btcr-test-password", *args, **kwargs):
 
         wallet = btcrpass.WalletPyCryptoHDWallet(*args, **kwargs)
 
         # Perform the tests in the current process
-        correct_pass = "btcr-test-password"
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+            (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+            (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
+
+        # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
+        wallet.opencl = False
+        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+        self.assertEqual(password_found_iterator.__next__(), (False, 2))
+        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+        self.assertRaises(StopIteration, password_found_iterator.next)
+        pool.close()
+        pool.join()
+
+    def WalletSLIP39_tester(self, correct_pass = "btcr-test-password", *args, **kwargs):
+
+        wallet = btcrpass.WalletSLIP39(*args, **kwargs)
+
+        # Perform the tests in the current process
         self.assertEqual(wallet._return_verified_password_or_false_cpu(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
         self.assertEqual(wallet._return_verified_password_or_false_cpu(
@@ -1661,6 +1693,16 @@ class Test08BIP39Passwords(unittest.TestCase):
             mnemonic=   "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season"
         )
 
+
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_address_PyCryptoHDWallet_stellar(self):
+        self.WalletPyCryptoHDWallet_tester(
+            wallet_type="stellar",
+            address_limit=2,
+            addresses=  ["GBPYX2ELQ6YTAF7DXER7RCQJR2HXXFX6HUZKWEZD3B6RKOLDSJF7UGXK"],
+            mnemonic=   "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season"
+        )
+
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_address_PyCryptoHDWallet_avalanche(self):
         self.WalletPyCryptoHDWallet_tester(
@@ -1668,6 +1710,17 @@ class Test08BIP39Passwords(unittest.TestCase):
             address_limit=1,
             addresses=  ["X-avax170r6a4nwudym6tx494nxgdatpep2gvpm40h4tg"],
             mnemonic=   "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch"
+        )
+
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_address_PyCryptoHDWallet_polkadotsubstrate(self):
+        self.WalletPyCryptoHDWallet_tester(
+            path = ["//hard/soft"],
+            correct_pass = "btcr-test-password",
+            wallet_type="polkadotsubstrate",
+            address_limit=1,
+            addresses=  ["12uMBgecqfkHTYZE4GFRx847CwR7sfs2bTdPbPLpzeMDGFwC"],
+            mnemonic=   "toilet assume drama keen dust warrior stick quote palace imitate music disease"
         )
 
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
@@ -1692,6 +1745,27 @@ class Test08BIP39Passwords(unittest.TestCase):
     #     )
 
 
+    @skipUnless(can_load_ShamirMnemonic, "requires Shamir-Mnemonic module")
+    def test_address_SLIP39_BTC(self):
+        self.WalletSLIP39_tester(
+            correct_pass = "btcr-test-password",
+            wallet_type="bip39",
+            address_limit=2,
+            addresses=  ["bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq"],
+            slip39_shares =   ["hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing",
+                               "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"]
+        )
+
+    @skipUnless(can_load_ShamirMnemonic, "requires Shamir-Mnemonic module")
+    def test_address_SLIP39_ETH(self):
+        self.WalletSLIP39_tester(
+            correct_pass = "btcr-test-password",
+            wallet_type="ethereum",
+            address_limit=2,
+            addresses=  ["0x0Ef61684B1E671dcBee4D51646cA6247487Ef91a"],
+            slip39_shares =   ["hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing",
+                               "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"]
+        )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_bip39_mpk(self):

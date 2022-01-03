@@ -157,7 +157,7 @@ The `%d` is a wildcard which is replaced by all combinations of a single digit. 
  * `%ia`   - a “case-insensitive” version of %a: a single lower or uppercase letter
  * `%in`   - a single digit, lower or uppercase letter
  * `%1,2in`- between 1 and 2 characters long of digits, lower or uppercase letters
- * `%[chars]` - exactly 1 of the characters between `[` and `]` (e.g. either a `c`, `h`, `a`, `r`, or `s`)
+ * `%[chars]` - exactly 1 of the characters between `[` and `]` (e.g. either a `c`, `h`, `a`, `r`, or `s`) _**Note**: All characters in this wildcard are used as-is, even if that character would normally have its own wildcard if used as a token, like space, $, % or ^_
  * `%1,3[chars]` - between 1 and 3 of the characters between `[` and `]`
  * `%[0-9a-f]` - exactly 1 of these characters: `0123456789abcdef`
  * `%2i[0-9a-f]` - exactly 2 of these characters: `0123456789abcdefABCDEF`
