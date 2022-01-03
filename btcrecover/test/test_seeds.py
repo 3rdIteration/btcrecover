@@ -850,6 +850,11 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")
 
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_WalletPyCryptoHDWallet_Cosmos(self):
+        self.address_tester(btcrseed.WalletCosmos, "cosmos1t47f66q50ft66ypwn9x7laeectyvh23aqedfmq", 1,
+                            "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
+
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Avalanche(self):
         self.address_tester(btcrseed.WalletAvalanche, "X-avax1mpf7j47w7t3xt32g3vzm0zvzy35d7t5twv2ax3", 2,
                             "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch")

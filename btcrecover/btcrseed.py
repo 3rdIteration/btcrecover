@@ -851,7 +851,8 @@ class WalletBIP32(WalletBase):
                 before_the = "one(s) you just entered" if addresses else "first one in actual use"
 
                 suggested_addr_limit = 10
-                if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana]:
+                if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana,
+                                  btcrecover.btcrseed.WalletCosmos, btcrecover.btcrseed.WalletStellar]:
                     suggested_addr_limit = 1
 
                 if tk_root:  # Skip if TK is not available...
@@ -2171,12 +2172,17 @@ class WalletTron(WalletPyCryptoHDWallet):
         return False
 
 ############### Cosmos ###############
-    
+
 @register_selectable_wallet_class('Cosmos BIP44')
 class WalletCosmos(WalletPyCryptoHDWallet):
 
-    def _verify_seed(self, mnemonic):
-        for salt in self._derivation_salts:
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
 
             wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.COSMOS)
 

@@ -20,6 +20,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
     * Bitcoin
     * Bitcoin Cash
     * Cardano (Shelley Era Addresses)
+    * Cosmos (Atom)
     * Dash
     * DigiByte
     * Dogecoin
