@@ -33,6 +33,7 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
 import lib.cardano.cardano_utils as cardano
+import lib.block_io
 
 module_leveldb_available = False
 try:
@@ -96,15 +97,6 @@ try:
         click.echo(style("ERROR: ", fg="red") + s)
 
     shamir_mnemonic_available = True
-except:
-    pass
-
-# Block.io Module
-blockio_available = False
-try:
-    import block_io
-
-    blockio_available = True
 except:
     pass
 
@@ -2499,13 +2491,6 @@ class WalletBlockIO(object):
     _dump_wallet_file = None
     _using_extract = False
 
-    def __init__(self):
-
-        if not blockio_available:
-            print()
-            print("ERROR: Cannot import block-io which is required for block.io wallets, install it via 'pip3 install blockio'")
-            exit()
-
     @staticmethod
     def is_wallet_file(wallet_file):
         wallet_file.seek(0)
@@ -2516,7 +2501,7 @@ class WalletBlockIO(object):
 
 
     def passwords_per_seconds(self, seconds):
-        return 5 #Gets us in the ballpark performance wise
+        return 150 #Gets us in the ballpark performance wise
 
     # Load a Dogechain wallet file
     @classmethod
@@ -2538,9 +2523,9 @@ class WalletBlockIO(object):
 
         for count, password in enumerate(arg_passwords, 1):
             try:
-                block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
+                lib.block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
                 return password, count
-            except: #Throws an exception when the password is incorrect
+            except:
                 pass
 
         return False, count

@@ -1,17 +1,11 @@
 from Crypto.Cipher import AES
 import base64
 import base58
-from binascii import hexlify, unhexlify
-import json
 import requests
-import pkg_resources
 
-from hashlib import sha256
-from . import pbkdf2
+from hashlib import sha256, pbkdf2_hmac
 
 from .bitcoinutils_patches import *
-
-VERSION=pkg_resources.get_distribution("block-io").version
 
 class BlockIoInvalidResponseError(Exception):
     """Thrown when we receive an unexpected/unparseable response from Block.io"""
@@ -103,9 +97,9 @@ class BlockIo(object):
 
         @staticmethod
         def pinToAesKey(pin, salt = "", iterations = 2048, hashfn = sha256, phase1_key_length = 16, phase2_key_length = 32):
-            # use pbkdf2 magic
-            ret = pbkdf2.pbkdf2(pin, phase1_key_length, salt, int(iterations/2), hashfn)
-            ret = pbkdf2.pbkdf2(hexlify(ret), phase2_key_length, salt, int(iterations/2), hashfn)
+
+            ret = pbkdf2_hmac("sha256", pin.encode(), salt.encode(), int(iterations/2),phase1_key_length)
+            ret = pbkdf2_hmac("sha256", hexlify(ret), salt.encode(), int(iterations / 2), phase2_key_length)
             return hexlify(ret) # the encryption key
 
         @staticmethod
