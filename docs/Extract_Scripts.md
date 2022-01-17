@@ -177,29 +177,9 @@ Once you have the file, you can either use it directly with BTCRecover, or you c
 
 ## Usage for Dogechain.info ##
 
-Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
+[Firstly you download the wallet file as per the documentation here:](./TUTORIAL.md#downloading-dogechaininfo-wallet-files)
 
-Basically you need to attempt to log in to your wallet (even with the wrong password) and save the wallet file that is downloaded as part of this process.
-
-Once you are at the dogechain.info wallet login page, with the developer tools open in your browser, you will need to do the following steps:
-
-1) Select the Network tab
-
-2) Enter your Wallet ID
-
-3) Enter a placeholder password (you can enter anything)
-
-4) Click Log In (It will say that it failed to decrypt the wallet, but this is normal)
-
-5) Select "Responses"
-
-6) Select the API items. (This may look slightly different if you have 2fa enabled, you may need to complete the 2fa at this step too)
-
-7) Once you have a response that looks like wallet data, copy it and paste it in to a text file. This is your wallet file...
-
-![Download Dodgechain Wallet](download_dogechain_wallet.png)
-
-You can then create an extrat script from the downloaded wallet file with the a command like the one below. (Which uses the sample wallet file that is part of the repository)
+You can then create an extract script from the downloaded wallet file with the a command like the one below. (Which uses the sample wallet file that is part of the repository)
 
     python extract-dogechain-privkey.py ../btcrecover\test\test-wallets/dogechain.wallet.aes.json
     Dogechain first 16 encrypted bytes, iv, and iter_count in base64:

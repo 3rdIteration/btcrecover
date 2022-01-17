@@ -1,0 +1,131 @@
+{
+  "status": "success",
+  "data": {
+    "networks": [
+      "DOGE",
+      "DOGETEST",
+      "BTC",
+      "BTCTEST",
+      "LTC",
+      "LTCTEST"
+    ],
+    "next_algorithm": {
+      "pbkdf2_iterations": 102400,
+      "pbkdf2_phase1_key_length": 16,
+      "pbkdf2_phase2_key_length": 32,
+      "pbkdf2_hash_function": "SHA256",
+      "aes_cipher": "AES-256-GCM",
+      "aes_auth_data": ""
+    },
+    "current_user_keys": [
+      {
+        "network": "DOGE",
+        "user_key": {
+          "public_key": "0249fc764329fabb42ceaed70eba748e80e7b6c2aa2eea4bdf4ea9d9aabb4e437e",
+          "encrypted_passphrase": "FYrN5SAog/hbWivKzCWpCz64/ydy8R/RtVARsRniayHuG5Lia7RQzrjDeAL1bAYIzt5ipYUlXQqMmKx/tPTKaCCNWjvhO2+yb8YsByggQ/32BObbCWoUNFOWNhjEjoOqcpWw20F/B4gf7zCbL08R81LYqox1Lszh7skB2D0wzpA=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "cf7be3f39172519508044f4e",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "1b87a0b968f15c976d17c4feca78423e",
+            "aes_auth_data": ""
+          }
+        }
+      },
+      {
+        "network": "DOGETEST",
+        "user_key": {
+          "public_key": "037e59338d3c7d59b2e13328bd001af1dbecfe717ade7ee2963c0e3aeeb7f91cc3",
+          "encrypted_passphrase": "6aUEjVFW4zYxQaPUtAhUP1OUOWUrW5CC7mv4bP11HOuOx+jI5rd2KlntbTQwzzQFJN5MSiO31Yg5vk6lBQbijyOgcrKgWPFqyNTC12+zFbtX3AxT6DfYnW+3P5LFVoj8ctLzcSk6lhqKWIazOoZXH5EsomlAX64fX0ckkyKKF6E=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "2920cf1fa9dcb49bd3e606a0",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "0908feeff0408211c298147191b48902",
+            "aes_auth_data": ""
+          }
+        }
+      },
+      {
+        "network": "BTC",
+        "user_key": {
+          "public_key": "034b3251f1d6fc658a5c76fa073dab50a15b9f3a48391c995a596ea497f997cde4",
+          "encrypted_passphrase": "JTj4yZQWVffaCoUKlYfWXWbfqenGnMatGlpIr7qRMHFxDY4iWzloH3avMo53Yo62yegi/sxIxZdT7R8PAk/DQsqgZdxEr9/ixDyuwYGEf+ER0SBxKqq98NyLnOpx3J185jBpPH5vPBtN5QJQaQhInLL1bKqa6I3TJjfVhK3h01I=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "be3cefcda63301977a5633e5",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "eee10b6223c0f35d3fc52ddf5abdf3f7",
+            "aes_auth_data": ""
+          }
+        }
+      },
+      {
+        "network": "BTCTEST",
+        "user_key": {
+          "public_key": "0269643baae6ed3391733c64f9552764bd126e95e2774dbafbdf5027fa89d683bd",
+          "encrypted_passphrase": "TTfemRHuALEEnHs7Jzd26+ggT9DtLKaIzFuIT+C6Kq0iETRh52YLwrdkPJoPUz/Jt/Cu5HtYAuivjAsUyPoeaepVEpQ2TDeX9nKKA0WVZP0Vs1GcwiL4uioVj6Y/wXYSYPsYqDvOHlg4KPJG+IeRyeEy/SUmXq4VGOrB8SgGegk=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "804b916460d9a2e73dd502c4",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "f40693341188a3d2ac5db64dd534b809",
+            "aes_auth_data": ""
+          }
+        }
+      },
+      {
+        "network": "LTC",
+        "user_key": {
+          "public_key": "02821fa3597e5ca51a6edea60c215ab5e5550859acbcd5c24bf0ca292671a1cd9d",
+          "encrypted_passphrase": "ifYcmir21dzauV2pS31EX5xy4mBVYEHx9UjabFZkntAX7dzY1zwxHtzKpB7QK0SxFV2wRsLFLj6riQCWdMuq5+vg3I06n9fdEah/f1IKpH5i2p057P623di3PPTpd2/rY3Li0LwmKSOFLLas77pIc3cZhIU7iJ0mqk3kGzC4yUI=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "745d188a14b3cb3f22fb8922",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "e6f681cc86df2ba677749afa3149f539",
+            "aes_auth_data": ""
+          }
+        }
+      },
+      {
+        "network": "LTCTEST",
+        "user_key": {
+          "public_key": "03b22072b1bf7e420a87a9ddf1d0a6681b176c83569e07858043b9a0a7ef1b059c",
+          "encrypted_passphrase": "gc3mf7K8E9bU8yxZlpS/vxMs7Xclf65l07hT9MWAuzr1QvdaITxQ2pkR3eIk+tc17mv8ReLbKGpMP5UpXQXp2upzh4+Uq7HqH9FIJ8cIJFkMWUsj3+C9R8Fr4ul7WJSeBxZcyqo45re+3+F3MwzlMy0CE47lOHoB1IEE9dDrO6k=",
+          "algorithm": {
+            "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+            "pbkdf2_iterations": 102400,
+            "pbkdf2_hash_function": "SHA256",
+            "pbkdf2_phase1_key_length": 16,
+            "pbkdf2_phase2_key_length": 32,
+            "aes_iv": "bd561d94af23ee861056d93a",
+            "aes_cipher": "AES-256-GCM",
+            "aes_auth_tag": "8614da4468f912a1f99773cdce33c7e3",
+            "aes_auth_data": ""
+          }
+        }
+      }
+    ]
+  }
+}

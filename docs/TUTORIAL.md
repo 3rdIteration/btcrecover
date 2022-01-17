@@ -268,6 +268,49 @@ For Android users, you will need to have a rooted phone which will allow you to 
 
 If there are mulitiple wallets there and you are not sure which is the correct one, the name of each wallet can be found in clear text at the end of the file. [See the test wallets included with this repository in ./btcrecover/test/test-wallets](https://github.com/3rdIteration/btcrecover/tree/master/btcrecover/test/test-wallets) for an example)
 
+### Downloading Dogechain.info wallet files ###
+Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
+
+Basically you need to attempt to log in to your wallet (even with the wrong password) and save the wallet file that is downloaded as part of this process.
+
+Once you are at the dogechain.info wallet login page, with the developer tools open in your browser, you will need to do the following steps:
+
+1) Select the Network tab
+
+2) Enter your Wallet ID
+
+3) Enter a placeholder password (you can enter anything)
+
+4) Click Log In (It will say that it failed to decrypt the wallet, but this is normal)
+
+5) Select "Responses"
+
+6) Select the API items. (This may look slightly different if you have 2fa enabled, you may need to complete the 2fa at this step too)
+
+7) Once you have a response that looks like wallet data, copy it and paste it in to a text file. This is your wallet file...
+
+![Download Dodgechain Wallet](download_dogechain_wallet.png)
+
+### Downloading block.io wallet files ###
+Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
+
+Basically you need to log in to your wallet and then go in to the "Settings" screen, once there you can open the "Developer tools" in your browser.
+
+1) Select the Network tab
+
+2) Enter a placeholder PIN in the "Current PIN" field. (This can be anything, eg: "123")
+
+3) Enter a placeholder password in the New Secret PIN field. (This can be anything, but must be valid, eg: btcrtestpassword2022)
+
+4) Click "Change Secret PIN" (This will give an error that your Secret PIN is incorrect, but that doesn't matter...)
+
+5) Select "Responses"
+
+6) Select the initiate_change_secrets file.
+
+7) Once you have a response that looks like wallet data, copy it and paste it in to a text file. This is your wallet file...
+
+![Download Block IO Wallet](download_block_io_wallet.png)
 
 ### Bitcoin Wallet for Android/BlackBerry Spending PINs ###
 

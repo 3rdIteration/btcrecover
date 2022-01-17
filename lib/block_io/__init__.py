@@ -22,6 +22,9 @@ class BlockIoAPIInternalError(Exception):
 class BlockIoAPIError(Exception):
     """Thrown when block.io API call fails."""
 
+class IncorrectDecryptionPasswordError(Exception):
+    """Thrown when incorrect decryption password supplied."""
+
     def set_raw_data(self, data):
         self.raw_data = data
 
@@ -215,7 +218,7 @@ class BlockIo(object):
                 
             except:
                 # error decrypting? must be an invalid secret pin
-                raise Exception('Invalid Secret PIN provided.')
+                raise IncorrectDecryptionPasswordError('Invalid Secret PIN provided.')
 
             return message
 

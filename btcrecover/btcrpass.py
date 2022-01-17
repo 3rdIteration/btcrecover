@@ -2509,7 +2509,13 @@ class WalletBlockIO(object):
         self = cls()
         with open(wallet_filename, "rb") as wallet_file:
                 wallet_data = wallet_file.read()
-        self.user_key = json.loads(wallet_data)['data']['user_key']
+
+        json_data = json.loads(wallet_data)
+        # There are two ways that the JSON from block.io can be formatted, depending on which backup the user retrieves
+        try:
+            self.user_key = json_data['data']['current_user_keys'][0]['user_key']
+        except KeyError:
+            self.user_key = json_data['data']['user_key']
         return self
 
     def difficulty_info(self):
@@ -2519,13 +2525,13 @@ class WalletBlockIO(object):
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
-    def return_verified_password_or_false(self, arg_passwords):  # dogechain.info Main Password
+    def return_verified_password_or_false(self, arg_passwords):  # block.io Main Password
 
         for count, password in enumerate(arg_passwords, 1):
             try:
                 lib.block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
                 return password, count
-            except:
+            except lib.block_io.IncorrectDecryptionPasswordError:
                 pass
 
         return False, count

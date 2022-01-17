@@ -79,6 +79,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
      * BIP-39 passphrases (Also supports all cryptos supported for seed recovery, as well as recovering "Extra Words" for Electrum seeds)
      * [mSIGNA (CoinVault)](https://ciphrex.com/products/)
      * [Blockchain.com](https://blockchain.com/wallet)
+     * [block.io](https://block.io/) (Recovery of wallet "Secret PIN")
      * [pywallet --dumpwallet](https://github.com/jackjack-jj/pywallet) of Bitcoin Unlimited/Classic/XT/Core wallets
      * [Bitcoin Wallet for Android/BlackBerry](https://play.google.com/store/apps/details?id=de.schildbach.wallet) spending PINs and encrypted backups
      * [KnC Wallet for Android](https://github.com/kncgroup/bitcoin-wallet) encrypted backups
