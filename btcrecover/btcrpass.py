@@ -99,6 +99,15 @@ try:
 except:
     pass
 
+# Block.io Module
+blockio_available = False
+try:
+    import block_io
+
+    blockio_available = True
+except:
+    pass
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 # The progressbar module is recommended but optional; it is typically
@@ -2479,6 +2488,62 @@ class WalletBlockchainSecondpass(WalletBlockchain):
 
         return False, count
 
+############### Block.io ###############
+
+@register_wallet_class
+class WalletBlockIO(object):
+    opencl_algo = -1
+    _savepossiblematches = False
+
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+    _using_extract = False
+
+    def __init__(self):
+
+        if not blockio_available:
+            print()
+            print("ERROR: Cannot import block-io which is required for block.io wallets, install it via 'pip3 install blockio'")
+            exit()
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        wallet_file.seek(0)
+        try:
+            walletdata = wallet_file.read()
+        except: return False
+        return (b"pbkdf2_phase2_key_length" in walletdata and b"encrypted_passphrase" in walletdata)  # Block.io wallets have a phase2 pbkdf2 field and emcrypted passphrase fields which are quite unique
+
+
+    def passwords_per_seconds(self, seconds):
+        return 5 #Gets us in the ballpark performance wise
+
+    # Load a Dogechain wallet file
+    @classmethod
+    def load_from_filename(cls, wallet_filename):
+        self = cls()
+        with open(wallet_filename, "rb") as wallet_file:
+                wallet_data = wallet_file.read()
+        self.user_key = json.loads(wallet_data)['data']['user_key']
+        return self
+
+    def difficulty_info(self):
+        iter_count = self.user_key['algorithm']['pbkdf2_iterations']
+        hash_function = self.user_key['algorithm']['pbkdf2_hash_function']
+        return str(iter_count) + " " + hash_function + " Iterations"
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, arg_passwords):  # dogechain.info Main Password
+
+        for count, password in enumerate(arg_passwords, 1):
+            try:
+                block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
+                return password, count
+            except: #Throws an exception when the password is incorrect
+                pass
+
+        return False, count
 
 ############### Dogechain.info ###############
 

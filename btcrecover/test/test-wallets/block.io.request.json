@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "data": {
+    "user_key": {
+      "public_key": "0269643baae6ed3391733c64f9552764bd126e95e2774dbafbdf5027fa89d683bd",
+      "encrypted_passphrase": "TTfemRHuALEEnHs7Jzd26+ggT9DtLKaIzFuIT+C6Kq0iETRh52YLwrdkPJoPUz/Jt/Cu5HtYAuivjAsUyPoeaepVEpQ2TDeX9nKKA0WVZP0Vs1GcwiL4uioVj6Y/wXYSYPsYqDvOHlg4KPJG+IeRyeEy/SUmXq4VGOrB8SgGegk=",
+      "algorithm": {
+        "pbkdf2_salt": "b533822f70de28e77aabacf7c3f6f1f8",
+        "pbkdf2_iterations": 102400,
+        "pbkdf2_hash_function": "SHA256",
+        "pbkdf2_phase1_key_length": 16,
+        "pbkdf2_phase2_key_length": 32,
+        "aes_iv": "804b916460d9a2e73dd502c4",
+        "aes_cipher": "AES-256-GCM",
+        "aes_auth_tag": "f40693341188a3d2ac5db64dd534b809",
+        "aes_auth_data": ""
+      }
+    },
+    "new_nonce": "fc889fc81cbbb99c00db2f28e44787ba"
+  }
+}
