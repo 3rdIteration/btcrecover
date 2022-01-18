@@ -1325,7 +1325,7 @@ class Test07WalletDecryption(unittest.TestCase):
 
     def test_block_io_privkeyrequest_data_cpu(self):
         self.wallet_tester("block.io.request.json", correct_pass="btcrtestpassword2022")
-        
+
     def test_block_io_pinchange_data_cpu(self):
         self.wallet_tester("block.io.change.json", correct_pass="btcrtestpassword2022")
 

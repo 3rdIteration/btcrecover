@@ -2497,11 +2497,16 @@ class WalletBlockIO(object):
         try:
             walletdata = wallet_file.read()
         except: return False
-        return (b"pbkdf2_phase2_key_length" in walletdata and b"encrypted_passphrase" in walletdata)  # Block.io wallets have a phase2 pbkdf2 field and emcrypted passphrase fields which are quite unique
-
+        return (b"user_key" in walletdata and b"encrypted_passphrase" in walletdata)  # Block.io wallets have a user_key field and emcrypted passphrase fields which are quite unique
 
     def passwords_per_seconds(self, seconds):
-        return 150 #Gets us in the ballpark performance wise
+        try:
+            if self.user_key['algorithm']['pbkdf2_iterations'] == 2048:
+                return 5000
+            else:
+                return 150 # Newer wallets use over 100,000 PBKDF2 iterations
+        except KeyError: # Older Legacy wallets don't have a algorithm key at all...
+            return 5000
 
     # Load a Dogechain wallet file
     @classmethod
@@ -2519,8 +2524,12 @@ class WalletBlockIO(object):
         return self
 
     def difficulty_info(self):
-        iter_count = self.user_key['algorithm']['pbkdf2_iterations']
-        hash_function = self.user_key['algorithm']['pbkdf2_hash_function']
+        try:
+            iter_count = self.user_key['algorithm']['pbkdf2_iterations']
+            hash_function = self.user_key['algorithm']['pbkdf2_hash_function']
+        except KeyError:
+            iter_count = 2048
+            hash_function = "SHA256"
         return str(iter_count) + " " + hash_function + " Iterations"
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
@@ -2529,9 +2538,13 @@ class WalletBlockIO(object):
 
         for count, password in enumerate(arg_passwords, 1):
             try:
-                lib.block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
-                return password, count
+                key = lib.block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
+                if self.user_key['public_key'].encode() == key.pubkey_hex():
+                    return password, count
+
             except lib.block_io.IncorrectDecryptionPasswordError:
+                pass
+            except binascii.Error:
                 pass
 
         return False, count
