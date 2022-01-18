@@ -1323,6 +1323,9 @@ class Test07WalletDecryption(unittest.TestCase):
     def test_dogechain_info_cpu(self):
         self.wallet_tester("dogechain.wallet.aes.json")
 
+    def test_block_io_privkeyrequest_data_legacy_cpu(self):
+        self.wallet_tester("block.io.request.legacy.json", correct_pass="Anhday12")
+
     def test_block_io_privkeyrequest_data_cpu(self):
         self.wallet_tester("block.io.request.json", correct_pass="btcrtestpassword2022")
 
