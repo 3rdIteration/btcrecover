@@ -285,3 +285,19 @@ Basic Ethereum Command, so need to specifcy the `--wallet-type` (But can leave o
 python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcBee4D51646cA6247487Ef91a --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"
 ```
 <br>
+
+## Raw Eth Private Keys ##
+BTCRecover an also be used to recover from situations where you have a damaged private key. 
+
+This is handled in a similar way to a password recovery, so your private key guesses go in a tokenlist, using the %h wildcard to substitute hexidecimal characters.
+
+**Example tokenlist**
+``` linenums="1"
+{% include "eth_privkey_tokenlist.txt" %}
+```
+
+The tokenlist above is an example is a standard Eth private key (with the leading 0x removed) where there are three damanged parts. One single character (%h), one two-character (%2h) and one three-character (%3h) It will take about 20 mintes to run...
+
+```
+python btcrecover.py --rawprivatekey --addresses 0xB9644424F9E639D1D0F27C4897e696CC324948BB --memwallet-coin ethereum --tokenlist ./docs/Usage_Examples/eth_privkey_tokenlist.txt
+```

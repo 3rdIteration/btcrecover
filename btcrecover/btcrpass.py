@@ -33,6 +33,7 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
 import lib.cardano.cardano_utils as cardano
+from lib.eth_hash.auto import keccak
 
 module_leveldb_available = False
 try:
@@ -138,6 +139,7 @@ def init_wildcards():
     # N.B. that tstr() will not convert string.*case to Unicode correctly if the locale has
     # been set to one with a single-byte code page e.g. ISO-8859-1 (Latin1) or Windows-1252
     wildcard_sets = {
+        tstr("h") : tstr(string.hexdigits),
         tstr("d") : tstr(string.digits),
         tstr("a") : tstr(string.ascii_lowercase),
         tstr("A") : tstr(string.ascii_uppercase),
@@ -4328,6 +4330,159 @@ class WalletBrainwallet(object):
 
         return False, len(arg_passwords)
 
+############### Brainwallet ###############
+
+# @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
+class WalletRawPrivateKey(object):
+    opencl_algo = -1
+
+    # Dictionary containing all the hash suffixes for memwallet https://github.com/dvdbng/memwallet
+    hash_suffix = dict([
+        ('bitcoin', 1),
+        ('litecoin', 2),
+        ('monero', 3),
+        ('ethereum', 4)
+    ])
+
+    def __init__(self, addresses = None, addressdb = None, check_compressed = True, check_uncompressed = True,
+                 force_check_p2sh = False, crypto = 'bitcoin', is_performance = False):
+        global hmac, coincurve, base58
+        from lib.cashaddress import base58
+        import hmac
+        try:
+            import coincurve
+        except ModuleNotFoundError:
+            exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+
+        load_pbkdf2_library()
+
+        if is_performance and not addresses:
+            addresses = "1D6asa4hPt9uomZZgwjKsEmdkSYsCkX542"
+
+        self.compression_checks = []
+        if check_compressed : self.compression_checks.append(True)
+        if check_uncompressed :  self.compression_checks.append(False)
+
+        if crypto is None:
+            self.crypto = 'bitcoin'
+        else:
+            self.crypto = crypto
+
+        from . import btcrseed
+        # Load addresses
+        from .addressset import AddressSet
+
+        input_address_p2sh = False
+        input_address_standard = False
+        self.address_type_checks = []
+
+        if addresses:
+            if self.crypto == 'ethereum':
+                self.hash160s = btcrseed.WalletEthereum._addresses_to_hash160s(addresses)
+            else:
+                self.hash160s = btcrseed.WalletBase._addresses_to_hash160s(addresses)
+
+                for address in addresses:
+                    if address[0] == "3":
+                        input_address_p2sh = True
+                    else:
+                        input_address_standard = True
+        else:
+            print("No Addresses Provided ... ")
+            print("Loading address database ...")
+
+            if not addressdb:
+                print("No AddressDB specified, trying addresses.db")
+                addressdb = "addresses.db"
+
+            self.hash160s = AddressSet.fromfile(open(addressdb, "rb"))
+            print("Loaded", len(self.hash160s), "addresses from database ...")
+            input_address_p2sh = True
+            input_address_standard = True
+
+        if input_address_p2sh or force_check_p2sh: self.address_type_checks.append(True)
+        if input_address_standard and not (force_check_p2sh): self.address_type_checks.append(False)
+
+    def __setstate__(self, state):
+        # (re-)load the required libraries after being unpickled
+        global hmac, coincurve, base58, pylibscrypt
+        import lib.pylibscrypt as pylibscrypt
+        from lib.cashaddress import base58
+        import hmac
+
+        try:
+            import coincurve
+        except ModuleNotFoundError:
+            exit(
+                "\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+
+        load_pbkdf2_library(warnings=False)
+        self.__dict__ = state
+
+    def passwords_per_seconds(self, seconds):
+        return 60000 # CPU Processing is going to be in the order if 120,000 kP/s
+
+    def difficulty_info(self):
+        return "1 SHA-256 iteration"
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, passwords): # Raw Privatekey
+        pubkey_from_secret = coincurve.PublicKey.from_valid_secret
+
+        for count, password in enumerate(passwords, 1):
+            # Generate the initial Keypair
+            #print("Key:", password, " Length:", len(password))
+
+            if self.crypto == 'ethereum':
+                if("Measure Performance" not in password):
+                    try:
+                        privkey = binascii.unhexlify(password)
+                    except binascii.Error as e:
+                        message = "\n\nERROR: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
+                        raise Exception(message)
+                else:
+                    privkey = binascii.unhexlify("9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58")
+
+                if len(privkey) != 32:
+                    message = "\n\nERROR: Invalid Private Key (Should be 64 Characters long)" + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
+                    raise Exception(message)
+
+            # Convert the private keys to public keys and addresses for verification.
+            for isCompressed in self.compression_checks:
+                if isCompressed:
+                    privcompress = bytes([0x1])
+                else:
+                    privcompress = bytes([])
+
+                pubkey = pubkey_from_secret(privkey).format(compressed = isCompressed)
+
+                if self.crypto == 'ethereum':
+                    pubkey_hash160 = keccak(pubkey[1:])[-20:]
+
+                # pubkey_hash160 = hashlib_new("ripemd160", l_sha256(pubkey).digest()).digest()
+                #
+                # for input_address_p2sh in self.address_type_checks:
+                #     if (input_address_p2sh):  # Handle P2SH Segwit Address
+                #         WITNESS_VERSION = "\x00\x14"
+                #         witness_program = WITNESS_VERSION.encode() + pubkey_hash160
+                #         hash160 = hashlib.new("ripemd160", l_sha256(witness_program).digest()).digest()
+                #     else:
+                #         hash160 = pubkey_hash160
+
+                if pubkey_hash160 in self.hash160s:
+                    #privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
+                    #print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": NOTE Brainwallet Found using ", end="")
+                    #if isCompressed:
+                    #    print("COMPRESSED address")
+                    #else:
+                    #    print("UNCOMPRESSED address")
+
+                    #print("Password Found:", password, ", PrivKey:", privkey_wif, ", Compressed: ", isCompressed)
+                    return "0x" + password, count
+
+
+        return False, count
 
 ############### Ethereum UTC Keystore ###############
 
@@ -4896,6 +5051,7 @@ def init_parser_common():
         dump_group.add_argument("--correct-wallet-password", metavar="STRING", help="The correct wallet password (This can be used instead of a passwordlist or tokenlist)")
         dump_group.add_argument("--correct-wallet-secondpassword", metavar="STRING", help="The correct wallet second password (This can be used instead of a passwordlist or tokenlist)")
         brainwallet_group = parser_common.add_argument_group("Brainwallet")
+        brainwallet_group.add_argument("--rawprivatekey", action="store_true", help="Search for a Raw Private Key")
         brainwallet_group.add_argument("--brainwallet", action="store_true", help="Search for a brainwallet")
         brainwallet_group.add_argument("--addresses",      metavar="ADDRESS", nargs="+", help="The address(s) that correspond to the brainwallet")
         brainwallet_group.add_argument("--skip-compressed",      action="store_true", default=False, help="Skip check using compressed keys")
@@ -5503,12 +5659,13 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     if args.bip39:                  required_args += 1
     if args.yoroi_master_password:  required_args += 1
     if args.brainwallet:            required_args += 1
+    if args.rawprivatekey:          required_args += 1
     if args.warpwallet:             required_args += 1
     if args.listpass:               required_args += 1
     if wallet:                      required_args += 1
     if required_args != 1 and (args.seedgenerator == False):
         assert not wallet, 'custom wallet object not permitted with --wallet, --data-extract, --brainwallet, --warpwallet, --bip39, --yoroi-master-password, --bip38_enc_privkey, or --listpass'
-        error_exit("argument --wallet (or --data-extract, --bip39, --brainwallet, --warpwallet, --yoroi-master-password, --bip38_enc_privkey, or --listpass, exactly one) is required")
+        error_exit("argument --wallet (or --data-extract, --bip39, --brainwallet, --warpwallet, --rawprivatekey, --yoroi-master-password, --bip38_enc_privkey, or --listpass, exactly one) is required")
 
     # If specificed, use a custom wallet object instead of loading a wallet file or data-extract
     global loaded_wallet
@@ -5589,6 +5746,14 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                           force_check_p2sh = args.force_check_p2sh,
                                           isWarpwallet=args.warpwallet,
                                           salt=args.warpwallet_salt,
+                                          crypto=args.memwallet_coin)
+
+    if args.rawprivatekey:
+        loaded_wallet = WalletRawPrivateKey(addresses = args.addresses,
+                                          addressdb = args.addressdb,
+                                          check_compressed = not(args.skip_compressed),
+                                          check_uncompressed = not(args.skip_uncompressed),
+                                          force_check_p2sh = args.force_check_p2sh,
                                           crypto=args.memwallet_coin)
 
     # Set the default number of threads to use. For GPU processing, things like hyperthreading are unhelpful, so use physical cores only...

@@ -82,6 +82,10 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
      * [Bitcoin Wallet for Android/BlackBerry](https://play.google.com/store/apps/details?id=de.schildbach.wallet) spending PINs and encrypted backups
      * [KnC Wallet for Android](https://github.com/kncgroup/bitcoin-wallet) encrypted backups
      * [Bither](https://bither.net/)
+     * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...
+     * Brainwallets
+        * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
+        * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
  * Altcoin password recovery support for most wallets derived from one of those above, including:
      * [Coinomi](https://www.coinomi.com/en/) (Only supports password protected wallets)
      * [Metamask](https://metamask.io/) (And Metamask clones like Binance Chain Wallet, Ronin Wallet, etc.)
@@ -94,11 +98,8 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
      * [Dogechain.info](https://dogechain.info/)
      * [Dogecoin Wallet for Android](http://dogecoin.com/) encrypted backups
      * [Yoroi Wallet for Cardano](https://yoroi-wallet.com/#/) Master_Passwords extracted from the wallet data (In browser or on rooted/jailbroken phones)
-     * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...
-     * Brainwallets
-        * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
-        * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
      * [Ethereum UTC Keystore Files](https://myetherwallet.com) Ethereum Keystore files, typically used by wallets like MyEtherWallet, MyCrypto, etc. (Also often used by Eth clones like Theta, etc)
+     * [Damaged Raw Eth Private Keys]() Individual Private keys that are missing characters.
  * [Free and Open Source](http://en.wikipedia.org/wiki/Free_and_open-source_software) - anyone can download, inspect, use, and redistribute this software
  * Supported on Windows, Linux, and OS X
  * Support for Unicode passwords and seeds
