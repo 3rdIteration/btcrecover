@@ -2762,6 +2762,22 @@ class Test12BrainwalletDecryption(unittest.TestCase):
                                     crypto = "litecoin",
                                     check_compressed=False)
 
+# Raw Private Key Wallets
+class Test13RawPrivateKeyRecovery(unittest.TestCase):
+    def test_rawprivatekey_Eth(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['0xB9644424F9E639D1D0F27C4897e696CC324948BB'],
+                                            check_compressed=True,
+                                            check_uncompressed=True,
+                                            force_check_p2sh=False,
+                                            crypto='ethereum')
+
+        correct_pw = tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d33")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), ("0x" + correct_pw, 2))
+
 # QuickTests: all of Test01Basics, Test02Anchors, Test03WildCards, and Test04Typos,
 # all of Test05CommandLine except the "large" tests, and select quick tests from
 # Test08KeyDecryption

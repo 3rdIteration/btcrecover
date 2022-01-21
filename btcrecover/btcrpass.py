@@ -4366,7 +4366,7 @@ class WalletRawPrivateKey(object):
         if crypto is None:
             self.crypto = 'bitcoin'
         else:
-            self.crypto = crypto
+            self.crypto = crypto.lower()
 
         from . import btcrseed
         # Load addresses

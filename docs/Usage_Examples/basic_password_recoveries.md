@@ -289,7 +289,7 @@ python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcB
 ## Raw Eth Private Keys ##
 BTCRecover an also be used to recover from situations where you have a damaged private key. 
 
-This is handled in a similar way to a password recovery, so your private key guesses go in a tokenlist, using the %h wildcard to substitute hexidecimal characters.
+This is handled in a similar way to a password recovery, so your private key guesses go in a tokenlist, using the %h wildcard to substitute hexidecimal characters. You will also notice that the leading "0x" needs to be removed from the private key.
 
 **Example tokenlist**
 ``` linenums="1"
