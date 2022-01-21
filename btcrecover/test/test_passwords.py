@@ -2776,7 +2776,36 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
         self.assertEqual(wallet.return_verified_password_or_false(
-            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), ("0x" + correct_pw, 2))
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_Hex_Compressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['1KoHUH6vf9MGRvooN7bHqrWghDqKc566tB'],
+                                            check_compressed=True,
+                                            check_uncompressed=True,
+                                            force_check_p2sh=False,
+                                            crypto='ethereum')
+
+        correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_Hex_Uncompressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['1N8pQZkmrKjzSwuYFzThiMr8Ceg2mX4tAo'],
+                                            check_compressed=True,
+                                            check_uncompressed=True,
+                                            force_check_p2sh=False,
+                                            crypto='ethereum')
+
+        correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
 
 # QuickTests: all of Test01Basics, Test02Anchors, Test03WildCards, and Test04Typos,
 # all of Test05CommandLine except the "large" tests, and select quick tests from

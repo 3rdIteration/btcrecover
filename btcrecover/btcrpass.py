@@ -4428,25 +4428,25 @@ class WalletRawPrivateKey(object):
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def return_verified_password_or_false(self, passwords): # Raw Privatekey
+        l_sha256 = hashlib.sha256
+        hashlib_new = hashlib.new
         pubkey_from_secret = coincurve.PublicKey.from_valid_secret
 
         for count, password in enumerate(passwords, 1):
             # Generate the initial Keypair
             #print("Key:", password, " Length:", len(password))
 
-            if self.crypto == 'ethereum':
+            if ("Measure Performance" in password):
+                privkey = binascii.unhexlify("9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58")
+            else:
                 if("Measure Performance" not in password):
                     try:
                         privkey = binascii.unhexlify(password)
                     except binascii.Error as e:
-                        message = "\n\nERROR: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
-                        raise Exception(message)
-                else:
-                    privkey = binascii.unhexlify("9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58")
+                        message = "\n\nWarning: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
 
                 if len(privkey) != 32:
-                    message = "\n\nERROR: Invalid Private Key (Should be 64 Characters long)" + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
-                    raise Exception(message)
+                    message = "\n\nWarning: Invalid Private Key (Should be 64 Characters long)" + "\nKey Tried: " + password + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
 
             # Convert the private keys to public keys and addresses for verification.
             for isCompressed in self.compression_checks:
@@ -4459,8 +4459,8 @@ class WalletRawPrivateKey(object):
 
                 if self.crypto == 'ethereum':
                     pubkey_hash160 = keccak(pubkey[1:])[-20:]
-
-                # pubkey_hash160 = hashlib_new("ripemd160", l_sha256(pubkey).digest()).digest()
+                else:
+                    pubkey_hash160 = hashlib_new("ripemd160", l_sha256(pubkey).digest()).digest()
                 #
                 # for input_address_p2sh in self.address_type_checks:
                 #     if (input_address_p2sh):  # Handle P2SH Segwit Address
@@ -4471,15 +4471,15 @@ class WalletRawPrivateKey(object):
                 #         hash160 = pubkey_hash160
 
                 if pubkey_hash160 in self.hash160s:
-                    #privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
+                    privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
                     #print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": NOTE Brainwallet Found using ", end="")
                     #if isCompressed:
                     #    print("COMPRESSED address")
                     #else:
                     #    print("UNCOMPRESSED address")
 
-                    #print("Password Found:", password, ", PrivKey:", privkey_wif, ", Compressed: ", isCompressed)
-                    return "0x" + password, count
+                    print("\n* * * * *\nPrivkey Found (HEX):", password, ", PrivKey (WIF):", privkey_wif, ", Compressed: ", isCompressed, "\n* * * * *")
+                    return password, count
 
 
         return False, count
