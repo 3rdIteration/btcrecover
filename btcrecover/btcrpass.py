@@ -140,6 +140,7 @@ def init_wildcards():
     # been set to one with a single-byte code page e.g. ISO-8859-1 (Latin1) or Windows-1252
     wildcard_sets = {
         tstr("h") : tstr(string.hexdigits),
+        tstr("*") : tstr("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"),
         tstr("d") : tstr(string.digits),
         tstr("a") : tstr(string.ascii_lowercase),
         tstr("A") : tstr(string.ascii_uppercase),
@@ -4436,17 +4437,36 @@ class WalletRawPrivateKey(object):
             # Generate the initial Keypair
             #print("Key:", password, " Length:", len(password))
 
-            if ("Measure Performance" in password):
-                privkey = binascii.unhexlify("9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58")
-            else:
-                if("Measure Performance" not in password):
-                    try:
-                        privkey = binascii.unhexlify(password)
-                    except binascii.Error as e:
-                        message = "\n\nWarning: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
+            #Just swap a placeholder in for performance measurement
+            if ("Measure Performance" in password): password = "9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58"
 
-                if len(privkey) != 32:
-                    message = "\n\nWarning: Invalid Private Key (Should be 64 Characters long)" + "\nKey Tried: " + password + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
+            #Work out what kind of private key we are handling
+            WIFPrivKey = False
+            if len(password) == 64: # Likely Hex Private Key (Don't need to do anything)
+                pass
+            elif len(password) == 52 and password[0] in ["L","K"]: #Compressed Private Key
+                try:
+                    password = binascii.hexlify(base58.b58decode_check(password)[1:-1])
+                    WIFPrivKey = True
+                except:
+                    continue
+
+            elif len(password) == 51 and password[0] == "5":  # Uncompressed Private Key
+                try:
+                    password = binascii.hexlify(base58.b58decode_check(password)[1:])
+                    WIFPrivKey = True
+                except:
+                    continue
+
+
+            # Convert the private key from text to raw private key...
+            try:
+                privkey = binascii.unhexlify(password)
+            except binascii.Error as e:
+                message = "\n\nWarning: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
+
+            if len(privkey) != 32:
+                message = "\n\nWarning: Invalid Private Key (Should be 64 Characters long)" + "\nKey Tried: " + password + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
 
             # Convert the private keys to public keys and addresses for verification.
             for isCompressed in self.compression_checks:
@@ -4461,25 +4481,23 @@ class WalletRawPrivateKey(object):
                     pubkey_hash160 = keccak(pubkey[1:])[-20:]
                 else:
                     pubkey_hash160 = hashlib_new("ripemd160", l_sha256(pubkey).digest()).digest()
-                #
-                # for input_address_p2sh in self.address_type_checks:
-                #     if (input_address_p2sh):  # Handle P2SH Segwit Address
-                #         WITNESS_VERSION = "\x00\x14"
-                #         witness_program = WITNESS_VERSION.encode() + pubkey_hash160
-                #         hash160 = hashlib.new("ripemd160", l_sha256(witness_program).digest()).digest()
-                #     else:
-                #         hash160 = pubkey_hash160
+
+                for input_address_p2sh in self.address_type_checks:
+                    if (input_address_p2sh):  # Handle P2SH Segwit Address
+                        WITNESS_VERSION = "\x00\x14"
+                        witness_program = WITNESS_VERSION.encode() + pubkey_hash160
+                        pubkey_hash160 = hashlib.new("ripemd160", l_sha256(witness_program).digest()).digest()
+                    else:
+                        pubkey_hash160 = pubkey_hash160
 
                 if pubkey_hash160 in self.hash160s:
                     privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
-                    #print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": NOTE Brainwallet Found using ", end="")
-                    #if isCompressed:
-                    #    print("COMPRESSED address")
-                    #else:
-                    #    print("UNCOMPRESSED address")
-
-                    print("\n* * * * *\nPrivkey Found (HEX):", password, ", PrivKey (WIF):", privkey_wif, ", Compressed: ", isCompressed, "\n* * * * *")
-                    return password, count
+                    #if self.crypto == 'bitcoin':
+                    #    print("\n* * * * *\nPrivkey Found (HEX):", password, ", PrivKey (WIF):", privkey_wif, ", Compressed: ", isCompressed, "\n* * * * *")
+                    if WIFPrivKey:
+                        return privkey_wif, count
+                    else:
+                        return password, count
 
 
         return False, count

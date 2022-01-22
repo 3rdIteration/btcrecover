@@ -156,7 +156,6 @@ The `%d` is a wildcard which is replaced by all combinations of a single digit. 
  * `%N`    - a single digit or uppercase letter
  * `%ia`   - a “case-insensitive” version of %a: a single lower or uppercase letter
  * `%in`   - a single digit, lower or uppercase letter
- * `%h`    - a single hexidcimal character (0-9, A-F) 
  * `%1,2in`- between 1 and 2 characters long of digits, lower or uppercase letters
  * `%[chars]` - exactly 1 of the characters between `[` and `]` (e.g. either a `c`, `h`, `a`, `r`, or `s`) _**Note**: All characters in this wildcard are used as-is, even if that character would normally have its own wildcard if used as a token, like space, $, % or ^_
  * `%1,3[chars]` - between 1 and 3 of the characters between `[` and `]`
@@ -180,6 +179,8 @@ The `%d` is a wildcard which is replaced by all combinations of a single digit. 
  * `%%`    - a single `%` (so that `%`’s in your password aren’t confused as wildcards)
  * `%^`    - a single `^` (so it’s not confused with an anchor if it’s at the beginning of a token)
  * `%S`    - a single `$` (yes, that’s `%` and a capital `S` that gets replaced by a dollar sign, sorry if that’s confusing)
+ * `%h`    - a single hexidcimal character (0-9, A-F) 
+ * `%*`    - a single Base58 character (Bitcoin Base58 Character Set)
 
 Up until now, most of the features help by reducing the number of passwords that need to be tried by exploiting your knowledge of what’s probably in the password. Wildcards significantly expand the number of passwords that need to be tried, so they’re best used in moderation.
 

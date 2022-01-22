@@ -286,10 +286,15 @@ python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcB
 ```
 <br>
 
-## Raw Eth Private Keys ##
+## Raw Private Keys##
 BTCRecover an also be used to recover from situations where you have a damaged private key. 
 
-This is handled in a similar way to a password recovery, so your private key guesses go in a tokenlist, using the %h wildcard to substitute hexidecimal characters. You will also notice that the leading "0x" needs to be removed from the private key.
+This is handled in a similar way to a password recovery, so your private key guesses go in a tokenlist, using the %h wildcard to substitute hexidecimal characters or %b to substitute base58 characters. You can use either a tokenlist or a passwordlist, depending on your situation, as well as the standard typos. If you are using a tokenlist, you will just need to ensure that the private keys being produced match the length and characters required for a private key... 
+
+If you know the address that the private key corresponds to, you can supply that, alternatively you can use an AddressDB. 
+
+### Raw Eth Private Keys ###
+You will also notice that the leading "0x" needs to be removed from the private key.
 
 **Example tokenlist**
 ``` linenums="1"
@@ -300,4 +305,26 @@ The tokenlist above is an example is a standard Eth private key (with the leadin
 
 ```
 python btcrecover.py --rawprivatekey --addresses 0xB9644424F9E639D1D0F27C4897e696CC324948BB --memwallet-coin ethereum --tokenlist ./docs/Usage_Examples/eth_privkey_tokenlist.txt
+```
+
+## Raw Bitcoin Private Keys ##
+Bitcoin private keys are supported in both Compressed and Uncompressed formats in Base58 and also as raw Hexidecimal keys.
+
+If you are using a tokenlist (as in the examples below) with multiple private keys, one per line, you will also want to specify the "--max-tokens 1" argument.
+
+**Example tokenlist**
+``` linenums="1"
+{% include "eth_privkey_tokenlist.txt" %}
+```
+
+The command below will attempt a recovery for an old-style, uncompressed private key with one missing character, using a tokenlist containing three possible private keys.
+
+```
+python btcrecover.py --rawprivatekey --addresses 1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL --memwallet-coin bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
+```
+
+The command below will attempt a recovery for a more modern (compresseed, native-segwit address) private key with one missing character, using a tokenlist containing three possible private keys.
+
+```
+python btcrecover.py --rawprivatekey --addresses bc1qafy0ftpk5teeayjaqukyd244un8gxvdk8hl5j6 --memwallet-coin bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
 ```

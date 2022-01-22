@@ -2778,12 +2778,12 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
 
-    def test_rawprivatekey_Btc_Hex_Compressed(self):
+    def test_rawprivatekey_Btc_legacy_Hex_Compressed(self):
         wallet = btcrpass.WalletRawPrivateKey(addresses=['1KoHUH6vf9MGRvooN7bHqrWghDqKc566tB'],
                                             check_compressed=True,
                                             check_uncompressed=True,
                                             force_check_p2sh=False,
-                                            crypto='ethereum')
+                                            crypto='bitcoin')
 
         correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
 
@@ -2792,14 +2792,70 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
 
-    def test_rawprivatekey_Btc_Hex_Uncompressed(self):
+    def test_rawprivatekey_Btc_legacy_Hex_Uncompressed(self):
         wallet = btcrpass.WalletRawPrivateKey(addresses=['1N8pQZkmrKjzSwuYFzThiMr8Ceg2mX4tAo'],
                                             check_compressed=True,
                                             check_uncompressed=True,
                                             force_check_p2sh=False,
-                                            crypto='ethereum')
+                                            crypto='bitcoin')
 
         correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_p2sh_Hex_Compressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['3AZyE1Dobb71DWjvYtSNqwNELPGQhdjqp4'],
+                                            check_compressed=True,
+                                            check_uncompressed=False,
+                                            force_check_p2sh=True,
+                                            crypto='bitcoin')
+
+        correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_nativesegwit_Hex_Compressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['bc1qecejtf3csl8gmjxvjmh0mwtqah8z7eetrcay67'],
+                                            check_compressed=True,
+                                            check_uncompressed=True,
+                                            force_check_p2sh=False,
+                                            crypto='bitcoin')
+
+        correct_pw = tstr("1ADF94484E9C820D69BC9770542B678DB677E7C354DC4BD27D7E9AC351698CB7")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_legacy_WIF_Uncompressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL'],
+                                            check_compressed=False,
+                                            check_uncompressed=True,
+                                            force_check_p2sh=False,
+                                            crypto='bitcoin')
+
+        correct_pw = tstr("5JYsdUthE1KzGAUXwfomeocw6vwzoTNXzcbJq9e7LcAyt1Svoo8")
+
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
+
+    def test_rawprivatekey_Btc_legacy_WIF_Compressed(self):
+        wallet = btcrpass.WalletRawPrivateKey(addresses=['1NMnWwgsaLaV97m3Z3PAkCvAyJqdVKHnEE'],
+                                            check_compressed=True,
+                                            check_uncompressed=False,
+                                            force_check_p2sh=False,
+                                            crypto='bitcoin')
+
+        correct_pw = tstr("KzTgU27AYQSojvpXaJHS5rmboB7k83Q3oCDGAeoD3Rz2BbLFoP19")
 
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d34"), tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d35"))), (False, 2))
