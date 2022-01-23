@@ -4464,9 +4464,13 @@ class WalletRawPrivateKey(object):
                 privkey = binascii.unhexlify(password)
             except binascii.Error as e:
                 message = "\n\nWarning: Invalid Private Key (Length or Characters)" + "\nKey Tried: " + password + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..." +  "\nSpecific Issue: " + str(e)
+                print(message)
+                continue
 
             if len(privkey) != 32:
                 message = "\n\nWarning: Invalid Private Key (Should be 64 Characters long)" + "\nKey Tried: " + password + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
+                print(message)
+                continue
 
             # Convert the private keys to public keys and addresses for verification.
             for isCompressed in self.compression_checks:
