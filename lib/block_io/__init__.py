@@ -1,7 +1,7 @@
 from Crypto.Cipher import AES
 import base64
-import base58
-import requests
+from lib.cashaddress import base58
+#import requests
 
 from hashlib import sha256, pbkdf2_hmac
 

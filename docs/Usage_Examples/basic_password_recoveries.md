@@ -253,6 +253,14 @@ Basic Litecoin Wallet with "btcr-test-password" as the salt. (Like what memwalle
 python btcrecover.py --warpwallet --warpwallet-salt btcr-test-password --crypto litecoin --addresses LeBzGzZFxRUzzRAtm8EB2Dw74jRfQqUZeq --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 
+## Block.io Wallets
+You would first download the wallet file using the instructions in the extract scripts section of the documentation.
+
+You would then do a basic recovery with a command like the one below. (This command uses a sample wallet file bunlded with BTCRecover)
+```
+python btcrecover.py --wallet ./btcrecover/test/test-wallets/block.io.request.json --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+```
+
 ## Dogechain.info Wallets
 You would first download the wallet file using the instructions in the extract scripts section of the documentation. You can also use an extract script to securely run dogechain.info wallets on rented hardware. [See here for more info about Extract Scripts...](Extract_Scripts.md#usage-for-dogechaininfo)
 

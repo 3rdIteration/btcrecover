@@ -4,7 +4,7 @@ import hashlib
 import ecdsa
 import bitcoinutils.constants
 import bitcoinutils.bech32
-import base58
+from lib.cashaddress import base58
 
 bitcoinutils.constants.NETWORK_WIF_PREFIXES = { 'BTC': b'\x80',
                                                 'LTC': b'\xb0',

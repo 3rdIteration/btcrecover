@@ -33,7 +33,6 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
 import lib.cardano.cardano_utils as cardano
-import lib.block_io
 
 module_leveldb_available = False
 try:
@@ -99,6 +98,15 @@ try:
     shamir_mnemonic_available = True
 except:
     pass
+
+# Modules dependant on bitcoinutils
+bitcoinutils_available = False
+try:
+    import lib.block_io
+    bitcoinutils_available = True
+except:
+    pass
+
 
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
@@ -2490,6 +2498,19 @@ class WalletBlockIO(object):
     _dump_privkeys_file = None
     _dump_wallet_file = None
     _using_extract = False
+
+    def __init__(self):
+        try:
+            import ecdsa
+        except ModuleNotFoundError:
+            exit(
+                "\nERROR: Cannot load ecdsa module which is required for block.io wallets... You can install it with the command 'pip3 install ecdsa")
+
+        try:
+            import bitcoinutils
+        except ModuleNotFoundError:
+            exit(
+                "\nERROR: Cannot load bitcoin-utils module which is required for block.io wallets... You can install it with the command 'pip3 install bitcoin-utils'")
 
     @staticmethod
     def is_wallet_file(wallet_file):
