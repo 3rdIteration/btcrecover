@@ -4380,6 +4380,7 @@ class WalletRawPrivateKey(object):
         if addresses:
             if self.crypto == 'ethereum':
                 self.hash160s = btcrseed.WalletEthereum._addresses_to_hash160s(addresses)
+                input_address_standard = True
             else:
                 self.hash160s = btcrseed.WalletBase._addresses_to_hash160s(addresses)
 
