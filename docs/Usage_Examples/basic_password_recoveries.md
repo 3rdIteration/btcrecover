@@ -104,6 +104,7 @@ python btcrecover.py --wallet-type bch --addrs bitcoincash:qqv8669jcauslc88ty5v0
 ```
 <br>
 Basic Cardano, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) For Cardano recovers, [see the notes here as well.](bip39-accounts-and-altcoins.md) This will accept either base or stake addresses... (Byron-Era addresses are not supported))
+
 ```
 python btcrecover.py --wallet-type cardano --addrs addr1q90kk6lsmk3fdy54mqfr50hy025ymnmn5hhj8ztthcv3qlzh5aynphrad3d26hzxg7xzzf8hnmdpxwtwums4nmryj3jqk8kvak --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
 ```
@@ -195,45 +196,45 @@ Brainwallets are a very old (**and very unsafe**) type of wallet. Given this, mo
 
 Basic Bitcoin Command (Will check both compressed and uncompressed address types, even though in this example this is a compressed address)
 ```
-python btcrecover.py --brainwallet --addresses 1BBRWFHjFhEQc1iS6WTQCtPu2GtZvrRcwy --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs 1BBRWFHjFhEQc1iS6WTQCtPu2GtZvrRcwy --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 Bitcoin Wallet, but set to only check uncompressed addresses. (Only use this for VERY old wallets that you are sure aren't a compressed address, though also consider that uncompressed is the default... Only gives a small speed boost)
 
 ```
-python btcrecover.py --brainwallet --addresses 1MHoPPuGJyunUB5LZQF5dXTrLboEdxTmUm --skip-compressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs 1MHoPPuGJyunUB5LZQF5dXTrLboEdxTmUm --skip-compressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 P2SH Bitcoin Wallet (Like the kind you would get of something like segwitaddress.org, as of 2021, these are all compressed type addresses, so can skip checking uncomrpessed ones...)
 ```
-python btcrecover.py --brainwallet --addresses 3C4dEdngg4wnmwDYSwiDLCweYawMGg8dVN --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs 3C4dEdngg4wnmwDYSwiDLCweYawMGg8dVN --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 Bech32 Bitcoin Wallet. (From segwitaddress.org)
 ```
-python btcrecover.py --brainwallet --addresses bc1qth4w90jmh0a6ug6pwsuyuk045fmtwzreg03gvj --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs bc1qth4w90jmh0a6ug6pwsuyuk045fmtwzreg03gvj --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 Litecoin Wallet (From liteaddress.org - These are all uncompressed with no option to use compressed) No extra arguments are needed for these types of wallets.
 ```
-python btcrecover.py --brainwallet --addresses LfWkecD6Pe9qiymVjYENuYXcYpAWjU3mXw --skip-compressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs LfWkecD6Pe9qiymVjYENuYXcYpAWjU3mXw --skip-compressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 Dash Wallet (From paper.dash.org) - No compression parameters specificed, so it will just check both
 ```
-python btcrecover.py --brainwallet --addresses XvyeDeZAGh8Nd7fvRHZJV49eAwNvfCubvB --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs XvyeDeZAGh8Nd7fvRHZJV49eAwNvfCubvB --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
 
 Dash Wallet (From paper.dash.org - Or if you know you used a compressed one... (Though Uncompressed is the default)
 ```
-python btcrecover.py --brainwallet --addresses XksGLVwdDQSzkxK1xPmd4R5grcUFyB3ouY --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --brainwallet --addrs XksGLVwdDQSzkxK1xPmd4R5grcUFyB3ouY --skip-uncompressed --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 
@@ -244,13 +245,13 @@ Note: At this time, only Bitcoin and Litecoin are supported... (Eth could be eas
 
 Basic Bitcoin Wallet with "btcr-test-password" as the salt. (Warpwallet suggested using your email address) These wallets are all "uncompressed" type, but the performance gain for this is so small compared to how long the sCrypt operation takes, it isn't worth not checking both types...
 ```
-python btcrecover.py --warpwallet --warpwallet-salt btcr-test-password --addresses 1FThrDFjhSf8s1Aw2ed5U2sTrMz7HicZun --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --warpwallet --warpwallet-salt btcr-test-password --addrs 1FThrDFjhSf8s1Aw2ed5U2sTrMz7HicZun --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 <br>
 Basic Litecoin Wallet with "btcr-test-password" as the salt. (Like what memwallet or mindwallet produces, so you need to add the --crypto argment and specify litecoin) These wallets are all "uncompressed" type, but the performance gain for this is so small compared to how long the sCrypt operation takes, it isn't worth not checking both types...
 
 ```
-python btcrecover.py --warpwallet --warpwallet-salt btcr-test-password --crypto litecoin --addresses LeBzGzZFxRUzzRAtm8EB2Dw74jRfQqUZeq --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+python btcrecover.py --warpwallet --warpwallet-salt btcr-test-password --crypto litecoin --addrs LeBzGzZFxRUzzRAtm8EB2Dw74jRfQqUZeq --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 
 ## Dogechain.info Wallets
@@ -304,7 +305,7 @@ You will also notice that the leading "0x" needs to be removed from the private 
 The tokenlist above is an example is a standard Eth private key (with the leading 0x removed) where there are three damanged parts. One single character (%h), one two-character (%2h) and one three-character (%3h) It will take about 20 mintes to run...
 
 ```
-python btcrecover.py --rawprivatekey --addresses 0xB9644424F9E639D1D0F27C4897e696CC324948BB --memwallet-coin ethereum --tokenlist ./docs/Usage_Examples/eth_privkey_tokenlist.txt
+python btcrecover.py --rawprivatekey --addrs 0xB9644424F9E639D1D0F27C4897e696CC324948BB --wallet-type ethereum --tokenlist ./docs/Usage_Examples/eth_privkey_tokenlist.txt
 ```
 
 ## Raw Bitcoin Private Keys ##
@@ -320,11 +321,17 @@ If you are using a tokenlist (as in the examples below) with multiple private ke
 The command below will attempt a recovery for an old-style, uncompressed private key with one missing character, using a tokenlist containing three possible private keys.
 
 ```
-python btcrecover.py --rawprivatekey --addresses 1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL --memwallet-coin bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
+python btcrecover.py --rawprivatekey --addrs 1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL --wallet-type bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
 ```
 
 The command below will attempt a recovery for a more modern (compresseed, native-segwit address) private key with one missing character, using a tokenlist containing three possible private keys.
 
 ```
-python btcrecover.py --rawprivatekey --addresses bc1qafy0ftpk5teeayjaqukyd244un8gxvdk8hl5j6 --memwallet-coin bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
+python btcrecover.py --rawprivatekey --addrs bc1qafy0ftpk5teeayjaqukyd244un8gxvdk8hl5j6 --wallet-type bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
+```
+
+You can also do raw private key repair, even if you don't have a record of the corresponding address, through using an AddressDB. (Also works for Eth, BCH, etc...)
+
+```
+python btcrecover.py --rawprivatekey --addressdb ./btcrecover/test/test-addressdbs/addresses-BTC-Test.db --wallet-type bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
 ```

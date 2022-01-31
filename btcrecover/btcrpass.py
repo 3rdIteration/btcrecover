@@ -4474,6 +4474,7 @@ class WalletRawPrivateKey(object):
 
             # Convert the private keys to public keys and addresses for verification.
             for isCompressed in self.compression_checks:
+
                 if isCompressed:
                     privcompress = bytes([0x1])
                 else:
@@ -4490,18 +4491,18 @@ class WalletRawPrivateKey(object):
                     if (input_address_p2sh):  # Handle P2SH Segwit Address
                         WITNESS_VERSION = "\x00\x14"
                         witness_program = WITNESS_VERSION.encode() + pubkey_hash160
-                        pubkey_hash160 = hashlib.new("ripemd160", l_sha256(witness_program).digest()).digest()
+                        hash160 = hashlib.new("ripemd160", l_sha256(witness_program).digest()).digest()
                     else:
-                        pubkey_hash160 = pubkey_hash160
+                        hash160 = pubkey_hash160
 
-                if pubkey_hash160 in self.hash160s:
-                    privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
-                    #if self.crypto == 'bitcoin':
-                    #    print("\n* * * * *\nPrivkey Found (HEX):", password, ", PrivKey (WIF):", privkey_wif, ", Compressed: ", isCompressed, "\n* * * * *")
-                    if WIFPrivKey:
-                        return privkey_wif, count
-                    else:
-                        return password, count
+                    if hash160 in self.hash160s:
+                        privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + privcompress)
+                        #if self.crypto == 'bitcoin':
+                        #    print("\n* * * * *\nPrivkey Found (HEX):", password, ", PrivKey (WIF):", privkey_wif, ", Compressed: ", isCompressed, "\n* * * * *")
+                        if WIFPrivKey:
+                            return privkey_wif, count
+                        else:
+                            return password, count
 
 
         return False, count
@@ -5072,19 +5073,19 @@ def init_parser_common():
         dump_group.add_argument("--dump-privkeys", metavar="FILE",   help="Dump a list of private keys (For import in to Electrum) to a file specified here")
         dump_group.add_argument("--correct-wallet-password", metavar="STRING", help="The correct wallet password (This can be used instead of a passwordlist or tokenlist)")
         dump_group.add_argument("--correct-wallet-secondpassword", metavar="STRING", help="The correct wallet second password (This can be used instead of a passwordlist or tokenlist)")
+        common_seedkey_group = parser_common.add_argument_group("Brainwallet/BIP39/RawPrivkey Shared Arguments")
+        common_seedkey_group.add_argument("--addrs",      metavar="ADDRESS", nargs="+", help="if not using an mpk, address(es) in the wallet")
+        common_seedkey_group.add_argument("--skip-compressed",      action="store_true", default=False, help="Skip check using compressed keys")
+        common_seedkey_group.add_argument("--skip-uncompressed",      action="store_true", default=False, help="Skip check using uncompressed keys, common in older brainwallets.")
+        common_seedkey_group.add_argument("--force-check-p2sh",      action="store_true", default=False, help="For the checking of p2sh segwit addresses (This autodetects for Bitcoin, but will need to be forced for alts like litecoin)")
+        common_seedkey_group.add_argument("--addressdb",  metavar="FILE",    nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
+        common_seedkey_group.add_argument("--wallet-type",     metavar="TYPE",      help="the wallet type, e.g. ethereum (default: bitcoin)")
         brainwallet_group = parser_common.add_argument_group("Brainwallet")
         brainwallet_group.add_argument("--rawprivatekey", action="store_true", help="Search for a Raw Private Key")
         brainwallet_group.add_argument("--brainwallet", action="store_true", help="Search for a brainwallet")
-        brainwallet_group.add_argument("--addresses",      metavar="ADDRESS", nargs="+", help="The address(s) that correspond to the brainwallet")
-        brainwallet_group.add_argument("--skip-compressed",      action="store_true", default=False, help="Skip check using compressed keys")
-        brainwallet_group.add_argument("--skip-uncompressed",      action="store_true", default=False, help="Skip check using uncompressed keys, common in older brainwallets.")
-        brainwallet_group.add_argument("--force-check-p2sh",      action="store_true", default=False, help="For the checking of p2sh segwit addresses (This autodetects for Bitcoin, but will need to be forced for alts like litecoin)")
         brainwallet_group.add_argument("--warpwallet",      action="store_true", default=False, help="Treat the brainwallet like a Warpwallet (or Memwallet)")
         brainwallet_group.add_argument("--warpwallet-salt",      metavar="STRING", help="For the checking of p2sh segwit addresses (This autodetects for Bitcoin, but will need to be forced for alts like litecoin)")
         brainwallet_group.add_argument("--memwallet-coin",      metavar="STRING", help="Coin type for memwallet brainwallets. (bitcoin, litecoin)")
-        yoroi_group = parser_common.add_argument_group("Yoroi Cadano Wallet")
-        yoroi_group.add_argument("--yoroi-master-password", metavar="Master_Password",
-                                   help="Search for the password to decrypt a Yoroi wallet master_password provided")
         bip38_group = parser_common.add_argument_group("BIP-38 Encrypted Private Keys (eg: From Bitaddress Paper Wallets)")
         bip38_group.add_argument("--bip38-enc-privkey", metavar="ENC-PRIVKEY", help="encrypted private key")
         bip38_group.add_argument("--bip38-currency", metavar="Coin Code", help="Currency name from Bitcoinlib (eg: bitcoin, litecoin, dash)")
@@ -5093,15 +5094,15 @@ def init_parser_common():
         bip39_group.add_argument("--slip39",      action="store_true",   help="search for a SLIP-39 passphrase instead of from a wallet")
         bip39_group.add_argument("--slip39-shares",  metavar="SLIP39-MNEMONIC", nargs="+",   help="SLIP39 Share Mnemonics")
         bip39_group.add_argument("--mpk",        metavar="XPUB",        help="the master public key")
-        bip39_group.add_argument("--addrs",      metavar="ADDRESS", nargs="+", help="if not using an mpk, address(es) in the wallet")
-        bip39_group.add_argument("--addressdb",  metavar="FILE",    nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
         bip39_group.add_argument("--addr-limit", type=int, metavar="COUNT",    help="if using addrs or addressdb, the generation limit")
         bip39_group.add_argument("--language",   metavar="LANG-CODE",   help="the wordlist language to use (see wordlists/README.md, default: auto)")
         bip39_group.add_argument("--bip32-path", metavar="PATH",        nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
         bip39_group.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         bip39_group.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
         bip39_group.add_argument("--mnemonic-prompt", action="store_true", help="prompt for the mnemonic guess via the terminal (default: via the GUI)")
-        bip39_group.add_argument("--wallet-type",     metavar="TYPE",      help="the wallet type, e.g. ethereum (default: bitcoin)")
+        yoroi_group = parser_common.add_argument_group("Yoroi Cadano Wallet")
+        yoroi_group.add_argument("--yoroi-master-password", metavar="Master_Password",
+                                   help="Search for the password to decrypt a Yoroi wallet master_password provided")
         gpu_group = parser_common.add_argument_group("GPU acceleration")
         gpu_group.add_argument("--enable-gpu", action="store_true",     help="enable experimental OpenCL-based GPU acceleration (only supports Bitcoin Core wallets and extracts)")
         gpu_group.add_argument("--global-ws",  type=int, nargs="+",     default=[4096], metavar="PASSWORD-COUNT", help="OpenCL global work size (default: 4096)")
@@ -5761,7 +5762,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         loaded_wallet = WalletYoroi(args.yoroi_master_password, args.performance)
 
     if args.brainwallet or args.warpwallet:
-        loaded_wallet = WalletBrainwallet(addresses = args.addresses,
+        loaded_wallet = WalletBrainwallet(addresses = args.addrs,
                                           addressdb = args.addressdb,
                                           check_compressed = not(args.skip_compressed),
                                           check_uncompressed = not(args.skip_uncompressed),
@@ -5771,12 +5772,12 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                           crypto=args.memwallet_coin)
 
     if args.rawprivatekey:
-        loaded_wallet = WalletRawPrivateKey(addresses = args.addresses,
+        loaded_wallet = WalletRawPrivateKey(addresses = args.addrs,
                                           addressdb = args.addressdb,
                                           check_compressed = not(args.skip_compressed),
                                           check_uncompressed = not(args.skip_uncompressed),
                                           force_check_p2sh = args.force_check_p2sh,
-                                          crypto=args.memwallet_coin)
+                                          crypto=args.wallet_type)
 
     # Set the default number of threads to use. For GPU processing, things like hyperthreading are unhelpful, so use physical cores only...
     if not args.threads:
