@@ -403,6 +403,8 @@ class Test03WildCards(GeneratorTester):
         self.do_generator_test(["%[abcc-]"], ["a", "b", "c", "-"], "--has-wildcards -d", True)
     def test_set_insensitive(self):
         self.do_generator_test(["%i[abcc-]"], ["a", "b", "c", "-", "A", "B", "C"], "--has-wildcards -d", True)
+    def test_set_withspace(self):
+        self.do_generator_test(["%[a b]"], ["a", " ", "b"], "--has-wildcards -d", True)
     def test_noset(self):
         self.do_generator_test(["%%[not-a-range]"], ["%[not-a-range]"], "--has-wildcards", True)
 

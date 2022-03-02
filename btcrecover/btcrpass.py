@@ -6622,6 +6622,23 @@ def parse_tokenlist(tokenlist_file, first_line_num = 1):
         # specified delimiter (default: whitespace) to get a list of tokens
         new_list.extend( line.strip("\r\n").split(args.delimiter) )
 
+        # A simple fix to handle the situation where someone has a space in a custom expanding wildcard
+        temp_new_list = [None]
+        tempToken = None
+        for token in new_list:
+            if token is None: continue
+            if "%[" in token and "]" not in token:
+                tempToken = token
+                continue
+
+            if tempToken is not None:
+                token = tempToken + " " + token
+                tempToken = None
+
+            temp_new_list.append(token)
+
+        new_list = temp_new_list
+
         # Ignore empty lines
         if new_list in ([None], [None, tstr('')]): continue
 
