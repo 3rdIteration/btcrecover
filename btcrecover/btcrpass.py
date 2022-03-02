@@ -6633,7 +6633,6 @@ def parse_tokenlist(tokenlist_file, first_line_num = 1):
 
             if tempToken is not None:
                 delimiter = " "
-                print(args.delimiter)
                 if args.delimiter is not None:
                     delimiter = args.delimiter
                 token = tempToken + delimiter + token
