@@ -1007,11 +1007,12 @@ class WalletBIP32(WalletBase):
         if self.checksinglexpubaddress: #MyBitcoinWallet or PT.BTC Wallet Single Address (Does things in a very non-standard way)
             seed_bytes = arg_seed_bytes
             privkey_bytes = seed_bytes[:32] # These wallets basically use the xprv a single private key...
-            pubkey = coincurve.PublicKey.from_valid_secret(privkey_bytes).format(compressed = True)
-            pubkey_hash160 = hashlib.new("ripemd160", hashlib.sha256(pubkey).digest()).digest()
+            pubkey = coincurve.PublicKey.from_valid_secret(privkey_bytes).format(compressed = False)
+            pubkey_hash160 = self.pubkey_to_hash160(pubkey)
             if pubkey_hash160 in self._known_hash160s:
                 privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey_bytes + bytes([0x1]))
-                print("Match found on Non-Standard Single Address, Privkey: ", privkey_wif)
+                print("Match found on Non-Standard Single Address, Privkey (Bitcoin Base58): ", privkey_wif)
+                print("Match found on Non-Standard Single Address, Privkey (Generic Hex): ", privkey_bytes.hex())
                 return True
 
         for current_path_index in self._path_indexes:
@@ -2173,27 +2174,26 @@ class WalletSolana(WalletPyCryptoHDWallet):
 
 @register_selectable_wallet_class('Avalanche BIP39/44 (X-Addresses)')
 class WalletAvalanche(WalletPyCryptoHDWallet):
-
     def _verify_seed(self, mnemonic, passphrase = None):
         if passphrase:
-            testSaltList = [passphrase]
+           testSaltList = [passphrase]
         else:
-            testSaltList = self._derivation_salts
+           testSaltList = self._derivation_salts
 
         for salt in testSaltList:
 
-            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.AVAX_X_CHAIN)
+           wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.AVAX_X_CHAIN)
 
-            wallet2 = wallet.CreateFromMnemonic("Avalanche", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+           wallet2 = wallet.CreateFromMnemonic("Avalanche", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
 
-            wallet2.Generate(addr_num=self._addrs_to_generate, addr_off=self._address_start_index, acc_idx=0,
+           wallet2.Generate(addr_num=self._addrs_to_generate, addr_off=self._address_start_index, acc_idx=0,
                              change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
 
-            walletDict = wallet2.ToDict()['address']
+           walletDict = wallet2.ToDict()['address']
 
-            for address in walletDict:
-                if walletDict[address]['address'] in self._known_hash160s:
-                    return True
+           for address in walletDict:
+               if walletDict[address]['address'] in self._known_hash160s:
+                   return True
 
         return False
 
@@ -2288,7 +2288,32 @@ class WalletPolkadotSubstrate(WalletPyCryptoHDWallet):
 
 @register_selectable_wallet_class('Cosmos BIP44')
 class WalletCosmos(WalletPyCryptoHDWallet):
-      def _verify_seed(self, mnemonic, passphrase = None):
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+           testSaltList = [passphrase]
+        else:
+           testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+           wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.COSMOS)
+
+           wallet2 = wallet.CreateFromMnemonic("Cosmos", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+
+           for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+               wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
+                                change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
+
+               if wallet2.ToDict()['address']['address_0']['address'] in self._known_hash160s:
+                   return True
+
+        return False
+
+############### Tezos ###############
+
+@register_selectable_wallet_class('Tezos BIP44')
+class WalletTezos(WalletPyCryptoHDWallet):
+    def _verify_seed(self, mnemonic, passphrase = None):
         if passphrase:
             testSaltList = [passphrase]
         else:
@@ -2296,15 +2321,15 @@ class WalletCosmos(WalletPyCryptoHDWallet):
 
         for salt in testSaltList:
 
-            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.COSMOS)
+            wallet = py_crypto_hd_wallet.HdWalletBipFactory(py_crypto_hd_wallet.HdWalletBip44Coins.TEZOS)
 
-            wallet2 = wallet.CreateFromMnemonic("Cosmos", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
+            wallet2 = wallet.CreateFromMnemonic("Tezos", mnemonic = " ".join(mnemonic), passphrase = salt.decode())
 
             for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
                 wallet2.Generate(addr_num=1, addr_off=0, acc_idx=account_index,
                                  change_idx=py_crypto_hd_wallet.HdWalletBipChanges.CHAIN_EXT)
 
-                if wallet2.ToDict()['address']['address_0']['address'] in self._known_hash160s:
+                if wallet2.ToDict()['change_key']['address'] in self._known_hash160s:
                     return True
 
         return False
@@ -2881,7 +2906,7 @@ def main(argv):
         parser.add_argument("--language",    metavar="LANG-CODE",       help="the wordlist language to use (see wordlists/README.md, default: auto)")
         parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
         parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
-        parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like MyBitcoinWallet and PT.BTC")
+        parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")

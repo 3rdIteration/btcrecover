@@ -1741,6 +1741,15 @@ class Test08BIP39Passwords(unittest.TestCase):
             mnemonic=   "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season"
         )
 
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_address_PyCryptoHDWallet_tezos(self):
+        self.WalletPyCryptoHDWallet_tester(
+            wallet_type="tezos",
+            address_limit=1,
+            addresses=  ["tz1WovCBe7yYsctWcqpw8pG5zfj6XpupYCh1"],
+            mnemonic=   "cake return enhance slender swap butter code cram fashion warm uphold adapt swarm slight misery enhance almost ability artefact lava sugar regret example lake"
+        )
+
 
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_address_PyCryptoHDWallet_stellar(self):
