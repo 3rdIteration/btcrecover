@@ -110,7 +110,7 @@ try:
                     continue  # if not found on this page, continue to next page
                 break  # if we broke out of inner loop, break out of this one too
 
-except bsddb3.db.DBInvalidArgError:
+except AssertionError:
     pass
 
 #If we still haven't got a valid mkey, try it as SQLite
