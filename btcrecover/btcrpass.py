@@ -390,8 +390,14 @@ class WalletBitcoinCore(object):
 
     @staticmethod
     def is_wallet_file(wallet_file):
+        # Check if it's a legacy (Berkeley DB)
         wallet_file.seek(12)
-        return wallet_file.read(8) == b"\x62\x31\x05\x00\x09\x00\x00\x00"  # BDB magic, Btree v9
+        if wallet_file.read(8) == b"\x62\x31\x05\x00\x09\x00\x00\x00":  # BDB magic, Btree v9
+            return True
+
+        wallet_file.seek(0)
+        # returns "maybe yes" or "definitely no" (Bither and Msigna wallets are also SQLite 3)
+        return None if wallet_file.read(16) == b"SQLite format 3\0" else False
 
     def __init__(self, loading = False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -405,6 +411,7 @@ class WalletBitcoinCore(object):
     # Load a Bitcoin Core BDB wallet file given the filename and extract part of the first encrypted master key
     @classmethod
     def load_from_filename(cls, wallet_filename, force_purepython = False):
+        
         if not force_purepython:
             try:
                 import bsddb3.db
