@@ -411,68 +411,88 @@ class WalletBitcoinCore(object):
     # Load a Bitcoin Core BDB wallet file given the filename and extract part of the first encrypted master key
     @classmethod
     def load_from_filename(cls, wallet_filename, force_purepython = False):
-        
-        if not force_purepython:
+        mkey = None
+
+        try:
+            if not force_purepython:
+                try:
+                    import bsddb3.db
+                except ImportError:
+                    force_purepython = True
+
+            if not force_purepython:
+                db_env = bsddb3.db.DBEnv()
+                wallet_filename = os.path.abspath(wallet_filename)
+                try:
+                    db_env.open(os.path.dirname(wallet_filename), bsddb3.db.DB_CREATE | bsddb3.db.DB_INIT_MPOOL)
+                    db = bsddb3.db.DB(db_env)
+                    db.open(wallet_filename, "main", bsddb3.db.DB_BTREE, bsddb3.db.DB_RDONLY)
+                except UnicodeEncodeError:
+                    error_exit("the entire path and filename of Bitcoin Core wallets must be entirely ASCII")
+                mkey = db.get(b"\x04mkey\x01\x00\x00\x00")
+                db.close()
+                db_env.close()
+
+            else:
+                def align_32bits(i):  # if not already at one, return the next 32-bit boundry
+                    m = i % 4
+                    return i if m == 0 else i + 4 - m
+
+                with open(wallet_filename, "rb") as wallet_file:
+                    wallet_file.seek(12)
+                    assert wallet_file.read(8) == b"\x62\x31\x05\x00\x09\x00\x00\x00", "is a Btree v9 file"
+
+                    # Don't actually try walking the btree, just look through every btree leaf page
+                    # for the value/key pair (yes they are in that order...) we're searching for
+                    wallet_file.seek(20)
+                    page_size        = struct.unpack(b"<I", wallet_file.read(4))[0]
+                    wallet_file_size = os.path.getsize(wallet_filename)
+                    for page_base in range(page_size, wallet_file_size, page_size):  # skip the header page
+                        wallet_file.seek(page_base + 20)
+                        (item_count, first_item_pos, btree_level, page_type) = struct.unpack(b"< H H B B", wallet_file.read(6))
+                        if page_type != 5 or btree_level != 1:
+                            continue  # skip non-btree and non-leaf pages
+                        pos = align_32bits(page_base + first_item_pos)  # position of the first item
+                        wallet_file.seek(pos)
+                        for i in range(item_count):    # for each item in the current page
+                            (item_len, item_type) = struct.unpack(b"< H B", wallet_file.read(3))
+                            if item_type & ~0x80 == 1:  # if it's a variable-length key or value
+                                if item_type == 1:      # if it's not marked as deleted
+                                    if i % 2 == 0:      # if it's a value, save it's position
+                                        value_pos = pos + 3
+                                        value_len = item_len
+                                    # else it's a key, check if it's the key we're looking for
+                                    elif item_len == 9 and wallet_file.read(item_len) == b"\x04mkey\x01\x00\x00\x00":
+                                        wallet_file.seek(value_pos)
+                                        mkey = wallet_file.read(value_len)  # found it!
+                                        break
+                                pos = align_32bits(pos + 3 + item_len)  # calc the position of the next item
+                            else:
+                                pos += 12  # the two other item types have a fixed length
+                            if i + 1 < item_count:  # don't need to seek if this is the last item in the page
+                                assert pos < page_base + page_size, "next item is located in current page"
+                                wallet_file.seek(pos)
+                        else: continue  # if not found on this page, continue to next page
+                        break           # if we broke out of inner loop, break out of this one too
+
+        except bsddb3.db.DBInvalidArgError:
+            pass
+
+        # If we still haven't got a valid mkey, try it as SQLite
+        if not mkey:
+            #It may be a more modern wallet file
+            import sqlite3
+            wallet_conn = sqlite3.connect(wallet_filename)
             try:
-                import bsddb3.db
-            except ImportError:
-                force_purepython = True
-
-        if not force_purepython:
-            db_env = bsddb3.db.DBEnv()
-            wallet_filename = os.path.abspath(wallet_filename)
-            try:
-                db_env.open(os.path.dirname(wallet_filename), bsddb3.db.DB_CREATE | bsddb3.db.DB_INIT_MPOOL)
-                db = bsddb3.db.DB(db_env)
-                db.open(wallet_filename, "main", bsddb3.db.DB_BTREE, bsddb3.db.DB_RDONLY)
-            except UnicodeEncodeError:
-                error_exit("the entire path and filename of Bitcoin Core wallets must be entirely ASCII")
-            mkey = db.get(b"\x04mkey\x01\x00\x00\x00")
-            db.close()
-            db_env.close()
-
-        else:
-            def align_32bits(i):  # if not already at one, return the next 32-bit boundry
-                m = i % 4
-                return i if m == 0 else i + 4 - m
-
-            with open(wallet_filename, "rb") as wallet_file:
-                wallet_file.seek(12)
-                assert wallet_file.read(8) == b"\x62\x31\x05\x00\x09\x00\x00\x00", "is a Btree v9 file"
-                mkey = None
-
-                # Don't actually try walking the btree, just look through every btree leaf page
-                # for the value/key pair (yes they are in that order...) we're searching for
-                wallet_file.seek(20)
-                page_size        = struct.unpack(b"<I", wallet_file.read(4))[0]
-                wallet_file_size = os.path.getsize(wallet_filename)
-                for page_base in range(page_size, wallet_file_size, page_size):  # skip the header page
-                    wallet_file.seek(page_base + 20)
-                    (item_count, first_item_pos, btree_level, page_type) = struct.unpack(b"< H H B B", wallet_file.read(6))
-                    if page_type != 5 or btree_level != 1:
-                        continue  # skip non-btree and non-leaf pages
-                    pos = align_32bits(page_base + first_item_pos)  # position of the first item
-                    wallet_file.seek(pos)
-                    for i in range(item_count):    # for each item in the current page
-                        (item_len, item_type) = struct.unpack(b"< H B", wallet_file.read(3))
-                        if item_type & ~0x80 == 1:  # if it's a variable-length key or value
-                            if item_type == 1:      # if it's not marked as deleted
-                                if i % 2 == 0:      # if it's a value, save it's position
-                                    value_pos = pos + 3
-                                    value_len = item_len
-                                # else it's a key, check if it's the key we're looking for
-                                elif item_len == 9 and wallet_file.read(item_len) == b"\x04mkey\x01\x00\x00\x00":
-                                    wallet_file.seek(value_pos)
-                                    mkey = wallet_file.read(value_len)  # found it!
-                                    break
-                            pos = align_32bits(pos + 3 + item_len)  # calc the position of the next item
-                        else:
-                            pos += 12  # the two other item types have a fixed length
-                        if i + 1 < item_count:  # don't need to seek if this is the last item in the page
-                            assert pos < page_base + page_size, "next item is located in current page"
-                            wallet_file.seek(pos)
-                    else: continue  # if not found on this page, continue to next page
-                    break           # if we broke out of inner loop, break out of this one too
+                for key, value in wallet_conn.execute('SELECT * FROM main'):
+                    if b"\x04mkey\x01\x00\x00\x00" in key:
+                        mkey = value
+            except sqlite3.OperationalError as e:
+                if str(e).startswith("no such table"):
+                    raise ValueError("Not an Bitcoin Core wallet: " + str(e))  # it might be a Bither or Msigna Core wallet
+                else:
+                    raise  # unexpected error
+            wallet_conn.close()
 
         if not mkey:
             if force_purepython:
@@ -1376,7 +1396,7 @@ class WalletMsigna(object):
                 wallet_cur = wallet_conn.execute(select)
         except sqlite3.OperationalError as e:
             if str(e).startswith("no such table"):
-                raise ValueError("Not an mSIGNA wallet: " + str(e))  # it might be a Bither wallet
+                raise ValueError("Not an mSIGNA wallet: " + str(e))  # it might be a Bither or Bitcoin Core wallet
             else:
                 raise# unexpected error
         keychain = wallet_cur.fetchone()

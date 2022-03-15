@@ -1147,8 +1147,16 @@ class Test07WalletDecryption(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
-    def test_bitcoincore(self):
+    def test_bitcoincore_bdb(self):
         self.wallet_tester("bitcoincore-wallet.dat")
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_bitcoincore_bdbhd(self):
+        self.wallet_tester("bitcoincore-0.20.1-wallet.dat")
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_bitcoincore_sqlite(self):
+        self.wallet_tester("bitcoincore-0.21.1-wallet.dat")
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     def test_litecoincore(self):
