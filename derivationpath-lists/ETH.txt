@@ -7,6 +7,7 @@
 #
 m/44'/60'/0' #Ethereum Coinomi & Ledger Legacy
 m/44'/60'/0'/0 #Ethereum MEW, Trezor, etc (Binance Smart Chain uses this path too...)
+m/44'/1'/0'/0 #Trezor Testnets (Selectable in Metamask, etc)
 
 # Other Eth clones that can be used with the Eth wallet type
 #m/44'/61'/0'/0 #ETC

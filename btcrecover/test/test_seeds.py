@@ -374,7 +374,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
             raise unittest.SkipTest("requires that hashlib implements RIPEMD-160")
 
     def address_tester(self, wallet_type, the_address, the_address_limit, correct_mnemonic, test_path=None,
-                       pathlist_file=None, addr_start_index = 0, force_p2sh = False, **kwds):
+                       pathlist_file=None, addr_start_index = 0, force_p2sh = False, checksinglexpubaddress = False, **kwds):
 
         if pathlist_file:
             test_path = btcrseed.load_pathlist("./derivationpath-lists/" + pathlist_file)
@@ -384,13 +384,15 @@ class TestRecoveryFromAddress(unittest.TestCase):
             wallet = wallet_type.create_from_params(addresses=[the_address],
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
-                                                    force_p2sh=force_p2sh)
+                                                    force_p2sh=force_p2sh,
+                                                    checksinglexpubaddress=checksinglexpubaddress)
         else:
             wallet = wallet_type.create_from_params(addresses=[the_address],
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
                                                     force_p2sh=force_p2sh,
-                                                    path=test_path)
+                                                    path=test_path,
+                                                    checksinglexpubaddress=checksinglexpubaddress)
 
         # Convert the mnemonic string into a mnemonic_ids_guess
         wallet.config_mnemonic(correct_mnemonic, **kwds)
@@ -866,6 +868,27 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletBCH, "bitcoincash:qz7753xzek843j50cgtc526wdmlpm5v5eyt92gznrt", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")
 
+    def test_singlexpubaddress_atomic_eth(self):
+        self.address_tester(wallet_type = btcrseed.WalletEthereum,
+                            the_address = "0xfa5E4Bb54b4f45841140b2EF03198EBA64ABa9DD",
+                            the_address_limit = 1,
+                            correct_mnemonic = "keen term crouch physical together vital oak predict royal quantum tomorrow chunk",
+                            checksinglexpubaddress = True)
+
+    def test_singlexpubaddress_mybitcoinwallet_single_legacy(self):
+        self.address_tester(wallet_type = btcrseed.WalletBIP39,
+                            the_address = "1EaGSR7uWp2hok3jTtNypjUuV3G4YyMxgt",
+                            the_address_limit = 1,
+                            correct_mnemonic = "spatial stereo thrive reform shallow blouse minimum foster eagle game answer worth size stumble theme crater bounce stay extra duty man weather awesome search",
+                            checksinglexpubaddress = True)
+
+    def test_singlexpubaddress_mybitcoinwallet_single_bech32(self):
+        self.address_tester(wallet_type = btcrseed.WalletBIP39,
+                            the_address = "bc1qymj3j8qkyk8ukhczg80tm0jyfh4rzxyqnngsqh",
+                            the_address_limit = 1,
+                            correct_mnemonic = "spatial stereo thrive reform shallow blouse minimum foster eagle game answer worth size stumble theme crater bounce stay extra duty man weather awesome search",
+                            checksinglexpubaddress = True)
+
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Tron(self):
         self.address_tester(btcrseed.WalletTron, "TLDrhbxkBGa1doxtez2bEx4iQ3DmKg9UdM", 2,
@@ -885,6 +908,11 @@ class TestRecoveryFromAddress(unittest.TestCase):
     def test_WalletPyCryptoHDWallet_SecretNetworkOld(self):
         self.address_tester(btcrseed.WalletSecretNetworkOld, "secret1t47f66q50ft66ypwn9x7laeectyvh23azueqxu", 1,
                             "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
+    @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
+    def test_WalletPyCryptoHDWallet_Tezos(self):
+        self.address_tester(btcrseed.WalletTezos, "tz1UXZKEq7SsveAi1jpKBeigcdoFHmVopHKq", 1,
+                            "cake return enhance slender swap butter code cram fashion warm uphold adapt swarm slight misery enhance almost ability artefact lava sugar regret example lake")
+
 
 
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")

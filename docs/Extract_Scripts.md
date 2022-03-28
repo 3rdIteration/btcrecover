@@ -32,13 +32,6 @@ If you're on Windows, you will also need to install the latest version of Python
 
 ## Usage for Bitcoin Core ##
 
-This extract script needs the bsddb3 module. This was previously packaged with Python2, but with Python3, will need to be installed.
-
-**For Windows**, you can download a prebuilt WHL module from here: https://www.lfd.uci.edu/~gohlke/pythonlibs/#bsddb3 , selecting the file for Python Version and System (Eg: For Python 3.8, 64bit you want this one: bsddb3‑6.2.7‑cp38‑cp38‑win_amd64.whl) you can then install it by opening command prompt and navigating to where the WHL file was downloaded, then running something like 
-`pip3 install bsddb3‑6.2.7‑cp38‑cp38‑win_amd64.whl`
-
-**For Linux (And probably Mac)** The bsddb3 module that can be obtained via pip requires that you have Berkely DB libararies already installed. _(On Ubuntu, this can be achieved by installing libdb-dev via APT)_ The easiest solution on distributions like Ubuntu is to install it via APT eg: `sudo apt-get install python3-bsddb3`
-
 After downloading the script, **make a copy of your wallet.dat file into a different folder** (to make it easy, into the same folder as *extract-bitcoincore-mkey.py*). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open your Bitcoin folder which contains your wallet.dat file: `%appdata%\Bitcoin`. From here you can copy and paste your wallet.dat file into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming you've made a copy of your wallet.dat into the same folder):
 
     cd btcrecover-master\extract-scripts
@@ -62,10 +55,9 @@ When you (or someone else) runs *btcrecover* to search for passwords, you will n
 
 ### Bitcoin Core Technical Details ###
 
-The *extract-bitcoincore-mkey.py* script is intentionally short and should be easy to read for any Python programmer. It opens a wallet.dat file using the Python bsddb.db library (the Berkeley DB library which comes with Python 2.7), and then extracts a single key/value pair with the key string of `\x04mkey\x01\x00\x00\x00`. This key/value pair contains an encrypted version of the Bitcoin Core “master key”, or mkey for short, along with some other information required to try decrypting the mkey, specifically the mkey salt and iteration count. This information is then converted to base64 format for easy copy/paste, and printed to the screen.
+The *extract-bitcoincore-mkey.py* script is intentionally short and should be easy to read for any Python programmer. It opens a wallet.dat file using the Python bsddb.db (Or a Pure Python implementation if this module isn't available) or SQLite, and then extracts a single key/value pair with the key string of `\x04mkey\x01\x00\x00\x00`. This key/value pair contains an encrypted version of the Bitcoin Core “master key”, or mkey for short, along with some other information required to try decrypting the mkey, specifically the mkey salt and iteration count. This information is then converted to base64 format for easy copy/paste, and printed to the screen.
 
 The encrypted mkey is useful to *btcrecover*, but it does not contain any of your Bitcoin address or private key information. *btcrecover* can attempt to decrypt the mkey by trying different password combinations. Should it succeed, it and whoever runs it will then know the password to your wallet file, but without the rest of your wallet file, the password and the decrypted mkey are of no use.
-
 
 ## Usage for Bither ##
 
@@ -177,29 +169,9 @@ Once you have the file, you can either use it directly with BTCRecover, or you c
 
 ## Usage for Dogechain.info ##
 
-Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
+[Firstly you download the wallet file as per the documentation here:](./TUTORIAL.md#downloading-dogechaininfo-wallet-files)
 
-Basically you need to attempt to log in to your wallet (even with the wrong password) and save the wallet file that is downloaded as part of this process.
-
-Once you are at the dogechain.info wallet login page, with the developer tools open in your browser, you will need to do the following steps:
-
-1) Select the Network tab
-
-2) Enter your Wallet ID
-
-3) Enter a placeholder password (you can enter anything)
-
-4) Click Log In (It will say that it failed to decrypt the wallet, but this is normal)
-
-5) Select "Responses"
-
-6) Select the API items. (This may look slightly different if you have 2fa enabled, you may need to complete the 2fa at this step too)
-
-7) Once you have a response that looks like wallet data, copy it and paste it in to a text file. This is your wallet file...
-
-![Download Dodgechain Wallet](download_dogechain_wallet.png)
-
-You can then create an extrat script from the downloaded wallet file with the a command like the one below. (Which uses the sample wallet file that is part of the repository)
+You can then create an extract script from the downloaded wallet file with the a command like the one below. (Which uses the sample wallet file that is part of the repository)
 
     python extract-dogechain-privkey.py ../btcrecover\test\test-wallets/dogechain.wallet.aes.json
     Dogechain first 16 encrypted bytes, iv, and iter_count in base64:

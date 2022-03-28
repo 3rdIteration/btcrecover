@@ -36,6 +36,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
     * Secret Network
     * Solana
     * Stellar
+    * Tezos
     * Tron
     * Vertcoin
     * Zilliqa
@@ -72,6 +73,10 @@ If you have found a bug, please open an issue on Github here: [https://github.co
          * [MyEtherWallet](https://www.myetherwallet.com/)
          * [Bither](https://bither.net/)
          * [Blockchain.com](https://blockchain.com/wallet)
+         * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...
+         * Brainwallets
+            * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
+            * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
  * Bitcoin wallet password recovery support for:
      * [Bitcoin Core](https://bitcoincore.org/)
      * [MultiBit HD](https://multibit.org/) and [MultiBit Classic](https://multibit.org/help/v0.5/help_contents.html)
@@ -80,6 +85,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
      * BIP-39 passphrases (Also supports all cryptos supported for seed recovery, as well as recovering "Extra Words" for Electrum seeds)
      * [mSIGNA (CoinVault)](https://ciphrex.com/products/)
      * [Blockchain.com](https://blockchain.com/wallet)
+     * [block.io](https://block.io/) (Recovery of wallet "Secret PIN")
      * [pywallet --dumpwallet](https://github.com/jackjack-jj/pywallet) of Bitcoin Unlimited/Classic/XT/Core wallets
      * [Bitcoin Wallet for Android/BlackBerry](https://play.google.com/store/apps/details?id=de.schildbach.wallet) spending PINs and encrypted backups
      * [KnC Wallet for Android](https://github.com/kncgroup/bitcoin-wallet) encrypted backups
@@ -96,10 +102,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
      * [Dogechain.info](https://dogechain.info/)     
      * [Dogecoin Wallet for Android](http://dogecoin.com/) encrypted backups
      * [Yoroi Wallet for Cardano](https://yoroi-wallet.com/#/) Master_Passwords extracted from the wallet data (In browser or on rooted/jailbroken phones)
-     * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...
-     * Brainwallets
-        * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
-        * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
+     * [Damaged Raw Eth Private Keys]() Individual Private keys that are missing characters.
      * [Ethereum UTC Keystore Files](https://myetherwallet.com) Ethereum Keystore files, typically used by wallets like MyEtherWallet, MyCrypto, etc. (Also often used by Eth clones like Theta, etc)
  * [Free and Open Source](http://en.wikipedia.org/wiki/Free_and_open-source_software) - anyone can download, inspect, use, and redistribute this software
  * Supported on Windows, Linux, and OS X
