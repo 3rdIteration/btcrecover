@@ -12,9 +12,18 @@ There are a few basic steps to installing BTCRecover.
 
 5) Test your installation (Optional, but a good idea)
 
-These steps are covered in more detail below. [If you prefer a video walkthrough, can be found on YouTube here: https://youtu.be/8q65eqpf4gE](https://youtu.be/8q65eqpf4gE)
+These steps are also covered in Videos below for each supported Operating System.
 
 **Note: Depending on your operating system and python environment, you may need to replace the `python` command with `python3`. (By default, the command to use will be `python` in Windows and `python3` in Linux) Most non-technical users are on Windows, so all example commands will use `python` to match the defaults for this platform** 
+
+**Video Tutorials**
+
+Windows: <https://youtu.be/8q65eqpf4gE>
+
+Ubuntu Linux: <https://youtu.be/Met3NbxcZTU>
+
+MacOS: <https://youtu.be/Qzc3oHzbcAo>
+
 
 ## 1) Downloading *btcrecover* ##
 
@@ -26,7 +35,7 @@ Just download the latest version from <https://github.com/3rdIteration/btcrecove
 **Note:** Only Python 3.6 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.6, 3.7, 3.8, 3.9) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
-Video Demo of Installing BTCRecover in Ubuntu Live USB: <https://youtu.be/8q65eqpf4gE>
+Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
 
 Visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.9** release (Python 3.10, etc, will work, but Python 3.9 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
 
@@ -53,7 +62,7 @@ You can then re-run the command to install python3-pip from above.
 
 ### MacOS ###
 
-While MacOS will happily install python3 on demand, it's likely that you will need some additional packages to be able to build modules like coincurve.
+Video Demo of Installing BTCRecover in MacOS: <https://youtu.be/Qzc3oHzbcAo>
 
 1) [Install brew via instructions at brew.sh](https://brew.sh)
    
@@ -67,8 +76,11 @@ _Be sure to follow the instructions and add brew to your path..._
    
 The Install command is:
 
-    xcode-select --install
     brew install autoconf automake libffi libtool pkg-config python
+
+_If you want to use the graphical interface, be sure to follow the instructions to install tkinter as well._
+
+**Once you have installed Python via Brew, you will need to run both Python and PIP with commands that include the full version numnber. (eg: python3.9 and pip3.9)**
 
 ## 3) Install requirements via Python Pip ##
 
@@ -92,10 +104,9 @@ Once you have downloaded and unzipped BTCRecover, installed Python and all requi
 
 This command will take a few minutes to run and should complete without errors, indicating that your system is ready to use all features of BTCRecover.
 
-
 # Wallet Python Package Requirements #
 
-If you want to install all requirements for all wallet types, you can simply use the command `pip3 install -r requirements-full.txt`
+**If you want to install all requirements for all wallet types, you can simply use the command `pip3 install -r requirements-full.txt`**
 
 Locate your wallet type in the list below, and follow the instructions for only the sections listed next to your wallet.
 
