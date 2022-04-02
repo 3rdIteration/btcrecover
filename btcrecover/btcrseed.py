@@ -926,7 +926,7 @@ class WalletBIP32(WalletBase):
     @staticmethod
     def verify_mnemonic_syntax(mnemonic_ids):
         # Length must be divisible by 3 and all ids must be present
-        return len(mnemonic_ids) % 3 == 0 and None not in mnemonic_ids
+        return True#len(mnemonic_ids) % 3 == 0 and None not in mnemonic_ids
 
     def return_verified_password_or_false(self, mnemonic_ids_list):
         return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
@@ -1162,12 +1162,12 @@ class WalletBIP39(WalletBIP32):
     # also selects the appropriate wordlist language to use
     def config_mnemonic(self, mnemonic_guess = None, lang = None, passphrases = [u"",], expected_len = None, closematch_cutoff = 0.65):
         if expected_len:
-            if expected_len < 12:
-                raise ValueError("minimum BIP39 sentence length is 12 words")
+            #if expected_len < 12:
+            #    raise ValueError("minimum BIP39 sentence length is 12 words")
             if expected_len > 24:
                 raise ValueError("maximum BIP39 sentence length is 24 words")
-            if expected_len % 3 != 0:
-                raise ValueError("BIP39 sentence length must be evenly divisible by 3")
+            #if expected_len % 3 != 0:
+            #    raise ValueError("BIP39 sentence length must be evenly divisible by 3")
 
         # Do most of the work in this function:
         passphrases = self._config_mnemonic(mnemonic_guess, lang, passphrases, expected_len, closematch_cutoff)
@@ -1405,7 +1405,7 @@ class WalletBIP39(WalletBIP32):
         # in the blockchain (buggy software or people just messing around), and in address-database
         # mode this creates an unwanted positive hit, so now we have to start with a random prefix.
         length = len(mnemonic_ids_guess) + num_inserts - num_deletes
-        assert length >= 12
+        #assert length >= 12
         prefix = tuple(random.choice(self._words) for i in range(length-4))
         for guess in itertools.product(self._words, repeat=4):
             yield prefix + guess
@@ -1994,6 +1994,7 @@ class WalletCardano(WalletBIP39):
                 continue
 
             # Convert the mnemonic sentence to seed bytes
+            print(mnemonic_ids)
             _derive_seed_list = self._derive_seed(mnemonic_ids)
 
             for derivation_type, derived_seed, salt in _derive_seed_list:

@@ -7279,7 +7279,13 @@ def tokenlist_base_password_generator():
                 if invalid_anchors: continue
 
             if l_seed_generator:
-                yield ordered_token_guess
+                #print("Guess:", ordered_token_guess)
+                tempGuess = []
+                for bigtoken in ordered_token_guess:
+                    tempGuess.extend(bigtoken.split("%s"))
+
+                #print("Guess:", tempGuess)
+                yield tempGuess
             else:
                 yield l_tstr().join(ordered_token_guess)
 
