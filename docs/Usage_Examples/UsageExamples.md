@@ -16,6 +16,7 @@ The commands given can be pretty much copy/pasted as-is to allow you to recreate
 
 [Multi-Device Descrambling 12 word Seed with Extra words](Example_multi_device_descrambling_12_word_seed_with_extras.md) (Demonstrates "Required" Anchors, "Positional" Anchors and Spreading Work Accross Multiple Devices) 
 
+[Grouping words together in tokenlist based seed recoveries](example_seed_tokenlist_tokenblocks.md) (Demonstrates descrambling a 24 word seed where there several groups of words known to follow one another, but the position of these groups within the seed is unknown)
 
 ## Password Recovery
 
