@@ -7282,9 +7282,9 @@ def tokenlist_base_password_generator():
                 #print("Guess:", ordered_token_guess)
                 tempGuess = []
                 for bigtoken in ordered_token_guess:
-                    tempGuess.extend(bigtoken.split("%s"))
+                    tempGuess.extend(bigtoken.split(","))
 
-                #print("Guess:", tempGuess)
+                #print("Expanded:", tempGuess)
                 yield tempGuess
             else:
                 yield l_tstr().join(ordered_token_guess)

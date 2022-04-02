@@ -926,7 +926,7 @@ class WalletBIP32(WalletBase):
     @staticmethod
     def verify_mnemonic_syntax(mnemonic_ids):
         # Length must be divisible by 3 and all ids must be present
-        return True#len(mnemonic_ids) % 3 == 0 and None not in mnemonic_ids
+        return len(mnemonic_ids) % 3 == 0 and None not in mnemonic_ids
 
     def return_verified_password_or_false(self, mnemonic_ids_list):
         return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
@@ -1162,12 +1162,12 @@ class WalletBIP39(WalletBIP32):
     # also selects the appropriate wordlist language to use
     def config_mnemonic(self, mnemonic_guess = None, lang = None, passphrases = [u"",], expected_len = None, closematch_cutoff = 0.65):
         if expected_len:
-            #if expected_len < 12:
-            #    raise ValueError("minimum BIP39 sentence length is 12 words")
+            if expected_len < 12:
+                raise ValueError("minimum BIP39 sentence length is 12 words")
             if expected_len > 24:
                 raise ValueError("maximum BIP39 sentence length is 24 words")
-            #if expected_len % 3 != 0:
-            #    raise ValueError("BIP39 sentence length must be evenly divisible by 3")
+            if expected_len % 3 != 0:
+                raise ValueError("BIP39 sentence length must be evenly divisible by 3")
 
         # Do most of the work in this function:
         passphrases = self._config_mnemonic(mnemonic_guess, lang, passphrases, expected_len, closematch_cutoff)
@@ -2763,7 +2763,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None):
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None):
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -2783,10 +2783,22 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
     # Start building the command-line arguments
     btcr_args = "--typos " + str(typos)
 
+    max_tokens = 9
+    min_tokens = 8
+
     if tokenlist:
         btcr_args += " --tokenlist " + str(tokenlist)
-        btcr_args += " --max-tokens " + str(big_typos)
-        btcr_args += " --min-tokens " + str(big_typos)
+
+        if max_tokens:
+            btcr_args += " --max-tokens " + str(max_tokens)
+        else:
+            btcr_args += " --max-tokens " + str(big_typos)
+
+        if min_tokens:
+            btcr_args += " --min-tokens " + str(min_tokens)
+        else:
+            btcr_args += " --min-tokens " + str(big_typos)
+
         btcr_args += " --seedgenerator"
 
     if passwordlist:
