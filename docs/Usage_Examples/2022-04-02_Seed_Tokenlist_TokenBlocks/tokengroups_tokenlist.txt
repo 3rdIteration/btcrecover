@@ -1,4 +1,4 @@
-basic,dawn,renew,punch,arch,situate
+^basic,dawn,renew,punch,arch,situate
 resist
 indicate,call
 lens,group,empty

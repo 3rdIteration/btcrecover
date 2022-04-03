@@ -51,6 +51,7 @@ nav:
         - Recovering Blockchain.com wallet: Usage_Examples/2020-05-08_Recovering_Blockchain_Wallet_Passwords/Example_Recovering_Blockchain_Wallet_Passwords.md
         - Multi-Worker Descrambling: Usage_Examples/2020-05-23_multi_device_descrambling_12_word_seed_with_extras/Example_multi_device_descrambling_12_word_seed_with_extras.md
         - Multi-GPU Cloud Based Recovery: Usage_Examples/2020-10-06_Multi-GPU_with_vastai/Example_Multi-GPU_with_vastai.md
+        - Grouping words together in tokenlist based seed recoveries: Usage_Examples/2022-04-02_Seed_Tokenlist_TokenBlocks/example_seed_tokenlist_tokenblocks.md
     - About:
         - Credits: CREDITS.md
         - License: licence.md
