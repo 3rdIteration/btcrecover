@@ -16,7 +16,7 @@ The following example uses the following tokenlist:
 {% include "tokengroups_tokenlist.txt" %}
 ```
 
-You can see in this tokenlist that there are a few blocks of tokens that we are sure are in the correct order, as well as a few extra/single words. 
+You can see in this tokenlist that there are a few blocks of tokens that we are sure are in the correct order, (Including a positional anchor for one of the groups of seed words) as well as a few extra/single words. 
 
 And is run with the following command (Will find a result in a few minutes)
 ```
