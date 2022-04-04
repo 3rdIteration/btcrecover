@@ -28,7 +28,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements-full.txt
-        pip install bsddb3
+        apt install python3-bsddb3
     - name: Run All Tests
       run: |
         python run-all-tests.py -vv
