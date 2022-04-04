@@ -7288,10 +7288,14 @@ def tokenlist_base_password_generator():
                 for rawToken in ordered_token_guess:
                     expandedGuess.extend(rawToken.split(","))
 
-                if len(expandedGuess) == l_mnemonic_length:
+                if l_mnemonic_length is None: # If mnemonic_length hasn't been specified then skip this check
                     yield expandedGuess
                 else:
-                    break
+                    if len(expandedGuess) == l_mnemonic_length: #Only return mnemonic guesses of the expected length
+                        yield expandedGuess
+                    else:
+                        break
+
             else:
                 yield l_tstr().join(ordered_token_guess)
 

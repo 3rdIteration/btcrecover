@@ -1672,6 +1672,11 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
                                                                 'oyster', 'team', 'home', 'april', 'travel',
                                                                 'barrel']]])
 
+    def test_seedlist_allpositional_tokenblocks(self):
+        self.tokenlist_tester("tokenlist-tokenblocks.txt", [[['elbow', 'text', 'print', 'census', 'battle', 'push',
+                                                                'oyster', 'team', 'home', 'april', 'travel',
+                                                                'barrel']]])
+
     def test_tokenlist(self):
         self.tokenlist_tester("SeedTokenListTest.txt")
 
