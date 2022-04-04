@@ -5416,6 +5416,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                         help="try tokens in the order in which they are listed in the file, without trying their permutations")
     parser.add_argument("--seedgenerator", action="store_true",
                                help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we are doing seed generation, not password generation
+    parser.add_argument("--mnemonic-length", type=int,
+                               help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
     parser.add_argument("--max-tokens",   type=int, default=sys.maxsize, metavar="COUNT", help="enforce a max # of tokens included per guess")
     parser.add_argument("--min-tokens",   type=int, default=1,          metavar="COUNT", help="enforce a min # of tokens included per guess")
     parser._add_container_actions(parser_common)
@@ -5464,6 +5466,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                             help="enforce a min # of tokens included per guess")
         parser.add_argument("--seedgenerator", action="store_true",
                             help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we are doing seed generation, not password generation
+        parser.add_argument("--mnemonic-length", type=int,
+                            help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
 
         parser._add_container_actions(parser_common)
         # Add these in as non-options so that args gets a copy of their values
@@ -7100,6 +7104,7 @@ def tokenlist_base_password_generator():
     l_list                   = list
     l_tstr                   = tstr
     l_seed_generator         = args.seedgenerator
+    l_mnemonic_length        = args.mnemonic_length
 
     # Temporary Fix for the "--keep-tokens-order" argument.
     # Hasn't been fully tested in BTCRecover.py and breaks seedrecover...
@@ -7279,13 +7284,14 @@ def tokenlist_base_password_generator():
                 if invalid_anchors: continue
 
             if l_seed_generator:
-                #print("Guess:", ordered_token_guess)
                 tempGuess = []
                 for bigtoken in ordered_token_guess:
                     tempGuess.extend(bigtoken.split(","))
 
-                #print("Expanded:", tempGuess)
-                yield tempGuess
+                if len(tempGuess) == l_mnemonic_length:
+                    yield tempGuess
+                else:
+                    break
             else:
                 yield l_tstr().join(ordered_token_guess)
 

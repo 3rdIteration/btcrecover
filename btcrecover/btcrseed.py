@@ -2763,7 +2763,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None):
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None):
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -2797,6 +2797,7 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
             btcr_args += " --min-tokens " + str(big_typos)
 
         btcr_args += " --seedgenerator"
+        btcr_args += " --mnemonic-length " + str(mnemonic_length)
 
     if passwordlist:
         btcr_args += " --passwordlist " + str(passwordlist)
@@ -3173,6 +3174,7 @@ def main(argv):
             phase["typos"] = args.mnemonic_length
             phase["max_tokens"] = args.max_tokens
             phase["min_tokens"] = args.min_tokens
+            phase["mnemonic_length"] = args.mnemonic_length
 
             if args.tokenlist:
                 phase["tokenlist"] = args.tokenlist
