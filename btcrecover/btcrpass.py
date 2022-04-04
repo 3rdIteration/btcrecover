@@ -478,7 +478,7 @@ class WalletBitcoinCore(object):
 
         except Exception:
             pass
-            
+
 
         # If we still haven't got a valid mkey, try it as SQLite
         if not mkey:
