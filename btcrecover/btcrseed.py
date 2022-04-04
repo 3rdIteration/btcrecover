@@ -1405,7 +1405,7 @@ class WalletBIP39(WalletBIP32):
         # in the blockchain (buggy software or people just messing around), and in address-database
         # mode this creates an unwanted positive hit, so now we have to start with a random prefix.
         length = len(mnemonic_ids_guess) + num_inserts - num_deletes
-        #assert length >= 12
+        assert length >= 12
         prefix = tuple(random.choice(self._words) for i in range(length-4))
         for guess in itertools.product(self._words, repeat=4):
             yield prefix + guess
@@ -1994,7 +1994,6 @@ class WalletCardano(WalletBIP39):
                 continue
 
             # Convert the mnemonic sentence to seed bytes
-            print(mnemonic_ids)
             _derive_seed_list = self._derive_seed(mnemonic_ids)
 
             for derivation_type, derived_seed, salt in _derive_seed_list:
