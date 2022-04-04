@@ -1673,21 +1673,24 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
                                                                 'barrel']]])
 
     def test_seedlist_allpositional_tokenblocks(self):
-        self.tokenlist_tester("tokenlist-tokenblocks.txt", [[['elbow', 'text', 'print', 'census', 'battle', 'push',
+        self.tokenlist_tester("tokenlist-tokenblocks.txt",
+                              [[['elbow', 'text', 'print', 'census', 'battle', 'push',
                                                                 'oyster', 'team', 'home', 'april', 'travel',
-                                                                'barrel']]])
+                                                                'barrel']]],
+                              max_tokens = 3,
+                              min_tokens = 3)
 
     def test_tokenlist(self):
         self.tokenlist_tester("SeedTokenListTest.txt")
 
-    def tokenlist_tester(self, tokenlistfile, correct_seedlist=None):
+    def tokenlist_tester(self, tokenlistfile, correct_seedlist=None, max_tokens = 12, min_tokens = 12):
         if correct_seedlist is None:
             correct_seedlist = self.expected_passwordlist
         # Check to see if the Token List file exists (and if not, skip)
         if not os.path.isfile("./btcrecover/test/test-listfiles/" + tokenlistfile):
             raise unittest.SkipTest("requires ./btcrecover/test/test-listfiles/" + tokenlistfile)
 
-        args = " --listpass --seedgenerator --max-tokens 12 --min-tokens 12".split()
+        args = (" --listpass --seedgenerator --max-tokens " + str(max_tokens) + " --min-tokens " +  str(min_tokens)).split()
 
         btcrpass.parse_arguments(["--tokenlist"] + ["./btcrecover/test/test-listfiles/" + tokenlistfile] + args,
                                  disable_security_warning_param=True)

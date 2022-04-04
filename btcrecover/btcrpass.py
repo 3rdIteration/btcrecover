@@ -294,7 +294,7 @@ def load_wallet(wallet_filename):
     for wallet_type in uncertain_wallet_types:
         try:
             return wallet_type.load_from_filename(wallet_filename)
-        except ValueError as e:
+        except Exception as e:
             uncertain_errors.append(wallet_type.__name__ + ": " + str(e))
 
     error_exit("unrecognized wallet format" +
@@ -429,6 +429,7 @@ class WalletBitcoinCore(object):
                     db.open(wallet_filename, "main", bsddb3.db.DB_BTREE, bsddb3.db.DB_RDONLY)
                 except UnicodeEncodeError:
                     error_exit("the entire path and filename of Bitcoin Core wallets must be entirely ASCII")
+
                 mkey = db.get(b"\x04mkey\x01\x00\x00\x00")
                 db.close()
                 db_env.close()
@@ -475,8 +476,9 @@ class WalletBitcoinCore(object):
                         else: continue  # if not found on this page, continue to next page
                         break           # if we broke out of inner loop, break out of this one too
 
-        except AssertionError:
+        except Exception:
             pass
+            
 
         # If we still haven't got a valid mkey, try it as SQLite
         if not mkey:
