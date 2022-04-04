@@ -7284,12 +7284,12 @@ def tokenlist_base_password_generator():
                 if invalid_anchors: continue
 
             if l_seed_generator:
-                tempGuess = []
-                for bigtoken in ordered_token_guess:
-                    tempGuess.extend(bigtoken.split(","))
+                expandedGuess = []
+                for rawToken in ordered_token_guess:
+                    expandedGuess.extend(rawToken.split(","))
 
-                if len(tempGuess) == l_mnemonic_length:
-                    yield tempGuess
+                if len(expandedGuess) == l_mnemonic_length:
+                    yield expandedGuess
                 else:
                     break
             else:
