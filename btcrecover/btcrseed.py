@@ -41,6 +41,7 @@ import btcrecover.opencl_helpers
 from lib.pyzil.account import Account as zilliqa_account
 import lib.bech32 as bech32
 import lib.cardano.cardano_utils as cardano
+import lib.stacks.c32 as c32
 
 
 # Import modules from requirements.txt
@@ -2691,6 +2692,32 @@ class WalletRipple(WalletBIP39):
         self = super(WalletRipple, cls).create_from_params(*args, **kwargs)
         return self
 
+############### Stacks (STX)  ###############
+
+@register_selectable_wallet_class('Stacks Standard BIP39/44')
+class WalletStacks(WalletBIP39):
+
+    def __init__(self, path = None, loading = False):
+        if not path: path = ["m/44'/5757'/0'/0"]
+        super(WalletStacks, self).__init__(path, loading)
+
+
+    def __setstate__(self, state):
+        super(WalletStacks, self).__setstate__(state)
+        # (re-)load the required libraries after being unpickled
+
+    @classmethod
+    def create_from_params(cls, *args, **kwargs):
+        self = super(WalletStacks, cls).create_from_params(*args, **kwargs)
+        return self
+
+    @staticmethod
+    def _addresses_to_hash160s(addresses):
+        hash160s = set()
+        for address in addresses:
+            ver, hash160 = c32.c32addressDecode(address)
+            hash160s.add(binascii.unhexlify(hash160))
+        return hash160s
 
 ################################### Main ###################################
 

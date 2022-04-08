@@ -258,7 +258,6 @@ def c32decode(c32input, min_length=0):
 
 
 def c32checksum(data_hex):
-    print(data_hex)
     tmphash = hashlib.sha256(binascii.unhexlify(data_hex)).digest()
     data_hash = hashlib.sha256(tmphash).digest()
     checksum = binascii.hexlify(data_hash[0:4]).decode()
