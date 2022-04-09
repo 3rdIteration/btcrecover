@@ -33,6 +33,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
     * Ripple
     * Secret Network
     * Solana
+    * Stacks
     * Stellar
     * Tezos
     * Tron

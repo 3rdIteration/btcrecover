@@ -753,6 +753,10 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletRipple, "rJGNUmwiYDwXEsLzUFV9njhP3syrDvA6hs", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")
 
+    def test_walletstacks_bip44(self):
+        self.address_tester(btcrseed.WalletStacks, "SP11KHP08F4KQ06MWESBY48VMXRBK5NB0FSCRP779", 2,
+                            "ocean hidden kidney famous rich season gloom husband spring convince attitude boy")
+
     def test_walletvertcoin_addr_bip44(self):
         self.address_tester(btcrseed.WalletVertcoin, "VwrYFHeKbneYZdkPWTpXsUs3ZQ4ERan9tG", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "

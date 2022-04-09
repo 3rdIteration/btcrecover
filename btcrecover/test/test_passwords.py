@@ -2006,6 +2006,15 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_address_stacks(self):
+        self.bip39_tester(
+            wallet_type=   "Stacks",
+            addresses=     ["SP2KJB4F9C91R3N5XSNQE0Z3G34DNJWQYTP3PBJTH"],
+            address_limit= 2,
+            mnemonic=      "ocean hidden kidney famous rich season gloom husband spring convince attitude boy"
+        )
+
+    @skipUnless(can_load_coincurve, "requires coincurve")
     def test_address_Electrum2_segwit(self):
         self.bip39_tester(
             wallet_type=   "Electrum2",

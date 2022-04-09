@@ -174,6 +174,12 @@ python btcrecover.py --wallet-type polkadotsubstrate --addrs 12uMBgecqfkHTYZE4GF
 ```
 <br>
 
+Basic Stacks Command, so need to specifcy the `--wallet-type` (But can leave off the `--bip39` argument, as it is implied) This example also has the address generation limit set to 10, so will check the first 10 "accounts" for a given seed+passphrase.
+```
+python btcrecover.py --wallet-type stacks --addrs SP2KJB4F9C91R3N5XSNQE0Z3G34DNJWQYTP3PBJTH --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --mnemonic "ocean hidden kidney famous rich season gloom husband spring convince attitude boy" --addr-limit 10
+```
+<br>
+
 
 ## Brainwallets
 **Notes**
