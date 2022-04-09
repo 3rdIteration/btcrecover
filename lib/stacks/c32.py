@@ -25,7 +25,7 @@
 
 import re
 import hashlib
-import base58
+from lib.cashaddress import base58 #If you want to use this file standalone, just use the base58 off pypy and change this line
 import binascii
 
 C32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
