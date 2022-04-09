@@ -7,6 +7,8 @@
 
 
     This file was originally part of Blockstack (https://github.com/stacks-network/stacks-blockchain/tree/v20.0.8.8)
+    It is an implementation of Crockford base-32 encoding library with 4-byte checksum.
+    Note: This has been updated for Python3, but only those functions used in BTCRecover and for the implementation/testing of STX support have been fully tested. (Though any broken functions should only require trivial fixes)
 
     Blockstack is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
