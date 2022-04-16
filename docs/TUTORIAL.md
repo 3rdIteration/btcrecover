@@ -252,8 +252,10 @@ For Ronin Wallet this is: %localappdata%\Google\Chrome\User Data\Default\Local E
 
 If you are trying to recover anything other than the most recent wallet, you will need to use the extract script to list all of the possible vaults that are in the extension data.
 
-For Firefox, you will need to retrieve your Metamask vault using the process described here:
+For Firefox and iOS, you will need to retrieve your Metamask vault using the process described here:
 https://metamask.zendesk.com/hc/en-us/articles/360018766351-How-to-use-the-Vault-Decryptor-with-the-MetaMask-Vault-Data
+
+For Android devices, you will mostly need a "rooted" phone.
 
 You can then copy/paste the vault data (from either Firefox or an extract script) in to a text file and use that directly with the --wallet argument.
 

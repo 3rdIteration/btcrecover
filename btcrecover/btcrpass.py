@@ -3018,16 +3018,16 @@ class WalletMetamask(object):
     # Import extracted Metamask vault data necessary for password checking
     @classmethod
     def load_from_data_extract(cls, file_data):
-        print(file_data)
         # These are the same first encrypted block, iv and salt count retrieved above
         encrypted_block, iv, salt, isMobileWallet = struct.unpack(b"< 16s 16s 32s 1?", file_data)
         if isMobileWallet:
             self = cls(5000, loading=True)
+            self.salt = salt[:-8]
         else:
             self = cls(10000, loading=True)
+            self.salt = salt
         self.encrypted_block = encrypted_block
         self.iv = iv
-        self.salt = salt[:-8]
         self._mobileWallet = isMobileWallet
         self.encrypted_vault = ""
         self._using_extract   = True
@@ -3166,7 +3166,6 @@ class WalletMetamask(object):
         passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
 
         if not self._mobileWallet:
-            print("desktop")
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, self.salt, self._iter_count, 32)
         else:
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords, self.salt, self._iter_count, 32)
@@ -3178,7 +3177,6 @@ class WalletMetamask(object):
 
         for count, (password, result) in enumerate(results, 1):
             if not self._mobileWallet:
-                print("desktop")
                 decrypted_block = AES.new(result, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
             else:
                 decrypted_block = AES.new(result, AES.MODE_CBC, self.iv).decrypt(self.encrypted_block)

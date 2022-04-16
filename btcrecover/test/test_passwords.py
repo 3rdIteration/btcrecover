@@ -2216,20 +2216,19 @@ class Test08KeyDecryption(unittest.TestCase):
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_metamask_chrome(self):
-        self.key_tester("bXQ6OPVDHxjM+v/xc4huqhl/aiOkWBZnJa7GUezuA6vkeVBlUk/YNT7Tjx1JSZTxl4YB3DikbP3pb2rido6eNWR6rjVKjyE=")
-
+        self.key_tester("bXQ6Ny6zeXCgltvFkIWycZU3gR/Ng61aKDp3Ue35NUiihsFzGnSlG2yDJQGOWXoyS1TYfJK5uu2cxo9cDBoGwA0DVgCUdDI1")
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_metamask_firefox(self):
-        self.key_tester("bXQ6bB5JP1EW0xwBmWZ9vI/iw9IRkorRs9rI6wJCNrd8KUw61ubkQxf9JF9jDv9kZIlxVVkKb7lIwnt7+519MLodzoK0sOw=")
+        self.key_tester("bXQ6bB5JP1EW0xwBmWZ9vI/iw9IRkorRs9rI6wJCNrd8KUw61ubkQxf9JF9jDv9kZIlxVVkKb7lIwnt7+519MLodzgA1vVjR")
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_metamask_ronin(self):
-        self.key_tester("bXQ6FQ0wjJ1vWwk2/bQ0Tg39pN8WxzDiFm0fRNiSfMIhIX8aruNecrWhlqMv7OBzcwP7icNxEfVRgrY0o6qn8e43IwkWD9Q=")
+        self.key_tester("bXQ6NFrMHOjRpTWv8X6Ofs9xFr9aCuHXqiBcn2cs+JnIV/Rz3e8cXASN3jCOCATGEfJqwATWFKP3CoAzETPxhc1e3gDSNsw1")
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_metamask_binancechainwallet(self):
-        self.key_tester("bXQ6JwWcqX5WXs26UvmAmYXVewSCrFvZDUc1JKLWX1+St3ygigmNpv1IVK7TI/4JqktX1lN7pK2C/rtp3jcQjMmbD6i561M=", correct_password="BTCR-test-passw0rd")
+        self.key_tester("bXQ6wTs1FXlOeMHlFE5++vK+HM3ZxgIeRn6YChp9zI7NtEnfrSKY8uVFIJpSsGOexEHbxr5uqUAH5ETrZSWjSFadggBvIHJ/", correct_password="BTCR-test-passw0rd")
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     def test_metamask_ios(self):
