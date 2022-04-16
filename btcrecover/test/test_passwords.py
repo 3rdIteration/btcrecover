@@ -1398,8 +1398,11 @@ class Test07WalletDecryption(unittest.TestCase):
     def test_metamask_ronin_leveldb_cpu(self):
         self.wallet_tester("metamask/fnjhmkhhmkbjkkabndcnnogagogbneec")
 
-    def test_metamask_JSON_IOS_cpu(self):
+    def test_metamask_JSON_iOS_cpu(self):
         self.wallet_tester("metamask.ios.persist-root")
+
+    def test_metamask_JSON_Android_cpu(self):
+        self.wallet_tester("metamask.android.persist-root")
 
     def test_bitcoincore_pywallet(self):
         self.wallet_tester("bitcoincore-pywallet-dumpwallet.txt")
