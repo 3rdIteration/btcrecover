@@ -131,10 +131,10 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
 
     # Password recovery for Metamask wallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletMetamask:
-        loaded_wallet.opencl_context_pbkdf2_sha256 = \
-            loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha256",
-                                                              len(b""),
-                                                              32)
+        if not loaded_wallet._mobileWallet:
+            loaded_wallet.opencl_context_pbkdf2_sha256 = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha256", len(b""), 32)
+        else:
+            loaded_wallet.opencl_context_pbkdf2_sha512 = loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init("sha512", len(b""), 32)
         return
 
     # Seed Recovery for Cardano Wallets

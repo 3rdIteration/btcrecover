@@ -2901,6 +2901,8 @@ class WalletMetamask(object):
 
     _using_extract = False
 
+    _mobileWallet = False
+
     def data_extract_id():
         return "mt"
 
@@ -2910,7 +2912,7 @@ class WalletMetamask(object):
         try:
             walletdata = wallet_file.read().decode("utf-8","ignore").replace("\\","")
         except: return False
-        return ("\"data\"" in walletdata and "\"iv\"" in walletdata and "\"salt\"" in walletdata)  # Metamask wallets have these three keys in the json (Other supported wallet times have one or the other, but not all three)
+        return ("\"data\"" in walletdata and "\"iv\"" in walletdata and "\"salt\"" in walletdata)  or ("\"lib\":\"original\"" in walletdata) # Metamask wallets have these three keys in the json (Other supported wallet times have one or the other, but not all three), metamask mobile has a lib:original string
 
     def __init__(self, iter_count, loading=False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -2984,13 +2986,33 @@ class WalletMetamask(object):
             with open(wallet_filename, "rb") as wallet_file:
                 wallet_data = wallet_file.read().decode("utf-8","ignore").replace("\\","")
 
-        wallet_json = json.loads(wallet_data)
+        try:
+            wallet_json = json.loads(wallet_data)
 
-        self = cls(10000, loading=True)
-        self.salt = base64.b64decode(wallet_json["salt"])
-        self.encrypted_vault = base64.b64decode(wallet_json["data"])
-        self.encrypted_block = base64.b64decode(wallet_json["data"])[:16]
-        self.iv = base64.b64decode(wallet_json["iv"])
+        # The JSON data might be from a Metamask mobile wallet
+        except json.decoder.JSONDecodeError:
+            walletStartText = "vault"
+            wallet_data_start = wallet_data.lower().find(walletStartText)
+            wallet_data_trimmed = wallet_data[wallet_data_start:]
+            wallet_data_start = wallet_data_trimmed.find("cipher")
+            wallet_data_trimmed = wallet_data_trimmed[wallet_data_start - 2:]
+            wallet_data_end = wallet_data_trimmed.find("}")
+            wallet_data = wallet_data_trimmed[:wallet_data_end + 1]
+            wallet_json = json.loads(wallet_data)
+
+        if "\"lib\":\"original\"" in wallet_data:
+            self = cls(5000, loading=True)
+            self.salt = wallet_json["salt"].encode()
+            self.encrypted_vault = base64.b64decode(wallet_json["cipher"])
+            self.encrypted_block = base64.b64decode(wallet_json["cipher"])[:16]
+            self.iv = binascii.unhexlify(wallet_json["iv"])
+            self._mobileWallet = True
+        else:
+            self = cls(10000, loading=True)
+            self.salt = base64.b64decode(wallet_json["salt"])
+            self.encrypted_vault = base64.b64decode(wallet_json["data"])
+            self.encrypted_block = base64.b64decode(wallet_json["data"])[:16]
+            self.iv = base64.b64decode(wallet_json["iv"])
         return self
 
     # Import extracted Metamask vault data necessary for password checking
@@ -2998,18 +3020,24 @@ class WalletMetamask(object):
     def load_from_data_extract(cls, file_data):
         print(file_data)
         # These are the same first encrypted block, iv and salt count retrieved above
-        encrypted_block, iv, salt = struct.unpack(b"< 16s 16s 32s", file_data)
-
-        self = cls(10000, loading=True)
+        encrypted_block, iv, salt, isMobileWallet = struct.unpack(b"< 16s 16s 32s 1?", file_data)
+        if isMobileWallet:
+            self = cls(5000, loading=True)
+        else:
+            self = cls(10000, loading=True)
         self.encrypted_block = encrypted_block
         self.iv = iv
-        self.salt = salt
+        self.salt = salt[:-8]
+        self._mobileWallet = isMobileWallet
         self.encrypted_vault = ""
         self._using_extract   = True
         return self
 
     def difficulty_info(self):
-        return "10,000 PBKDF2-SHA256 iterations"
+        if not self._mobileWallet:
+            return "10,000 PBKDF2-SHA256 iterations"
+        else:
+            return "5,000 PBKDF2-SHA512 iterations"
 
     def init_logfile(self):
         with open(self._possible_passwords_file, 'a') as logfile:
@@ -3085,7 +3113,10 @@ class WalletMetamask(object):
 
         if self._dump_privkeys_file and not self._using_extract:
             # Decrypt vault
-            decrypted_vault = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_vault).decode("utf-8", "ignore")
+            if not self._mobileWallet:
+                decrypted_vault = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_vault).decode("utf-8", "ignore")
+            else:
+                decrypted_vault = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self.encrypted_vault).decode("utf-8", "ignore")
 
             # Parse to JSON
             decoder = json.JSONDecoder()
@@ -3114,10 +3145,13 @@ class WalletMetamask(object):
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
         for count, password in enumerate(passwords, 1):
+            if not self._mobileWallet:
+                key = hashlib.pbkdf2_hmac('sha256', password, self.salt, self._iter_count, 32)
+                decrypted_block = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
+            else:
+                key = hashlib.pbkdf2_hmac('sha512', password, self.salt, self._iter_count, 32)
+                decrypted_block = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self.encrypted_block)
 
-            key = hashlib.pbkdf2_hmac('sha256', password, self.salt, self._iter_count, 32)
-
-            decrypted_block = AES.new(key, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
 
             if self.check_decrypted_block(decrypted_block, password):
                 # This just dumps the wallet private keys (if required)
@@ -3131,7 +3165,11 @@ class WalletMetamask(object):
         # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
         passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
 
-        clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, self.salt, self._iter_count, 32)
+        if not self._mobileWallet:
+            print("desktop")
+            clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, self.salt, self._iter_count, 32)
+        else:
+            clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords, self.salt, self._iter_count, 32)
 
         # This list is consumed, so recreated it and zip
         passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
@@ -3139,7 +3177,12 @@ class WalletMetamask(object):
         results = zip(passwords, clResult)
 
         for count, (password, result) in enumerate(results, 1):
-            decrypted_block = AES.new(result, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
+            if not self._mobileWallet:
+                print("desktop")
+                decrypted_block = AES.new(result, AES.MODE_GCM, nonce=self.iv).decrypt(self.encrypted_block)
+            else:
+                decrypted_block = AES.new(result, AES.MODE_CBC, self.iv).decrypt(self.encrypted_block)
+
             if self.check_decrypted_block(decrypted_block, password):
                 # This just dumps the wallet private keys
                 self.dump_wallet(result)
