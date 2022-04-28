@@ -23,7 +23,7 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser(
         description='Set wallet on auto craking')
     argparser.add_argument('--wallet', type=str,
-                           help='wallet file to crack')
+                           help='wallet folder')
     argparser.add_argument('--passlist', type=str,
                            help='path to wordlists')
     argparser.add_argument('--global_ws', type=str,
@@ -34,13 +34,13 @@ if __name__ == "__main__":
                            help='display all the wordlist', action='store_true')
     args = argparser.parse_args()
     input_path = args.passlist
-    wallet = args.wallet
+    wallet = os.path.join('wallets',args.wallet,'wallet.dat')
     global_ws = args.global_ws
     showlist = args.showlist
     startpos = args.start
     if(input_path != 'None'):
         if not os.path.exists(input_path):
-            print('The specified wallet.dat does not exist')
+            print('The specified wordlist does not exist')
             sys.exit()
         included_extensions = ['txt']
         file_names = [fn for fn in os.listdir(input_path)
