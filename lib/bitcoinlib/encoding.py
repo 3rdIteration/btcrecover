@@ -845,7 +845,7 @@ def double_sha256(string, as_hex=False):
         return hashlib.sha256(hashlib.sha256(string).digest()).hexdigest()
 
 
-#def hash160(string):
+def hash160(string):
     """
     Creates a RIPEMD-160 + SHA256 hash of the input string
 
@@ -854,7 +854,7 @@ def double_sha256(string, as_hex=False):
 
     :return bytes: RIPEMD-160 hash of script
     """
-#    return hashlib.new('ripemd160', hashlib.sha256(string).digest()).digest()
+    return ripemd160(hashlib.sha256(string).digest()).digest()
 
 
 def bip38_decrypt(encrypted_privkey, passphrase):
