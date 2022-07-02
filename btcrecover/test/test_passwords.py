@@ -945,17 +945,6 @@ def can_load_scrypt():
             pylibscrypt = False
     return pylibscrypt and pylibscrypt._done  # True iff a binary implementation was found
 
-is_ripemd_available = None
-def has_ripemd160():
-    global is_ripemd_available
-    if is_ripemd_available is None:
-        try:
-            hashlib.new("ripemd160")
-            is_ripemd_available = True
-        except ValueError:
-            is_ripemd_available = False
-    return is_ripemd_available
-
 is_sha3_loadable = None
 def can_load_keccak():
     global is_sha3_loadable
@@ -1286,7 +1275,6 @@ class Test07WalletDecryption(unittest.TestCase):
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     @skipUnless(can_load_scrypt,    "requires a binary implementation of pylibscrypt")
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_bither_hdonly(self):
         self.wallet_tester("bither-hdonly-wallet.db")
 
@@ -1465,7 +1453,6 @@ class Test07WalletDecryption(unittest.TestCase):
 
     @skipUnless(can_load_scrypt,    "requires a binary implementation of pylibscrypt")
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_bither_hdonly_pp(self):
         self.wallet_tester("bither-hdonly-wallet.db", force_purepython=True)
 
@@ -1893,7 +1880,6 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_address_bitcoin_bip44(self):
         self.bip39_tester(
             addresses=     ["1AmugMgC6pBbJGYuYmuRrEpQVB9BBMvCCn"],
@@ -1902,7 +1888,6 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_address_bitcoin_bip49(self):
         self.bip39_tester(
             addresses=     ["34yrZYvhWEfVgZ8XFMuuwFeRpQ4m3u4EbY"],
@@ -1911,7 +1896,6 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_address_bitcoin_bip84(self):
         self.bip39_tester(
             addresses=     ["bc1qj7najywjcjwd7ccn7kmeh3ckccwrslnrqrlnm7"],
@@ -1920,7 +1904,6 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_coincurve, "requires coincurve")
-    @skipUnless(has_ripemd160,      "requires that hashlib implements RIPEMD-160")
     def test_address_bitcoin_mybitcoinwallet_single(self):
         self.bip39_tester(
             addresses=     ["1NLcraWZhG3wFBYX2zwkKwYztL6yyhJG32"],
