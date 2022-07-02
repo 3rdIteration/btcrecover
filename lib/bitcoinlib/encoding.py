@@ -35,6 +35,20 @@ except:
 _logger = logging.getLogger(__name__)
 
 
+hashlib_ripemd160_available = False
+# Enable functions that may not work for some standard libraries in some environments
+try:
+    # this will work with micropython and python < 3.10
+    # but will raise and exception if ripemd is not supported (python3.10, openssl 3)
+    hashlib.new('ripemd160')
+    hashlib_ripemd160_available = True
+    def ripemd160(msg):
+        return hashlib.new('ripemd160', msg).digest()
+except:
+    # otherwise use pure python implementation
+    from lib.embit.py_ripemd160 import ripemd160
+
+
 # SCRYPT_ERROR = None
 # USING_MODULE_SCRYPT = os.getenv("USING_MODULE_SCRYPT") not in ["false", "False", "0", "FALSE"]
 
@@ -831,7 +845,7 @@ def double_sha256(string, as_hex=False):
         return hashlib.sha256(hashlib.sha256(string).digest()).hexdigest()
 
 
-def hash160(string):
+#def hash160(string):
     """
     Creates a RIPEMD-160 + SHA256 hash of the input string
 
@@ -840,7 +854,7 @@ def hash160(string):
 
     :return bytes: RIPEMD-160 hash of script
     """
-    return hashlib.new('ripemd160', hashlib.sha256(string).digest()).digest()
+#    return hashlib.new('ripemd160', hashlib.sha256(string).digest()).digest()
 
 
 def bip38_decrypt(encrypted_privkey, passphrase):

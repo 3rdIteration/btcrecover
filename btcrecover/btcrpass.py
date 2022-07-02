@@ -44,7 +44,6 @@ except:
     pass
 
 hashlib_ripemd160_available = False
-
 # Enable functions that may not work for some standard libraries in some environments
 try:
     # this will work with micropython and python < 3.10
