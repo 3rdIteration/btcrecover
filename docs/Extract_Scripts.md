@@ -26,7 +26,7 @@ If you'd prefer to download just a single extract script, please select the one 
  * MultiBit Classic - <https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-privkey.py>
  * MultiBit HD - <https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-hd-data.py>
 
-If you're on Windows, you will also need to install the latest version of Python 3.6 or above. For any other wallets, just follow the [instructions to install Python here](INSTALL.md#python).
+If you're on Windows, you will also need to install the latest version of Python 3.7 or above. For any other wallets, just follow the [instructions to install Python here](INSTALL.md#python).
 
 ----------
 

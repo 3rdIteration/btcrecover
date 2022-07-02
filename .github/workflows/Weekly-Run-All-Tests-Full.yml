@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-2019, macos-latest]
-        python-version: [3.10] # Only worry about testing the current Python version
+        python-version: [3.10.5] # Only worry about testing the current Python version
 
     steps:
     - uses: actions/checkout@v2

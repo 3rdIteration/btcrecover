@@ -32,7 +32,7 @@ Just download the latest version from <https://github.com/3rdIteration/btcrecove
 
 ## 2) Install Python ##
 
-**Note:** Only Python 3.6 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.6, 3.7, 3.8, 3.9) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
+**Note:** Only Python 3.7 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.7, 3.8, 3.9, 3.10) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
