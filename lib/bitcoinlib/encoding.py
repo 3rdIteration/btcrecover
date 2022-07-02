@@ -854,7 +854,7 @@ def hash160(string):
 
     :return bytes: RIPEMD-160 hash of script
     """
-    return ripemd160(hashlib.sha256(string).digest()).digest()
+    return ripemd160(hashlib.sha256(string).digest())
 
 
 def bip38_decrypt(encrypted_privkey, passphrase):
