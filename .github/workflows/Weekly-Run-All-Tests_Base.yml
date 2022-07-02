@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2019, macos-latest] # Test all supported operating systems
+        os: [ubuntu-22.04, windows-latest, macos-latest] # Test all supported operating systems
         python-version: [3.7, 3.8, 3.9, 3.10.5] # Test all suppoorted versions of Python
 
     steps:
