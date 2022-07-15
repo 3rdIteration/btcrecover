@@ -800,6 +800,15 @@ class WalletBIP32(WalletBase):
         self.force_p2sh = force_p2sh
         self.checksinglexpubaddress = checksinglexpubaddress
 
+        # Before prompting for Addresses, etc, chec if we are in performance mode and try to load the default test address
+        try:
+            if is_performance:
+                mpk = self._performance_xpub()
+                mpk = convert_to_xpub(mpk)
+                mpk = base58check_to_bip32(mpk)
+        except:
+            pass
+
         # If mpk, addresses, and hash160s arguments were all not provided, prompt the user for an mpk first
         if not mpk and not addresses and not hash160s:
             init_gui()
@@ -808,7 +817,7 @@ class WalletBIP32(WalletBase):
                     mpk = tk.simpledialog.askstring("Master extended public key",
                         "Please enter your account extended public key (xpub, ypub or zpub) if you "
                         "have it, or click Cancel to search by an address instead:",
-                        initialvalue=self._performance_xpub() if is_performance else None)
+                        initialvalue=None)
                 else:
                     print("Error: No MPK or addresses specified... Exiting...")
                     exit()
@@ -1283,9 +1292,15 @@ class WalletBIP39(WalletBIP32):
                 sorted_hits = sorted(sorted_hits, key=lambda x: x[1])
                 best_guess   = sorted_hits[-1]
                 second_guess = sorted_hits[-2]
+
                 # at least 20% must be exclusive to the best_guess language
                 if best_guess[1] - second_guess[1] < 0.2 * len(mnemonic_guess):
-                    raise ValueError("can't guess wordlist language: top best guesses ({}, {}) are too close ({}, {})"
+                    if (best_guess[1] == second_guess[1] and
+                        best_guess[0][:2] == second_guess[0][:2] and
+                        "-firstfour" in best_guess[0]+second_guess[0]):
+                        pass
+                    else:
+                        raise ValueError("can't guess wordlist language: top best guesses ({}, {}) are too close ({}, {})"
                                      .format(best_guess[0], second_guess[0], best_guess[1], second_guess[1]))
             # at least half must be valid words
             if best_guess[1] < 0.5 * len(mnemonic_guess):
@@ -3085,6 +3100,14 @@ def main(argv):
             info.printfullinfo()
             exit(0)
 
+        if args.performance:
+            create_from_params["is_performance"] = phase["is_performance"] = True
+            phase.setdefault("typos", 0)
+            disable_security_warnings = True
+            if not args.mnemonic_prompt:
+                # Create a dummy mnemonic; only its language and length are used for anything
+                config_mnemonic_params["mnemonic_guess"] = " ".join("act" for i in range(args.mnemonic_length or 12))
+
         if args.wallet:
             loaded_wallet = btcrpass.load_wallet(args.wallet)
 
@@ -3270,13 +3293,6 @@ def main(argv):
         for argkey in "no_eta", "no_dupchecks", "no_progress":
             if args.__dict__[argkey]:
                 extra_args.append("--"+argkey.replace("_", "-"))
-
-        if args.performance:
-            create_from_params["is_performance"] = phase["is_performance"] = True
-            phase.setdefault("typos", 0)
-            if not args.mnemonic_prompt:
-                # Create a dummy mnemonic; only its language and length are used for anything
-                config_mnemonic_params["mnemonic_guess"] = " ".join("act" for i in range(args.mnemonic_length or 12))
 
         if args.addressdb:
             print("Loading address database ...")
