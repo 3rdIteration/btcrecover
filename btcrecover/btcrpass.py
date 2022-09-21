@@ -791,6 +791,7 @@ class WalletPywallet(WalletBitcoinCore):
 @register_wallet_class
 class WalletMultiBit(object):
     opencl_algo = -1
+    _dump_privkeys_file = None
 
     def data_extract_id():
         return "mb"
@@ -815,6 +816,23 @@ class WalletMultiBit(object):
         load_aes256_library(warnings=False)
         self.__dict__ = state
 
+    # This just dumps the wallet private keys
+    def dump_privkeys(self, wallet_data):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            from . import bitcoinj_pb2
+            global pylibscrypt
+            import lib.pylibscrypt as pylibscrypt
+            pad_len = wallet_data[-1]
+            if isinstance(pad_len, str):
+                pad_len = ord(pad_len)
+
+            # Attempt to dump the menemonic from the wallet (standard BitcoinJ file)
+            pbdata = wallet_data[:-pad_len]
+            pb_wallet = bitcoinj_pb2.Wallet()
+            pb_wallet.ParseFromString(pbdata)
+            mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet)
+            logfile.write("Android Wallet Mnemonic: '" + mnemonic.decode() + "' derivation path: m/0'")
+
     def passwords_per_seconds(self, seconds):
         return max(int(round(self._passwords_per_second * seconds)), 1)
 
@@ -824,13 +842,15 @@ class WalletMultiBit(object):
         with open(privkey_filename) as privkey_file:
             # Multibit privkey files contain base64 text split into multiple lines;
             # we need the first 48 bytes after decoding, which translates to 64 before.
-            data = "".join(privkey_file.read(70).split())  # join multiple lines into one
+            data = "".join(privkey_file.read().split())  # join multiple lines into one
+
         if len(data) < 64: raise EOFError("Expected at least 64 bytes of text in the MultiBit private key file")
-        data = base64.b64decode(data[:64])
+        data = base64.b64decode(data)
         assert data.startswith(b"Salted__"), "WalletBitcoinCore.load_from_filename: file starts with base64 'Salted__'"
         if len(data) < 48:  raise EOFError("Expected at least 48 bytes of decoded data in the MultiBit private key file")
         self = cls(loading=True)
         self._encrypted_block = data[16:48]  # the first two 16-byte AES blocks
+        self._encrypted_wallet = data[16:]
         self._salt            = data[8:16]
         return self
 
@@ -901,6 +921,15 @@ class WalletMultiBit(object):
                             break
                     # If the loop above doesn't break, it looks like a domain name; we've found it
                     else:
+                        print("Notice: Found Bitcoin for Android Wallet Password")
+                        if self._dump_privkeys_file:
+                            #try:
+                            if True:
+                                wallet_data = l_aes256_cbc_decrypt(key1 + key2, iv, self._encrypted_wallet)
+                                self.dump_privkeys(wallet_data)
+                            #except:
+                            #    print("Unable to decode wallet mnemonic (common for very old wallets)")
+
                         return orig_passwords[count - 1], count
                 #
                 #  Does it look like a KnC for Android key backup?
@@ -944,6 +973,43 @@ class WalletBitcoinj(object):
                 if c and c in b"\x12\x1a":   # field number 2 or 3 of type length-delimited
                     return True
         return False
+
+    # From https://github.com/gurnec/decrypt_bitcoinj_seed
+    @staticmethod
+    def extract_mnemonic(pb_wallet, password = None):
+        from . import bitcoinj_pb2
+        """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
+
+        :param pb_wallet: a Wallet protobuf message
+        :type pb_wallet: wallet_pb2.Wallet
+        :param get_password_fn: a callback returning a password that's called iff one is required
+        :type get_password_fn: function
+        :return: the first BIP39 mnemonic found in the wallet or None if no password was entered when required
+        :rtype: str
+        """
+        for key in pb_wallet.key:
+            if key.type == bitcoinj_pb2.Key.DETERMINISTIC_MNEMONIC:
+
+                if key.HasField('secret_bytes'):  # if not encrypted
+                    return key.secret_bytes
+
+                elif key.HasField('encrypted_data'):  # if encrypted (w/scrypt)
+                    # Derive the encryption key
+                    aes_key = pylibscrypt.scrypt(
+                        password,
+                        pb_wallet.encryption_parameters.salt,
+                        pb_wallet.encryption_parameters.n,
+                        pb_wallet.encryption_parameters.r,
+                        pb_wallet.encryption_parameters.p,
+                        32)
+
+                    # Decrypt the mnemonic
+                    ciphertext = key.encrypted_data.encrypted_private_key
+                    iv = key.encrypted_data.initialisation_vector
+                    return aes256_cbc_decrypt(aes_key, iv, ciphertext).decode().replace("\\t", "")
+
+        else:  # if the loop exists normally, no mnemonic was found
+            raise ValueError('no BIP39 mnemonic found')
 
     def __init__(self, loading = False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -1199,44 +1265,8 @@ class WalletMultiBitHD(WalletBitcoinj):
             from . import bitcoinj_pb2
             pb_wallet = bitcoinj_pb2.Wallet()
             pb_wallet.ParseFromString(decrypted_data[:-padding_len])
-            mnemonic = self.extract_mnemonic(pb_wallet, password)
+            mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet, password)
             logfile.write("BIP39 Seed: " + mnemonic)
-
-    # From https://github.com/gurnec/decrypt_bitcoinj_seed
-    def extract_mnemonic(self, pb_wallet, password):
-        from . import bitcoinj_pb2
-        """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
-
-        :param pb_wallet: a Wallet protobuf message
-        :type pb_wallet: wallet_pb2.Wallet
-        :param get_password_fn: a callback returning a password that's called iff one is required
-        :type get_password_fn: function
-        :return: the first BIP39 mnemonic found in the wallet or None if no password was entered when required
-        :rtype: str
-        """
-        for key in pb_wallet.key:
-            if key.type == bitcoinj_pb2.Key.DETERMINISTIC_MNEMONIC:
-
-                if key.HasField('secret_bytes'):  # if not encrypted
-                    return key.secret_bytes
-
-                elif key.HasField('encrypted_data'):  # if encrypted (w/scrypt)
-                    # Derive the encryption key
-                    aes_key = pylibscrypt.scrypt(
-                        password,
-                        pb_wallet.encryption_parameters.salt,
-                        pb_wallet.encryption_parameters.n,
-                        pb_wallet.encryption_parameters.r,
-                        pb_wallet.encryption_parameters.p,
-                        32)
-
-                    # Decrypt the mnemonic
-                    ciphertext = key.encrypted_data.encrypted_private_key
-                    iv = key.encrypted_data.initialisation_vector
-                    return aes256_cbc_decrypt(aes_key, iv, ciphertext).decode().replace("\\t", "")
-
-        else:  # if the loop exists normally, no mnemonic was found
-            raise ValueError('no BIP39 mnemonic found')
 
     @staticmethod
     def is_wallet_file(wallet_file): return None  # there's no easy way to check this

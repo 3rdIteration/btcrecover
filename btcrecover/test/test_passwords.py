@@ -1257,6 +1257,16 @@ class Test07WalletDecryption(unittest.TestCase):
 
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
     @skipUnless(can_load_protobuf, "requires protobuf")
+    def test_android_bitcoin_wallet(self):
+        self.wallet_tester("android-bitcoin-wallet-backup")
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    @skipUnless(can_load_protobuf, "requires protobuf")
+    def test_android_bitcoin_wallet_2022(self):
+        self.wallet_tester("android-bitcoin-wallet-backup-2022")
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    @skipUnless(can_load_protobuf, "requires protobuf")
     @skipUnless(can_load_scrypt,   "requires a binary implementation of pylibscrypt")
     def test_androidpin(self):
         self.wallet_tester("android-bitcoin-wallet-backup",
