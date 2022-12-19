@@ -28,7 +28,7 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "macOS" ]; then
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install autoconf automake libffi libtool pkg-config python
+          brew install autoconf automake libffi libtool pkg-config
         fi
       shell: bash
     - name: Install dependencies
