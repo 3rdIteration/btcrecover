@@ -124,9 +124,41 @@ This command will produce the following dump.
 {% include "../btcrecover/test/test-wallets/metamask.privkeys.txt" %}
 ```
 
+### Multibit Classic Wallets Backups (And MultiDoge)
+You can dump either .wallet files or key-backup files.
+
+You can use the following command to decrypt/dump one of the Multibit Classic wallet keyfiles that is included with the repository... The main password for this wallet is "btcr-test-password"...
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/multibit-wallet.key --correct-wallet-password btcr-test-password --dump-privkeys multibit-wallet.key.privkeys.txt
+
+This command will produce the following dump.
+
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/multibit-wallet.key.privkeys.txt" %}
+```
+<br>
+You can also decrypt/dump a .wallet file with the same type of command.
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/multibit.wallet.bitcoinj.encrypted --correct-wallet-password btcr-test-password --dump-privkeys multibit.wallet.bitcoinj.encrypted.txt
+
+Which will produce the following:
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/multibit.wallet.bitcoinj.encrypted.txt" %}
+```
+<br>
+Likewise, you can decrypt/dump MultiDoge keyfiles with a command like:
+
+    python btcrecover.py --wallet ./btcrecover/test/test-wallets/multidoge-wallet.key --correct-wallet-password btcr-test-password --dump-privkeys multidoge-wallet.key.privkeys.txt
+
+This command will produce the following dump.
+
+``` linenums="1"
+{% include "../btcrecover/test/test-wallets/multidoge-wallet.key.privkeys.txt" %}
+```
+
 ### Multibit HD Wallets
 
-You can use the following command to decrypt/dump one of the wallets that is included with the repository... The main and second passwords for this wallet are "btcr-test-password"...
+You can use the following command to decrypt/dump one of the wallets that is included with the repository... The main password for this wallet is "btcr-test-password"...
 
     python btcrecover.py --wallet ./btcrecover/test/test-wallets/multibithd-v0.5.0/mbhd.wallet.aes --correct-wallet-password btcr-test-password --dump-privkeys mbhd.wallet.aes.privkeys.txt
 

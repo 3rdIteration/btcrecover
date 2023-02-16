@@ -816,7 +816,7 @@ class WalletMultiBit(object):
         load_aes256_library(warnings=False)
         self.__dict__ = state
 
-    # This just dumps the wallet private keys
+    # This just dumps the wallet private keys for Android Wallets
     def dump_privkeys(self, wallet_data):
         with open(self._dump_privkeys_file, 'a') as logfile:
             from . import bitcoinj_pb2
@@ -832,6 +832,17 @@ class WalletMultiBit(object):
             pb_wallet.ParseFromString(pbdata)
             mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet)
             logfile.write("Android Wallet Mnemonic: '" + mnemonic.decode() + "' derivation path: m/0'")
+
+    # This just dumps the wallet private keys for Multibit Classic, Multidoge Wallets
+    def dump_privkeys_keybackup(self, key1, key2, iv):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            decrypted_wallet = aes256_cbc_decrypt(key1 + key2, iv, self._encrypted_wallet).decode().splitlines()
+            for line in decrypted_wallet:
+                try:
+                    key, date = line.split(" ")
+                    logfile.write(key + "\n")
+                except:
+                    pass
 
     def passwords_per_seconds(self, seconds):
         return max(int(round(self._passwords_per_second * seconds)), 1)
@@ -908,9 +919,13 @@ class WalletMultiBit(object):
                                     break  # not base58
                             # If the loop above doesn't break, it's base58; we've found it
                             else:
+                                if self._dump_privkeys_file:
+                                    self.dump_privkeys_keybackup(key1, key2, iv)
                                 return orig_passwords[count-1], count
                         else:
                             # (when no second block is available, there's a 1 in 300 billion false positive rate here)
+                            if self._dump_privkeys_file:
+                                self.dump_privkeys_keybackup(key1, key2, iv)
                             return orig_passwords[count - 1], count
                 #
                 # Does it look like a bitcoinj protobuf (newest Bitcoin for Android backup)
@@ -950,6 +965,7 @@ EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
 @register_wallet_class
 class WalletBitcoinj(object):
     opencl_algo = -1
+    _dump_privkeys_file = None
 
     def data_extract_id():
         return "bj"
@@ -1047,7 +1063,14 @@ class WalletBitcoinj(object):
 
         pb_wallet = bitcoinj_pb2.Wallet()
         pb_wallet.ParseFromString(filedata)
+
         if pb_wallet.encryption_type == bitcoinj_pb2.Wallet.UNENCRYPTED:
+            print("\nWallet Not Encrypted, Contains the following Private Keys")
+            for key in pb_wallet.key:
+                from lib.cashaddress import base58
+                privkey_wif = base58.b58encode_check(bytes([0x80]) + key.secret_bytes + bytes([0x1]))
+                print(privkey_wif)
+                print()
             raise ValueError("bitcoinj wallet is not encrypted")
         if pb_wallet.encryption_type != bitcoinj_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
             raise NotImplementedError("Unsupported bitcoinj encryption type "+str(pb_wallet.encryption_type))
@@ -1065,6 +1088,7 @@ class WalletBitcoinj(object):
                     self._scrypt_n    = pb_wallet.encryption_parameters.n
                     self._scrypt_r    = pb_wallet.encryption_parameters.r
                     self._scrypt_p    = pb_wallet.encryption_parameters.p
+                    self.pb_wallet = pb_wallet
                     return self
                 print("Warning: ignoring encrypted key of unexpected length ("+str(encrypted_len)+")", file=sys.stderr)
 
@@ -1083,6 +1107,15 @@ class WalletBitcoinj(object):
 
     def difficulty_info(self):
         return "scrypt N, r, p = {}, {}, {}".format(self._scrypt_n, self._scrypt_r, self._scrypt_p)
+
+    def dump_privkeys(self, derived_key):
+        from lib.cashaddress import base58
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            for key in self.pb_wallet.key:
+                privkey = aes256_cbc_decrypt(derived_key, key.encrypted_data.initialisation_vector,
+                                               key.encrypted_data.encrypted_private_key)[:32]
+                privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + bytes([0x1]))
+                logfile.write(privkey_wif + "\n")
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -1106,6 +1139,9 @@ class WalletBitcoinj(object):
             # If the last block (bytes 16-31) of part_encrypted_key is all padding, we've found it
             if part_key == b"\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10":
                 password = password.decode("utf_16_be", "replace")
+                if self._dump_privkeys_file:
+                    self.dump_privkeys(derived_key)
+
                 return password, count
 
         return False, count
@@ -1177,7 +1213,6 @@ class WalletCoinomi(WalletBitcoinj):
 
         pb_wallet = coinomi_pb2.Wallet()
         pb_wallet.ParseFromString(filedata)
-        #print(pb_wallet)
         if pb_wallet.encryption_type == coinomi_pb2.Wallet.UNENCRYPTED:
             raise ValueError("Coinomi wallet is not encrypted")
         if pb_wallet.encryption_type != coinomi_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
