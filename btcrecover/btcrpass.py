@@ -1088,7 +1088,7 @@ class WalletBitcoinj(object):
                     self._scrypt_n    = pb_wallet.encryption_parameters.n
                     self._scrypt_r    = pb_wallet.encryption_parameters.r
                     self._scrypt_p    = pb_wallet.encryption_parameters.p
-                    self.pb_wallet = pb_wallet
+                    self.pb_wallet_filedata = filedata
                     return self
                 print("Warning: ignoring encrypted key of unexpected length ("+str(encrypted_len)+")", file=sys.stderr)
 
@@ -1109,9 +1109,13 @@ class WalletBitcoinj(object):
         return "scrypt N, r, p = {}, {}, {}".format(self._scrypt_n, self._scrypt_r, self._scrypt_p)
 
     def dump_privkeys(self, derived_key):
+        from . import bitcoinj_pb2
+        pb_wallet = bitcoinj_pb2.Wallet()
+        pb_wallet.ParseFromString(self.pb_wallet_filedata)
+        
         from lib.cashaddress import base58
         with open(self._dump_privkeys_file, 'a') as logfile:
-            for key in self.pb_wallet.key:
+            for key in pb_wallet.key:
                 privkey = aes256_cbc_decrypt(derived_key, key.encrypted_data.initialisation_vector,
                                                key.encrypted_data.encrypted_private_key)[:32]
                 privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey + bytes([0x1]))
