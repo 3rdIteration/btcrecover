@@ -39,6 +39,7 @@ nav:
     - Password/Passphrase Recovery:
         - Password Recovery Quickstart: TUTORIAL.md
         - Tokenlist Files: tokenlist_file.md
+        - Custom String and Repeating Wildcards: custom-wildcard-lists/custom_wildcards.md
         - Passwordlist Files: passwordlist_file.md
         - Trustless (or Cloud) Recovery - Creating Wallet Extracts: Extract_Scripts.md
         - Extracting Private Keys from Wallet Files (Decrypt & Dump): Decrypting_dumping_walletfiles.md

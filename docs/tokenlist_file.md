@@ -183,6 +183,10 @@ The `%d` is a wildcard which is replaced by all combinations of a single digit. 
  * `%h`    - a single hexidcimal character (0-9, A-F) 
  * `%*`    - a single Base58 character (Bitcoin Base58 Character Set)
  * `%U`    - a single Unicode character (All Unicode characters up to 65,535)
+ * `%e`    - Custom String Repeating wildcard, [Read about behaviour and usage](custom_wildcards.md)
+ * `%f`    - Custom String Repeating wildcard, [Read about behaviour and usage](custom_wildcards.md)
+ * `%j`    - Custom String Standard wildcard, [Read about behaviour and usage](custom_wildcards.md)
+ * `%k`    - Custom String Standard wildcard, [Read about behaviour and usage](custom_wildcards.md)
 
 Up until now, most of the features help by reducing the number of passwords that need to be tried by exploiting your knowledge of what’s probably in the password. Wildcards significantly expand the number of passwords that need to be tried, so they’re best used in moderation.
 
