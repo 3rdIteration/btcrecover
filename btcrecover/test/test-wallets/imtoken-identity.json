@@ -1,0 +1,44 @@
+{
+  "crypto": {
+    "cipher": "aes-128-ctr",
+    "cipherparams": {
+      "iv": "7450eebcf0b0aafd56c83eb12498077f"
+    },
+    "ciphertext": "07a06f1eabdf3fec6fb8cc9b9f5547e4da48cf774f5ab06ef1c46ae293b05214cdec7c64ec19aa70b8af7127b66f85b7f539c56930eea261027a2d944b8785e4a78ab7c5c9ff62c20365a47a6e308db73dcf9a167b956c993d0a10e1ba36d714835cd60d2550f7c32d9021d88e1aef",
+    "kdf": "pbkdf2",
+    "kdfparams": {
+      "c": 10240,
+      "dklen": 32,
+      "prf": "hmac-sha256",
+      "salt": "21731cc92558832b715dc0da606d636e5e3682702086a5e0678ee52ed8fed1a4"
+    },
+    "mac": "aed570a44c6026b2acc3090c4976c77ffb4d6b097e5ce2bc343ad332eb1250cd"
+  },
+  "id": "4099a26b-12e6-4296-bdea-547cc7a422c3",
+  "version": 10000,
+  "encAuthKey": {
+    "encStr": "61e7e0a6bb62fa965b991d803f998fb1ba2d04f9b48107bd0d1f1e7e9e260f7f",
+    "nonce": "f1c6b730d166d4121d3caa46e19baa9a"
+  },
+  "encKey": "d80744e42f048b1a7b7682899a3bd96a171e372cf74c99af35f4f6e3a1c06dc6",
+  "encMnemonic": {
+    "encStr": "9490bf63a05599a4aa67f83d854bb0d80d8eac73a070c476494f379f7492cc7c6b0f8ce05a8a1b02d0de92a5cb629b21fdc4ba94a0a1cc944927b09bd1090ac61483c384d1662edf3a540f",
+    "nonce": "8bdacecc0041b233ef6aa09c68fdb412"
+  },
+  "identifier": "im14x5DughyxdGsdeseqZtAwE6tWbm2oL1Tst6m",
+  "ipfsId": "QmSso53y1p1o9fiUsDd1H7eap8h5ehUnGzymXGBFNEnuea",
+  "walletIDs": [
+    "0b95fb1a-e703-49cf-99f8-7c3904281b6a",
+    "bbd56b95-9fa9-4d47-a537-baf228b9b38e",
+    "2a05a9f6-41d5-461c-bc26-b11802815b68"
+  ],
+  "imTokenMeta": {
+    "backup": [],
+    "mode": "NORMAL",
+    "name": "btcrecover",
+    "network": "MAINNET",
+    "passwordHint": "btcr-test-password",
+    "source": "NEW_IDENTITY",
+    "timestamp": 1682470437
+  }
+}

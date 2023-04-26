@@ -4870,7 +4870,7 @@ class WalletEthKeystore(object):
         try:
             walletdata = wallet_file.read()
         except: return False
-        return (b"cipherparams" in walletdata and b"kdfparams" in walletdata)  # These are fairly distinctive for Eth UTC v3 files
+        return (b"cipherparams" in walletdata and b"kdfparams" in walletdata and b"imTokenMeta" not in walletdata)  # These are fairly distinctive for Eth UTC v3 files
 
     def __init__(self, loading=False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -4924,6 +4924,62 @@ class WalletEthKeystore(object):
             return password.decode("utf_8", "replace"), count
 
         return False, count
+
+############### Imtoken Keystore ###############
+
+# Imtoken keystores are basically a modified Eth keystore format
+
+@register_wallet_class
+class WalletImtokenKeystore(WalletEthKeystore):
+    opencl_algo = -1
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        wallet_file.seek(0)
+        try:
+            walletdata = wallet_file.read()
+        except: return False
+        return (b"imTokenMeta" in walletdata)
+
+    @classmethod
+    def load_from_filename(cls, wallet_filename):
+        if not module_eth_keyfile_available:
+            print("eth-keyfile module is required for Eth Keystores (it can normally be installed with the command: pip3 install eth-keyfile)")
+            exit()
+        wallet_json = eth_keyfile.load_keyfile(wallet_filename)
+        wallet_json["version"] = 3
+        self = cls(loading=True)
+        self.wallet_json = wallet_json
+        return self
+
+    def passwords_per_seconds(self, seconds):
+        if self.wallet_json['crypto']['kdf'] == 'pbkdf2':
+            return 60
+
+    def dump_privkeys(self, correct_password):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            logfile.write("BIP39 Root Key (For copy/paste) is below...\n")
+            key = eth_keyfile.decode_keyfile_json(self.wallet_json, correct_password)
+            logfile.write(key.decode())
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, arg_passwords):  # Ethereum Keystore (UTC) File
+        # Convert Unicode strings (lazily) to UTF-8 bytestrings
+        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+
+        for count, password in enumerate(passwords, 1):
+            try:
+                eth_keyfile.decode_keyfile_json(self.wallet_json,password)
+            except ValueError: # Throws a value error if MAC mismatches
+                continue
+
+            if self._dump_privkeys_file:
+                self.dump_privkeys(password)
+            return password.decode("utf_8", "replace"), count
+
+        return False, count
+
 
 ############### NULL ###############
 # A fake wallet which has no correct password;
