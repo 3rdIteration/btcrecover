@@ -4958,9 +4958,12 @@ class WalletImtokenKeystore(WalletEthKeystore):
 
     def dump_privkeys(self, correct_password):
         with open(self._dump_privkeys_file, 'a') as logfile:
-            logfile.write("BIP39 Root Key (For copy/paste) is below...\n")
-            key = eth_keyfile.decode_keyfile_json(self.wallet_json, correct_password)
-            logfile.write(key.decode())
+            try:
+                key = eth_keyfile.decode_keyfile_json(self.wallet_json, correct_password)
+                logfile.write("BIP39 Root Key (For copy/paste) is below...\n")
+                logfile.write(key.decode())
+            except:
+                print("WARNING KEY DUMP FAILED: Found correct password but can't decode wallet XPRV, try running BTCRecover with identity.json from the imtoken data folder")
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1

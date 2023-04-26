@@ -92,6 +92,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
         * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
  * Altcoin password recovery support for most wallets derived from one of those above, including:
      * [Coinomi](https://www.coinomi.com/en/) (Only supports password protected wallets)
+     * [imToken](https://token.im/)
      * [Metamask](https://metamask.io/) (And Metamask clones like Binance Chain Wallet, Ronin Wallet, etc.)
      * [Litecoin Core](https://litecoin.org/)
      * [Electrum-LTC](https://electrum-ltc.org/) (For Legacy and Segwit Wallets. Set --bip32-path "m/0'/0" for a Segwit wallet, leave bip32-path blank for Legacy... No support for 2fa wallets...)

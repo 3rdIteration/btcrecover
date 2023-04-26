@@ -1413,6 +1413,10 @@ class Test07WalletDecryption(unittest.TestCase):
     def test_eth_keystore_pbkdf2(self):
         self.wallet_tester("utc-keystore-v3-pbkdf2-custom.json")
 
+    @skipUnless(can_load_eth_keyfile, "requires Eth-Keyfile module")
+    def test_imtoken_keystore(self):
+        self.wallet_tester("imtoken-identity.json")
+
     # Make sure the Blockchain wallet loader can heuristically determine that files containing
     # base64 data that doesn't look entirely encrypted (random) are not Blockchain wallets
     def test_blockchain_invalid(self):

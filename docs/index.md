@@ -93,6 +93,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
      * [Bither](https://bither.net/)
  * Altcoin password recovery support for most wallets derived from one of those above, including:
      * [Coinomi](https://www.coinomi.com/en/) (Only supports password protected wallets)
+     * [imToken](https://token.im/)
      * [Metamask](https://metamask.io/) (And Metamask clones like Binance Chain Wallet, Ronin Wallet, etc.)
      * [Litecoin Core](https://litecoin.org/)
      * [Electrum-LTC](https://electrum-ltc.org/) (For Legacy and Segwit Wallets. Set --bip32-path "m/0'/0" for a Segwit wallet, leave bip32-path blank for Legacy... No support for 2fa wallets...)

@@ -159,6 +159,7 @@ As you can see, the Windows command prompt was incapable of rendering some of th
      * Blockchain.com - it's usually named `wallet.aes.json`; if you don't have a backup of your wallet file, you can download one by running the `download-blockchain-wallet.py` tool in the `extract-scripts` directory if you know your wallet ID (and 2FA if enabled)
      * Coinomi - Please see the [Finding Coinomi Wallet Files](#finding-coinomi-wallet-files) section below. 
      * Electrum - `%appdata%\Electrum\wallets`
+     * imToken - Please see the [Finding imToken Wallet Files](#finding-imtoken-wallet-files) section below.
      * Litecoin-Qt - `%appdata%\Litecoin` (it's named `wallet.dat`)
      * Metamask (And Metamask clones like Binance Chain Wallet, Ronin Wallet, etc) - Please see the [Finding Metamask Wallet Files](#finding-metamask-wallet-files) section below.
      * MultiBit Classic - Please see the [Finding MultiBit Classic Wallet Files](#finding-multibit-classic-wallet-files) section below.
@@ -273,6 +274,15 @@ For Windows users, it's simply a case of navigating to %localappdata%\Coinomi\Co
 For Android users, you will need to have a rooted phone which will allow you to access the .wallet file in the Coinomi. (It should be found in the folder data\data\com.coinomi.wallet\files\wallets) How to get root access on your particular phone is beyond the scope of this document, but be warned that some methods of rooting your phone will involve a factory reset.
 
 If there are mulitiple wallets there and you are not sure which is the correct one, the name of each wallet can be found in clear text at the end of the file. [See the test wallets included with this repository in ./btcrecover/test/test-wallets](https://github.com/3rdIteration/btcrecover/tree/master/btcrecover/test/test-wallets) for an example)
+
+### Finding imToken Wallet Files ###
+For Android users, you will need to have a rooted phone which will allow you to access the files.
+
+The main wallet file is located at `/data/data/im.token.app/files/wallets/identity.json`
+
+How to get root access on your particular phone is beyond the scope of this document, but be warned that some methods of rooting your phone will involve a factory reset.
+
+For iOS users, the file that you are looking for should have the same name and be in a similar location, but you will need a Jailbroken device to be able to access it.
 
 ### Downloading Blockchain.com wallet files ###
 Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
