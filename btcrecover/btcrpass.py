@@ -7124,6 +7124,9 @@ def password_generator(chunksize = 1, only_yield_count = False):
         if enabled_simple_typos:            modification_generators.append( simple_typos_generator     )
         if args.typos_insert:               modification_generators.append( insert_typos_generator     )
         if args.password_repeats_posttypos: modification_generators.append( password_repeats_generator )
+
+    modification_generators.append(swap_tokens_generator)
+
     modification_generators_len = len(modification_generators)
 
     # Only the last typo generator needs to enforce a min-typos requirement
@@ -7248,6 +7251,12 @@ def generator_product(initial_value, generator, *other_generators):
             for final_value in generator_product(intermediate_value, *other_generators):
                 yield final_value
 
+def swap_tokens_generator(password_base, numSwaps = 2):
+    yield password_base
+    for i, j in itertools.combinations(range(len(password_base)), 2):
+        swapped_seed = password_base[:i] + [password_base[j]] + password_base[i+1:j] + [password_base[i]] + password_base[j+1:]
+        if numSwaps > 0:
+            yield from swap_tokens_generator(swapped_seed, numSwaps - 1)
 
 # The tokenlist generator function produces all possible password permutations from the
 # token_lists global as constructed by parse_tokenlist(). These passwords are then used
