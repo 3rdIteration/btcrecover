@@ -7258,13 +7258,18 @@ def generator_product(initial_value, generator, *other_generators):
             for final_value in generator_product(intermediate_value, *other_generators):
                 yield final_value
 
+# A recursive function that will swap one pair of words in a given mnemonic and then,
+# if required, will call itself recursively to handle further possible swaps.
+
+# Note: There is a bit of inconsistency in the data type of password_base depending on
+# whether tokenlists/seedlists are being used. (Hence why there are a few casts between tuple and list)
 def swap_tokens_generator(password_base, numSwaps = 0):
+    yield tuple(password_base)
     password_base = list(password_base)
-    yield password_base
-    #print(password_base)
-    for i, j in itertools.combinations(range(len(password_base)), 2):
-        swapped_seed = password_base[:i] + [password_base[j]] + password_base[i+1:j] + [password_base[i]] + password_base[j+1:]
-        if numSwaps > 0:
+    # If we have reached the end then simply return the base password
+    if numSwaps > 0:
+        for i, j in itertools.combinations(range(len(password_base)), 2):
+            swapped_seed = tuple(password_base[:i] + [password_base[j]] + password_base[i+1:j] + [password_base[i]] + password_base[j+1:])
             yield from swap_tokens_generator(swapped_seed, numSwaps - 1)
 
 # The tokenlist generator function produces all possible password permutations from the
