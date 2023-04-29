@@ -7261,6 +7261,10 @@ def generator_product(initial_value, generator, *other_generators):
 # A recursive function that will swap one pair of words in a given mnemonic and then,
 # if required, will call itself recursively to handle further possible swaps.
 
+# This implementation prioritises simplicity leaves it to other dup-check functions
+# to handle duplicates created through repeated swaps.
+# (Though isn't really an issue for small numbers of swaps either way)
+
 # Note: There is a bit of inconsistency in the data type of password_base depending on
 # whether tokenlists/seedlists are being used. (Hence why there are a few casts between tuple and list)
 def swap_tokens_generator(password_base, numSwaps = 0):

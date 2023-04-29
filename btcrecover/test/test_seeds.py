@@ -1710,6 +1710,46 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
         generated_passwords = list(tok_it)
         self.assertEqual(generated_passwords, correct_seedlist)
 
+    def test_seed_transforms_swaps_1(self):
+        self.seed_transform_tester(correct_seedlist=
+                                   [[('1', '2', '3'),
+                                     ('2', '1', '3'),
+                                     ('3', '2', '1'),
+                                     ('1', '3', '2')]],
+                              transformArgument = "--seed-transform-wordswaps 1")
+
+    def test_seed_transforms_swaps_2(self):
+        self.seed_transform_tester(correct_seedlist=
+                                   [[('1', '2', '3'),
+                                     ('2', '1', '3'),
+                                     ('1', '2', '3'),
+                                     ('3', '1', '2'),
+                                     ('2', '3', '1'),
+                                     ('3', '2', '1'),
+                                     ('2', '3', '1'),
+                                     ('1', '2', '3'),
+                                     ('3', '1', '2'),
+                                     ('1', '3', '2'),
+                                     ('3', '1', '2'),
+                                     ('2', '3', '1'),
+                                     ('1', '2', '3')]],
+                              transformArgument = "--seed-transform-wordswaps 2")
+    def seed_transform_tester(self, correct_seedlist=None, transformArgument = None):
+        if correct_seedlist is None:
+            correct_seedlist = self.expected_passwordlist
+
+        # Check to see if the Token List file exists (and if not, skip)
+        if not os.path.isfile("./btcrecover/test/test-listfiles/Seed-Transform-Base.txt"):
+            raise unittest.SkipTest("requires ./btcrecover/test/test-listfiles/Seed-Transform-Base.txt")
+
+        args = (" --listpass --seedgenerator --max-tokens 1 --min-tokens 1 " + transformArgument).split()
+
+        btcrpass.parse_arguments(["--tokenlist"] + ["./btcrecover/test/test-listfiles/Seed-Transform-Base.txt"] + args,
+                                 disable_security_warning_param=True)
+
+        tok_it, skipped = btcrpass.password_generator_factory(sys.maxsize)
+        generated_passwords = list(tok_it)
+        self.assertEqual(generated_passwords, correct_seedlist)
 
 # All seed tests except TestAddressSet.test_false_positives are quick
 class QuickTests(unittest.TestSuite):
