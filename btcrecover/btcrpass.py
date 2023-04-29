@@ -5574,6 +5574,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we are doing seed generation, not password generation
     parser.add_argument("--mnemonic-length", type=int,
                                help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
+    parser.add_argument("--seed-transform-wordswaps", type=int,
+                               help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we want to also try swapped words for seed generation
     parser.add_argument("--max-tokens",   type=int, default=sys.maxsize, metavar="COUNT", help="enforce a max # of tokens included per guess")
     parser.add_argument("--min-tokens",   type=int, default=1,          metavar="COUNT", help="enforce a min # of tokens included per guess")
     parser._add_container_actions(parser_common)
@@ -5628,6 +5630,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                             help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we are doing seed generation, not password generation
         parser.add_argument("--mnemonic-length", type=int,
                             help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
+        parser.add_argument("--seed-transform-wordswaps", type=int,
+                            help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we want to also try swapped words for seed generation
         parser.add_argument("--wildcard-custom-list-e", metavar="FILE",
                             help="Path to a custom list file which will be used fr the %%e expanding wildcard")
         parser.add_argument("--wildcard-custom-list-f", metavar="FILE",
@@ -7125,15 +7129,18 @@ def password_generator(chunksize = 1, only_yield_count = False):
         if args.typos_insert:               modification_generators.append( insert_typos_generator     )
         if args.password_repeats_posttypos: modification_generators.append( password_repeats_generator )
 
-    modification_generators.append(swap_tokens_generator)
-
-    modification_generators_len = len(modification_generators)
-
     # Only the last typo generator needs to enforce a min-typos requirement
     if args.min_typos and (l_seed_generator is False):
         assert modification_generators[-1] != expand_wildcards_generator
         # set the min_typos argument default value
         modification_generators[-1].__defaults__ = (args.min_typos,)
+
+    # Modification generators for seed generation
+    if args.seed_transform_wordswaps:
+        modification_generators.append(swap_tokens_generator)
+        modification_generators[-1].__defaults__ = (args.seed_transform_wordswaps,)
+
+    modification_generators_len = len(modification_generators)
 
     # The base password generator is set in parse_arguments(); it's either an iterable
     # or a generator function (which returns an iterator) that produces base passwords
@@ -7251,8 +7258,10 @@ def generator_product(initial_value, generator, *other_generators):
             for final_value in generator_product(intermediate_value, *other_generators):
                 yield final_value
 
-def swap_tokens_generator(password_base, numSwaps = 2):
+def swap_tokens_generator(password_base, numSwaps = 0):
+    password_base = list(password_base)
     yield password_base
+    #print(password_base)
     for i, j in itertools.combinations(range(len(password_base)), 2):
         swapped_seed = password_base[:i] + [password_base[j]] + password_base[i+1:j] + [password_base[i]] + password_base[j+1:]
         if numSwaps > 0:

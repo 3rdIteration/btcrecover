@@ -2860,7 +2860,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None):
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None):
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -2907,6 +2907,9 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         btcr_args += " --performance"
         # These typos are not supported by seedrecover with --performance testing:
         l_num_inserts = l_num_deletes = num_wrong = 0
+
+    if seed_transform_wordswaps:
+        btcr_args += " --seed-transform-wordswaps " + str(seed_transform_wordswaps)
 
     # First, check if there are any required typos (if there are missing or extra
     # words in the guess) and adjust the max number of other typos to later apply
@@ -3065,6 +3068,7 @@ def main(argv):
         parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
+        parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
         parser.add_argument("--threads", type=int, metavar="COUNT", help="number of worker threads (default: For CPU Processing, logical CPU cores, for GPU, physical CPU cores)")
         parser.add_argument("--worker",      metavar="ID#(ID#2, ID#3)/TOTAL#",   help="divide the workload between TOTAL# servers, where each has a different ID# between 1 and TOTAL# (You can optionally assign between 1 and TOTAL IDs of work to a server (eg: 1,2/3 will assign both slices 1 and 2 of the 3 to the server...)")
@@ -3311,6 +3315,10 @@ def main(argv):
 
         if args.force_p2sh:
             create_from_params["force_p2sh"] = True
+
+        if args.transform_wordswaps:
+            print("SEED-TRANSFORM: Checking", args.transform_wordswaps, "pairs of swapped words for each possible mnemonic")
+            phase["seed_transform_wordswaps"] = args.transform_wordswaps
             
         if args.checksinglexpubaddress:
             create_from_params["checksinglexpubaddress"] = True
