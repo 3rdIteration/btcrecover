@@ -1687,7 +1687,7 @@ class Test08BIP39Passwords(unittest.TestCase):
         pool.close()
         pool.join()
 
-    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit")
+    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit and py_ecc")
     def ethvalidator_tester(self, *args, **kwargs):
 
         wallet = btcrpass.WalletEthereumValidator(*args, **kwargs)

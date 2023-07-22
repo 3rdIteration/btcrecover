@@ -1035,7 +1035,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             "talk swamp tool right wide vital midnight cushion fiber blouse field transfer",
                             pathlist_file="ETH.txt")
 
-    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit")
+    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit and py_ecc")
     def test_eth_validator(self):
         self.address_tester(btcrseed.WalletEthereumValidator, "94172eb62472af0fb61dc8f66cde031d06b7bd39bda86dd2213b2eb283f710d16f38009bc2e03dc967b2c3548dd4f73f", 2,
                             "spatial evolve range inform burst screen session kind clap goat force sort")

@@ -1810,7 +1810,7 @@ class WalletEthereumValidator(WalletBIP39):
 
     def __init__(self, path = None, loading = False):
         if not eth2_staking_deposit_available:
-            exit("Ethereum Validator Seed Recovery requires the staking-deposit module, please see the installation documentation at http://btcrecover.readthedocs.io/INSTALL/#staking-deposit for further information")
+            exit("Ethereum Validator Seed Recovery requires the staking-deposit module and the py_ecc module, please see the installation documentation at http://btcrecover.readthedocs.io/INSTALL/#staking-deposit for further information")
         super(WalletEthereumValidator, self).__init__(None, loading)
 
     # Default method for adding addresses, doesn't worry about validating the addresses

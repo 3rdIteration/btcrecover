@@ -164,7 +164,7 @@ Locate your wallet type in the list below, and follow the instructions for only 
     * Tron
  * Helium BIP39 Wallets: [pynacl](https://pypi.org/project/PyNaCl/) and [bitstring](https://pypi.org/project/bitstring/)
  * Eth Keystore Files: [eth-keyfile](https://pypi.org/project/eth-keyfile/)
- * Eth2 Validator Seed Recovery: [staking-deposit](#staking-deposit)
+ * Eth2 Validator Seed Recovery: [staking-deposit](#staking-deposit) & [py_ecc](https://pypi.org/project/py-ecc/)
  * Groestlecoin BIP39 Wallets: [groestlcoin_hash](https://pypi.org/project/groestlcoin-hash/)
  * BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)
 
@@ -193,6 +193,10 @@ It is installed as part of the collection of modules installed by `requirements-
 Alternately, you can attempt to download, build and install it via pip3 with the following command:
    
 `pip3 install git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0`
+
+and 
+
+`pip3 install py_ecc`
 
 [More information can be found at its repository](https://github.com/ethereum/staking-deposit-cli/)
 
