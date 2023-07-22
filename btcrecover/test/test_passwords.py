@@ -1045,6 +1045,19 @@ def can_load_ShamirMnemonic():
             is_ShamirMnemonic_loadable = False
     return is_ShamirMnemonic_loadable
 
+eth2_staking_deposit_available = None
+def can_load_staking_deposit():
+    global eth2_staking_deposit_available
+    if eth2_staking_deposit_available is None:
+        try:
+            from staking_deposit.key_handling.key_derivation.path import mnemonic_and_path_to_key
+            from py_ecc.bls import G2ProofOfPossession as bls
+
+            eth2_staking_deposit_available = True
+        except:
+            eth2_staking_deposit_available = False
+    return eth2_staking_deposit_available
+
 # Wrapper for btcrpass.init_worker() which clears btcrpass.loaded_wallet to simulate the way
 # multiprocessing works on Windows (even on other OSs) and permits pure python library testing
 def init_worker(wallet, char_mode, force_purepython, force_kdf_purepython):
@@ -1674,6 +1687,7 @@ class Test08BIP39Passwords(unittest.TestCase):
         pool.close()
         pool.join()
 
+    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit")
     def ethvalidator_tester(self, *args, **kwargs):
 
         wallet = btcrpass.WalletEthereumValidator(*args, **kwargs)
