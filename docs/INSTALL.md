@@ -32,7 +32,7 @@ Just download the latest version from <https://github.com/3rdIteration/btcrecove
 
 ## 2) Install Python ##
 
-**Note:** Only Python 3.7 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.7, 3.8, 3.9, 3.10) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
+**Note:** Only Python 3.8 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.8, 3.9, 3.10, 3.11) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
@@ -95,11 +95,22 @@ _If you want to use the graphical interface, be sure to follow the instructions 
 
 ## 3) Install requirements via Python Pip ##
 
-Once both Python3 and PIP have been installed, you can automatically install all the requirements for all features of BTCRecover with the command:
+Once both Python3 and PIP have been installed, you can install the requirements for BTCRecover.
+
+### Essential Requirements
+You will first want to install the basic packages required for BTCRecover with the command:
 
 `pip3 install -r requirements.txt`
 
-*If you are an advanced user, you may choose to install only those additional packages that are required for the specific recovery you are attempting. More information about which wallets require which packages is at the bottom of this guide.*
+This will give you the functionality needed recovery of Bitcoin/Ethereum wallets (And clones of these chains)
+
+### Packages for Extended Wallet Support
+Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
+
+`pip3 install -r requirements-full.txt`
+
+### Installing individual packages
+If you are an advanced user, you may choose to install only those additional packages that are required for the specific recovery you are attempting. More information about which wallets require which packages is at the bottom of this guide.*
 
 ## 4) Install PyOpenCL for GPU Acceleration ##
 
@@ -151,17 +162,17 @@ Locate your wallet type in the list below, and follow the instructions for only 
     * Stellar
     * Tezos
     * Tron
- * Helium BIP39 Wallets: [pynacl](#pynacl) and [bitstring](#bitstring)
- * Eth Keystore Files: [eth-keyfile](#eth-keyfile)
- * Groestlecoin BIP39 Wallets: [groestlcoin_hash](#groestlcoin_hash)
- * BIP38 Encrypted Private Keys: [ecdsa](#ecdsa)
+ * Helium BIP39 Wallets: [pynacl](https://pypi.org/project/PyNaCl/) and [bitstring](https://pypi.org/project/bitstring/)
+ * Eth Keystore Files: [eth-keyfile](https://pypi.org/project/eth-keyfile/)
+ * Eth2 Validator Seed Recovery: [staking-deposit](#staking-deposit)
+ * Groestlecoin BIP39 Wallets: [groestlcoin_hash](https://pypi.org/project/groestlcoin-hash/)
+ * BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)
 
 ----------
 
 ### PyCryptoDome ###
 
 With the exception of Ethereum wallets, PyCryptoDome is not strictly required for any wallet, however it offers a 20x speed improvement for wallets that tag it as recommended in the list above.
-
 
 ### Py_Crypto_HD_Wallet ###
 
@@ -172,3 +183,11 @@ For Windows Users, you will also need to install the Microsoft Visual C++ Build 
 A video tutorial that covers this can be found here: <https://youtu.be/0LMUf0R9Pi4>
 
 For MacOS and Linux users, the module should build/install just fine if you follow the installation instructions on this page for your platform.
+
+### Staking-Deposit ###
+
+This module isn't available as a pre-compiled package and must be downloaded and built from source.
+
+[More information can be found at its repository](https://github.com/ethereum/staking-deposit-cli/)
+
+Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.9)

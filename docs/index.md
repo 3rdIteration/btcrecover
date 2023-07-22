@@ -68,16 +68,19 @@ If you have found a bug, please open an issue on Github here: [https://github.co
          * [TREZOR](https://www.bitcointrezor.com/)
          * [Ledger](https://www.ledgerwallet.com/)
          * [Keepkey](https://shapeshift.io/keepkey/)
+         * [Blockstream Jade](https://blockstream.com/jade/)
          * [Jaxx](https://jaxx.io/)
          * [Coinomi](https://www.coinomi.com/)
          * [Exodus](https://www.exodus.io/)
          * [MyEtherWallet](https://www.myetherwallet.com/)
          * [Bither](https://bither.net/)
          * [Blockchain.com](https://blockchain.com/wallet)
+         * [Trust Wallet](https://trustwallet.com/)
          * [Encrypted (BIP-38) Paper Wallet Support (Eg: From Bitaddress.org)](https://bitaddress.org) Also works with altcoin forks like liteaddress.org, paper.dash.org, etc...
          * Brainwallets
             * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
             * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
+     * Ethereum Validator BIP39 Seed Recovery
  * Bitcoin wallet password recovery support for:
      * [Bitcoin Core](https://bitcoincore.org/)
      * [MultiBit HD](https://multibit.org/) and [MultiBit Classic](https://multibit.org/help/v0.5/help_contents.html)

@@ -97,6 +97,15 @@ try:
 except:
     pass
 
+eth2_staking_deposit_available = False
+try:
+    from staking_deposit.key_handling.key_derivation.path import mnemonic_and_path_to_key
+    from py_ecc.bls import G2ProofOfPossession as bls
+
+    eth2_staking_deposit_available = True
+except:
+    pass
+
 
 _T = TypeVar("_T")
 
@@ -1793,6 +1802,80 @@ class WalletEthereum(WalletBIP39):
         """
         assert len(uncompressed_pubkey) == 65 and uncompressed_pubkey[0] == 4
         return keccak(uncompressed_pubkey[1:])[-20:]
+
+############### Ethereum Validator ###############
+
+@register_selectable_wallet_class('Ethereum Validator BIP39')
+class WalletEthereumValidator(WalletBIP39):
+
+    def __init__(self, path = None, loading = False):
+        if not eth2_staking_deposit_available:
+            exit("Ethereum Validator Seed Recovery requires the staking-deposit module, please see the installation documentation at http://btcrecover.readthedocs.io/INSTALL/#staking-deposit for further information")
+        super(WalletEthereumValidator, self).__init__(None, loading)
+
+    # Default method for adding addresses, doesn't worry about validating the addresses
+    @staticmethod
+    def _addresses_to_hash160s(addresses):
+        hash160s = set()
+
+        #With Py_Crypto_HD_Wallet type wallets we don't worry about converting to hash160
+        # (Minor performancce hit, but not an issue)
+        for address in addresses:
+            if address[:2].lower() == "0x":
+                address = address[2:]
+            if len(address) == 96:
+                hash160s.add(address)
+            else:
+                raise ValueError("length (excluding any '0x' prefix) of Ethereum Validator pubkey must be 96")
+
+        return hash160s
+
+    def passwords_per_seconds(self, seconds):
+        # Eth2 validator derivation is *very* slow when compared to BIP39, the below figure is a realistic minimum for an i5 laptop from 2021
+        return 40 / self._checksum_ratio / self._addrs_to_generate / len(self._derivation_salts)
+
+
+    def _verify_seed(self, mnemonic, passphrase = None):
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+
+                # Set path as EIP-2334 format
+                # https://eips.ethereum.org/EIPS/eip-2334
+                purpose = '12381'
+                coin_type = '3600'
+                account = account_index
+                withdrawal_key_path = f'm/{purpose}/{coin_type}/{account}/0'
+                signing_key_path = f'{withdrawal_key_path}/0'
+
+                signing_sk = mnemonic_and_path_to_key(mnemonic=" ".join(mnemonic), path=signing_key_path,
+                                                      password=salt.decode())
+
+                signing_pk = bls.SkToPk(signing_sk)
+
+                if signing_pk.hex() in self._known_hash160s:
+                    return True
+
+        return False
+
+    def return_verified_password_or_false(self, mnemonic_list):
+
+        for count, mnemonic in enumerate(mnemonic_list, 1):
+
+            if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
+                # Check the (BIP39 or Electrum2) checksum; most guesses will fail this test (Only required at the benchmark step, this is handled in the password generator now)
+                if not self._verify_checksum(mnemonic):
+                    continue
+
+            if self._verify_seed(mnemonic):
+                return mnemonic, count  # found it
+
+        return False, count
 
 ############### Zilliqa ###############
 

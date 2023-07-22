@@ -74,10 +74,13 @@ Seed from Yoroi, Adalite or Daedalus (Working as a software wallet), using a sta
 ```
 python seedrecover.py --wallet-type cardano --addrs stake1uxztdzzm4ljw9a0qmgregc8efgg56p2h3kj75kc6vmhfj2cyg0jmy --mnemonic "cave table seven there limit fat decorate middle gold ten battle trigger luggage demand"
 ```
-### Basic Tron Recoveries
-One missing word, address generation limit of 1. (So address needs to be in the first account)
+
+### Basic Ethereum Validator Recoveries
+Recovery for Ethereum Validator seeds is the same as a standard seed recovery, but uses the validators public key (Also known as Signing Key) in the place of an address.
+
+Example command for a seed with one missing word
 ```
-python seedrecover.py --wallet-type tron --addrs TLxkYzNpMCEz5KThVuZzoyjde1UfsJKof6 --mnemonic "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch" --addr-limit 1
+python seedrecover.py --mnemonic "spatial evolve range inform burst screen session kind clap goat force x" --addrs 869241e2743379b6aa5e01138d410851fb2e2f3923ccc19ca78e8b14b01d861f67f95e2e6b3be71a11b251680b42dd81 --wallet-type ethereumvalidator --addr-limit 1
 ```
 
 ### Basic Helium Recoveries
@@ -101,4 +104,10 @@ python seedrecover.py --wallet-type polkadotsubstrate --addrs 12uMBgecqfkHTYZE4G
 One missing word, address generation limit of 10. (So will check the first 10 "accounts" for a given seed)
 ```
 python seedrecover.py --wallet-type stacks --addrs SP11KHP08F4KQ06MWESBY48VMXRBK5NB0FSCRP779 --mnemonic "hidden kidney famous rich season gloom husband spring convince attitude boy" --addr-limit 10
+```
+
+### Basic Tron Recoveries
+One missing word, address generation limit of 1. (So address needs to be in the first account)
+```
+python seedrecover.py --wallet-type tron --addrs TLxkYzNpMCEz5KThVuZzoyjde1UfsJKof6 --mnemonic "have hint welcome skate cinnamon rabbit cable payment gift uncover column duck scissors wedding decorate under marine hurry scrub rapid change roast print arch" --addr-limit 1
 ```

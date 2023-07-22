@@ -101,6 +101,19 @@ def can_load_bitstring():
             is_bitstring_loadable = False
     return is_bitstring_loadable
 
+eth2_staking_deposit_available = None
+def can_load_staking_deposit():
+    global eth2_staking_deposit_available
+    if eth2_staking_deposit_available is None:
+        try:
+            from staking_deposit.key_handling.key_derivation.path import mnemonic_and_path_to_key
+            from py_ecc.bls import G2ProofOfPossession as bls
+
+            eth2_staking_deposit_available = True
+        except:
+            eth2_staking_deposit_available = False
+    return eth2_staking_deposit_available
+
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
 # permits checking the character mode (which isn't set until later) and prevents multiprocessing
@@ -350,8 +363,6 @@ class TestRecoveryFromMPK(unittest.TestCase):
 
 
 is_sha3_loadable = None
-
-
 def can_load_keccak():
     global is_sha3_loadable
     if is_sha3_loadable is None:
@@ -1023,6 +1034,11 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletEthereum, "0x1a05a75E4041eFB46A34F208b677F82C079197D8", 2,
                             "talk swamp tool right wide vital midnight cushion fiber blouse field transfer",
                             pathlist_file="ETH.txt")
+
+    @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit")
+    def test_eth_validator(self):
+        self.address_tester(btcrseed.WalletEthereumValidator, "94172eb62472af0fb61dc8f66cde031d06b7bd39bda86dd2213b2eb283f710d16f38009bc2e03dc967b2c3548dd4f73f", 2,
+                            "spatial evolve range inform burst screen session kind clap goat force sort")
 
     def test_pathfile_BCH_Unsplit(self):
         self.address_tester(btcrseed.WalletBIP39, "1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3", 2,

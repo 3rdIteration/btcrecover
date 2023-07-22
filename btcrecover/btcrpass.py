@@ -4264,6 +4264,63 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         return False, count
 
 
+############### Py_Crypto_HD_Wallet Based Wallets ####################
+class WalletEthereumValidator(WalletBIP39):
+
+    def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
+                 mnemonic = None, lang = None, path = None, wallet_type = "EthereumValidator", is_performance = False):
+        from . import btcrseed
+
+        btcrseed_cls = btcrseed.WalletEthereumValidator
+
+        global disable_security_warnings
+        btcrseed_cls.set_securityWarningsFlag(disable_security_warnings)
+        global normalize, hmac
+        from unicodedata import normalize
+        import hmac
+
+        # Create a btcrseed.WalletBIP39 object which will do most of the work;
+        # this also interactively prompts the user if not enough command-line options were included
+        if addressdb_filename:
+            from .addressset import AddressSet
+            print("Loading address database ...")
+            hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
+        else:
+            hash160s = None
+
+        self.btcrseed_wallet = btcrseed_cls.create_from_params(
+            mpk, addresses, address_limit, hash160s, path, is_performance)
+
+        if is_performance and not mnemonic:
+            mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
+        self.btcrseed_wallet.config_mnemonic(mnemonic, lang)
+
+        # Verify that the entered mnemonic is valid
+        if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
+            error_exit("one or more words are missing from the mnemonic")
+        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+            error_exit("invalid mnemonic (the checksum is wrong)")
+        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        self.btcrseed_wallet._checksum_ratio = 1
+
+        self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
+
+    def difficulty_info(self):
+        return "2048 PBKDF2-SHA512 iterations + BLS Derivation"
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, passwords):
+        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
+        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), passwords)
+
+        for count, password in enumerate(passwords, 1):
+
+            if self.btcrseed_wallet._verify_seed(mnemonic = self._mnemonic.split(" "), passphrase = password):
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
 ############### Cadano Yoroi Wallet ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
@@ -6177,6 +6234,9 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         elif args.wallet_type in ['polkadotsubstrate']:
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.substrate_path, args.wallet_type, args.performance)
+        elif args.wallet_type == "ethereumvalidator":
+            loaded_wallet = WalletEthereumValidator(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+                                    args.language, args.bip32_path, args.wallet_type, args.performance)
         elif args.slip39:
             loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)

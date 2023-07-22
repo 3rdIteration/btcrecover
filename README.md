@@ -67,12 +67,15 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
          * [Ledger](https://www.ledgerwallet.com/)
          * [Keepkey](https://shapeshift.io/keepkey/)
          * [ColdCard](https://coldcardwallet.com/)
+         * [Blockstream Jade](https://blockstream.com/jade/)
          * [Jaxx](https://jaxx.io/)
          * [Coinomi](https://www.coinomi.com/)
          * [Exodus](https://www.exodus.io/)
          * [MyEtherWallet](https://www.myetherwallet.com/)
+         * [Trust Wallet](https://trustwallet.com/)
          * [Bither](https://bither.net/)
          * [Blockchain.com](https://blockchain.com/wallet)
+     * Ethereum Validator BIP39 Seed Recovery
  * Bitcoin wallet password recovery support for:
      * [Bitcoin Core](https://bitcoincore.org/)
      * [MultiBit HD](https://multibit.org/) and [MultiBit Classic](https://multibit.org/help/v0.5/help_contents.html)
@@ -120,7 +123,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
  * “Offline” mode for nearly all supported wallets - use one of the [extract scripts (click for more information)](docs/Extract_Scripts.md) to extract just enough information to attempt password recovery, without giving *btcrecover* or whoever runs it access to *any* of the addresses or private keys in your Bitcoin wallet.
 
 ## Setup and Usage Tutorials ##
-BTCRecover is a Python (3.7, 3.8, 3.9, 3.10) script so will run on Windows, Linux and Mac environments. [See the installation guide for more info](docs/INSTALL.md)
+BTCRecover is a Python (3.8, 3.9, 3.10, 3.11) script so will run on Windows, Linux and Mac environments. [See the installation guide for more info](docs/INSTALL.md)
 
 [I have created a growing playlist](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) that covers a number of usage examples for using this tool to recover seed phrases, BIP39 passphrases, etc.
 

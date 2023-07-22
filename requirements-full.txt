@@ -11,3 +11,4 @@ bitstring~=3.1.9
 shamir-mnemonic~=0.2.2
 bitcoin-utils~=0.5.5
 pylibscrypt~=2.0.0
+git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0
