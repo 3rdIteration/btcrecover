@@ -188,6 +188,12 @@ For MacOS and Linux users, the module should build/install just fine if you foll
 
 This module isn't available as a pre-compiled package and must be downloaded and built from source.
 
+It is installed as part of the collection of modules installed by `requirements-full.txt`.
+
+Alternately, you can attempt to download, build and install it via pip3 with the following command:
+   
+`pip3 install git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0`
+
 [More information can be found at its repository](https://github.com/ethereum/staking-deposit-cli/)
 
 Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.9)
