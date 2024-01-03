@@ -353,7 +353,15 @@ class WalletBase(object):
                 try:
                     hash160 = binascii.unhexlify(encoding.grs_addr_base58_to_pubkeyhash(address, True)) #assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
                 except Exception as e:
-                    hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
+                    try:
+                        hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
+                    except Exception as e:
+                        # Try for some obscure altcoins which require modified versions of Bitcoinlib
+                        try:
+                            hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
+                        except Exception as e:
+                            hash160 = binascii.unhexlify(encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #
+
 
             hash160s.add(hash160)
         return hash160s
@@ -439,7 +447,7 @@ class WalletElectrum1(WalletBase):
     # Creates a wallet instance from either an mpk, an addresses container and address_limit,
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
         self = cls(loading=True)
 
         # Process the mpk (master public key) argument
@@ -761,7 +769,7 @@ class WalletBIP32(WalletBase):
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     # (the BIP32 key derivation path is by default BIP44's account 0)
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
         self = cls(path, loading=True)
 
         # Process the mpk (master public key) argument
@@ -809,6 +817,7 @@ class WalletBIP32(WalletBase):
         # Set other wallet parameters
         self.force_p2sh = force_p2sh
         self.checksinglexpubaddress = checksinglexpubaddress
+        self.force_p2tr = force_p2tr
 
         # If mpk, addresses, and hash160s arguments were all not provided, prompt the user for an mpk first
         if not mpk and not addresses and not hash160s:
@@ -1083,7 +1092,7 @@ class WalletBIP32(WalletBase):
                     d_privkey_bytes = int_to_bytes((bytes_to_int(seed_bytes[:32]) +
                                                     privkey_int) % GENERATOR_ORDER, 32)
 
-                    if ((current_path_index[0] - 2 ** 31) == 86):# or self.force_p2tr):  # BIP49 Derivation Path & address
+                    if ((current_path_index[0] - 2 ** 31) == 86 or self.force_p2tr):  # BIP86 Derivation Path & address
                         d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes)
                         d_pubkey = P2TR_tools._P2TRUtils.TweakPublicKey(d_pubkey)
                         if len(d_pubkey) != 32: return False
@@ -1091,9 +1100,7 @@ class WalletBIP32(WalletBase):
                     else:
                         d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=False)
                         test_hash160 = self.pubkey_to_hash160(
-                            d_pubkey)  # Start off assuming that we have a standard BIP44 derivation path & address
-
-                    #print("Pubkey: ", binascii.hexlify(coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=True)), file=open("HashCheck.txt", "a"))
+                            d_pubkey)  # Start off assuming that we have a standard BIP44/84 derivation path & address
 
                         if((current_path_index[0] - 2**31)==49 or self.force_p2sh): #BIP49 Derivation Path & address
                             pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
@@ -3158,6 +3165,7 @@ def main(argv):
         parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
+        parser.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
@@ -3406,6 +3414,9 @@ def main(argv):
 
         if args.force_p2sh:
             create_from_params["force_p2sh"] = True
+
+        if args.force_p2tr:
+            create_from_params["force_p2tr"] = True
 
         if args.transform_wordswaps:
             print("SEED-TRANSFORM: Checking", args.transform_wordswaps, "pairs of swapped words for each possible mnemonic")
