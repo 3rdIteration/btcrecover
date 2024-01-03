@@ -29,11 +29,11 @@ import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
 import bisect
 from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
-
 # Import modules bundled with BTCRecover
 from . import btcrpass
 from .addressset import AddressSet
-from lib.bitcoinlib import encoding
+from lib.bitcoinlib import encoding as encoding_mod
+from bitcoinlib import encoding
 from lib.cashaddress import convert, base58
 from lib.base58_tools import base58_tools
 from lib.eth_hash.auto import keccak
@@ -42,6 +42,7 @@ from lib.pyzil.account import Account as zilliqa_account
 import lib.bech32 as bech32
 import lib.cardano.cardano_utils as cardano
 import lib.stacks.c32 as c32
+from lib.p2tr_helper import P2TR_tools
 
 # Enable functions that may not work for some standard libraries in some environments
 hashlib_ripemd160_available = False
@@ -1082,16 +1083,23 @@ class WalletBIP32(WalletBase):
                     d_privkey_bytes = int_to_bytes((bytes_to_int(seed_bytes[:32]) +
                                                     privkey_int) % GENERATOR_ORDER, 32)
 
-                    d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=False)
+                    if ((current_path_index[0] - 2 ** 31) == 86):# or self.force_p2tr):  # BIP49 Derivation Path & address
+                        d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes)
+                        d_pubkey = P2TR_tools._P2TRUtils.TweakPublicKey(d_pubkey)
+                        if len(d_pubkey) != 32: return False
+                        test_hash160 = d_pubkey
+                    else:
+                        d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=False)
+                        test_hash160 = self.pubkey_to_hash160(
+                            d_pubkey)  # Start off assuming that we have a standard BIP44 derivation path & address
+
                     #print("Pubkey: ", binascii.hexlify(coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=True)), file=open("HashCheck.txt", "a"))
 
-                    test_hash160 = self.pubkey_to_hash160(d_pubkey) #Start off assuming that we have a standard BIP44 derivation path & address
-
-                    if((current_path_index[0] - 2**31)==49 or self.force_p2sh): #BIP49 Derivation Path & address
-                        pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
-                        WITNESS_VERSION = "\x00\x14"
-                        witness_program = WITNESS_VERSION.encode() + pubkey_hash160
-                        test_hash160 = ripemd160(hashlib.sha256(witness_program).digest())
+                        if((current_path_index[0] - 2**31)==49 or self.force_p2sh): #BIP49 Derivation Path & address
+                            pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
+                            WITNESS_VERSION = "\x00\x14"
+                            witness_program = WITNESS_VERSION.encode() + pubkey_hash160
+                            test_hash160 = ripemd160(hashlib.sha256(witness_program).digest())
 
                     #Basic comparison content for Debugging
                     #for hash160 in self._known_hash160s:
