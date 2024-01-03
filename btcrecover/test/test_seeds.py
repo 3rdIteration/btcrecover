@@ -378,7 +378,7 @@ def can_load_keccak():
 class TestRecoveryFromAddress(unittest.TestCase):
 
     def address_tester(self, wallet_type, the_address, the_address_limit, correct_mnemonic, test_path=None,
-                       pathlist_file=None, addr_start_index = 0, force_p2sh = False, checksinglexpubaddress = False, **kwds):
+                       pathlist_file=None, addr_start_index = 0, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, **kwds):
 
         if pathlist_file:
             test_path = btcrseed.load_pathlist("./derivationpath-lists/" + pathlist_file)
@@ -389,14 +389,16 @@ class TestRecoveryFromAddress(unittest.TestCase):
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
                                                     force_p2sh=force_p2sh,
-                                                    checksinglexpubaddress=checksinglexpubaddress)
+                                                    checksinglexpubaddress=checksinglexpubaddress,
+                                                    force_p2tr=force_p2tr)
         else:
             wallet = wallet_type.create_from_params(addresses=[the_address],
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
                                                     force_p2sh=force_p2sh,
                                                     path=test_path,
-                                                    checksinglexpubaddress=checksinglexpubaddress)
+                                                    checksinglexpubaddress=checksinglexpubaddress,
+                                                    force_p2tr=force_p2tr,)
 
         # Convert the mnemonic string into a mnemonic_ids_guess
         wallet.config_mnemonic(correct_mnemonic, **kwds)
@@ -590,6 +592,18 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletBIP39, "bc1qv87qf7prhjf2ld8vgm7l0mj59jggm6ae5jdkx2", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate "
                             "sister uniform advice pen praise soap lizard festival connect baby")
+    def test_p2tr_bip86_addr_BTC_defaultderivationpaths(self):
+        self.address_tester(btcrseed.WalletBIP39, "bc1prg35cfxqc23zwqfpnt3qxmay2xyw76jngxag0agpzj24lhs85qfqr8ualh", 1,
+                            "word hurdle hello session tail grace police castle minimum equal apple crunch")
+
+    def test_p2tr_addr_BTC_forceP2SH(self):
+        self.address_tester(btcrseed.WalletBIP39, "bc1pqgsnwqe99ug0ygndc3g4cpc680ze9fraex6ud2lcpktphr0xxkusq2tmpj", 1,
+                            "calm great hip soda enhance abuse tiny summer gloom depth shrug chronic", force_p2tr=True)
+
+    def test_p2tr_bip86_addr_BTC_ordinalswallet(self):
+        self.address_tester(btcrseed.WalletBIP39, "bc1pmpa44tpufkq0fhw4m09el9uh98jchnhky62mrqwa74du6k5hy4xs43606x", 1,
+                            "basket manage solve glide gravity deliver black wire spice gospel narrow seven",
+                            ["m/86'/0'/0'"])
 
     def test_bip44_addr_XRP(self):
         self.address_tester(btcrseed.WalletBIP39, "rJGNUmwiYDwXEsLzUFV9njhP3syrDvA6hs", 2,
