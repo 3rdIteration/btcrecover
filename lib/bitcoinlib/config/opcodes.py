@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    Script opcode definitions
-#    © 2017 January - 1200 Web Development <http://1200wd.com/>
+#    © 2017 - 2021 February - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -18,8 +18,6 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-
-import struct
 
 _opcodes = [
     ("OP_0", 0), ("OP_PUSHDATA1", 76), "OP_PUSHDATA2", "OP_PUSHDATA4", "OP_1NEGATE", "OP_RESERVED", "OP_1",
@@ -39,39 +37,24 @@ _opcodes = [
 ]
 
 
+def op():
+    pass
+
+
 def _set_opcodes():
-    count = 0
-    cds = {}
-    cds_rev = {}
+    idx = 0
+    opcodenames = {}
     for opcode in _opcodes:
         if isinstance(opcode, tuple):
-            var, count = opcode
+            var, idx = opcode
         else:
             var = opcode
-        cds.update({count: var})
-        cds_rev.update({var: count})
-        count += 1
-    return cds, cds_rev
+        opcodenames.update({idx: var})
+        setattr(op, var.lower(), idx)
+        idx += 1
+    return opcodenames
 
 
-def opcode(name, as_bytes=True):
-    """
-    Get integer or byte character value of OP code by name.
+opcodenames = _set_opcodes()
 
-    :param name: Name of OP code as defined in opcodenames
-    :type name: str
-    :param as_bytes: Return as byte or int? Default is bytes
-    :type as_bytes: bool
-
-    :return int, bytes:
-
-    """
-    opcode_int = opcodes[name]
-    if as_bytes:
-        return struct.pack('B', opcode_int)
-    return opcode_int
-
-
-opcodenames, opcodes = _set_opcodes()
-
-OP_N_CODES = range(opcodes['OP_1'], opcodes['OP_16'])
+OP_N_CODES = range(op.op_1, op.op_16)

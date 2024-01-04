@@ -43,14 +43,14 @@ class BitGoClient(BaseClient):
             url_path += '/' + cmd
         return self.request(url_path, variables, method=method)
 
-    def getbalance(self, addresslist):
-        balance = 0
-        for address in addresslist:
-            res = self.compose_request('address', address)
-            balance += res['balance']
-        return balance
+    # def getbalance(self, addresslist):
+    #     balance = 0
+    #     for address in addresslist:
+    #         res = self.compose_request('address', address)
+    #         balance += res['balance']
+    #     return balance
 
-    def getutxos(self, address, after_txid='', max_txs=MAX_TRANSACTIONS):
+    def getutxos(self, address, after_txid='', limit=MAX_TRANSACTIONS):
         utxos = []
         skip = 0
         total = 1
@@ -63,11 +63,11 @@ class BitGoClient(BaseClient):
                 utxos.append(
                     {
                         'address': utxo['address'],
-                        'tx_hash': utxo['tx_hash'],
+                        'txid': utxo['tx_hash'],
                         'confirmations': utxo['confirmations'],
                         'output_n': utxo['tx_output_n'],
                         'input_n': 0,
-                        'block_height': utxo['blockHeight'],
+                        'block_height': int(utxo['blockHeight']) if utxo['blockHeight'] else None,
                         'fee': None,
                         'size': 0,
                         'value': int(round(utxo['value'] * self.units, 0)),
@@ -80,80 +80,84 @@ class BitGoClient(BaseClient):
             if skip > 2000:
                 _logger.info("BitGoClient: UTXO's list has been truncated, list is incomplete")
                 break
-        return utxos[::-1][:max_txs]
+        return utxos[::-1][:limit]
 
-    def gettransaction(self, tx_id):
-        tx = self.compose_request('tx', tx_id)
-        t = Transaction.import_raw(tx['hex'], network=self.network)
-        if tx['confirmations']:
-            t.status = 'confirmed'
-        t.hash = tx_id
-        t.date = datetime.strptime(tx['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
-        t.confirmations = tx['confirmations']
-        if 'height' in tx:
-            t.block_height = tx['height']
-            t.block_hash = tx['blockhash']
-        t.fee = tx['fee']
-        t.rawtx = tx['hex']
-        t.size = len(tx['hex']) // 2
-        t.network = self.network
-        if t.coinbase:
-            input_values = []
-            t.input_total = t.output_total
-        else:
-            input_values = [(inp['account'], -inp['value']) for inp in tx['entries'] if inp['value'] < 0]
-            if len(input_values) >= 49:
-                raise ClientError("More then 49 transaction inputs not supported by bitgo")
-            t.input_total = sum([x[1] for x in input_values])
-        for i in t.inputs:
-            if not i.address:
-                raise ClientError("Address missing in input. Provider might not support segwit transactions")
-            if len(t.inputs) != len(input_values):
-                i.value = None
-                continue
-            value = [x[1] for x in input_values if x[0] == i.address]
-            if len(value) != 1:
-                _logger.info("BitGoClient: Address %s input value should be found exactly 1 times in value list" %
-                                i.address)
-                i.value = None
-            else:
-                i.value = value[0]
-        for o in t.outputs:
-            o.spent = None
-        if t.input_total != t.output_total + t.fee:
-            t.input_total = t.output_total + t.fee
-        return t
+    # RAW TRANSACTION DOES NOT CONTAIN CORRECT RAW TRANSACTION (MISSING SIGS)
+    # def gettransaction(self, txid):
+    #     tx = self.compose_request('tx', txid)
+    #     t = Transaction.parse_hex(tx['hex'], strict=self.strict, network=self.network)
+    #     t.status = 'unconfirmed'
+    #     t.date = None
+    #     if tx['confirmations']:
+    #         t.status = 'confirmed'
+    #         t.date = datetime.strptime(tx['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
+    #     t.confirmations = tx['confirmations']
+    #     if 'height' in tx:
+    #         t.block_height = tx['height']
+    #         t.block_hash = tx['blockhash']
+    #     t.fee = tx['fee']
+    #     t.rawtx = to_bytes(tx['hex'])
+    #     t.size = len(tx['hex']) // 2
+    #     t.network = self.network
+    #     if t.coinbase:
+    #         input_values = []
+    #         t.input_total = t.output_total
+    #     else:
+    #         input_values = [(inp['account'], -inp['value']) for inp in tx['entries'] if inp['value'] < 0]
+    #         if len(input_values) >= 49:
+    #             raise ClientError("More then 49 transaction inputs not supported by bitgo")
+    #         t.input_total = sum([x[1] for x in input_values])
+    #     for i in t.inputs:
+    #         if not i.address and not t.coinbase:
+    #             raise ClientError("Address missing in input. Provider might not support segwit transactions")
+    #         if len(t.inputs) != len(input_values):
+    #             i.value = None
+    #             continue
+    #         value = [x[1] for x in input_values if x[0] == i.address]
+    #         if len(value) != 1:
+    #             _logger.info("BitGoClient: Address %s input value should be found exactly 1 times in value list" %
+    #                             i.address)
+    #             i.value = None
+    #         else:
+    #             i.value = value[0]
+    #     for o in t.outputs:
+    #         o.spent = None
+    #     if t.input_total != t.output_total + t.fee:
+    #         t.input_total = t.output_total + t.fee
+    #     return t
 
-    def gettransactions(self, address, after_txid='', max_txs=MAX_TRANSACTIONS):
-        txs = []
-        txids = []
-        skip = 0
-        total = 1
-        while total > skip:
-            variables = {'limit': LIMIT_TX, 'skip': skip}
-            res = self.compose_request('address', address, 'tx', variables)
-            for tx in res['transactions']:
-                if tx['id'] not in txids:
-                    txids.insert(0, tx['id'])
-            total = res['total']
-            # if total > 2000:
-            #     raise ClientError("BitGoClient: Transactions list limit exceeded > 2000")
-            skip = res['start'] + res['count']
-            if len(txids) > max_txs:
-                break
-        if after_txid:
-            txids = txids[txids.index(after_txid) + 1:]
-        for txid in txids[:max_txs]:
-            txs.append(self.gettransaction(txid))
-        return txs
+    # RAW TRANSACTION DOES NOT CONTAIN CORRECT RAW TRANSACTION (MISSING SIGS)
+    # def gettransactions(self, address, after_txid='', limit=MAX_TRANSACTIONS):
+    #     txs = []
+    #     txids = []
+    #     skip = 0
+    #     total = 1
+    #     while total > skip:
+    #         variables = {'limit': LIMIT_TX, 'skip': skip}
+    #         res = self.compose_request('address', address, 'tx', variables)
+    #         for tx in res['transactions']:
+    #             if tx['id'] not in txids:
+    #                 txids.insert(0, tx['id'])
+    #         total = res['total']
+    #         # if total > 2000:
+    #         #     raise ClientError("BitGoClient: Transactions list limit exceeded > 2000")
+    #         skip = res['start'] + res['count']
+    #         if len(txids) > limit:
+    #             break
+    #     if after_txid:
+    #         txids = txids[txids.index(after_txid) + 1:]
+    #     for txid in txids[:limit]:
+    #         txs.append(self.gettransaction(txid))
+    #     return txs
 
-    def getrawtransaction(self, txid):
-        tx = self.compose_request('tx', txid)
-        t = Transaction.import_raw(tx['hex'], network=self.network)
-        for i in t.inputs:
-            if not i.address:
-                raise ClientError("Address missing in input. Provider might not support segwit transactions")
-        return tx['hex']
+    # RAW TRANSACTION DOES NOT CONTAIN CORRECT RAW TRANSACTION (MISSING SIGS)
+    # def getrawtransaction(self, txid):
+    #     tx = self.compose_request('tx', txid)
+    #     t = Transaction.parse_hex(tx['hex'], strict=self.strict, network=self.network)
+    #     for i in t.inputs:
+    #         if not i.address:
+    #             raise ClientError("Address missing in input. Provider might not support segwit transactions")
+    #     return tx['hex']
 
     # def sendrawtransaction
 
@@ -165,3 +169,37 @@ class BitGoClient(BaseClient):
         return self.compose_request('block', 'latest')['height']
 
     # def mempool
+
+    # def getblock(self, blockid, parse_transactions, page, limit):
+    #     bd = self.compose_request('block', str(blockid))
+    #     if parse_transactions:
+    #         txs = []
+    #         for txid in bd['transactions'][(page-1)*limit:page*limit]:
+    #             try:
+    #                 txs.append(self.gettransaction(txid))
+    #             except Exception as e:
+    #                 _logger.error("Could not parse tx %s with error %s" % (txid, e))
+    #     else:
+    #         txs = bd['transactions']
+    #
+    #     block = {
+    #         'bits': None,
+    #         'depth': None,
+    #         'hash': bd['id'],
+    #         'height': bd['height'],
+    #         'merkle_root': bd['merkleRoot'],
+    #         'nonce': bd['nonce'],
+    #         'prev_block': bd['previous'],
+    #         'time': datetime.strptime(bd['date'], "%Y-%m-%dT%H:%M:%S.%fZ").replace(microsecond=0),
+    #         'total_txs': len(bd['transactions']),
+    #         'txs': txs,
+    #         'version': bd['version'],
+    #         'page': page,
+    #         'pages': None if not limit else int(len(bd['transactions']) // limit) + (len(bd['transactions']) % limit > 0),
+    #         'limit': limit
+    #     }
+    #     return block
+
+    # def isspent(self, txid, index):
+
+    # def getinfo(self):

@@ -40,6 +40,10 @@ timeout_requests=2
 # Use caching for service providers
 ;service_caching_enabled=True
 
+# Encrypt private key field in database using symmetrically EAS encryption.
+# You need to set the password in the DB_FIELD_ENCRYPTION_KEY environment variable.
+;database_encryption_enabled=False
+
 [logs]
 # Enable own logging for this library. If true logs will be stored in the log/bitcoinlib.log file.
 # Set to False if this library is part of another library or software and you want to handle logs yourself.

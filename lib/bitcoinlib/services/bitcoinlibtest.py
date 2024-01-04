@@ -20,9 +20,9 @@
 
 import logging
 import hashlib
-from lib.bitcoinlib.services.baseclient import BaseClient
-from lib.bitcoinlib.main import MAX_TRANSACTIONS
-from lib.bitcoinlib.encoding import addr_to_pubkeyhash, to_hexstring, to_bytes, addr_bech32_to_pubkeyhash
+from bitcoinlib.services.baseclient import BaseClient
+from bitcoinlib.main import MAX_TRANSACTIONS
+from bitcoinlib.encoding import addr_to_pubkeyhash, addr_bech32_to_pubkeyhash, double_sha256, to_bytes
 
 _logger = logging.getLogger(__name__)
 
@@ -51,14 +51,14 @@ class BitcoinLibTestClient(BaseClient):
         """
         return self.units * len(addresslist)
 
-    def _get_tx_hash(self, address, n):
+    def _get_txid(self, address, n):
         try:
             pkh = str(n).encode() + addr_to_pubkeyhash(address)[1:]
-        except:
+        except Exception:
             pkh = str(n).encode() + addr_bech32_to_pubkeyhash(address)[1:]
         return hashlib.sha256(pkh).hexdigest()
 
-    def getutxos(self, address, after_txid='', max_txs=10, utxos_per_address=2):
+    def getutxos(self, address, after_txid='', limit=10, utxos_per_address=2):
         """
         Dummy method to retreive UTXO's. This method creates a new UTXO for each address provided out of the
         testnet void, which can be used to create test transactions for the bitcoinlib testnet.
@@ -67,18 +67,18 @@ class BitcoinLibTestClient(BaseClient):
         :type address: str
         :param after_txid: Transaction ID of last known transaction. Only check for utxos after given tx id. Default: Leave empty to return all utxos. If used only provide a single address
         :type after_txid: str
-        :param max_txs: Maximum number of utxo's to return
-        :type max_txs: int
+        :param limit: Maximum number of utxo's to return
+        :type limit: int
 
         :return list: The created UTXO set
         """
         utxos = []
         for n in range(utxos_per_address):
-            tx_hash = self._get_tx_hash(address, n)
+            txid = self._get_txid(address, n)
             utxos.append(
                 {
                     'address': address,
-                    'tx_hash': tx_hash,
+                    'txid': txid,
                     'confirmations': 10,
                     'output_n': 0,
                     'index': 0,
@@ -90,7 +90,7 @@ class BitcoinLibTestClient(BaseClient):
 
     # def gettransaction(self, tx_id):
 
-    # def gettransactions(self, address, after_txid='', max_txs=MAX_TRANSACTIONS):
+    # def gettransactions(self, address, after_txid='', limit=MAX_TRANSACTIONS):
 
     def sendrawtransaction(self, rawtx):
         """
@@ -102,7 +102,7 @@ class BitcoinLibTestClient(BaseClient):
 
         :return str: Transaction hash
         """
-        txid = to_hexstring(hashlib.sha256(hashlib.sha256(to_bytes(rawtx)).digest()).digest()[::-1])
+        txid = double_sha256(to_bytes(rawtx))[::-1].hex()
         return {
             'txid': txid,
             'response_dict': {}

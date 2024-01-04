@@ -1,0 +1,52 @@
+#
+# BITCOINLIB - Configuration file for Unit Testing
+# © 2020 March - 1200 Web Development <http://1200wd.com/>
+#
+# Paths to data, logs and configuration files, all paths are relative to bitcoinlib source directory if no
+# absolute path is provided.
+#
+# In this configuration file you can overwrite default settings, for a normal installation it is not necessary to
+# change anything here.
+#
+
+[locations]
+# Location of BitcoinLib data, configuration and log files. Relative paths will be based in installation directory
+;data_dir=~/.bitcoinlib
+
+# Default directory for database files. Relative paths will be based in user or bitcoinlib installation directory. Only used for sqlite files.
+;database_dir=database
+
+# Default database file for wallets, keys and transactions. Relative paths will be based in 'database_dir'
+;default_databasefile=bitcoinlib.sqlite
+;default_databasefile_cache==bitcoinlib_cache.sqlite
+
+
+[common]
+# Allow database threads in SQLite databases
+;allow_database_threads=True
+
+# Time for request to service providers in seconds
+timeout_requests=2
+
+# Default language for Mnemonic passphrases
+;default_language=english
+
+# Default network when creating wallets, transaction, keys, etc.
+;default_network=bitcoin
+
+# Default witness_type for new wallets and keys
+;default_witness_type=legacy
+
+# Use caching for service providers
+;service_caching_enabled=True
+
+[logs]
+# Enable own logging for this library. If true logs will be stored in the log/bitcoinlib.log file.
+# Set to False if this library is part of another library or software and you want to handle logs yourself.
+;enable_bitcoinlib_logging=True
+
+# Log file name. Relative paths will be based in data_dir directory
+;log_file=~bitcoinlib.log
+
+# Loglevel for this library, options: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+;loglevel=WARNING

@@ -13,4 +13,3 @@ bitcoin-utils~=0.5.5
 pylibscrypt~=2.0.0
 git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0
 py_ecc~=6.0.0
-bitcoinlib~=0.6.13

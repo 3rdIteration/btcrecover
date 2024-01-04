@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    Client for litecoind deamon
-#    © 2018 June - 1200 Web Development <http://1200wd.com/>
+#    © 2018-2022 Oct - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -18,13 +18,12 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from datetime import datetime
+import configparser
 from bitcoinlib.main import *
 from bitcoinlib.networks import Network
 from bitcoinlib.services.authproxy import AuthServiceProxy
 from bitcoinlib.services.baseclient import BaseClient, ClientError
 from bitcoinlib.transactions import Transaction
-from bitcoinlib.encoding import to_hexstring
 
 
 PROVIDERNAME = 'litecoind'
@@ -40,11 +39,6 @@ class ConfigError(Exception):
     def __str__(self):
         return self.msg
 
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
-
 
 def _read_from_config(configparser, section, value, fallback=None):
     try:
@@ -59,7 +53,7 @@ class LitecoindClient(BaseClient):
     """
 
     @staticmethod
-    def from_config(configfile=None, network='litecoin'):
+    def from_config(configfile=None, network='litecoin', **kargs):
         """
         Read settings from litecoind config file
 
@@ -70,9 +64,9 @@ class LitecoindClient(BaseClient):
 
         :return LitecoindClient:
         """
-        if PY3:
+        try:
             config = configparser.ConfigParser(strict=False)
-        else:
+        except TypeError:
             config = configparser.ConfigParser()
         config_fn = 'litecoin.conf'
         if isinstance(network, Network):
@@ -90,16 +84,10 @@ class LitecoindClient(BaseClient):
                     break
         else:
             cfn = Path(BCL_DATA_DIR, 'config', configfile)
+
         if not cfn or not cfn.is_file():
-            raise ConfigError(
-                "Config file %s not found. Please install litecoin client and specify a path to config "
-                "file if path is not default. Or place a config file in .bitcoinlib/litecoin.conf to "
-                "reference to an external server." % cfn)
-        else:
-            cfn = Path(BCL_DATA_DIR, 'config', configfile)
-        if not cfn or not cfn.is_file():
-            raise ConfigError("Config file %s not found. Please install bitcoin client and specify a path to config "
-                              "file if path is not default. Or place a config file in .bitcoinlib/bitcoin.conf to "
+            raise ConfigError("Config file %s not found. Please install Litecoin client and specify a path to config "
+                              "file if path is not default. Or place a config file in .bitcoinlib/litecoin.conf to "
                               "reference to an external server." % cfn)
 
         try:
@@ -124,9 +112,9 @@ class LitecoindClient(BaseClient):
         server = _read_from_config(config, 'rpc', 'bind', server)
         server = _read_from_config(config, 'rpc', 'externalip', server)
         url = "http://%s:%s@%s:%s" % (config.get('rpc', 'rpcuser'), config.get('rpc', 'rpcpassword'), server, port)
-        return LitecoindClient(network, url)
+        return LitecoindClient(network, url, **kargs)
 
-    def __init__(self, network='litecoin', base_url='', denominator=100000000, *args):
+    def __init__(self, network='litecoin', base_url='', denominator=100000000, **kargs):
         """
         Open connection to litecoin node
 
@@ -143,68 +131,105 @@ class LitecoindClient(BaseClient):
             bdc = self.from_config('', network)
             base_url = bdc.base_url
             network = bdc.network
-        if len(base_url.split(':')) != 4:
-            raise ConfigError("Litecoind connection URL must be of format 'http(s)://user:password@host:port,"
-                              "current format is %s. Please set url in providers.json file or check litecoin config "
-                              "file" % base_url)
-        if 'password' in base_url:
-            raise ConfigError("Invalid password in litecoind provider settings. "
-                              "Please replace default password and set url in providers.json or litecoin.conf file")
-        _logger.info("Connect to litecoind on %s" % base_url)
+        _logger.info("Connect to litecoind")
         self.proxy = AuthServiceProxy(base_url)
-        super(self.__class__, self).__init__(network, PROVIDERNAME, base_url, denominator, *args)
+        super(self.__class__, self).__init__(network, PROVIDERNAME, base_url, denominator, **kargs)
 
-    # def getbalance
+    def getbalance(self, addresslist):
+        balance = 0
+        for address in addresslist:
+            res = self.proxy.getaddressinfo(address)
+            if not (res['ismine'] or res['iswatchonly']):
+                raise ClientError(
+                    "Address %s not found in litceoind wallet, use 'importpubkey' or 'importaddress' to add "
+                    "address to wallet." % address)
+            txs_list = self.proxy.listunspent(0, 99999999, [address])
+            for tx in txs_list:
+                balance += int(tx['amount'] * self.units)
+        return balance
 
-    def getutxos(self, address, after_txid='', max_txs=MAX_TRANSACTIONS):
-        txs = []
-
+    def getutxos(self, address, after_txid='', limit=MAX_TRANSACTIONS):
+        utxos = []
         res = self.proxy.getaddressinfo(address)
         if not (res['ismine'] or res['iswatchonly']):
-            raise ClientError("Address %s not found in litecoind wallet, use 'importaddress' to add address to "
-                              "wallet." % address)
+            raise ClientError("Address %s not found in litecoind wallet, use 'importpubkey' or 'importaddress' to add "
+                              "address to wallet." % address)
 
-        for t in self.proxy.listunspent(0, 99999999, [address]):
-            txs.append({
-                'address': t['address'],
-                'tx_hash': t['txid'],
-                'confirmations': t['confirmations'],
-                'output_n': t['vout'],
+        txs_list = self.proxy.listunspent(0, 99999999, [address])
+        blockcount = self.blockcount()
+        for tx in sorted(txs_list, key=lambda x: x['confirmations'], reverse=True):
+            utxos.append({
+                'address': tx['address'],
+                'txid': tx['txid'],
+                'confirmations': tx['confirmations'],
+                'output_n': tx['vout'],
                 'input_n': -1,
-                'block_height': None,
+                'block_height': blockcount - tx['confirmations'] + 1,
                 'fee': None,
                 'size': 0,
-                'value': int(t['amount'] * self.units),
-                'script': t['scriptPubKey'],
+                'value': int(tx['amount'] * self.units),
+                'script': tx['scriptPubKey'],
                 'date': None,
             })
+            if tx['txid'] == after_txid:
+                utxos = []
 
-        return txs
+        return utxos
 
-    def gettransaction(self, txid):
-        tx = self.proxy.getrawtransaction(txid, 1)
-        t = Transaction.import_raw(tx['hex'], network=self.network)
-        t.confirmations = tx['confirmations']
-        if t.confirmations:
-            t.status = 'confirmed'
-            t.verified = True
+    def _parse_transaction(self, tx, block_height=None, get_input_values=True):
+        t = Transaction.parse_hex(tx['hex'], strict=self.strict, network=self.network)
+        t.confirmations = tx.get('confirmations')
+        t.block_hash = tx.get('blockhash')
+        t.status = 'unconfirmed'
         for i in t.inputs:
-            if i.prev_hash == b'\x00' * 32:
-                i.value = t.output_total
+            if i.prev_txid == b'\x00' * 32:
                 i.script_type = 'coinbase'
                 continue
-            txi = self.proxy.getrawtransaction(to_hexstring(i.prev_hash), 1)
-            i.value = int(round(float(txi['vout'][i.output_n_int]['value']) / self.network.denominator))
+            if get_input_values:
+                txi = self.proxy.getrawtransaction(i.prev_txid.hex(), 1)
+                i.value = int(round(float(txi['vout'][i.output_n_int]['value']) / self.network.denominator))
         for o in t.outputs:
             o.spent = None
-        t.block_hash = tx['blockhash']
-        t.version = struct.pack('>L', tx['version'])
-        t.date = datetime.fromtimestamp(tx['blocktime'])
+
+        if not block_height and t.block_hash:
+            block_height = self.proxy.getblock(t.block_hash, 1)['height']
+        t.block_height = block_height
+        if not t.confirmations and block_height is not None:
+            if not self.latest_block:
+                self.latest_block = self.blockcount()
+            t.confirmations = (self.latest_block - block_height) + 1
+        if t.confirmations or block_height:
+            t.status = 'confirmed'
+            t.verified = True
+        t.version = tx['version'].to_bytes(4, 'big')
+        t.version_int = tx['version']
+        t.date = None if 'time' not in tx else datetime.utcfromtimestamp(tx['time'])
         t.update_totals()
-        t.hash = txid
         return t
 
-    # def gettransactions
+    def gettransaction(self, txid):
+        tx_raw = self.proxy.getrawtransaction(txid, 1)
+        return self._parse_transaction(tx_raw)
+
+    def gettransactions(self, address, after_txid='', limit=MAX_TRANSACTIONS):
+        MAX_WALLET_TRANSACTIONS = 1000
+        txs = []
+        res = self.proxy.getaddressinfo(address)
+        if not (res['ismine'] or res['iswatchonly']):
+            raise ClientError("Address %s not found in bitcoind wallet, use 'importpubkey' or 'importaddress' to add "
+                              "address to wallet." % address)
+        txs_list = self.proxy.listtransactions("*", MAX_WALLET_TRANSACTIONS, 0, True)
+        if len(txs_list) >= MAX_WALLET_TRANSACTIONS:
+            raise ClientError("Bitcoind wallet contains too many transactions %d, use other service provider for this "
+                              "wallet" % MAX_WALLET_TRANSACTIONS)
+        txids = list(set([(tx['txid'], tx['blockheight']) for tx in txs_list if tx['address'] == address]))
+        for (txid, blockheight) in txids:
+            tx_raw = self.proxy.getrawtransaction(txid, 1)
+            t = self._parse_transaction(tx_raw, blockheight)
+            txs.append(t)
+            if txid == after_txid:
+                txs = []
+        return txs
 
     def getrawtransaction(self, txid):
         res = self.proxy.getrawtransaction(txid)
@@ -237,6 +262,62 @@ class LitecoindClient(BaseClient):
         elif txid in txids:
             return [txid]
         return []
+
+    def getblock(self, blockid, parse_transactions=True, page=1, limit=None):
+        if isinstance(blockid, int) or len(blockid) < 10:
+            blockid = self.proxy.getblockhash(int(blockid))
+        if not limit:
+            limit = 99999
+
+        txs = []
+        if parse_transactions:
+            bd = self.proxy.getblock(blockid, 2)
+            for tx in bd['tx'][(page - 1) * limit:page * limit]:
+                tx['time'] = bd['time']
+                tx['blockhash'] = bd['hash']
+                txs.append(self._parse_transaction(tx, block_height=bd['height'], get_input_values=True))
+        else:
+            bd = self.proxy.getblock(blockid, 1)
+            txs = bd['tx']
+
+        block = {
+            'bits': int(bd['bits'], 16),
+            'depth': bd['confirmations'],
+            'block_hash': bd['hash'],
+            'height': bd['height'],
+            'merkle_root': bd['merkleroot'],
+            'nonce': bd['nonce'],
+            'prev_block': None if 'previousblockhash' not in bd else bd['previousblockhash'],
+            'time': bd['time'],
+            'tx_count': bd['nTx'],
+            'txs': txs,
+            'version': bd['version'],
+            'page': page,
+            'pages': None,
+            'limit': limit
+        }
+        return block
+
+    def getrawblock(self, blockid):
+        if isinstance(blockid, int):
+            blockid = self.proxy.getblockhash(blockid)
+        return self.proxy.getblock(blockid, 0)
+
+    def isspent(self, txid, index):
+        res = self.proxy.gettxout(txid, index)
+        if not res:
+            return 1
+        return 0
+
+    def getinfo(self):
+        info = self.proxy.getmininginfo()
+        return {
+            'blockcount': info['blocks'],
+            'chain': info['chain'],
+            'difficulty': int(info['difficulty']),
+            'hashrate': int(info['networkhashps']),
+            'mempool_size': int(info['pooledtx']),
+        }
 
 
 if __name__ == '__main__':

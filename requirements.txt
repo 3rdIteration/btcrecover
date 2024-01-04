@@ -2,4 +2,3 @@ coincurve~=18.0.0
 green~=3.3.0
 protobuf~=3.19.1
 pycryptodome~=3.19.1
-bitcoinlib~=0.6.13

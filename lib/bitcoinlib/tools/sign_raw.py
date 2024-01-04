@@ -4,7 +4,7 @@
 #
 #    Import and sign multisig transaction with private key wif or passphrase
 #
-#    © 2019 December - 1200 Web Development <http://1200wd.com/>
+#    © 2019-2023 April - 1200 Web Development <http://1200wd.com/>
 #
 
 from pprint import pprint
@@ -15,6 +15,7 @@ from bitcoinlib.services.services import Service
 from bitcoinlib.wallets import wallet_create_or_open, wallet_delete_if_exists
 
 network = 'testnet'
+
 # # Example wallet
 # phrase1 = 'meadow bag inquiry eyebrow exotic onion skill clerk dish hunt caught road'
 # phrase2 = 'east amount soap pause erosion invite mom finger oak still vast bacon'
@@ -29,14 +30,14 @@ network = 'testnet'
 # raw_tx = t.raw_hex()
 # t.info()
 
-# Raw partially signed transaction transaction
+# Raw partially signed transaction
 raw_tx = ''
 if not raw_tx:
     raw_tx = input("Paste raw transaction hex: ")
 
 t = Transaction.import_raw(raw_tx)
 
-key_str = input("Enter private key or passphrase: ")
+key_str = input("Enter private key or mnemonic passphrase: ")
 if len(key_str.split(" ")) < 2:
     hdkey = HDKey(key_str)
 else:

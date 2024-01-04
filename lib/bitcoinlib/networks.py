@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    NETWORK class reads network definitions and with helper methods
-#    © 2017 - 2020 February - 1200 Web Development <http://1200wd.com/>
+#    © 2017 - 2022 October - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -19,10 +19,7 @@
 #
 
 import json
-import binascii
-import math
-from lib.bitcoinlib.main import *
-from lib.bitcoinlib.encoding import to_hexstring, change_base, to_bytes
+from bitcoinlib.encoding import *
 
 
 _logger = logging.getLogger(__name__)
@@ -48,7 +45,7 @@ def _read_network_definitions():
     """
 
     fn = Path(BCL_DATA_DIR, 'networks.json')
-    f = fn.open()
+    f = fn.open('rb')
 
     try:
         network_definitions = json.loads(f.read())
@@ -63,7 +60,7 @@ NETWORK_DEFINITIONS = _read_network_definitions()
 
 def _format_value(field, value):
     if field[:6] == 'prefix':
-        return binascii.unhexlify(value)
+        return bytes.fromhex(value)
     elif field == 'denominator':
         return float(value)
     else:
@@ -75,16 +72,16 @@ def network_values_for(field):
     Return all prefixes for field, i.e.: prefix_wif, prefix_address_p2sh, etc
 
     >>> network_values_for('prefix_wif')
-    [b'\\x99', b'\\x80', b'\\xef', b'\\xb0', b'\\xb0', b'\\xef', b'\\xcc', b'\\xef']
+    [b'\\x99', b'\\x80', b'\\xef', b'\\xb0', b'\\xcc', b'\\x9e', b'\\xf1']
     >>> network_values_for('prefix_address_p2sh')
-    [b'\\x95', b'\\x05', b'\\xc4', b'2', b'\\x05', b':', b'\\x10', b'\\x13']
+    [b'\\x95', b'\\x05', b'\\xc4', b'2', b':', b'\\x10', b'\\x13', b'\\x16']
 
     :param field: Prefix name from networks definitions (networks.json)
     :type field: str
 
     :return str: 
     """
-    return [_format_value(field, nv[field]) for nv in NETWORK_DEFINITIONS.values()]
+    return list(dict.fromkeys([_format_value(field, nv[field]) for nv in NETWORK_DEFINITIONS.values()]))
 
 
 def network_by_value(field, value):
@@ -106,7 +103,7 @@ def network_by_value(field, value):
     :param field: Prefix name from networks definitions (networks.json)
     :type field: str
     :param value: Value of network prefix
-    :type value: str, bytes
+    :type value: str
 
     :return list: Of network name strings 
     """
@@ -114,7 +111,7 @@ def network_by_value(field, value):
            for nv in NETWORK_DEFINITIONS if NETWORK_DEFINITIONS[nv][field] == value]
     if not nws:
         try:
-            value = to_hexstring(value).upper()
+            value = value.upper()
         except TypeError:
             pass
         nws = [(nv, NETWORK_DEFINITIONS[nv]['priority'])
@@ -160,10 +157,10 @@ def wif_prefix_search(wif, witness_type=None, multisig=None, network=None):
     Can return multiple items if no network is specified:
 
     >>> [nw['network'] for nw in wif_prefix_search('0488ADE4', multisig=True)]
-    ['bitcoin', 'dash']
+    ['bitcoin', 'regtest', 'dash', 'dogecoin']
 
-    :param wif: WIF string or prefix in bytes or hexadecimal string
-    :type wif: str, bytes
+    :param wif: WIF string or prefix as hexadecimal string
+    :type wif: str
     :param witness_type: Limit search to specific witness type
     :type witness_type: str
     :param multisig: Limit search to multisig: false, true or None for both. Default is both
@@ -174,16 +171,12 @@ def wif_prefix_search(wif, witness_type=None, multisig=None, network=None):
     :return dict:
     """
 
-    key_hex = ''
+    key_hex = wif
     if len(wif) > 8:
         try:
             key_hex = change_base(wif, 58, 16)
-        except:
+        except Exception:
             pass
-    else:
-        key_hex = wif
-    if not key_hex:
-        key_hex = to_hexstring(wif)
     prefix = key_hex[:8].upper()
     matches = []
     for nw in NETWORK_DEFINITIONS:
@@ -205,6 +198,30 @@ def wif_prefix_search(wif, witness_type=None, multisig=None, network=None):
     return matches
 
 
+# Replaced by Value class
+@deprecated
+def print_value(value, network=DEFAULT_NETWORK, rep='string', denominator=1, decimals=None):
+    """
+    Return the value as string with currency symbol
+
+    Wrapper for the Network().print_value method.
+
+    :param value: Value in the smallest denominator such as Satoshi
+    :type value: int, float
+    :param network: Network name as string, default is 'bitcoin'
+    :type network: str
+    :param rep: Currency representation: 'string', 'symbol', 'none' or your own custom name
+    :type rep: str
+    :param denominator: Unit to use in representation. Default is 1. I.e. 1 = 1 BTC, 0.001 = milli BTC / mBTC, 1e-8 = Satoshi's
+    :type denominator: float
+    :param decimals: Number of digits after the decimal point, leave empty for automatic determination based on value. Use integer value between 0 and 8
+    :type decimals: int
+
+    :return str:
+    """
+    return Network(network_name=network).print_value(value, rep, denominator, decimals)
+
+
 class Network(object):
     """
     Network class with all network definitions. 
@@ -224,20 +241,20 @@ class Network(object):
         self.currency_code = NETWORK_DEFINITIONS[network_name]['currency_code']
         self.currency_symbol = NETWORK_DEFINITIONS[network_name]['currency_symbol']
         self.description = NETWORK_DEFINITIONS[network_name]['description']
-        self.prefix_address_p2sh = binascii.unhexlify(NETWORK_DEFINITIONS[network_name]['prefix_address_p2sh'])
-        self.prefix_address = binascii.unhexlify(NETWORK_DEFINITIONS[network_name]['prefix_address'])
+        self.prefix_address_p2sh = bytes.fromhex(NETWORK_DEFINITIONS[network_name]['prefix_address_p2sh'])
+        self.prefix_address = bytes.fromhex(NETWORK_DEFINITIONS[network_name]['prefix_address'])
         self.prefix_bech32 = NETWORK_DEFINITIONS[network_name]['prefix_bech32']
-        self.prefix_wif = binascii.unhexlify(NETWORK_DEFINITIONS[network_name]['prefix_wif'])
+        self.prefix_wif = bytes.fromhex(NETWORK_DEFINITIONS[network_name]['prefix_wif'])
         self.denominator = NETWORK_DEFINITIONS[network_name]['denominator']
         self.bip44_cointype = NETWORK_DEFINITIONS[network_name]['bip44_cointype']
-        self.dust_amount = NETWORK_DEFINITIONS[network_name]['dust_amount']
-        self.fee_default = NETWORK_DEFINITIONS[network_name]['fee_default']
-        self.fee_min = NETWORK_DEFINITIONS[network_name]['fee_min']
-        self.fee_max = NETWORK_DEFINITIONS[network_name]['fee_max']
+        self.dust_amount = NETWORK_DEFINITIONS[network_name]['dust_amount']  # Dust amount in satoshi
+        self.fee_default = NETWORK_DEFINITIONS[network_name]['fee_default']  # Default fee in satoshi per kilobyte
+        self.fee_min = NETWORK_DEFINITIONS[network_name]['fee_min']  # Minimum transaction fee in satoshi per kilobyte
+        self.fee_max = NETWORK_DEFINITIONS[network_name]['fee_max']  # Maximum transaction fee in satoshi per kilobyte
         self.priority = NETWORK_DEFINITIONS[network_name]['priority']
         self.prefixes_wif = NETWORK_DEFINITIONS[network_name]['prefixes_wif']
 
-        # This could be more shorter and more flexible with this code, but this gives 'Unresolved attributes' warnings
+        # This could be shorter and more flexible with the code below, but this gives 'Unresolved attributes' warnings
         # for f in list(NETWORK_DEFINITIONS[network_name].keys()):
         #     exec("self.%s = NETWORK_DEFINITIONS[network_name]['%s']" % (f, f))
 
@@ -245,31 +262,53 @@ class Network(object):
         return "<Network: %s>" % self.name
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
         return self.name == other.name
 
     def __hash__(self):
         return hash(self.name)
 
-    def print_value(self, value):
+    # Replaced by Value class
+    @deprecated
+    def print_value(self, value, rep='string', denominator=1, decimals=None):
         """
         Return the value as string with currency symbol
 
-        Print value for 100000 satoshi as string in human readable format
+        Print value for 100000 satoshi as string in human-readable format
 
         >>> Network('bitcoin').print_value(100000)
         '0.00100000 BTC'
 
-        :param value: Value in smallest denominitor such as Satoshi
+        :param value: Value in the smallest denominator such as Satoshi
         :type value: int, float
-        
+        :param rep: Currency representation: 'string', 'symbol', 'none' or your own custom name
+        :type rep: str
+        :param denominator: Unit to use in representation. Default is 1. I.e. 1 = 1 BTC, 0.001 = milli BTC / mBTC
+        :type denominator: float
+        :param decimals: Number of digits after the decimal point, leave empty for automatic determination based on value. Use integer value between 0 and 8
+        :type decimals: int
+
         :return str: 
         """
-        symb = self.currency_code
-        denominator = self.denominator
-        denominator_size = -int(math.log10(denominator))
-        balance = round(value * denominator, denominator_size)
-        format_str = "%%.%df %%s" % denominator_size
-        return format_str % (balance, symb)
+        if denominator not in NETWORK_DENOMINATORS:
+            raise NetworkError("Denominator not found in definitions, use one of the following values: %s" %
+                               NETWORK_DENOMINATORS.keys())
+        if value is None:
+            return ""
+        symb = rep
+        if rep == 'string':
+            symb = NETWORK_DENOMINATORS[denominator] + self.currency_code
+        elif rep == 'symbol':
+            symb = NETWORK_DENOMINATORS[denominator] + self.currency_symbol
+        elif rep == 'none':
+            symb = ''
+        decimals = decimals if decimals is not None else -int(math.log10(self.denominator / denominator))
+        decimals = 0 if decimals < 0 else decimals
+        decimals = 8 if decimals > 8 else decimals
+        balance = round(float(value) * self.denominator / denominator, decimals)
+        format_str = "%%.%df %%s" % decimals
+        return (format_str % (balance, symb)).rstrip()
 
     def wif_prefix(self, is_private=False, witness_type='legacy', multisig=False):
         """
@@ -296,7 +335,7 @@ class Network(object):
             ip = 'private'
         else:
             ip = 'public'
-        found_prefixes = [to_bytes(pf[0]) for pf in self.prefixes_wif if pf[2] == ip and script_type == pf[5]]
+        found_prefixes = [bytes.fromhex(pf[0]) for pf in self.prefixes_wif if pf[2] == ip and script_type == pf[5]]
         if found_prefixes:
             return found_prefixes[0]
         else:

@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    MAIN - Load configs, initialize logging and database
-#    © 2017 - 2020 February - 1200 Web Development <http://1200wd.com/>
+#    © 2017 - 2022 October - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -18,15 +18,17 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Do not remove any of the imports below, used by other files
+import os
+import sys
 import functools
 import logging
 from logging.handlers import RotatingFileHandler
-from lib.bitcoinlib.config.opcodes import *
 from lib.bitcoinlib.config.config import *
 
 
 # Initialize logging
-logger = logging.getLogger()
+logger = logging.getLogger('bitcoinlib')
 logger.setLevel(LOGLEVEL)
 
 if ENABLE_BITCOINLIB_LOGGING:
@@ -104,12 +106,13 @@ def get_encoding_from_witness(witness_type=None):
 
 
 def deprecated(func):
-    """This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emitted
-    when the function is used."""
+    """
+    This is a decorator which can be used to mark functions as deprecated. It will result in a warning being emitted when the function is used.
+    """
 
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         logging.warning("Call to deprecated function {}.".format(func.__name__))
         return func(*args, **kwargs)
+    
     return new_func

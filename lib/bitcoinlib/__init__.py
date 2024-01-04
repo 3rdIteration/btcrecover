@@ -19,9 +19,11 @@
 
 import lib.bitcoinlib.encoding
 #import bitcoinlib.mnemonic
-#import lib.bitcoinlib.keys
+#import bitcoinlib.keys
 #import bitcoinlib.transactions
 #import bitcoinlib.wallets
 #import bitcoinlib.tools
+#import bitcoinlib.blocks
+#import bitcoinlib.values
 
-__all__ = ["keys", "transactions", "wallets", "encoding", "mnemonic", "tools"]
+__all__ = ["keys", "transactions", "wallets", "encoding", "mnemonic", "tools", "blocks", "values"]

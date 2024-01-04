@@ -25,7 +25,7 @@ from os import path
 
 from datetime import datetime
 
-import lib.bitcoinlib as bitcoinlib
+import lib.bitcoinlib_mod as bitcoinlib
 
 def supportedChains(magic):
     switcher={

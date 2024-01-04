@@ -41,11 +41,7 @@ import base64
 import decimal
 import json
 import logging
-
-try:
-    import urllib.parse as urlparse
-except ImportError:
-    import urlparse
+import urllib.parse as urlparse
 
 USER_AGENT = "AuthServiceProxy/0.1"
 
@@ -59,7 +55,7 @@ class JSONRPCException(Exception):
         parent_args = []
         try:
             parent_args.append(rpc_error['message'])
-        except:
+        except Exception:
             pass
         Exception.__init__(self, *parent_args)
         self.error = rpc_error
@@ -75,7 +71,10 @@ class JSONRPCException(Exception):
 
 def EncodeDecimal(o):
     if isinstance(o, decimal.Decimal):
-        return float(round(o, 8))
+        try:
+            return float(round(o, 8))
+        except decimal.DecimalException as e:
+            return float(o)
     raise TypeError(repr(o) + " is not JSON serializable")
 
 
@@ -87,7 +86,7 @@ class AuthServiceProxy(object):
         self.__service_name = service_name
         self.__url = urlparse.urlparse(service_url)
         if self.__url.port is None:
-            port = 80
+            port = 443 if self.__url.scheme == 'https' else 80
         else:
             port = self.__url.port
         (user, passwd) = (self.__url.username, self.__url.password)
@@ -99,8 +98,9 @@ class AuthServiceProxy(object):
             passwd = passwd.encode('utf8')
         except AttributeError:
             pass
-        authpair = user + b':' + passwd
-        self.__auth_header = b'Basic ' + base64.b64encode(authpair)
+        if not (user is None or passwd is None):
+            authpair = user + b':' + passwd
+            self.__auth_header = b'Basic ' + base64.b64encode(authpair)
 
         self.__timeout = timeout
 
@@ -125,7 +125,7 @@ class AuthServiceProxy(object):
     def __call__(self, *args):
         AuthServiceProxy.__id_count += 1
 
-        log.debug("-%s-> %s %s" % (AuthServiceProxy.__id_count, self.__service_name,
+        log.info("-%s-> %s %s" % (AuthServiceProxy.__id_count, self.__service_name,
                                    json.dumps(args, default=EncodeDecimal)))
         postdata = json.dumps({'version': '1.1',
                                'method': self.__service_name,
@@ -144,7 +144,7 @@ class AuthServiceProxy(object):
         elif 'result' not in response:
             raise JSONRPCException({
                 'code': -343, 'message': 'missing JSON-RPC result'})
-
+        self.__conn.close()
         return response['result']
 
     def batch_(self, rpc_calls):
@@ -192,7 +192,7 @@ class AuthServiceProxy(object):
         responsedata = http_response.read().decode('utf8')
         response = json.loads(responsedata, parse_float=decimal.Decimal)
         if "error" in response and response["error"] is None:
-            log.debug("<-%s- %s" % (response["id"], json.dumps(response["result"], default=EncodeDecimal)))
+            log.debug("<-%s- %s" % (response["id"], json.dumps(response["result"], default=EncodeDecimal)[:1000]))
         else:
-            log.debug("<-- " + responsedata)
+            log.debug("<-- " + responsedata[:1000])
         return response

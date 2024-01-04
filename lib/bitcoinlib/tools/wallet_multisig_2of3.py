@@ -14,7 +14,7 @@
 from __future__ import print_function
 
 from pprint import pprint
-from bitcoinlib.wallets import wallet_exists, HDWallet
+from bitcoinlib.wallets import wallet_exists, Wallet
 from bitcoinlib.mnemonic import Mnemonic
 from bitcoinlib.keys import HDKey
 
@@ -70,15 +70,15 @@ if not wallet_exists(WALLET_NAME):
             if addkey not in key_lists[w[0]]:
                 key_lists[w[0]].append(addkey)
 
-    offline_wallet = HDWallet.create(WALLET_NAME, key_lists['Offline PC'], sigs_required=SIGNATURES_REQUIRED,
-                                     witness_type=WITNESS_TYPE, network=NETWORK)
+    offline_wallet = Wallet.create(WALLET_NAME, key_lists['Offline PC'], sigs_required=SIGNATURES_REQUIRED,
+                                   witness_type=WITNESS_TYPE, network=NETWORK)
     offline_wallet.new_key()
 
     print("\n\nA multisig wallet has been created on this system")
     offline_wallet.info()
 
     print("\n---> Please create a wallet on your Online PC like this:")
-    print("from bitcoinlib.wallets import HDWallet")
+    print("from bitcoinlib.wallets import Wallet")
     print("from bitcoinlib.keys import HDKey")
     print("")
     print("key_list = [")
@@ -88,13 +88,13 @@ if not wallet_exists(WALLET_NAME):
         else:
             print("     '%s'," % key.wif_private())
     print("]")
-    print("wlt = HDWallet.create('%s', key_list, sigs_required=2, witness_type='%s', network='%s')" %
+    print("wlt = Wallet.create('%s', key_list, sigs_required=2, witness_type='%s', network='%s')" %
           (WALLET_NAME, WITNESS_TYPE, NETWORK))
     print("wlt.get_key()")
     print("wlt.info()")
 else:
     from bitcoinlib.config.config import BITCOINLIB_VERSION, BCL_DATABASE_DIR
-    online_wallet = HDWallet(WALLET_NAME, db_uri=BCL_DATABASE_DIR + '/bitcoinlib.tmp.sqlite')
+    online_wallet = Wallet(WALLET_NAME, db_uri=BCL_DATABASE_DIR + '/bitcoinlib.tmp.sqlite')
     online_wallet.utxos_update()
     online_wallet.info()
     utxos = online_wallet.utxos()
@@ -105,9 +105,9 @@ else:
         t = online_wallet.sweep(send_to_address, min_confirms=0)
         print(t.raw_hex())
         print("Now copy-and-paste the raw transaction hex to your Offline PC and sign it there with a second signature:")
-        print("\nfrom bitcoinlib.wallets import HDWallet")
+        print("\nfrom bitcoinlib.wallets import Wallet")
         print("")
-        print("wlt = HDWallet('%s')" % WALLET_NAME)
+        print("wlt = Wallet('%s')" % WALLET_NAME)
         print("utxos = ", end='')
         pprint(utxos)
         print("")

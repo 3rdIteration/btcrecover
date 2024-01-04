@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    CONFIG - Configuration settings
-#    © 2019 March - 1200 Web Development <http://1200wd.com/>
+#    © 2022 - 2023 May - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -19,26 +19,17 @@
 #
 
 import os
-import sys
 import locale
 import platform
-import datetime
+import configparser
+import enum
+from pathlib import Path
+from datetime import datetime
 
 # General defaults
-PY3 = sys.version_info[0] == 3
 TYPE_TEXT = str
-if not PY3:
-    TYPE_TEXT = (str, unicode)
 TYPE_INT = int
-if not PY3:
-    TYPE_INT = (int, long)
 LOGLEVEL = 'WARNING'
-if PY3:
-    import configparser
-    from pathlib import Path
-else:
-    import ConfigParser as configparser
-    from pathlib2 import Path
 
 
 # File locations
@@ -53,11 +44,14 @@ BCL_LOG_FILE = ''
 # Main
 ENABLE_BITCOINLIB_LOGGING = True
 ALLOW_DATABASE_THREADS = None
+DATABASE_ENCRYPTION_ENABLED = False
+DB_FIELD_ENCRYPTION_KEY = None
 
 # Services
-TIMEOUT_REQUESTS = 10
+TIMEOUT_REQUESTS = 5
 MAX_TRANSACTIONS = 20
 BLOCK_COUNT_CACHE_TIME = 3
+SERVICE_MAX_ERRORS = 4  # Fail service request when more then max errors occur for <SERVICE_MAX_ERRORS> providers
 
 # Transactions
 SCRIPT_TYPES_LOCKING = {
@@ -66,10 +60,12 @@ SCRIPT_TYPES_LOCKING = {
     'p2sh': ['OP_HASH160', 'hash-20', 'OP_EQUAL'],
     'p2wpkh': ['OP_0', 'hash-20'],
     'p2wsh': ['OP_0', 'hash-32'],
+    'p2tr': ['op_n', 'hash-32'],
     'multisig': ['op_m', 'multisig', 'op_n', 'OP_CHECKMULTISIG'],
     'p2pk': ['public_key', 'OP_CHECKSIG'],
     'nulldata': ['OP_RETURN', 'return_data'],
 }
+
 SCRIPT_TYPES_UNLOCKING = {
     # Unlocking scripts / scriptSig (Input)
     'sig_pubkey': ['signature', 'SIGHASH_ALL', 'public_key'],
@@ -101,13 +97,34 @@ DEFAULT_LANGUAGE = 'english'
 
 # Networks
 DEFAULT_NETWORK = 'bitcoin'
+NETWORK_DENOMINATORS = {  # source: https://en.bitcoin.it/wiki/Units, https://en.wikipedia.org/wiki/Metric_prefix
+    0.00000000000001: 'µsat',
+    0.00000000001: 'msat',
+    0.000000001: 'n',
+    0.00000001: 'sat',
+    0.0000001: 'fin',
+    0.000001: 'µ',
+    0.001: 'm',
+    0.01: 'c',
+    0.1: 'd',
+    1: '',
+    10: 'da',
+    100: 'h',
+    1000: 'k',
+    1000000: 'M',
+    1000000000: 'G',
+    1000000000000: 'T',
+    1000000000000000: 'P',
+    1000000000000000000: 'E',
+    1000000000000000000000: 'Z',
+    1000000000000000000000000: 'Y',
+}
 
-
-if os.name == 'nt' and locale.getpreferredencoding() != 'UTF-8':
-    # TODO: Find a better windows hack
+if os.name == 'nt' and locale.getpreferredencoding().lower() != 'utf-8':
     import _locale
-    _locale._getdefaultlocale = (lambda *args: ['en_US', 'utf8'])
-elif locale.getpreferredencoding() != 'UTF-8':
+    _locale._gdl_bak = _locale._getdefaultlocale
+    _locale._getdefaultlocale = (lambda *args: (_locale._gdl_bak()[0], 'utf8'))
+elif locale.getpreferredencoding().lower() != 'utf-8':
     raise EnvironmentError("Locale is currently set to '%s'. "
                            "This library needs the locale set to UTF-8 to function properly" %
                            locale.getpreferredencoding())
@@ -116,6 +133,7 @@ elif locale.getpreferredencoding() != 'UTF-8':
 SUPPORTED_ADDRESS_ENCODINGS = ['base58', 'bech32']
 ENCODING_BECH32_PREFIXES = ['bc', 'tb', 'ltc', 'tltc', 'tdash', 'tdash', 'blt']
 DEFAULT_WITNESS_TYPE = 'legacy'
+BECH32M_CONST = 0x2bc830a3
 
 # Wallets
 WALLET_KEY_STRUCTURES = [
@@ -182,6 +200,15 @@ WALLET_KEY_STRUCTURES = [
         'description': 'Segwit multisig wallet using native segwit pay-to-wallet-public-key-hash scripts',
         'key_path': ["m", "purpose'", "coin_type'", "account'", "change", "address_index"]
     },
+    # {
+    #     'purpose': 86,
+    #     'script_type': 'p2tr',
+    #     'witness_type': 'segwit',
+    #     'multisig': False,
+    #     'encoding': 'bech32',
+    #     'description': 'Taproot single key wallet using P2TR transactions',
+    #     'key_path': ["m", "purpose'", "coin_type'", "account'", "change", "address_index"]
+    # },
 ]
 
 # UNITTESTS
@@ -196,16 +223,10 @@ def read_config():
 
     def config_get(section, var, fallback, is_boolean=False):
         try:
-            if PY3:
-                if is_boolean:
-                    val = config.getboolean(section, var, fallback=fallback)
-                else:
-                    val = config.get(section, var, fallback=fallback)
+            if is_boolean:
+                val = config.getboolean(section, var, fallback=fallback)
             else:
-                if is_boolean:
-                    val = config.getboolean(section, var)
-                else:
-                    val = config.get(section, var)
+                val = config.get(section, var, fallback=fallback)
             return val
         except Exception:
             return fallback
@@ -214,7 +235,8 @@ def read_config():
     global ALLOW_DATABASE_THREADS, DEFAULT_DATABASE_CACHE
     global BCL_LOG_FILE, LOGLEVEL, ENABLE_BITCOINLIB_LOGGING
     global TIMEOUT_REQUESTS, DEFAULT_LANGUAGE, DEFAULT_NETWORK, DEFAULT_WITNESS_TYPE
-    global UNITTESTS_FULL_DATABASE_TEST, SERVICE_CACHING_ENABLED
+    global UNITTESTS_FULL_DATABASE_TEST, SERVICE_CACHING_ENABLED, DATABASE_ENCRYPTION_ENABLED, DB_FIELD_ENCRYPTION_KEY
+    global SERVICE_MAX_ERRORS, BLOCK_COUNT_CACHE_TIME, MAX_TRANSACTIONS
 
     # Read settings from Configuration file provided in OS environment~/.bitcoinlib/ directory
     config_file_name = os.environ.get('BCL_CONFIG_FILE')
@@ -234,32 +256,39 @@ def read_config():
     # Database settings
     BCL_DATABASE_DIR = Path(BCL_DATA_DIR, config_get('locations', 'database_dir', 'database'))
     BCL_DATABASE_DIR.mkdir(parents=True, exist_ok=True)
-    default_databasefile = config_get('locations', 'default_databasefile', fallback='bitcoinlib.sqlite')
-    DEFAULT_DATABASE = str(Path(BCL_DATABASE_DIR, default_databasefile))
-    default_databasefile_cache = \
+    default_databasefile = DEFAULT_DATABASE = \
+        config_get('locations', 'default_databasefile', fallback='bitcoinlib.sqlite')
+    if not default_databasefile.startswith('postgresql') or default_databasefile.startswith('mysql'):
+        DEFAULT_DATABASE = str(Path(BCL_DATABASE_DIR, default_databasefile))
+    default_databasefile_cache = DEFAULT_DATABASE_CACHE = \
         config_get('locations', 'default_databasefile_cache', fallback='bitcoinlib_cache.sqlite')
-    DEFAULT_DATABASE_CACHE = str(Path(BCL_DATABASE_DIR, default_databasefile_cache))
+    if not default_databasefile_cache.startswith('postgresql') or default_databasefile_cache.startswith('mysql'):
+        DEFAULT_DATABASE_CACHE = str(Path(BCL_DATABASE_DIR, default_databasefile_cache))
     ALLOW_DATABASE_THREADS = config_get("common", "allow_database_threads", fallback=True, is_boolean=True)
     SERVICE_CACHING_ENABLED = config_get('common', 'service_caching_enabled', fallback=True, is_boolean=True)
+    DATABASE_ENCRYPTION_ENABLED = config_get('common', 'database_encryption_enabled', fallback=False, is_boolean=True)
+    DB_FIELD_ENCRYPTION_KEY = os.environ.get('DB_FIELD_ENCRYPTION_KEY')
 
     # Log settings
     ENABLE_BITCOINLIB_LOGGING = config_get("logs", "enable_bitcoinlib_logging", fallback=True, is_boolean=True)
-    BCL_LOG_FILE = Path(BCL_DATA_DIR, config_get('locations', 'log_file', fallback='bitcoinlib.log'))
+    BCL_LOG_FILE = Path(BCL_DATA_DIR, config_get('logs', 'log_file', fallback='bitcoinlib.log'))
     BCL_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     LOGLEVEL = config_get('logs', 'loglevel', fallback=LOGLEVEL)
 
-    # Other settings
+    # Service settings
     TIMEOUT_REQUESTS = int(config_get('common', 'timeout_requests', fallback=TIMEOUT_REQUESTS))
+    SERVICE_MAX_ERRORS = int(config_get('common', 'service_max_errors', fallback=SERVICE_MAX_ERRORS))
+    MAX_TRANSACTIONS = int(config_get('common', 'max_transactions', fallback=MAX_TRANSACTIONS))
+    BLOCK_COUNT_CACHE_TIME = int(config_get('common', 'block_count_cache_time', fallback=BLOCK_COUNT_CACHE_TIME))
+
+    # Other settings
     DEFAULT_LANGUAGE = config_get('common', 'default_language', fallback=DEFAULT_LANGUAGE)
     DEFAULT_NETWORK = config_get('common', 'default_network', fallback=DEFAULT_NETWORK)
     DEFAULT_WITNESS_TYPE = config_get('common', 'default_witness_type', fallback=DEFAULT_WITNESS_TYPE)
 
-    # Convert paths to strings
-
     full_db_test = os.environ.get('UNITTESTS_FULL_DATABASE_TEST')
-    if full_db_test:
-        if full_db_test in [0, False, 'False', 'false', 'FALSE']:
-            UNITTESTS_FULL_DATABASE_TEST = False
+    if full_db_test in [1, True, 'True', 'true', 'TRUE']:
+        UNITTESTS_FULL_DATABASE_TEST = True
 
     if not data:
         return False
@@ -285,7 +314,7 @@ def initialize_lib():
                           "Build             : %s\n" \
                           "OS Version        : %s\n" \
                           "Platform          : %s\n" % \
-                          (BITCOINLIB_VERSION, datetime.datetime.now().isoformat(), platform.python_version(),
+                          (BITCOINLIB_VERSION, datetime.now().isoformat(), platform.python_version(),
                            platform.python_compiler(), platform.python_build(), platform.version(), platform.platform())
         f.write(install_message)
 
@@ -294,7 +323,8 @@ def initialize_lib():
     for file in Path(BCL_INSTALL_DIR, 'data').iterdir():
         if file.suffix not in ['.ini', '.json']:
             continue
-        copyfile(str(file), str(Path(BCL_DATA_DIR, file.name)))
+        copyfile(str(file), Path(BCL_DATA_DIR, file.name))
+
 
 # Initialize library
 read_config()

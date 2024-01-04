@@ -11,7 +11,7 @@ m/84'/0'/0'/0 #Bitcoin BIP84 (Native Segwit, generally addresses starting with b
 m/86'/0'/0'/0 #Bitcoin BIP86 (Taproot, generally addresses starting with bc1p)
 m/0'/0 #BRD Wallet (and other older BTC wallets)
 #m/0 #Coldcard Address Explorer Default Legacy Account (Removed as default in mid 2021)
-m/86'/0'/0' #Taproot addresses for OrdinalsWallet
+#m/86'/0'/0' #Taproot addresses for OrdinalsWallet
 
 # This is also the pathlist you want to use for "Generic" BIP39 wallets and altcoins (Wallet-Type BIP39 or Bitcoin Standard)
 #m/44'/330'/0'/0 #Terra Station

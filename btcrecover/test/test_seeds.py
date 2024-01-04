@@ -596,7 +596,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletBIP39, "bc1prg35cfxqc23zwqfpnt3qxmay2xyw76jngxag0agpzj24lhs85qfqr8ualh", 1,
                             "word hurdle hello session tail grace police castle minimum equal apple crunch")
 
-    def test_p2tr_addr_BTC_forceP2SH(self):
+    def test_p2tr_addr_BTC_forceP2TR(self):
         self.address_tester(btcrseed.WalletBIP39, "bc1pqgsnwqe99ug0ygndc3g4cpc680ze9fraex6ud2lcpktphr0xxkusq2tmpj", 1,
                             "calm great hip soda enhance abuse tiny summer gloom depth shrug chronic", force_p2tr=True)
 

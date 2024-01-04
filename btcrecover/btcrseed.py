@@ -32,8 +32,8 @@ from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 # Import modules bundled with BTCRecover
 from . import btcrpass
 from .addressset import AddressSet
-from lib.bitcoinlib import encoding as encoding_mod
-from bitcoinlib import encoding
+from lib.bitcoinlib_mod import encoding as encoding_mod
+from lib.bitcoinlib import encoding
 from lib.cashaddress import convert, base58
 from lib.base58_tools import base58_tools
 from lib.eth_hash.auto import keccak

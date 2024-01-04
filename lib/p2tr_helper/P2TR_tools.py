@@ -33,6 +33,8 @@ from typing import Any, Union
 import coincurve
 import hashlib
 
+G = coincurve.PublicKey.from_point(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+                                   0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
 
 class P2TRConst:
     """Class container for P2TR constants."""
@@ -121,9 +123,6 @@ class _P2TRUtils:
         Returns:
             bytes: X coordinate of the tweaked public key
         """
-        G = coincurve.PublicKey.from_point(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
-                                            0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
         h = _P2TRUtils.HashTapTweak(pub_key)
-        Gh = G.multiply(h)
         out_point = _P2TRUtils.LiftX(pub_key).combine([G.multiply(h)])
         return out_point.point()[0].to_bytes(32, byteorder="big")

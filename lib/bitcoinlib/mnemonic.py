@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    MNEMONIC class for BIP0039 Mnemonic Key management
-#    © 2016 - 2019 November - 1200 Web Development <http://1200wd.com/>
+#    © 2016 - 2022 October - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -18,10 +18,8 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import hashlib
-from lib.bitcoinlib.encoding import change_base, normalize_string, to_bytes
-from lib.bitcoinlib.config.secp256k1 import secp256k1_n
-from lib.bitcoinlib.main import *
+from bitcoinlib.encoding import *
+from bitcoinlib.config.secp256k1 import secp256k1_n
 
 
 class Mnemonic(object):
@@ -42,11 +40,8 @@ class Mnemonic(object):
         
         """
         self._wordlist = []
-        with open(os.path.join(str(BCL_INSTALL_DIR), 'wordlist', '%s.txt' % language)) as f:
+        with Path(BCL_INSTALL_DIR, 'wordlist', '%s.txt' % language).open() as f:
             self._wordlist = [w.strip() for w in f.readlines()]
-        # FIXME: Use code below instead of os.path, but doesn't work with pathlib2 (Python 2)
-        # with Path(BCL_INSTALL_DIR, 'wordlist', '%s.txt' % language).open() as f:
-        #     self._wordlist = [w.strip() for w in f.readlines()]
 
     @staticmethod
     def checksum(data):
@@ -71,8 +66,7 @@ class Mnemonic(object):
         
         First use 'sanitize_mnemonic' to determine language and validate and check words
 
-        >>> from bitcoinlib.encoding import to_hexstring
-        >>> to_hexstring(Mnemonic().to_seed('chunk gun celery million wood kite tackle twenty story episode raccoon dutch'))
+        >>> Mnemonic().to_seed('chunk gun celery million wood kite tackle twenty story episode raccoon dutch').hex()
         '6969ed4666db67fc74fae7869e2acf3c766b5ef95f5e31eb2fcebd93d76069c6de971225f700042b0b513f0ad6c8562277fc4b5ee1344b720f1686dc2dccc220'
 
         :param words: Mnemonic passphrase as string with space separated words
@@ -148,7 +142,7 @@ class Mnemonic(object):
         :return str: Mnemonic passphrase consisting of a space seperated list of words
         """
         data = to_bytes(data)
-        data_int = change_base(data, 256, 10)
+        data_int = int.from_bytes(data, 'big')
         if check_on_curve and not 0 < data_int < secp256k1_n:
             raise ValueError("Integer value of data should be in secp256k1 domain between 1 and secp256k1_n-1")
         if add_checksum:
@@ -162,8 +156,7 @@ class Mnemonic(object):
         """
         Convert Mnemonic words back to key data entropy
 
-        >>> from bitcoinlib.encoding import to_hexstring
-        >>> to_hexstring(Mnemonic().to_entropy('chunk gun celery million wood kite tackle twenty story episode raccoon dutch'))
+        >>> Mnemonic().to_entropy('chunk gun celery million wood kite tackle twenty story episode raccoon dutch').hex()
         '28acfc94465fd2f6774759d6897ec122'
 
 
@@ -180,10 +173,11 @@ class Mnemonic(object):
         wi = []
         for word in words:
             wi.append(self._wordlist.index(word))
-        ent = change_base(wi, 2048, 256, output_even=False)
+        ent_length = int(len(words) * 4/3)
+        ent = change_base(wi, 2048, 256, ent_length, output_even=False)
         if includes_checksum:
             binresult = change_base(ent, 256, 2, len(ent) * 4)
-            ent = change_base(binresult[:-len(binresult) // 33], 2, 256)
+            ent = change_base(binresult[:-len(binresult) // 33], 2, 256, ent_length)
 
             # Check checksum
             checksum = binresult[-len(binresult) // 33:]
@@ -210,17 +204,13 @@ class Mnemonic(object):
             words = words.split(' ')
 
         wlcount = {}
-        # TODO: Use for fn in Path(BCL_INSTALL_DIR, 'wordlist').iterdir():
-        #     if fn.suffix == ".txt":
-        for fn in os.listdir(os.path.join(str(BCL_INSTALL_DIR), 'wordlist')):
-            if fn.endswith(".txt"):
-                with open(os.path.join(str(BCL_INSTALL_DIR), 'wordlist', fn)) as f:
+        for fn in Path(BCL_INSTALL_DIR, 'wordlist').iterdir():
+            if fn.suffix == ".txt":
+                with open(os.path.join(str(BCL_INSTALL_DIR), 'wordlist', fn), encoding='utf-8') as f:
                     wordlist = [w.strip() for w in f.readlines()]
-                    language = fn.split('.')[0]
+                    language = fn.name.split('.')[0]
                     wlcount[language] = 0
                     for word in words:
-                        if sys.version < '3':
-                            word = word.encode('utf-8')
                         if word in wordlist:
                             wlcount[language] += 1
         detlang = max(wlcount.keys(), key=(lambda key: wlcount[key]))
@@ -243,12 +233,9 @@ class Mnemonic(object):
         language = self.detect_language(words)
         if isinstance(words, TYPE_TEXT):
             words = words.split(' ')
-        # TODO: Path(BCL_INSTALL_DIR, 'wordlist', '%s.txt' % language).open() as f:
-        with open(os.path.join(str(BCL_INSTALL_DIR), 'wordlist', '%s.txt' % language)) as f:
+        with Path(BCL_INSTALL_DIR, 'wordlist', '%s.txt' % language).open() as f:
             wordlist = [w.strip() for w in f.readlines()]
             for word in words:
-                if sys.version < '3':
-                    word = word.encode('utf-8')
                 if word not in wordlist:
                     raise Warning("Unrecognised word %s in mnemonic sentence" % word.encode('utf8'))
         return ' '.join(words)
