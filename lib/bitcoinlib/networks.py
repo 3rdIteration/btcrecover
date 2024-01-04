@@ -19,7 +19,7 @@
 #
 
 import json
-from bitcoinlib.encoding import *
+from lib.bitcoinlib.encoding import *
 
 
 _logger = logging.getLogger(__name__)

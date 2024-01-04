@@ -21,8 +21,8 @@
 import json
 import binascii
 import math
-from lib.bitcoinlib.main import *
-from lib.bitcoinlib.encoding import to_hexstring, change_base, to_bytes
+from lib.bitcoinlib_mod.main import *
+from lib.bitcoinlib_mod.encoding import to_hexstring, change_base, to_bytes
 
 
 _logger = logging.getLogger(__name__)
