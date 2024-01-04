@@ -40,41 +40,41 @@ try:
 except ImportError as PYAES_ERROR:
     _logger.warning("MISSING MODULES! Please install pycryptodome")
     _logger.warning("The bip38_decrypt and bip38_encrypt methods need the pycryptodome library to work!")
-
-try:
-    if USING_MODULE_SCRYPT is not False:
-        import scrypt
-        USING_MODULE_SCRYPT = True
-except ImportError as SCRYPT_ERROR:
-    try:
-        from Crypto.Protocol.KDF import scrypt
-        _logger.info("Using scrypt method from pycryptodome")
-    except ImportError as err:
-        _logger.info("Could not import scrypt from pycryptodome: %s" % str(err))
-        pass
-
-if 'scrypt' not in sys.modules and 'Crypto.Protocol.KDF' not in sys.modules:
-    try:
-        import pyscrypt as scrypt
-    except ImportError:
-        _logger.warning("MISSING MODULES! Please install scrypt, pycryptodome or pyscrypt")
-        _logger.warning("The bip38_decrypt and bip38_encrypt methods need a scrypt library to work!")
-    USING_MODULE_SCRYPT = False
-
-USE_FASTECDSA = os.getenv("USE_FASTECDSA") not in ["false", "False", "0", "FALSE"]
-try:
-    if USE_FASTECDSA is not False:
-        from fastecdsa.encoding.der import DEREncoder
-        USE_FASTECDSA = True
-except ImportError:
-    pass
-if 'fastecdsa' not in sys.modules:
-    _logger.warning("Could not include fastecdsa library, using slower ecdsa instead.")
-    USE_FASTECDSA = False
-    try:
-        import ecdsa
-    except ImportError:
-        raise ImportError("Could not include ecdsa library. Please install fastecdsa or ecdsa library.")
+#
+# try:
+#     if USING_MODULE_SCRYPT is not False:
+#         import scrypt
+#         USING_MODULE_SCRYPT = True
+# except ImportError as SCRYPT_ERROR:
+#     try:
+#         from Crypto.Protocol.KDF import scrypt
+#         _logger.info("Using scrypt method from pycryptodome")
+#     except ImportError as err:
+#         _logger.info("Could not import scrypt from pycryptodome: %s" % str(err))
+#         pass
+#
+# if 'scrypt' not in sys.modules and 'Crypto.Protocol.KDF' not in sys.modules:
+#     try:
+#         import pyscrypt as scrypt
+#     except ImportError:
+#         _logger.warning("MISSING MODULES! Please install scrypt, pycryptodome or pyscrypt")
+#         _logger.warning("The bip38_decrypt and bip38_encrypt methods need a scrypt library to work!")
+#     USING_MODULE_SCRYPT = False
+#
+# USE_FASTECDSA = os.getenv("USE_FASTECDSA") not in ["false", "False", "0", "FALSE"]
+# try:
+#     if USE_FASTECDSA is not False:
+#         from fastecdsa.encoding.der import DEREncoder
+#         USE_FASTECDSA = True
+# except ImportError:
+#     pass
+# if 'fastecdsa' not in sys.modules:
+#     _logger.warning("Could not include fastecdsa library, using slower ecdsa instead.")
+#     USE_FASTECDSA = False
+#     try:
+#         import ecdsa
+#     except ImportError:
+#         raise ImportError("Could not include ecdsa library. Please install fastecdsa or ecdsa library.")
 
 
 class EncodingError(Exception):
