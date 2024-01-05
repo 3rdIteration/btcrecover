@@ -25,7 +25,7 @@ from os import path
 
 from datetime import datetime
 
-import lib.bitcoinlib_mod as bitcoinlib
+import lib.bitcoinlib as bitcoinlib
 
 def supportedChains(magic):
     switcher={
@@ -142,6 +142,8 @@ class AddressSet(object):
             if textAddresses:
                 if addressType == 'Bech32':
                     print(bitcoinlib.encoding.pubkeyhash_to_addr_bech32(address),file=open("addresses.txt", "a"))
+                if addressType == 'Bech32m':
+                    print(bitcoinlib.encoding.pubkeyhash_to_addr_bech32(address, witver = 1),file=open("addresses.txt", "a"))
                 elif addressType == 'P2SH':
                     print(bitcoinlib.encoding.pubkeyhash_to_addr_base58(address, b'\x05'),file=open("addresses.txt", "a"))
                 elif addressType == 'P2PKH':
@@ -556,6 +558,8 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                                     address_set.add(block[offset+2:offset+22],outputToText,'P2SH')
                                 elif block[offset:offset+2] == b"\x00\x14": #Check for Native Segwit Address
                                     address_set.add(block[offset+2:offset+22],outputToText,'Bech32')
+                                elif block[offset:offset+2] == b"\x51\x20": #Check for Taproot Address
+                                    address_set.add(block[offset + 2:offset + 34], outputToText, 'Bech32m')
 
                                 offset += pkscript_len                                  # advances past the pubkey script
                             if is_bip144:
