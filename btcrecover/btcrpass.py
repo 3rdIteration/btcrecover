@@ -3745,7 +3745,7 @@ class WalletBIP39(object):
     opencl_algo = -1
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False, force_p2sh = False, checksinglexpubaddress = False):
+                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
@@ -3783,7 +3783,7 @@ class WalletBIP39(object):
             hash160s = None
 
         self.btcrseed_wallet = btcrseed_cls.create_from_params(
-            mpk, addresses, address_limit, hash160s, path, is_performance, force_p2sh = force_p2sh, checksinglexpubaddress = checksinglexpubaddress)
+            mpk, addresses, address_limit, hash160s, path, is_performance, force_p2sh = force_p2sh, checksinglexpubaddress = checksinglexpubaddress, force_p2tr = force_p2tr)
 
         if is_performance and not mnemonic:
             mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
@@ -6249,7 +6249,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance, force_p2sh = args.force_p2sh,checksinglexpubaddress =  args.checksinglexpubaddress)
+                                    args.language, args.bip32_path, args.wallet_type, args.performance, force_p2sh = args.force_p2sh,checksinglexpubaddress =  args.checksinglexpubaddress, force_p2tr = args.force_p2tr)
 
 
     if args.yoroi_master_password:
