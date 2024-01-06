@@ -450,11 +450,6 @@ class WalletElectrum1(WalletBase):
     def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
         self = cls(loading=True)
 
-        # Set other wallet parameters
-        self.force_p2sh = force_p2sh
-        self.checksinglexpubaddress = checksinglexpubaddress
-        self.force_p2tr = force_p2tr
-
         # Process the mpk (master public key) argument
         if mpk:
             if len(mpk) != 128:
