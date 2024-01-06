@@ -1530,6 +1530,12 @@ class TestRecoveryFromAddressDB(unittest.TestCase):
                               "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform advice pen praise soap lizard festival connect baby",
                               "m/84'/0'/1'/0", "addresses-BTC-Test.db")
 
+    # m/86'/0'/0'/0/1   bc1pqx93u4lpl38fkqe7z89tuswahzug0zvtc4jzpecw0c420n0n9wlq4euhxp
+    def test_addressdb_bip86_btc(self):
+        self.addressdb_tester(btcrseed.WalletBIP39, 2,
+                              "swing wedding strike accuse walk reduce immense blur rotate south myself memory",
+                              "m/86'/0'/0'/0", "addresses-BTC-P2TR.db")
+
     # LTC AddressDB Tests
     # m/44'/2'/1'/0/1	LgXiUTLMKcoaqvUPMNJo1RmpAGFMHD75tr
     def test_addressdb_bip44_ltc(self):
