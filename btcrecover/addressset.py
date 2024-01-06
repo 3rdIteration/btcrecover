@@ -18,7 +18,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-__version__ =  "1.12.0-CryptoGuide"
+__version__ =  "1.13.0-CryptoGuide"
 
 import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math
 from os import path

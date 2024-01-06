@@ -1973,7 +1973,7 @@ class Test08BIP39Passwords(unittest.TestCase):
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_address_bitcoin_bip86_force_p2tr(self):
         self.bip39_tester(
-            addresses=     ["bc1p0v4cc9ntxk0w4uw34d208rqxe39uszcjvrnyy559fy907adnnu5qaqkm53"],
+            addresses=     ["bc1p98xclt0tfcrxf8ktq2s0hdhjsfcajfcy5ehwt0n7wrr5y7as3czq5gqetn"],
             address_limit= 5,
             mnemonic=      "swing wedding strike accuse walk reduce immense blur rotate south myself memory",
             force_p2tr = True
