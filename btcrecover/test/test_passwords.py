@@ -1640,9 +1640,9 @@ class Test08BIP39Passwords(unittest.TestCase):
             mnemonic=      "quote voice evidence aspect warfare hire system black rate wing ask rug"
         )
 
-    def bip39_tester(self, force_purepython = False, unicode_pw = False, force_p2tr = False, *args, **kwargs):
+    def bip39_tester(self, force_purepython = False, unicode_pw = False, *args, **kwargs):
 
-        wallet = btcrpass.WalletBIP39(force_p2tr = force_p2tr, *args, **kwargs)
+        wallet = btcrpass.WalletBIP39(*args, **kwargs)
         if force_purepython: btcrpass.load_pbkdf2_library(force_purepython=True)
 
         # Perform the tests in the current process
