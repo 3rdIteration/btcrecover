@@ -1965,7 +1965,7 @@ class Test08BIP39Passwords(unittest.TestCase):
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_address_bitcoin_bip86(self):
         self.bip39_tester(
-            addresses=     ["bc1pwwqp8ct4d4d224y97e8pcjnr8yjg4nkxp6p6484qytt2xcxmm6eswyvklp"],
+            addresses=     ["bc1p98xclt0tfcrxf8ktq2s0hdhjsfcajfcy5ehwt0n7wrr5y7as3czq5gqetn"],
             address_limit= 5,
             mnemonic=      "swing wedding strike accuse walk reduce immense blur rotate south myself memory"
         )
@@ -1973,7 +1973,7 @@ class Test08BIP39Passwords(unittest.TestCase):
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_address_bitcoin_bip86_force_p2tr(self):
         self.bip39_tester(
-            addresses=     ["bc1p98xclt0tfcrxf8ktq2s0hdhjsfcajfcy5ehwt0n7wrr5y7as3czq5gqetn"],
+            addresses=     ["bc1psx9yanxmvuuj2mw00ye2f4uqj8arrq3jf0ftjztkdf737u332vgsaxpexm"],
             address_limit= 5,
             mnemonic=      "swing wedding strike accuse walk reduce immense blur rotate south myself memory",
             force_p2tr = True

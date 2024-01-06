@@ -454,8 +454,6 @@ class WalletElectrum1(WalletBase):
         self.force_p2sh = force_p2sh
         self.checksinglexpubaddress = checksinglexpubaddress
         self.force_p2tr = force_p2tr
-        
-        print("selfptr", force_p2tr)
 
         # Process the mpk (master public key) argument
         if mpk:
