@@ -5752,6 +5752,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                             help="enforce a min # of tokens included per guess")
         parser.add_argument("--seedgenerator", action="store_true",
                             help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we are doing seed generation, not password generation
+        parser.add_argument("--keep-tokens-order", action="store_true",
+                            help="try tokens in the order in which they are listed in the file, without trying their permutations")
         parser.add_argument("--mnemonic-length", type=int,
                             help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
         parser.add_argument("--seed-transform-wordswaps", type=int,
@@ -7434,15 +7436,6 @@ def tokenlist_base_password_generator():
     l_tstr                   = tstr
     l_seed_generator         = args.seedgenerator
     l_mnemonic_length        = args.mnemonic_length
-
-    # Temporary Fix for the "--keep-tokens-order" argument.
-    # Hasn't been fully tested in BTCRecover.py and breaks seedrecover...
-    try:
-        if args.keep_tokens_order:
-            pass
-    except:
-        if l_seed_generator:
-            args.keep_tokens_order = False
 
     # Choose between the custom duplicate-checking and the standard itertools permutation
     # functions for the outer loop unless the custom one has been specifically disabled

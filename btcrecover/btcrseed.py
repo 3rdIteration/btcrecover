@@ -2958,7 +2958,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None):
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, keep_tokens_order = False):
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -2993,6 +2993,9 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
 
         btcr_args += " --seedgenerator"
         btcr_args += " --mnemonic-length " + str(mnemonic_length)
+
+    if keep_tokens_order:
+        btcr_args += " --keep-tokens-order"
 
     if passwordlist:
         btcr_args += " --passwordlist " + str(passwordlist)
@@ -3182,6 +3185,8 @@ def main(argv):
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
         parser.add_argument("--disablesecuritywarnings", "--dsw", action="store_true", help="Disable Security Warning Messages")
         parser.add_argument("--tokenlist", metavar="FILE", help="The list of BIP39 words to be searched, formatted as a tokenlist")
+        parser.add_argument("--keep-tokens-order", action="store_true",
+                            help="try tokens in the order in which they are listed in the file, without trying their permutations")
         parser.add_argument("--max-tokens", type=int, help="The max number of tokens use to create potential seeds from the tokenlist")
         parser.add_argument("--min-tokens", type=int, help="The minimum number of tokens use to create potential seeds from the tokenlist")
         parser.add_argument("--seedlist", metavar="FILE", nargs="?", const="-",
@@ -3379,6 +3384,7 @@ def main(argv):
             phase["max_tokens"] = args.max_tokens
             phase["min_tokens"] = args.min_tokens
             phase["mnemonic_length"] = args.mnemonic_length
+            phase["keep_tokens_order"] = args.keep_tokens_order
 
             if args.tokenlist:
                 phase["tokenlist"] = args.tokenlist
