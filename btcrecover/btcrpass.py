@@ -2033,7 +2033,7 @@ class WalletBlockchain(object):
         padding = 17 - len(last_block)  # ISO 7816-4 padding length
         return decrypted[:-padding] if 1 <= padding <= 16 and \
                                        decrypted[-padding] == b"\x80" and \
-                                       re.match('{\s*"guid"',decrypted.decode()) else None
+                                       re.match(self.matchStrings,decrypted.decode()) else None
 
     def decrypt_wallet(self,password):
         from lib.cashaddress import base58
