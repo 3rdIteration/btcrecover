@@ -269,7 +269,7 @@ class Test01Basics(GeneratorTester):
 
     def test_keep_tokens_order(self):
         self.do_generator_test(["one", "two", "three"],
-            ['onethree', 'twothree', 'onetwothree'],
+            ['one', 'two', 'onetwo', 'three', 'onethree', 'twothree', 'onetwothree'],
             "--keep-tokens-order")
 
     def test_empty_file(self):
