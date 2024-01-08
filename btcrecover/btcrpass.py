@@ -2263,6 +2263,8 @@ class WalletBlockchain(object):
                                           "<== in Decrypted Block ==>" +
                                           unencrypted_block.decode("ascii") +
                                           "<==\n")
+                            global searchfailedtext
+                            searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist... \n**NOTE** Some possible matches were identified during this search, so please also review possible-passwords.log that was created in the BTCRecover folder..."
                 except UnicodeDecodeError:
                     pass
 
@@ -2783,7 +2785,7 @@ class WalletDogechain(object):
 
         # A bit fragile because it assumes the guid is in the first encrypted block,
         return decrypted[:-padding] if 1 <= padding <= 16 and re.search(
-            b"\"guid\"|\"sharedKey\"|\"keys\"", decrypted) else None
+            self.matchString, decrypted) else None
 
     def decrypt_wallet(self, password):
         # Can't decrypt or dump an extract in any meaninful way...
