@@ -2760,6 +2760,8 @@ class WalletDogechain(object):
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
 
+    matchStrings = b"\"guid\"|\"sharedKey\"|\"keys\""
+
     _dump_privkeys_file = None
     _dump_wallet_file = None
     _using_extract = False

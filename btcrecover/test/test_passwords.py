@@ -267,6 +267,11 @@ class Test01Basics(GeneratorTester):
             ["one", "oneone", "oneoneone"],
             "--password-repeats-posttypos --max-password-repeats 3")
 
+    def test_keep_tokens_order(self):
+        self.do_generator_test(["one", "two", "three"],
+            ['onethree', 'twothree', 'onetwothree'],
+            "--keep-tokens-order")
+
     def test_empty_file(self):
         self.do_generator_test([], [], test_passwordlist=True)
     def test_one_char_file(self):
