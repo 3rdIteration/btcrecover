@@ -712,7 +712,308 @@ class WalletElectrum1(WalletBase):
         for guess in itertools.product(range(len(WalletElectrum1._words)), repeat = 4):
             yield prefix + guess
 
+### Blockchain.info password seed ###
 
+class BlockChainPassword(WalletBase):
+    _words = None
+    _v2words = None
+
+    @property
+    def word_ids(self):      return range(self._num_words)
+
+    @classmethod
+    def id_to_word(self, id): return self._words[id]
+
+    @classmethod
+    def _load_wordlist(self, wordlist):
+        self._words = tuple(map(str, load_wordlist(wordlist, "en")))
+        self._num_words = len(self._words)
+        self._word_to_id = { word:id for id,word in enumerate(self._words) }
+        return self._words, self._word_to_id
+
+    def __init__(self, loading = False):
+        super(BlockChainPassword, self).__init__(loading)
+        self._passwords_per_second = None
+        # v2 words are used by v3+ also
+        self._v2words = tuple(map(str, load_wordlist("blockchainpassword_words_v2", "en")))
+        self._v2word_to_id = { word:id for id,word in enumerate(self._v2words) }
+
+    def passwords_per_seconds(self, seconds):
+        if not self._passwords_per_second:
+            self._passwords_per_second = \
+                calc_passwords_per_second(0.1, 0.1, 1)
+        return max(int(round(self._passwords_per_second * seconds)), 1)
+    
+    # Creates a wallet instance
+    @classmethod
+    def create_from_params(self, is_performance = False, force_p2tr = False):
+        self = self(loading=True)
+        return self
+    
+    # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
+    @staticmethod
+    def verify_mnemonic_syntax(mnemonic_ids):
+        return len(mnemonic_ids) == len(mnemonic_ids_guess) + num_inserts - num_deletes
+    
+    # Configures the values of four globals used later in config_btcrecover():
+    # mnemonic_ids_guess, close_mnemonic_ids, num_inserts, and num_deletes
+    def config_mnemonic(cls, mnemonic_guess = None, closematch_cutoff = 0.65, expected_len = None):
+        # If a mnemonic guess wasn't provided, prompt the user for one
+        if not mnemonic_guess:
+            init_gui()
+            if tk_root:
+                mnemonic_guess = tk.simpledialog.askstring("BitcoinPassword seed",
+                    "Please enter your best guess for your BitcoinPassword seed:")
+            else:
+                print("No mnemonic guess specified... Exiting...")
+                exit()
+
+            if not mnemonic_guess:
+                sys.exit("canceled")
+        if not expected_len:
+            init_gui()
+            if tk_root:
+                expected_len = tk.simpledialog.askinteger("BitcoinPassword number of words",
+                    "Please enter your best guess for number of words in your BitcoinPassword seed:")
+            else:
+                print("No number of words specified... Exiting...")
+                exit()
+
+            if not expected_len:
+                sys.exit("canceled")                
+        cls.expected_len = expected_len
+        cls._initial_words_valid = False
+        mnemonic_guess = str(mnemonic_guess)  # ensures it's ASCII
+
+        # Convert the mnemonic words into numeric ids and pre-calculate similar mnemonic words
+        global mnemonic_ids_guess, close_mnemonic_ids
+        mnemonic_ids_guess = ()
+        # close_mnemonic_ids is a dict; each dict key is a mnemonic_id (int), and each
+        # dict value is a tuple containing length 1 tuples, and finally each of the
+        # length 1 tuples contains a single mnemonic_id which is similar to the dict's key
+        close_mnemonic_ids = {}
+        for word in mnemonic_guess.lower().split():
+            close_words = difflib.get_close_matches(word, cls._words, sys.maxsize, closematch_cutoff)
+            if close_words:
+                if close_words[0] != word:
+                    print("'{}' was in your guess, but it's not a valid BlockchainPassword seed word;\n"
+                          "    trying '{}' instead.".format(word, close_words[0]))
+                mnemonic_ids_guess += cls._word_to_id[close_words[0]],
+                close_mnemonic_ids[mnemonic_ids_guess[-1]] = tuple( (cls._word_to_id[w],) for w in close_words[1:] )
+            else:
+                if word != 'seed_token_placeholder':
+                    print("'{}' was in your guess, but there is no similar BlockchainPassword seed word;\n"
+                          "    trying all possible seed words here instead.".format(word))
+                mnemonic_ids_guess += None,
+
+        global num_inserts, num_deletes
+        num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
+        num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
+        if num_inserts:
+            print("Seed sentence was too short, inserting {} word{} into each guess."
+                  .format(num_inserts, "s" if num_inserts > 1 else ""))
+        if num_deletes:
+            print("Seed sentence was too long, deleting {} word{} from each guess."
+                  .format(num_deletes, "s" if num_deletes > 1 else ""))
+
+    # Produces a long stream of differing and incorrect mnemonic_ids guesses (for testing)
+    def performance_iterator(self):
+        # See WalletBIP39.performance_iterator(self) for details
+        length = len(mnemonic_ids_guess) + num_inserts - num_deletes
+        for guess in itertools.product(self.word_ids, repeat=length):
+            yield guess
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
+    # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
+    def return_verified_password_or_false(self, mnemonic_ids_list):
+        # Copy some vars into local for a small speed boost
+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
+            result = False
+            try:
+                result = self._verify_checksum(mnemonic_ids)
+                if result == False: continue
+            except ValueError: continue
+            except Exception as e:
+                print(e)
+            return mnemonic_ids, count
+        return False, count
+    
+    def _verify_checksum(self, words):
+        raise ValueError
+
+    @staticmethod    
+    def mn_mod(a, b):
+        return b + a if a < 0 else a % b
+    
+    @staticmethod
+    def words_to_bytes(words):
+        byte_array = []
+        for word in words:
+            byte_array.extend(word.to_bytes(4, byteorder='big', signed=False))
+        return byte_array
+    
+    @staticmethod
+    def bytes_to_words(byte_array):
+        words = []
+        for i in range(0, len(byte_array), 4):
+            word = int.from_bytes(byte_array[i:i+4], byteorder='big', signed=False)
+            words.append(word)
+        return words
+
+    @staticmethod
+    def bytes_to_string(byte_array):
+        return bytes(byte_array).decode('utf-8', errors='ignore')
+    
+    def decode_v2(self, word1, word2, word3):
+        if not word2 or not word3:
+            raise ValueError("seeds are not a multiple of 3")
+        n = len(self._v2words)
+        w1 = word1
+        w2 = word2 % n
+        w3 = word3 % n
+        return w1 + n * self.mn_mod(w2 - w1, n) + n * n * self.mn_mod(w3 - w2, n)
+        
+    @staticmethod  
+    def safe_get(lst, index):
+        try:
+            return lst[index]
+        except IndexError:
+            return None
+                
+
+@register_selectable_wallet_class("Blockchain.info legacy Wallet mnemonic V3")
+class BlockChainPasswordV3(BlockChainPassword):
+
+    def __init__(self, loading = False):
+        self._words, self._word_to_id = self._load_wordlist("blockchainpassword_words_v3")
+        self._num_words = len(self._words)
+        super(BlockChainPasswordV3, self).__init__(loading)
+
+    def _verify_checksum(self, words):
+        if len(words) < 3:
+            raise ValueError('Mnemonic must have at least 2 words to do checksum')
+        
+        try:
+            # get the v2 ids of the first 3 words to calculate the checksum
+            seedwords = [self._words[seedid] for seedid in words[:3]]
+            try:
+                v2seedids = [self._v2word_to_id[seedword] for seedword in seedwords]
+            except KeyError:
+                raise ValueError
+            except Exception as e:
+                print(e)            
+            checksum = self.decode_v2(v2seedids[0], v2seedids[1], v2seedids[2])
+
+            version = int_to_bytes(checksum, 4)[0]
+            if version not in (3, 4, 5, 6): return False
+
+            obj = self.decode_v3456_word_list(words[3:], version, checksum)
+            print('\nPassword found: ' + obj['password'] + '\n')
+            if obj['guid']:
+                print('\nAccount found: ' + obj['guid'] + '\n')
+            
+            return True
+        except ValueError:
+            return False
+        except Exception as e:
+            print(e)
+            return False
+    
+    def decode_v3(self, word1, word2):
+        val1 = word1
+        if word2 is None:
+            if val1 == -1:
+                raise ValueError('Unknown Word ' + self._words[word1])
+            b1 = self.words_to_bytes([val1])
+            return self.bytes_to_words([b1[2], b1[3], 0, 0])
+        else:
+            val2 = word2
+            if val1 == -1 or val2 == -1:
+                raise ValueError('Unknown Word ' + self._words[word1] + ' or ' + self._words[word2])
+            b1 = self.words_to_bytes([val1])
+            b2 = self.words_to_bytes([val2])
+            try:
+                return self.bytes_to_words([b1[2], b1[3], b2[2], b2[3]])
+            except:
+                raise ValueError
+            
+    def decode_v3456_word_list(self, wlist, version, checksum):
+        words = [self.decode_v3(wlist[i], self.safe_get(wlist, i + 1))[0] for i in range(0, len(wlist), 2)]
+        str_bytes = self.words_to_bytes(words)
+        str_bytes = bytearray([byte for byte in str_bytes if byte != 0])
+
+        restored_checksum_bytes = hashlib.sha256(str_bytes).digest()[:3]
+        version_byte = version.to_bytes(1, byteorder='big')
+        restored_checksum_bytes = version_byte + restored_checksum_bytes
+        restored_checksum = int.from_bytes(restored_checksum_bytes, byteorder='big')
+
+        if restored_checksum < 0:
+            restored_checksum = -restored_checksum
+        if checksum != restored_checksum:
+            raise ValueError('Invalid Mnemonic Checksum. Please enter it carefully.')
+
+        obj = {}
+        if version == 4:
+            guid_part = str_bytes[:16]
+            obj['guid'] = '-'.join([''.join('{:02x}'.format(b) for b in guid_part[i:i + 2]) for i in range(0, 16, 2)])
+        elif version == 5:
+            obj['time'] = bytes_to_int(str_bytes[:4], 4)
+        obj['password'] = self.bytes_to_string(str_bytes)
+        return obj
+            
+@register_selectable_wallet_class("Blockchain.info legacy Wallet mnemonic V2")
+class BlockChainPasswordV2(BlockChainPassword):
+
+    def __init__(self, loading = False):
+        self._words, self._word_to_id = self._load_wordlist("blockchainpassword_words_v2")
+        self._v2words = self._words
+        self._v2word_to_id = self._word_to_id
+        super(BlockChainPasswordV2, self).__init__(loading)
+
+    def config_mnemonic(self, mnemonic_guess = None, closematch_cutoff = 0.65, expected_len = None):
+        super(BlockChainPasswordV2, self).config_mnemonic(mnemonic_guess, closematch_cutoff, expected_len) 
+        length = len(mnemonic_ids_guess) + num_inserts - num_deletes
+        if length % 3 != 0:
+            exit("BlockChain Password V2 seeds should be a length divisible by 3")
+
+    def _verify_checksum(self, words):
+        if len(words) < 3:
+            raise ValueError('Mnemonic must have at least 3 words do checksum')
+        
+        try:
+            # Try decoding the first two words using version 3 logic
+            checksum = self.decode_v2(words[0], words[1], words[2])
+            version = int_to_bytes(checksum, 1)[0]
+            if version != 2: return False
+
+            obj = self.decode_v2_word_list(words, checksum)
+            print(obj.password) 
+            return True
+        except ValueError:
+            return False
+        except Exception as e:
+            print(e)
+            return False    
+        
+    def decode_v2_word_list(self, wlist, checksum):
+        try:
+            words = [self.decode_v2(wlist[i], self.safe_get(wlist, i + 1), self.safe_get(wlist, i + 2)) for i in range(0, len(wlist), 3)]
+            str_bytes = self.words_to_bytes(words)
+            str_bytes = bytearray([byte for byte in str_bytes if byte != 0])
+
+            restored_checksum = bytes_to_int(hashlib.sha256(str_bytes).digest()[:3])
+            if restored_checksum < 0:
+                restored_checksum = -restored_checksum
+            if checksum != restored_checksum:
+                raise ValueError('Invalid Mnemonic Checksum. Please enter it carefully.')
+            else:
+                return {'password': self.bytes_to_string(str_bytes)}
+        except ValueError:
+            raise ValueError()
+        except Exception as e:
+            print(e)
+            return False             
+             
 ############### BIP32 ###############
 
 class WalletBIP32(WalletBase):

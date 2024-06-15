@@ -82,6 +82,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
             * Sha256(Passphrase) brainwallets (eg: Bitaddress.org, liteaddress.org, paper.dash.org)
             * sCrypt Secured Brainwallets (Eg: Warpwallet, Memwallet)
      * Ethereum Validator BIP39 Seed Recovery
+     * [Blockchain.com legacy wallet recovery mnemonic](https://login.blockchain.com/wallet/recover-wallet)
  * Bitcoin wallet password recovery support for:
      * [Bitcoin Core](https://bitcoincore.org/)
      * [MultiBit HD](https://multibit.org/) and [MultiBit Classic](https://multibit.org/help/v0.5/help_contents.html)

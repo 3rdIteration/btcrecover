@@ -372,7 +372,34 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         "zpub6u5Ro8kyXwV3zueN2G8fUwJ1hHAjYN6Ld1VCK9KGMw6m2R5M8ZtqBCrp6aQXZVh9cJWGvSm4J8mBwSsYboYfR5Ybsv8LeSYYWQk5ZhHJE4a",
                         "ice stool great wine enough odor vocal crane owner magnet absent scare",
                         "m/84'/17'/0'/0")
+        
+class TestRecoveryFromCheckSum(unittest.TestCase):
 
+    def checksum_tester(self, wallet_type, expected_len, correct_mnemonic, **kwds):
+
+        # Don't call the wallet create with a path parameter if we don't have to. (for the same of compatibility across wallet types)
+        btcrseed.loaded_wallet = wallet_type.create_from_params()
+
+        # Convert the mnemonic string into a mnemonic_ids_guessde
+        btcrseed.loaded_wallet.config_mnemonic(mnemonic_guess=correct_mnemonic, expected_len=expected_len, **kwds)
+        correct_mnemonic = btcrseed.mnemonic_ids_guess
+
+        # Creates wrong mnemonic id guesses
+        wrong_mnemonic_iter = btcrseed.loaded_wallet.performance_iterator()
+
+        self.assertEqual(btcrseed.loaded_wallet.return_verified_password_or_false(
+            (wrong_mnemonic_iter.__next__(), wrong_mnemonic_iter.__next__())), (False, 2))
+        self.assertEqual(btcrseed.loaded_wallet.return_verified_password_or_false(
+            (wrong_mnemonic_iter.__next__(), correct_mnemonic, wrong_mnemonic_iter.__next__())), (correct_mnemonic, 2))
+
+    # I don't have a test v2 seed to test
+    # def test_blockchain_password_seedv2(self):
+    #     self.checksum_tester(btcrseed.BlockChainPasswordV2, 15,
+    #         "hill long stupid finally dream taught tree twice tea together bar useless diamond sanity serve")
+        
+    def test_blockchain_password_seedv3(self):
+        self.checksum_tester(btcrseed.BlockChainPasswordV3, 17,
+            "carve witch manage yerevan yerevan yerevan yerevan yerevan yerevan yerevan yerevan hardly hamburgers insiders hamburgers ignite infernal")
 
 is_sha3_loadable = None
 def can_load_keccak():
