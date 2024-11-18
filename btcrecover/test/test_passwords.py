@@ -1416,7 +1416,7 @@ class Test07WalletDecryption(unittest.TestCase):
     def test_block_io_pinchange_data_cpu(self):
         self.wallet_tester("block.io.change.json", correct_pass="btcrtestpassword2022")
 
-    @skipUnless(can_load_sjcl, "requires ECDSA")
+    @skipUnless(can_load_sjcl, "requires SJCL")
     def bitgo_keycard_userkey(self):
         self.wallet_tester("bitgo_keycard_userkey.json", correct_pass="btcr-test-password")
 

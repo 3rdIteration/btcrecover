@@ -2781,13 +2781,10 @@ class WalletBitGo(object):
         wallet_file.seek(0)
         try:
             walletdata = wallet_file.read()
-            wallet = json.loads(walletdata) # Check if it's a valid JSON
-            SJCL().decrypt(wallet, "wrongpassword_btcrecover_test") # Check if it's a valid SJCL Keystore
-        except ValueError: # Valid SJCL Incorrect password will give a ValueError, everything else will give a different exception
-            pass
+            json.loads(walletdata) # Check if it's a valid JSON
         except: return False
 
-        return True
+        return (b"adata" in walletdata and b"aes" in walletdata)
 
     def passwords_per_seconds(self, seconds):
         return 5
