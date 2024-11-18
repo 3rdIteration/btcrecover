@@ -6,7 +6,7 @@ ecdsa==0.17.0
 groestlcoin_hash~=1.0.3
 eth-keyfile~=0.6.1
 py_crypto_hd_wallet~=1.3.3
-pynacl~=1.4.0
+pynacl~=1.5.0
 bitstring~=3.1.9
 shamir-mnemonic[cli]~=0.3.0
 bitcoin-utils~=0.5.5
