@@ -2,3 +2,4 @@ coincurve~=19.0.0
 green~=3.3.0
 protobuf~=3.19.1
 pycryptodome~=3.19.1
+sjcl~=0.2.1
