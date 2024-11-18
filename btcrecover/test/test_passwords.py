@@ -1063,6 +1063,18 @@ def can_load_staking_deposit():
             eth2_staking_deposit_available = False
     return eth2_staking_deposit_available
 
+# Modules dependant on SJCL
+sjcl_available = None
+def can_load_sjcl():
+    global sjcl_available
+    if sjcl_available is None:
+        try:
+            from sjcl import SJCL
+            sjcl_available = True
+        except:
+            sjcl_available = False
+    return sjcl_available
+
 # Wrapper for btcrpass.init_worker() which clears btcrpass.loaded_wallet to simulate the way
 # multiprocessing works on Windows (even on other OSs) and permits pure python library testing
 def init_worker(wallet, char_mode, force_purepython, force_kdf_purepython):
@@ -1403,6 +1415,10 @@ class Test07WalletDecryption(unittest.TestCase):
     @skipUnless(can_load_bitcoinutils,  "requires Bitcoin-Utils")
     def test_block_io_pinchange_data_cpu(self):
         self.wallet_tester("block.io.change.json", correct_pass="btcrtestpassword2022")
+
+    @skipUnless(can_load_sjcl, "requires ECDSA")
+    def bitgo_keycard_userkey(self):
+        self.wallet_tester("bitgo_keycard_userkey.json", correct_pass="btcr-test-password")
 
     @skipUnless(can_load_leveldb, "Unable to load LevelDB module, requires Python 3.8+")
     def test_metamask_leveldb_chrome_cpu(self):

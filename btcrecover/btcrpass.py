@@ -121,6 +121,13 @@ try:
 except:
     pass
 
+# Modules dependant on SJCL
+sjcl_available = False
+try:
+    from sjcl import SJCL
+    sjcl_available = True
+except:
+    pass
 
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
@@ -2753,6 +2760,68 @@ class WalletBlockIO(object):
 
         return False, count
 
+############### Bitgo User Key ###############
+
+@register_wallet_class
+class WalletBitGo(object):
+    opencl_algo = -1
+    _savepossiblematches = False
+
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+    _using_extract = False
+
+    def __init__(self):
+        if not sjcl_available:
+            exit(
+                "\nERROR: Cannot load SJCL module which is required for BitGo wallets... You can install it with the command 'pip3 install sjcl")
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        wallet_file.seek(0)
+        try:
+            walletdata = wallet_file.read()
+            wallet = json.loads(walletdata) # Check if it's a valid JSON
+            SJCL().decrypt(wallet, "wrongpassword_btcrecover_test") # Check if it's a valid SJCL Keystore
+        except ValueError: # Valid SJCL Incorrect password will give a ValueError, everything else will give a different exception
+            pass
+        except: return False
+
+        return True
+
+    def passwords_per_seconds(self, seconds):
+        return 5
+
+    # Load a Dogechain wallet file
+    @classmethod
+    def load_from_filename(cls, wallet_filename):
+        self = cls()
+        with open(wallet_filename, "rb") as wallet_file:
+                wallet_data = wallet_file.read()
+
+        self.user_key = json.loads(wallet_data)
+
+        return self
+
+    def difficulty_info(self):
+        iter_count = self.user_key['iter']
+        hash_function = str(self.user_key['ks'])
+        return str(iter_count) + " SHA" + hash_function + " Iterations"
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, arg_passwords):  # block.io Main Password
+
+        for count, password in enumerate(arg_passwords, 1):
+            try:
+                key = SJCL().decrypt(self.user_key, password)
+                return password, count
+
+            except ValueError:
+                pass
+
+        return False, count
+
 ############### Dogechain.info ###############
 
 @register_wallet_class
@@ -4897,7 +4966,12 @@ class WalletRawPrivateKey(object):
                 else:
                     privcompress = bytes([])
 
-                pubkey = pubkey_from_secret(privkey).format(compressed = isCompressed)
+                # Sometimes it's possible that a privatekey (with a valid checksum) will still be invalid in terms of generating a usable address
+                try:
+                    pubkey = pubkey_from_secret(privkey).format(compressed = isCompressed)
+                except Exception as e:
+                    print("Exception for Privkey: ", password, " : ", e)
+                    continue
 
                 if self.crypto == 'ethereum':
                     pubkey_hash160 = keccak(pubkey[1:])[-20:]

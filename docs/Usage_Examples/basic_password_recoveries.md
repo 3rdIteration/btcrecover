@@ -337,6 +337,12 @@ Do a basic recovery with a command like the one below. (This command uses a samp
 python btcrecover.py --wallet ./btcrecover/test/test-wallets/imtoken-identity.json --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
 ```
 
+## Bitgo KeyCard User Key
+Do a basic recovery with a command like the one below. (This command uses a sample wallet file bunlded with BTCRecover)
+```
+python btcrecover.py --wallet ./btcrecover/test/test-wallets/bitgo_keycard_userkey.json --passwordlist ./docs/Usage_Examples/common_passwordlist.txt
+```
+
 ## SLIP39 Passphrases
 This uses much of the same syntax as recovering BIP39 passphrases. BTCRecover currently supports most of the coins that are supported by the Trezor T.
 
