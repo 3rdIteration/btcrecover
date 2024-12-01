@@ -144,7 +144,7 @@ If you mostly know your recovery seed/mnemonic (12-24 recovery words), but think
 
 ![Donate Bitcoin](docs/Images/donate-btc-qr.png)
 
-BTC: 37N7B7sdHahCXTcMJgEnHz7YmiR4bEqCrS
+BTC:bc1q9mfyp2cfmjcvf2efv0kax7kjfgrcsgutxglxp5
 
 ![Donate Bitcoin Cash](docs/Images/donate-bch-qr.png)
 
