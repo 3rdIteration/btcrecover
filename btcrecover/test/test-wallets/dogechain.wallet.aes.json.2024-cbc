@@ -1,0 +1,8 @@
+{
+    "guid": "52500558-b3fa-4318-b6a3-3c55835c6575",
+    "payload": "jJzIUd6i9DMEgCFG9JQ1/z4xSamItXAiQnV4AeJ0BwdC5Vbc3WuZNx3suAZ/J4tncwIlwsOYcTFc4bHKsG9fZBLiDGN80Yb7g4z88+mbqraUT/ZhnE1ClCmXgL8quBEn/LUaEWyXoV+qELd8IRRpbaHx4fgRIUjzqii+5ERsXiFWxg/DxLDLxYvOF1y0FBDep4HtuSGjb1ionh87+DkxFyxV9G8f4a/dwRz/ldSMJ3z2ZlKlLRzk4UceNzGW4k+TH4GCd3qXJoozYD6+WERjtVIW3WIQy8ZQHBE2jprSjARC5kdMLsslf1DEAOqJMVd1",
+    "salt": "Gc55/tevRG/ODxUN0ENiRg==",
+    "pbkdf2_iterations": 5000,
+    "cipher": "AES-CBC",
+    "version": 1
+}

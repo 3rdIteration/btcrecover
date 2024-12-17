@@ -2893,7 +2893,12 @@ class WalletDogechain(object):
         try:
             walletdata = wallet_file.read()
         except: return False
-        return (b"email" in walletdata and b"two_fa_method" in walletdata)  # Dogechain.info wallets have email and 2fa fields that are fairly unique
+        isWallet = False
+        if (b"email" in walletdata and b"two_fa_method" in walletdata):  # Older Dogechain.info wallets have email and 2fa fields that are fairly unique
+            isWallet = True
+        elif (b"salt" in walletdata and b"cipher" in walletdata and b"payload" in walletdata):  # Newer Dogechain.info wallets have cipher, salt and payload fields
+            isWallet = True
+        return isWallet
 
     def __init__(self, iter_count, loading=False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
@@ -2922,8 +2927,21 @@ class WalletDogechain(object):
         wallet_json = json.loads(wallet_data)
         self = cls(wallet_json["pbkdf2_iterations"], loading=True)
         self.salt = base64.b64decode(wallet_json["salt"])
-        self._encrypted_wallet = base64.b64decode(wallet_json["payload"])
-        self._encrypted_block = base64.b64decode(wallet_json["payload"])[:32]
+        try:
+            self.aes_cipher = wallet_json["cipher"]
+        except:
+            self.aes_cipher = "AES-CBC"
+
+        if self.aes_cipher == "AES-CBC":
+            self.iv = base64.b64decode(wallet_json["payload"])[:16]
+            self._encrypted_wallet = base64.b64decode(wallet_json["payload"])[16:]
+        else: # AES GCM
+            self.iv = base64.b64decode(wallet_json["payload"])[:12]
+            self.aes_auth_tag = base64.b64decode(wallet_json["payload"])[12:12+16]
+            self._encrypted_wallet = base64.b64decode(wallet_json["payload"])[12+16:]
+
+        self._encrypted_block = self._encrypted_wallet[:32]
+
         return self
 
     @classmethod
@@ -3028,12 +3046,21 @@ class WalletDogechain(object):
             passwordbase64 = base64.b64encode(passwordSHA256)
             key = hashlib.pbkdf2_hmac('sha256', passwordbase64, self.salt, self._iter_count, 32)
 
-            decrypted_block = AES.new(key, AES.MODE_CBC).decrypt(self._encrypted_block)[16:]
+            if self.aes_cipher == "AES-CBC":
+                decrypted_block = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self._encrypted_block)
 
-            if self.check_decrypted_block(decrypted_block, password):
+                if self.check_decrypted_block(decrypted_block, password):
                     # Decrypt and dump the wallet if required
                     self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
+            else:
+                try:
+                    # For AES-GCM we need to decrypt the whole wallet, not just a block,
+                    # also don't need to manually check the file contents as verification is part of the decryption
+                    decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet, self.aes_auth_tag)
+                    return password.decode("utf_8", "replace"), count
+                except ValueError:
+                    continue
 
         return False, count
 
@@ -3050,11 +3077,19 @@ class WalletDogechain(object):
         results = zip(passwords, clResult)
 
         for count, (password, key) in enumerate(results, 1):
-            decrypted_block = AES.new(key, AES.MODE_CBC).decrypt(self._encrypted_block)[16:]
-            if self.check_decrypted_block(decrypted_block, password):
+            if self.aes_cipher == "AES-CBC":
+                decrypted_block = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self._encrypted_block)
+                if self.check_decrypted_block(decrypted_block, password):
                     # Decrypt and dump the wallet if required
                     self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
+            else:
+                try:
+                    decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet,
+                                                                                             self.aes_auth_tag)
+                    return password.decode("utf_8", "replace"), count
+                except ValueError:
+                    continue
 
         return False, count
 
