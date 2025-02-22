@@ -3105,7 +3105,7 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToo"), tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToq"))), (False, 2))
         self.assertEqual(wallet.return_verified_password_or_false(
-            (tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToo"), correct_pw, tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToq"))), (L1H4Ht7spfgX87kSCa3qGU2HYLHsHqymLpkcv5oAA1xhLmBLNTm9, 1))
+            (tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToo"), correct_pw, tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CToq"))), ("L1H4Ht7spfgX87kSCa3qGU2HYLHsHqymLpkcv5oAA1xhLmBLNTm9", 1))
 
 
 # QuickTests: all of Test01Basics, Test02Anchors, Test03WildCards, and Test04Typos,
