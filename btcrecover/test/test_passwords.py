@@ -3091,7 +3091,7 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false(
             (tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d36"), correct_pw, tstr("5db77aa7aea5ea7d6b4c64dab219972cf4763d4937d3e6e17f580436dcb10d37"))), (correct_pw, 2))
 
-
+    @skipUnless(can_load_ecdsa, "requires ECDSA")
     def test_rawprivatekey_Btc_BIP38(self):
         wallet = btcrpass.WalletRawPrivateKey(addresses=['141HH8P17qa2tAiYsynueMKeKJtEMNDYaa'],
                                             check_compressed=True,
