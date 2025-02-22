@@ -3097,7 +3097,8 @@ class Test13RawPrivateKeyRecovery(unittest.TestCase):
                                             check_compressed=True,
                                             check_uncompressed=False,
                                             force_check_p2sh=False,
-                                            crypto='bitcoin')
+                                            crypto='bitcoin',
+                                            correct_wallet_password='btcr-test-password')
 
         correct_pw = tstr("6PnRsXuVMAnEUHxixjLuLxsUosU7phXLZWTpSYA9Y7Ev482cAGwYP6CTop")
 
