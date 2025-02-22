@@ -3822,7 +3822,9 @@ class WalletBIP38(object):
             passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
             results = zip(passwords, clResult)
             for count, (password, scrypthash) in enumerate(results, 1):
-                if bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address):
+                self.decrypted_privkey = bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
         else:
             clPrefactors = self.opencl_algo.cl_scrypt(self.opencl_context_scrypt, passwords, 14, 3, 3, 32, self.salt)
@@ -3831,7 +3833,9 @@ class WalletBIP38(object):
             passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
             results = zip(passwords, clPrefactors, encseedbs)
             for count, (password, prefactor, encseedb) in enumerate(results, 1):
-                if bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address):
+                self.decrypted_privkey = bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -3845,14 +3849,17 @@ class WalletBIP38(object):
         for count, password in enumerate(passwords, 1):
             if not self.ec_multiplied:
                 scrypthash = l_scrypt(password, self.salt, 1 << 14, 8, 8, 64)
-                if bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address):
+                self.decrypted_privkey = bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
             else:
                 prefactor = l_scrypt(password, self.salt, 1 << 14, 8, 8, 32)
                 passpoint = prefactor_to_passpoint(prefactor, self.has_lotsequence_flag, self.enc_privkey)
                 encseedb = l_scrypt(passpoint, self.enc_privkey[0:12], 1024, 1, 1, 64)
-
-                if bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address):
+                self.decrypted_privkey = bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -4861,7 +4868,7 @@ class WalletRawPrivateKey(object):
     ])
 
     def __init__(self, addresses = None, addressdb = None, check_compressed = True, check_uncompressed = True,
-                 force_check_p2sh = False, crypto = 'bitcoin', is_performance = False):
+                 force_check_p2sh = False, crypto = 'bitcoin', is_performance = False, correct_wallet_password = None):
         global hmac, coincurve, base58
         if not hashlib_ripemd160_available:
             print("Warning: Native RIPEMD160 not available via Hashlib, using Pure-Python (This will significantly reduce performance)")
@@ -4895,6 +4902,8 @@ class WalletRawPrivateKey(object):
         input_address_standard = False
         self.address_type_checks = []
 
+        self.hash160s = None
+
         if addresses:
             if self.crypto == 'ethereum':
                 self.hash160s = btcrseed.WalletEthereum._addresses_to_hash160s(addresses)
@@ -4907,14 +4916,8 @@ class WalletRawPrivateKey(object):
                         input_address_p2sh = True
                     else:
                         input_address_standard = True
-        else:
-            print("No Addresses Provided ... ")
-            print("Loading address database ...")
 
-            if not addressdb:
-                print("No AddressDB specified, trying addresses.db")
-                addressdb = "addresses.db"
-
+        if addressdb:
             self.hash160s = AddressSet.fromfile(open(addressdb, "rb"))
             print("Loaded", len(self.hash160s), "addresses from database ...")
             input_address_p2sh = True
@@ -4922,6 +4925,8 @@ class WalletRawPrivateKey(object):
 
         if input_address_p2sh or force_check_p2sh: self.address_type_checks.append(True)
         if input_address_standard and not (force_check_p2sh): self.address_type_checks.append(False)
+
+        self.correct_wallet_password = correct_wallet_password
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
@@ -4967,16 +4972,50 @@ class WalletRawPrivateKey(object):
 
             elif len(password) == 52 and password[0] in ["L","K"]: #Compressed Private Key
                 try:
+                    # Check whether we have a valid Base58check first (This will weed out most invalid options)
+                    base58.b58decode_check(password)
+                    print("***NOTICE*** Found possible Private key (Has valid Base58Checksum):", password, "checking if supplied address matches...")
+
+                    # Convert to Hex for checking against supplied address
                     password = binascii.hexlify(base58.b58decode_check(password)[1:-1])
                     WIFPrivKey = True
+
                 except:
                     continue
 
             elif len(password) == 51 and password[0] == "5":  # Uncompressed Private Key
                 try:
+                    # Check whether we have a valid Base58check first (This will weed out most invalid options)
+                    base58.b58decode_check(password)
+                    print("***NOTICE*** Found possible Private key (Has valid Base58Checksum):", password, "checking if supplied address matches...")
+
+                    # Convert to Hex for checking against supplied address
                     password = binascii.hexlify(base58.b58decode_check(password)[1:])
                     WIFPrivKey = True
                 except:
+                    continue
+            elif len(password) == 58 and password[0:3] == "6Pn": # BIP38 Encrypted Private key
+                try:
+                    # Check whether we have a valid Base58check first (This will weed out most invalid options)
+                    base58.b58decode_check(password)
+                    print("***NOTICE*** Found possible BIP38 Private key (Has valid Base58Checksum):", password, "checking if supplied address matches...")
+
+                except:
+                    continue
+
+                if self.correct_wallet_password:
+                    print("Attempting BIP38 decryption...")
+                    test_wallet = WalletBIP38(enc_privkey = password)
+                    correct_password, count = test_wallet.return_verified_password_or_false([self.correct_wallet_password])
+                    if correct_password:
+                        password = binascii.hexlify(base58.b58decode_check(test_wallet.decrypted_privkey)[1:-1])
+                    else:
+                        print("Incorrect decryption password supplied, unable to check further...")
+                        continue
+
+                    WIFPrivKey = True
+                else:
+                    print("No decryption password supplied, unable to check further...")
                     continue
             else: # Unsupported Private Key
                 continue
@@ -4993,6 +5032,15 @@ class WalletRawPrivateKey(object):
                 message = "\n\nWarning: Invalid Private Key (Should be 64 Characters long)" + "\nKey Tried: " + password + "\nKey Length: " + str(len(privkey)*2) + "\nDouble check your tokenlist/passwordlist and ensure that only valid characters/wildcards are used..."
                 print(message)
                 continue
+
+            # Don't spam this at performance measurement step
+            if password != "9cf68de3a8bec8f4649a5a1eb9340886a68a85c0c3ae722393ef3dd7a6c4da58":
+                if not self.hash160s:
+                    if WIFPrivKey:
+                        print("Warning: No addresses supplied, unable to check Base58 private key any further.. ")
+                    else:
+                        print("Warning: No addresses supplied combined with hexidicimal private key, this will never find a result... ")
+
 
             # Convert the private keys to public keys and addresses for verification.
             for isCompressed in self.compression_checks:
@@ -6491,7 +6539,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                           check_compressed = not(args.skip_compressed),
                                           check_uncompressed = not(args.skip_uncompressed),
                                           force_check_p2sh = args.force_check_p2sh,
-                                          crypto=args.wallet_type)
+                                          crypto=args.wallet_type,
+                                            correct_wallet_password = args.correct_wallet_password)
 
     # Set the default number of threads to use. For GPU processing, things like hyperthreading are unhelpful, so use physical cores only...
     if not args.threads:
