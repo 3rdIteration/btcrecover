@@ -43,6 +43,7 @@ import lib.bech32 as bech32
 import lib.cardano.cardano_utils as cardano
 import lib.stacks.c32 as c32
 from lib.p2tr_helper import P2TR_tools
+from lib import progressbar
 
 # Enable functions that may not work for some standard libraries in some environments
 hashlib_ripemd160_available = False
@@ -107,6 +108,7 @@ try:
 except:
     pass
 
+from math import factorial
 
 _T = TypeVar("_T")
 
@@ -1533,7 +1535,7 @@ class WalletBIP39(WalletBIP32):
         # Specifically, update self._words and the globals mnemonic_ids_guess and close_mnemonic_ids.
         if self._lang.endswith(self.FIRSTFOUR_TAG):
             long_lang_words = self._language_words[self._lang[:-len(self.FIRSTFOUR_TAG)]]
-            assert isinstance(long_lang_words[0], str),  "long words haven't yet been converted into bytes"
+            assert isinstance(long_lang_words[0],  str),  "long words haven't yet been converted into bytes"
             assert isinstance(self._words[0],     str),    "short words have already been converted into bytes"
             assert len(long_lang_words) == len(self._words), "long and short word lists have the same length"
             long_lang_words = [ self._unicode_to_bytes(l) for l in long_lang_words ]
@@ -1543,7 +1545,7 @@ class WalletBIP39(WalletBIP32):
             global mnemonic_ids_guess  # the to-be-replaced short-words guess
             long_ids_guess = ()        # the new long-words guess
             for short_id in mnemonic_ids_guess:
-                long_ids_guess += None if short_id is None else short_to_long[short_id],
+                long_ids_guess += None if short_id is None else short_to_long[short_id],  # *now* convert to BIP39's format
             mnemonic_ids_guess = long_ids_guess
             #
             global close_mnemonic_ids
@@ -1719,7 +1721,7 @@ class WalletBIP39(WalletBIP32):
         try:
             bit_string        = "".join(self._word_to_binary[w] for w in mnemonic_words)
         except:
-		    # only get here if there was something wrong with the nemonic words
+		    # only get here if there was something wrong with the nemonic sentence:
             print ("invalid nemonic sentence: ")
             print (mnemonic_words)
             return False		
@@ -3452,14 +3454,46 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
                 if num_replacecloseword < typos:
                     l_btcr_args += " --max-typos-replacecloseword " + str(num_replacecloseword)
 
+        # Add ETA calculation before btcrpass.parse_arguments
+        if tokenlist and not any('--no-eta' in arg for arg in extra_args):
+            try:
+                with open(tokenlist, 'r') as tokenlist_file:
+                    lines = parse_tokenlist_for_eta(tokenlist_file)
+                    if lines is not None:
+                        seed_length = mnemonic_length if mnemonic_length else 12
+                        total_count = calculate_total_permutations(lines, seed_length)
+                        print(f"Will test {total_count:,} possible seed phrases")
+                        # Set up progress tracking
+                        btcrpass.passwords_count = total_count
+                        btcrpass.count_and_check_eta = lambda *args, **kwargs: total_count
+                        btcrpass.has_progress = True
+                        btcrpass.max_eta = total_count
+                        btcrpass.show_progress = True
+                        btcrpass.show_speed = True
+                        btcrpass.display_performance = True
+            except Exception as e:
+                print(f"Notice: Using default progress calculation method ({str(e)})")
+
+        # Configure progress bar
+        progress_bar_widgets = [
+            progressbar.SimpleProgress(), " ",
+            progressbar.Bar(left="[", fill="-", right="]"),
+            " ", 
+            progressbar.FileTransferSpeed(unit="P"),
+            " ",
+            progressbar.FormatLabel("elapsed: %(elapsed)s, "),
+            progressbar.ETA()
+        ]
+
         btcrpass.parse_arguments(
             l_btcr_args.split() + extra_args,
             inserted_items= ids_to_try_inserting,
             wallet=         loaded_wallet,
-            base_iterator=  (mnemonic_ids_guess,) if not is_performance else None, # the one guess to modify
+            base_iterator=  (mnemonic_ids_guess,) if not is_performance else None,
             perf_iterator=  lambda: loaded_wallet.performance_iterator(),
             check_only=     loaded_wallet.verify_mnemonic_syntax,
-            disable_security_warning_param=True
+            disable_security_warning_param=True,
+            progress_bar_widgets=progress_bar_widgets  # Pass the widgets to btcrpass
         )
         (mnemonic_found, not_found_msg) = btcrpass.main()
 
@@ -4165,3 +4199,143 @@ def show_mnemonic_gui(mnemonic_sentence, path_coin):
     entry.focus_set()
     tk_root.mainloop()  # blocks until the user closes the window
     pause_at_exit = False
+
+def parse_tokenlist_for_eta(tokenlist_file):
+    """
+    Parse the token list into a list of lists, where each sublist contains unique alternatives for a line.
+    Returns None if the list has fewer than 12 lines.
+    """
+    try:
+        lines = []
+        for line in tokenlist_file:
+            line = line.strip()
+            if line and not line.startswith('#'):  # Skip empty lines and comments
+                alternatives = [word.strip() for word in line.split(',')]
+                unique_alts = list(dict.fromkeys(alternatives))  # Remove duplicates within line
+                if unique_alts:  # Only add if there are valid alternatives
+                    if len(unique_alts) != len(alternatives):
+                        print(f"Notice: Removed duplicates from line: {alternatives}")
+                    lines.append(unique_alts)
+        
+        if len(lines) < 12:
+            print(f"Error: Token list must contain at least 12 lines (found {len(lines)})")
+            return None
+        return lines
+    except Exception as e:
+        print(f"Error reading token list: {str(e)}")
+        return None
+
+def get_multisets(n_needed, num_types, max_freqs):
+    """
+    Generate all multisets of size n_needed from num_types distinct types with maximum frequencies.
+    Yields tuples of frequencies for each type.
+    """
+    def generate_multisets(prefix, remaining, num_elements):
+        if num_elements == 0:
+            if remaining == 0:
+                yield tuple(prefix)
+            return
+        start = prefix[-1] if prefix else 0
+        max_freq = max_freqs[len(prefix)]
+        for i in range(start, min(remaining, max_freq) + 1):
+            yield from generate_multisets(prefix + [i], remaining - i, num_elements - 1)
+    yield from generate_multisets([], n_needed, num_types)
+
+def calculate_total_permutations(lines, seed_length=12):
+    """
+    Calculate the total number of unique seed phrases.
+    Parameters:
+        lines: List of lists, where each inner list contains alternative words for a line.
+        seed_length: Integer, length of the seed phrase (defaults to 12 for BIP39)
+    """
+    if not lines:
+        print("Error: Token list is empty")
+        return 0
+    
+    if len(lines) < seed_length:
+        print(f"Error: Token list has insufficient lines ({len(lines)}) for seed length {seed_length}")
+        return 0
+    
+    # Convert lines to tuples for hashability (to identify duplicates)
+    line_tuples = [tuple(line) for line in lines]
+    
+    # Count frequencies of each distinct line type
+    line_freq = collections.Counter(line_tuples)
+    distinct_lines = list(line_freq.keys())  # Unique line types
+    frequencies = list(line_freq.values())   # How many times each type appears
+    num_distinct = len(distinct_lines)
+    
+    # Number of alternatives per distinct line type
+    choices = [len(line) for line in distinct_lines]
+    
+    # Generate all combinations of choosing xi instances of each line type, where sum(xi) = seed_length
+    def generate_combinations(current, remaining, index):
+        if index == num_distinct:
+            if remaining == 0:
+                yield tuple(current)
+            return
+        fi = frequencies[index]
+        # xi ranges from 0 to min(remaining, fi)
+        for xi in range(min(remaining, fi) + 1):
+            yield from generate_combinations(current + [xi], remaining - xi, index + 1)
+    
+    total = 0
+    
+    # Iterate over all valid combinations
+    for combo in generate_combinations([], seed_length, 0):
+        # Compute permutations: seed_length! / (x1! * x2! * ... * xk!)
+        denominator = 1
+        for xi in combo:
+            if xi > 0:
+                denominator *= factorial(xi)
+        perms = factorial(seed_length) // denominator
+        
+        # Compute choices: c1^x1 * c2^x2 * ... * ck^xk
+        choice_product = 1
+        for xi, ci in zip(combo, choices):
+            if xi > 0:
+                choice_product *= ci ** xi
+        
+        total += perms * choice_product
+    
+    return total
+
+def enable_progress():
+    """Enable progress tracking without disabling ETA"""
+    global passwords_count
+    if not passwords_count:
+        return False
+    return True
+
+# Progress bar configuration for seed recovery
+def configure_seed_progress(tokenlist=None, extra_args=None):
+    if tokenlist and not any('--no-eta' in arg for arg in (extra_args or [])):
+        try:
+            with open(tokenlist, 'r') as tokenlist_file:
+                lines = parse_tokenlist_for_eta(tokenlist_file)
+                if lines is not None:
+                    seed_length = mnemonic_length if mnemonic_length else 12
+                    total_count = calculate_total_permutations(lines, seed_length)
+                    print(f"Will test {total_count:,} possible seed phrases")
+                    # Set up progress tracking
+                    btcrpass.passwords_count = total_count
+                    btcrpass.count_and_check_eta = lambda *args, **kwargs: total_count
+                    btcrpass.has_progress = True
+                    btcrpass.max_eta = total_count
+                    btcrpass.show_progress = True
+                    btcrpass.show_speed = True
+                    btcrpass.display_performance = True
+        except Exception as e:
+            print(f"Notice: Using default progress calculation method ({str(e)})")
+
+    # Configure progress bar widgets
+    progress_bar_widgets = [
+        progressbar.SimpleProgress(), " ",
+        progressbar.Bar(left="[", fill="-", right="]"),
+        " ", 
+        progressbar.FileTransferSpeed(unit="P"),
+        " ",
+        progressbar.FormatLabel("elapsed: %(elapsed)s, "),
+        progressbar.ETA()
+    ]
+    btcrpass.progress_bar_widgets_global = progress_bar_widgets
