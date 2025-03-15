@@ -1435,14 +1435,14 @@ class Test07WalletDecryption(unittest.TestCase):
         self.wallet_tester("block.io.change.json", correct_pass="btcrtestpassword2022")
 
     @skipUnless(can_load_sjcl, "requires SJCL")
-    def bitgo_keycard_userkey(self):
+    def test_bitgo_keycard_userkey(self):
         self.wallet_tester("bitgo_keycard_userkey.json", correct_pass="btcr-test-password")
 
-    def btc_com_backup(self):
+    def test_btc_com_backup(self):
         self.wallet_tester("btc_com_parsed_wallet_data_v3_random.json", correct_pass="santacruzbolivia")
 
     @skipUnless(can_load_nacl, "requires NaCl")
-    def toastwallet(self):
+    def test_toastwallet(self):
         self.wallet_tester("toastwallet.txt", correct_pass="Btcr-test-passw0rd")
 
     @skipUnless(can_load_leveldb, "Unable to load LevelDB module, requires Python 3.8+")
