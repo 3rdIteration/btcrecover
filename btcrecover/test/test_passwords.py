@@ -1438,6 +1438,9 @@ class Test07WalletDecryption(unittest.TestCase):
     def bitgo_keycard_userkey(self):
         self.wallet_tester("bitgo_keycard_userkey.json", correct_pass="btcr-test-password")
 
+    def btc_com_backup(self):
+        self.wallet_tester("btc_com_parsed_wallet_data_v3_random.json", correct_pass="santacruzbolivia")
+
     @skipUnless(can_load_nacl, "requires NaCl")
     def toastwallet(self):
         self.wallet_tester("toastwallet.txt", correct_pass="Btcr-test-passw0rd")
