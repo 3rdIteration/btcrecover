@@ -110,6 +110,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
      * [Yoroi Wallet for Cardano](https://yoroi-wallet.com/#/) Master_Passwords extracted from the wallet data (In browser or on rooted/jailbroken phones)
      * [Ethereum UTC Keystore Files](https://myetherwallet.com) Ethereum Keystore files, typically used by wallets like MyEtherWallet, MyCrypto, etc. (Also often used by Eth clones like Theta, etc)
      * [Damaged Raw Eth Private Keys]() Individual Private keys that are missing characters.
+     * [Toastwallet](https://toastwallet.github.io/browser/) Toastwallet Passphrase
  * [Free and Open Source](http://en.wikipedia.org/wiki/Free_and_open-source_software) - anyone can download, inspect, use, and redistribute this software
  * Supported on Windows, Linux, and OS X
  * Support for Unicode passwords and seeds
