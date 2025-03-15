@@ -130,6 +130,16 @@ try:
 except:
     pass
 
+# Nacl
+nacl_available = False
+try:
+    import nacl.pwhash
+    import nacl.secret
+
+    nacl_available = True
+except:
+    pass
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 def load_customTokenWildcard(customTokenWildcardFile):
@@ -5305,6 +5315,86 @@ class Walletbtc_com(object):
             return password.decode("utf_8", "replace"), count
 
         return False, count
+
+
+############### ToastWallet  ###############
+@register_wallet_class
+class Wallettoastwallet(object):
+    opencl_algo = -1
+    _dump_privkeys_file = None
+
+    def __init__(self, loading = False):
+        if not nacl_available:
+            exit("Toastwallet Requires the nacl module, this can be installed via pip3 install pynacl")
+
+    def dump_privkeys(self, hash1):
+        with open(self._dump_privkeys_file, 'a') as logfile:
+            logfile.write("Below are all of the accounts in the wallet, these private keys can be imported into XRP wallets like Xaman\nNickname      Address      Privkey\n")
+            for account in self.wallet_json['accounts'].keys():
+                addr_salt = binascii.unhexlify(
+                    self.wallet_json['accounts'][account]['ppsalt'].encode())[4:]
+                addr_secret = binascii.unhexlify(
+                    self.wallet_json['accounts'][account]['ppsecret'].encode())[4:]
+
+                ppsecretk32key = nacl.pwhash.scrypt.kdf(size=32, password=hash1, salt=addr_salt, opslimit=4,
+                                                        memlimit=33554432)
+
+                box = nacl.secret.SecretBox(ppsecretk32key)
+
+                secret_clear = box.decrypt(addr_secret)
+
+                logfile.write(self.wallet_json['accounts'][account]['nickname'] + " " + account + " " + bytes.fromhex(secret_clear.hex()).decode() + "\n")
+
+    @staticmethod
+    def is_wallet_file(wallet_file):
+        wallet_file.seek(0)
+        try:
+            walletdata = wallet_file.read()
+        except: return False
+        return (b"ppdata" in walletdata) and (b"rpdata" in walletdata)
+
+    @classmethod
+    def load_from_filename(cls, wallet_filename):
+        self = cls()
+
+        # Open a JSON file containing the wallet data, as parsed by the browser based btc.com wallet recovery tool
+        # (You can manually create this file, all BTCRecover uses is the password encrypted secret mnemonic,
+        # you can leave the rest out to avoid exposing the actal wallet private keys to the system running BTCRecover)
+        with open(wallet_filename) as wallet_file:
+            wallet_file.seek(8)  # Skip over the wallet fingerprint at the start
+            wallet_json = json.load(wallet_file)
+
+        self.salt1 = binascii.unhexlify(wallet_json['ppdata']['salt1'].encode())[4:]
+        self.salt2 = binascii.unhexlify(wallet_json['ppdata']['salt2'].encode())[4:]
+        self.target_hash = binascii.unhexlify(wallet_json['ppdata']['hash'].encode())[4:]
+        self.wallet_json = wallet_json
+
+        return self
+
+    def passwords_per_seconds(self, seconds):
+        # Haven't worked this out, but this is a ballpark figure
+        return 2000
+
+    # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
+    # is correct return it, else return False for item 0; return a count of passwords checked for item 1
+    def return_verified_password_or_false(self, arg_passwords):  # toastwallet wallet password
+        # Convert Unicode strings (lazily) to UTF-8 bytestrings
+        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+
+        for count, password in enumerate(passwords, 1):
+            hash1 = nacl.pwhash.scrypt.kdf(size=16, password=password, salt=self.salt1, opslimit=4, memlimit=33554432)
+            hash2 = nacl.pwhash.scrypt.kdf(size=16, password=hash1, salt=self.salt2, opslimit=4, memlimit=33554432)
+
+            if self.target_hash == hash2:
+                # If we aren't dumping these files, then just return...
+                if self._dump_privkeys_file:
+                    # This just dumps the wallet private keys (if required)
+                    self.dump_privkeys(hash1)
+
+                return password.decode("utf_8", "replace"), count
+
+        return False, count
+
 
 ############### NULL ###############
 # A fake wallet which has no correct password;

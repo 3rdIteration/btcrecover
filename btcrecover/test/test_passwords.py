@@ -1075,6 +1075,18 @@ def can_load_sjcl():
             sjcl_available = False
     return sjcl_available
 
+is_nacl_loadable = None
+def can_load_nacl():
+    global is_nacl_loadable
+    if is_nacl_loadable is None:
+        try:
+            import nacl.pwhash
+            import nacl.secret
+            is_nacl_loadable = True
+        except:
+            is_nacl_loadable = False
+    return is_nacl_loadable
+
 # Wrapper for btcrpass.init_worker() which clears btcrpass.loaded_wallet to simulate the way
 # multiprocessing works on Windows (even on other OSs) and permits pure python library testing
 def init_worker(wallet, char_mode, force_purepython, force_kdf_purepython):
@@ -1425,6 +1437,10 @@ class Test07WalletDecryption(unittest.TestCase):
     @skipUnless(can_load_sjcl, "requires SJCL")
     def bitgo_keycard_userkey(self):
         self.wallet_tester("bitgo_keycard_userkey.json", correct_pass="btcr-test-password")
+
+    @skipUnless(can_load_nacl, "requires NaCl")
+    def toastwallet(self):
+        self.wallet_tester("toastwallet.txt", correct_pass="Btcr-test-passw0rd")
 
     @skipUnless(can_load_leveldb, "Unable to load LevelDB module, requires Python 3.8+")
     def test_metamask_leveldb_chrome_cpu(self):
