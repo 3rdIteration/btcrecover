@@ -581,7 +581,7 @@ class WalletElectrum1(WalletBase):
     # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
     @staticmethod
     def verify_mnemonic_syntax(mnemonic_ids):
-        return len(mnemonic_ids) == 12 and None not in mnemonic_ids
+        return len(mnemonic_ids) in [12,24] and None not in mnemonic_ids
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
@@ -602,7 +602,7 @@ class WalletElectrum1(WalletBase):
 
             # Compute the binary seed from the word list the Electrum1 way
             seed = ""
-            for i in range(0, 12, 3):
+            for i in range(0, len(mnemonic_ids), 3):
                 seed += "{:08x}".format( mnemonic_ids[i    ]
                      + num_words  * (   (mnemonic_ids[i + 1] - mnemonic_ids[i    ]) % num_words )
                      + num_words2 * (   (mnemonic_ids[i + 2] - mnemonic_ids[i + 1]) % num_words ))
@@ -657,7 +657,11 @@ class WalletElectrum1(WalletBase):
     # Configures the values of four globals used later in config_btcrecover():
     # mnemonic_ids_guess, close_mnemonic_ids, num_inserts, and num_deletes
     @classmethod
-    def config_mnemonic(cls, mnemonic_guess = None, closematch_cutoff = 0.65):
+    def config_mnemonic(cls, mnemonic_guess = None, closematch_cutoff = 0.65, expected_len = None):
+        if expected_len:
+            if expected_len not in [12,24]:
+                raise ValueError("Electrum1 mnemoincs can only be 12 or 24 words lon")
+
         # If a mnemonic guess wasn't provided, prompt the user for one
         if not mnemonic_guess:
             init_gui()
@@ -694,9 +698,24 @@ class WalletElectrum1(WalletBase):
                           "    trying all possible seed words here instead.".format(word))
                 mnemonic_ids_guess += None,
 
+        guess_len = len(mnemonic_ids_guess)
+        if not expected_len:
+            if guess_len < 12:
+                expected_len = 12
+            elif guess_len > 24:
+                expected_len = 24
+            else:
+                off_by = guess_len % 3
+                if off_by == 0: # If the supplied guess is a valid length, assume that all words have been supplied
+                    expected_len = guess_len
+                else: # If less words have been supplied, round up to the nearest valid seed length (Assume words are missing by default)
+                    expected_len = guess_len + 3 - off_by
+
+            print("Assuming a", expected_len, "word mnemonic. (This can be overridden with --mnemonic-length)")
+
         global num_inserts, num_deletes
-        num_inserts = max(12 - len(mnemonic_ids_guess), 0)
-        num_deletes = max(len(mnemonic_ids_guess) - 12, 0)
+        num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
+        num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
         if num_inserts:
             print("Seed sentence was too short, inserting {} word{} into each guess."
                   .format(num_inserts, "s" if num_inserts > 1 else ""))
@@ -3741,7 +3760,6 @@ def main(argv):
                 phase["passwordlist"] = args.seedlist
 
             if args.wallet_type == "electrum1":
-                args.mnemonic_length = None
                 args.language = None
 
         if args.language:

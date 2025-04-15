@@ -117,3 +117,9 @@ One missing word, address generation limit of 2. (So address needs to be in the 
 ```
 python seedrecover.py --wallet-type elrond --addrs erd16jn439kmwgqj9j0xjnwk2swg0p7j2jrnvpp4p7htc7wypnx27ttqe9l98m --mnemonic "agree process hard hello artefact govern obtain wedding become robust fish bar alcohol about speak unveil mind bike shift latin pole base ugly artefact" --addr-limit 2
 ```
+
+### Basic Electrum Legacy Recoveries
+One wrong word, address generation limit of 2. (So address needs to be in the first account)
+```
+python seedrecover.py --wallet-type electrum1 --addrs 1Pw1yjF5smzg6eWbE2LbFm7fr1zq7WUYc7 --mnemonic "milk hungry group sound Lift Connect throw rabbit gift leg new lady pie government swear flat dove imagination sometime prepare lot trembl alone bus" --addr-limit 2
+```

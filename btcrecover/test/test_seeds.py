@@ -564,9 +564,13 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester_cardano_opencl("addr1qx3f4r3qqvynsnvhxrkkycp83v93jg2fqkn7scxnvpe6t99f4evt0tdad8cvsdvenma8t68gfdkyvf3efjzslcn7r4ys72w3qh",
                                     "wood blame garbage one federal jaguar slogan movie thunder seed apology trigger spoon depth basket fine culture boil render special enforce dish middle antique")
 
-    def test_electrum1_addr_legacy_BTC(self):
+    def test_electrum1_addr_legacy_12word_BTC(self):
         self.address_tester(btcrseed.WalletElectrum1, "12zAz6pAB6LhzGSZFCc6g9uBSWzwESEsPT", 3,
                             "straight subject wild ask clean possible age hurt squeeze cost stuck softly")
+
+    def test_electrum1_addr_legacy_24_word_BTC(self):
+        self.address_tester(btcrseed.WalletElectrum1, "1MFu6Wyp6Gy3PDpz2PtoNVdiFWDHR8TMuS", 3,
+                            "bowl especially tomorrow fan sail defeat scary knock ripple third cheek blind join mark rock scratch truth interest bone perfection curve milk taint terror")
 
     def test_electrum2_addr_legacy_BTC(self):
         self.address_tester(btcrseed.WalletElectrum2, "14dpd9nayyoyCTNki5UUsm1KnAZ1x7o83E", 5,
