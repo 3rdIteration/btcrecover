@@ -8,11 +8,6 @@ For seed based recovery, this is primarily useful in situations where you have l
 For wallet password or passphrase recovery, it is primarily useful if you have a reasonable idea about what your password might be.
 
 # Documentation:
-### Instructions for installation, usage & examples:  [https://btcrecover.readthedocs.io/](https://btcrecover.readthedocs.io/)
-
-[(You can also view the documentation in your browser locally by following the instructions here. )](docs/local_mkdocs.md)
-
-If you need help, [your best bet is to look at my BTCRecover playlist on YouTube](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) and ask a question in the comments section for any of video closest to your situation.
 
 ## Features ##
 * BIP39 Seed/Passphrase Recovery when for: (Recovery without a known address requires an [Address Database](docs/Creating_and_Using_AddressDB.md))
