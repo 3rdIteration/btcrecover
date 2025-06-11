@@ -66,7 +66,7 @@ Some warnings and notes...
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
 * Performance will also vary dramatically between phones and Android versions... (Though it is actually fast enough to be useful for simple recoveries)
 * Termux is not a standard Linux environment and is not officially supported, but might work following the process below... (And if it doesn't, just use a PC instead...)
-Install Termux following the instructions here: https://termux.dev/en/ (Currently not officially distributed on Google Play)
+* Install Termux following the instructions here: https://termux.dev/en/ (Currently not officially distributed on Google Play and the version on Google Play is not currently up-to-date)
 
 You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)
 
