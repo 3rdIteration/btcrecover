@@ -61,12 +61,15 @@ If you get a message that there is no installation candidate for Python3-pip, yo
 You can then re-run the command to install python3-pip from above.
 
 ### Android via Termux ###
-Termux is not automatically tested like other platforms... Performance will also vary dramatically between phones and Android versions...
+Termux is not automatically tested like other platforms... Performance will also vary dramatically between phones and Android versions... (Though it is actually fast enough to be useful for simple recoveries)
 
 Termux is not officially supported, but might work following the process below... (And if it doesn't, just use a PC instead...)
 
-Install Termux following the instructions here: https://termux.dev/en/
+Install Termux following the instructions here: https://termux.dev/en/ (Currently not officially distributed on Google Play)
 
+You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)
+
+   pkg install python-pip git autoconf automake build-essential libtool pkg-config binutils-is-llvm
 
 
 #### Enabling Native RIPEMD160 Support

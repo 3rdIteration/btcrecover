@@ -373,9 +373,6 @@ class WalletBase(object):
                         else:
                             print("Address not valid and unable to load modified bitcoinlib on this platform...")
 
-                        # if we got here then the address is no good...
-                        raise ValueError("Invalid address")
-
             hash160s.add(hash160)
         return hash160s
 
