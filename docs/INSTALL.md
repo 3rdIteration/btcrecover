@@ -24,6 +24,7 @@ Ubuntu Linux: <https://youtu.be/Met3NbxcZTU>
 
 MacOS: <https://youtu.be/Qzc3oHzbcAo>
 
+Android via Termux: TBC
 
 ## 1) Downloading *btcrecover* ##
 

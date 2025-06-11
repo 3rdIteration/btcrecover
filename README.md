@@ -112,7 +112,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
      * [Damaged Raw Eth Private Keys]() Individual Private keys that are missing characters.
      * [Toastwallet](https://toastwallet.github.io/browser/) Toastwallet Passphrase
  * [Free and Open Source](http://en.wikipedia.org/wiki/Free_and_open-source_software) - anyone can download, inspect, use, and redistribute this software
- * Supported on Windows, Linux, and OS X
+ * Supported on Windows, Linux, and MacOS
  * Support for Unicode passwords and seeds
  * Multithreaded searches, with user-selectable thread count
  * Ability to spread search workload over multiple devices
@@ -126,7 +126,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
  * “Offline” mode for nearly all supported wallets - use one of the [extract scripts (click for more information)](docs/Extract_Scripts.md) to extract just enough information to attempt password recovery, without giving *btcrecover* or whoever runs it access to *any* of the addresses or private keys in your Bitcoin wallet.
 
 ## Setup and Usage Tutorials ##
-BTCRecover is a Python (3.8, 3.9, 3.10, 3.11) script so will run on Windows, Linux and Mac environments. [See the installation guide for more info](docs/INSTALL.md)
+BTCRecover is a Python (3.9, 3.10, 3.11, 3.12 and 3.13) script so will run on Windows, Linux, Mac and even Android environments. [See the installation guide for more info](docs/INSTALL.md)
 
 [I have created a growing playlist](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) that covers a number of usage examples for using this tool to recover seed phrases, BIP39 passphrases, etc.
 
