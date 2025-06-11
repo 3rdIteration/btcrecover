@@ -32,7 +32,6 @@ from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 # Import modules bundled with BTCRecover
 from . import btcrpass
 from .addressset import AddressSet
-from lib.bitcoinlib_mod import encoding as encoding_mod
 from lib.bitcoinlib import encoding
 from lib.cashaddress import convert, base58
 from lib.base58_tools import base58_tools
@@ -43,6 +42,15 @@ import lib.bech32 as bech32
 import lib.cardano.cardano_utils as cardano
 import lib.stacks.c32 as c32
 from lib.p2tr_helper import P2TR_tools
+
+# import bundled modules that won't work in some environments
+bundled_bitcoinlib_mod_available = False
+try:
+    from lib.bitcoinlib_mod import encoding as encoding_mod
+
+    bundled_bitcoinlib_mod_available = True
+except:
+    pass
 
 # Enable functions that may not work for some standard libraries in some environments
 hashlib_ripemd160_available = False
@@ -356,12 +364,17 @@ class WalletBase(object):
                     try:
                         hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
                     except Exception as e:
-                        # Try for some obscure altcoins which require modified versions of Bitcoinlib
-                        try:
-                            hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
-                        except Exception as e:
-                            hash160 = binascii.unhexlify(encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #
+                        if bundled_bitcoinlib_mod_available:
+                            # Try for some obscure altcoins which require modified versions of Bitcoinlib
+                            try:
+                                hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
+                            except Exception as e:
+                                hash160 = binascii.unhexlify(encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True))
+                        else:
+                            print("Address not valid and unable to load modified bitcoinlib on this platform...")
 
+                        # if we got here then the address is no good...
+                        raise ValueError("Invalid address")
 
             hash160s.add(hash160)
         return hash160s

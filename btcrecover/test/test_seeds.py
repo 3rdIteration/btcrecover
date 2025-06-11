@@ -114,6 +114,19 @@ def can_load_staking_deposit():
             eth2_staking_deposit_available = False
     return eth2_staking_deposit_available
 
+# import bundled modules that won't work in some environments
+bundled_bitcoinlib_mod_available = None
+def can_load_bundled_bitcoinlib_mod():
+    global bundled_bitcoinlib_mod_available
+    if bundled_bitcoinlib_mod_available is None:
+        try:
+            from lib.bitcoinlib_mod import encoding as encoding_mod
+
+            bundled_bitcoinlib_mod_available = True
+        except:
+            bundled_bitcoinlib_mod_available = False
+    return bundled_bitcoinlib_mod_available
+
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
 # permits checking the character mode (which isn't set until later) and prevents multiprocessing
@@ -658,6 +671,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop",
                             ["m/44'/0'/0'/0"])
 
+    @skipUnless(can_load_bundled_bitcoinlib_mod,"Unable to load modified bitcoinlib in this environment")
     def test_bip44_addr_TerraLuna(self):
         self.address_tester(btcrseed.WalletBIP39, "terra1negkjtkr6wu2uzcwcuz0kj8w4z64uax3w0dv5u", 2,
                             "earth jelly weapon word focus shaft danger cruel inflict strong palace barrel peace strike timber orbit orphan tower size series scatter kiwi fat filter",
