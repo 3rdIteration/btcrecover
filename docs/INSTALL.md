@@ -61,19 +61,23 @@ If you get a message that there is no installation candidate for Python3-pip, yo
 You can then re-run the command to install python3-pip from above.
 
 ### Android via Termux ###
-Termux is not automatically tested like other platforms... Performance will also vary dramatically between phones and Android versions... (Though it is actually fast enough to be useful for simple recoveries)
-
-Termux is not officially supported, but might work following the process below... (And if it doesn't, just use a PC instead...)
-
+Some warnings and notes...
+* Termux is not automatically tested like other platforms... 
+* Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
+* Performance will also vary dramatically between phones and Android versions... (Though it is actually fast enough to be useful for simple recoveries)
+* Termux is not a standard Linux environment and is not officially supported, but might work following the process below... (And if it doesn't, just use a PC instead...)
 Install Termux following the instructions here: https://termux.dev/en/ (Currently not officially distributed on Google Play)
 
 You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)
 
-   pkg install python-pip git autoconf automake build-essential libtool pkg-config binutils-is-llvm
+   pkg install python-pip git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust
 
+Once this is done, you can install the base requirements for BTCRecover that allow recovery of common wallet types. (The full requirements have a lot of packages that won't easily work with Termux) You can also install py-crypto-hd-wallet via pip3 for extended wallet support.(This will take a while to build)
 
 #### Enabling Native RIPEMD160 Support
-As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.
+As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.
+
+You can check if this is required by running `python check_ripemd160.py`
 
 As of July 2022, BTCRecover does include a "pure Python" implementation of RIPEMD160, but this only offers about 1/3 of the performance when compared to a native implementation via hashlib.
 
