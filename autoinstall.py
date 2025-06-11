@@ -21,15 +21,9 @@ if __name__ == '__main__':
         subprocess.run(
             'sudo apt-get install -y python3 python3-pip python3-dev git', shell=True)
         subprocess.run(
-            'wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin', shell=True)
+            'wget https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda_12.9.1_575.57.08_linux.run', shell=True)
         subprocess.run(
-            'sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600', shell=True)
-        subprocess.run(
-            'sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub', shell=True)
-        subprocess.run(
-            'sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"', shell=True)
-        subprocess.run('sudo apt-get update', shell=True)
-        subprocess.run('sudo apt-get -y install cuda', shell=True)
+            'sudo sh cuda_12.9.1_575.57.08_linux.run', shell=True)
         subprocess.run('pip3 install -r requirements.txt', shell=True)
         subprocess.run('clear', shell=True)
         print('Enter you telegram bot token search @Botfather in telegram')
