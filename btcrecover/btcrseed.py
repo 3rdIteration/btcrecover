@@ -255,6 +255,33 @@ def load_passphraselist(passphraselistFile):
     passphraselist_file.close()
     return passphraselist
 
+import hmac
+import hashlib
+from struct import pack
+
+def get_master_key_and_chain_code(seed):
+    key = b"ed25519 seed"
+    I = hmac.new(key, seed, hashlib.sha512).digest()
+    return I[:32], I[32:]
+
+def derive_child_key(parent_key, parent_chain_code, index):
+    # Hardened index: index >= 0x80000000
+    assert index >= 0x80000000
+
+    data = b'\x00' + parent_key + pack(">L", index)
+    I = hmac.new(parent_chain_code, data, hashlib.sha512).digest()
+    return I[:32], I[32:]
+
+def derive_path(master_key, master_chain_code, path):
+    keys = (master_key, master_chain_code)
+    for index_str in path.lstrip("m/").split("/"):
+        hardened = index_str.endswith("'")
+        index = int(index_str.rstrip("'"))
+        if hardened:
+            index += 0x80000000
+        keys = derive_child_key(keys[0], keys[1], index)
+    return keys
+
 ################################### Wallets ###################################
 
 # A class decorator which adds a wallet class to a registered
@@ -1316,7 +1343,10 @@ class WalletBIP32(WalletBase):
             _derive_seed_list = self._derive_seed(mnemonic_ids)
 
             for derived_seed, salt in _derive_seed_list:
-                seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed, hashlib.sha512).digest()
+                if type(self) is not WalletXLM:
+                    seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed, hashlib.sha512).digest()
+                else:
+                    seed_bytes = derived_seed
 
                 if self._verify_seed(seed_bytes, salt):
                     return mnemonic_ids, count  # found it
@@ -1352,8 +1382,10 @@ class WalletBIP32(WalletBase):
             results = zip(cleaned_mnemonic_ids_list,clResult)
 
             for cleaned_mnemonic, derived_seed in results:
-                seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed,
-                                      hashlib.sha512).digest()
+                if type(self) is not WalletXLM:
+                    seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed, hashlib.sha512).digest()
+                else:
+                    seed_bytes = derived_seed
 
                 if self._verify_seed(seed_bytes, salt):
                     if isinstance(mnemonic_ids_list[0], list):
@@ -1767,7 +1799,6 @@ class WalletBIP39(WalletBIP32):
         # Note: the words are already in BIP39's normalized form
         seedList = []
         for salt in self._derivation_salts:
-
             seedList.append(btcrpass.pbkdf2_hmac("sha512", " ".join(mnemonic_words).encode('utf-8'), b"mnemonic" + salt, 2048))
 
         return zip(seedList,self._derivation_salts)
@@ -3263,6 +3294,75 @@ class WalletStacks(WalletBIP39):
         for address in addresses:
             ver, hash160 = c32.c32addressDecode(address)
             hash160s.add(binascii.unhexlify(hash160))
+        return hash160s
+
+@register_selectable_wallet_class("Stellar (XLM) BIP39")
+class WalletXLM(WalletBIP39):
+    def __init__(self, path=None, loading=False):
+        # Use Stellar's default derivation path if none specified
+        if not path: path = ["m/44'/148'"]
+        super(WalletXLM, self).__init__(path, loading)
+
+    def _verify_seed(self, arg_seed_bytes, passphrase=None):
+        from slip10 import SLIP10, HARDENED_INDEX
+        from stellar_sdk import Keypair
+
+        """
+        Verify whether BIP39-derived seed bytes match a known Stellar address.
+        Uses SLIP-0010 / Ed25519 via Trezor python-slip10.
+        """
+        if passphrase:
+            testSaltList = [passphrase]
+        else:
+            testSaltList = self._derivation_salts
+
+        for salt in testSaltList:
+
+            for account_index in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+
+                # Initialize SLIP10 with Ed25519 curve
+                slip = SLIP10.from_seed(arg_seed_bytes, curve_name="ed25519")
+
+                # Stellar increments addresses on what is normally the account index. All addresses are also hardened...
+                bip, coin = self._path_indexes[0]
+                path = [
+                    bip,
+                    coin,
+                    account_index + HARDENED_INDEX
+                ]
+
+                derived = slip.get_child_from_path(path)
+
+                # Extract private key (32 bytes)
+                privkey = derived.get_privkey_from_path([])
+
+                # Derive Stellar address (G...)
+                kp = Keypair.from_raw_ed25519_seed(privkey)
+                pubkey = kp.raw_public_key()
+
+                # Check for match
+                if pubkey in self._known_hash160s:
+                    if salt and len(self._derivation_salts) > 1:
+                        print("Passphrase:", salt.decode())
+                    return True
+
+        return False
+
+    def _addresses_to_hash160s(self, addresses):
+        """
+        Override for Stellar: Just store the pubkey (despite the function name)
+        """
+        from stellar_sdk import StrKey
+        hash160s = []
+
+        for addr in addresses:
+            try:
+                pubkey_bytes = StrKey.decode_ed25519_public_key(addr)
+                hash160s.append(pubkey_bytes)
+            except Exception as e:
+                print(f"Warning: Could not decode Stellar address '{addr}': {e}")
+                continue
+
         return hash160s
 
 ################################### Main ###################################
