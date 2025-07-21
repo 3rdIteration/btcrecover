@@ -13,3 +13,5 @@ py_ecc~=6.0.0
 git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0
 git+https://github.com/3rdIteration/sjcl
 git+https://github.com/3rdIteration/groestlcoin-hash-python
+stellar_sdk~=12.3.0
+slip10~=1.0.1
