@@ -123,3 +123,9 @@ One wrong word, address generation limit of 2. (So address needs to be in the fi
 ```
 python seedrecover.py --wallet-type electrum1 --addrs 1Pw1yjF5smzg6eWbE2LbFm7fr1zq7WUYc7 --mnemonic "milk hungry group sound Lift Connect throw rabbit gift leg new lady pie government swear flat dove imagination sometime prepare lot trembl alone bus" --addr-limit 2
 ```
+
+### Basic Stellar(XLM) Recoveries
+One wrong word, address generation limit of two.
+```
+python seedrecover.py --mnemonic "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse" --addrs GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z --addr-limit 2 --no-eta --wallet-type xlm
+```

@@ -3970,7 +3970,9 @@ class WalletBIP39(object):
 
             seed_bytes = pbkdf2_hmac("sha512", self._mnemonic.encode(), derivation_salt, 2048)
 
-            seed_bytes = hmac.new(b"Bitcoin seed", seed_bytes, hashlib.sha512).digest()
+            if type(self.btcrseed_wallet) is not btcrecover.btcrseed.WalletXLM:
+                seed_bytes = hmac.new(b"Bitcoin seed", seed_bytes, hashlib.sha512).digest()
+
             if self.btcrseed_wallet._verify_seed(seed_bytes):
                 return password.decode("utf_8", "replace"), count
 
@@ -4000,7 +4002,11 @@ class WalletBIP39(object):
         results = zip(passwords, clResult)
 
         for count, (password, result) in enumerate(results, 1):
-            seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
+            if type(self.btcrseed_wallet) is not btcrecover.btcrseed.WalletXLM:
+                seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
+            else:
+                seed_bytes = result
+
             if self.btcrseed_wallet._verify_seed(seed_bytes):
                 return password.decode("utf_8", "replace"), count
 

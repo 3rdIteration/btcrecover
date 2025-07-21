@@ -127,6 +127,29 @@ def can_load_bundled_bitcoinlib_mod():
             bundled_bitcoinlib_mod_available = False
     return bundled_bitcoinlib_mod_available
 
+is_stellarsdk_loadable = None
+def can_load_stellarsdk():
+    global is_stellarsdk_loadable
+    if is_stellarsdk_loadable is None:
+        try:
+            import stellar_sdk
+            is_stellarsdk_loadable = True
+        except:
+            is_stellarsdk_loadable = False
+    return is_stellarsdk_loadable
+
+is_slip10_loadable = None
+def can_load_slip10():
+    global can_load_slip10
+    if can_load_slip10 is None:
+        try:
+            import slip10
+            can_load_slip10 = True
+        except:
+            can_load_slip10 = False
+    return can_load_slip10
+
+
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
 # permits checking the character mode (which isn't set until later) and prevents multiprocessing
@@ -1021,6 +1044,12 @@ class TestRecoveryFromAddress(unittest.TestCase):
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")
     def test_WalletPyCryptoHDWallet_Stellar(self):
         self.address_tester(btcrseed.WalletStellar, "GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z", 2,
+                            "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
+
+    @skipUnless(can_load_slip10, "requires slip10 module")
+    @skipUnless(can_load_stellarsdk, "requires stellar_sdk module")
+    def test_WalletXLM(self):
+        self.address_tester(btcrseed.WalletXLM, "GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z", 2,
                             "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season")
 
     @skipUnless(can_load_PyCryptoHDWallet, "requires Py_Crypto_HD_Wallet module")

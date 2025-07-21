@@ -3304,8 +3304,17 @@ class WalletXLM(WalletBIP39):
         super(WalletXLM, self).__init__(path, loading)
 
     def _verify_seed(self, arg_seed_bytes, passphrase=None):
-        from slip10 import SLIP10, HARDENED_INDEX
-        from stellar_sdk import Keypair
+        try:
+            from slip10 import SLIP10, HARDENED_INDEX
+        except ImportError:
+            exit(
+                "\nERROR: Cannot Load slip10, install it via pip3 install slip10")
+
+        try:
+            from stellar_sdk import Keypair
+        except ImportError:
+            exit(
+                "\nERROR: Cannot Load stellar_sdk, install it via pip3 install stellar_sdk")
 
         """
         Verify whether BIP39-derived seed bytes match a known Stellar address.
@@ -3352,7 +3361,12 @@ class WalletXLM(WalletBIP39):
         """
         Override for Stellar: Just store the pubkey (despite the function name)
         """
-        from stellar_sdk import StrKey
+        try:
+            from stellar_sdk import StrKey
+        except ImportError:
+            exit(
+                "\nERROR: Cannot Load stellar_sdk, install it via pip3 install stellar_sdk")
+
         hash160s = []
 
         for addr in addresses:

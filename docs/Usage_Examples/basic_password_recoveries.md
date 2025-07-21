@@ -415,3 +415,9 @@ You can also do raw private key repair, even if you don't have a record of the c
 ```
 python btcrecover.py --rawprivatekey --addressdb ./btcrecover/test/test-addressdbs/addresses-BTC-Test.db --wallet-type bitcoin --max-tokens 1 --tokenlist ./docs/Usage_Examples/btc_privkey_tokenlist.txt
 ```
+
+## XLM Wallets ##
+Basic XLM Wallet with the passphrase 'btcr-test-password'
+```
+python btcrecover.py --mnemonic "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse season" --addrs GBPYX2ELQ6YTAF7DXER7RCQJR2HXXFX6HUZKWEZD3B6RKOLDSJF7UGXK --addr-limit 2 --no-eta --wallet-type xlm --passwordlist ".\docs\Usage_Examples\common_passwordlist.txt"
+```
