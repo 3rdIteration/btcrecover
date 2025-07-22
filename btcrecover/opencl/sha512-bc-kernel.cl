@@ -70,28 +70,36 @@
 typedef uint uint32_t;
 typedef ulong uint64_t;
 
-// TODO: I've no recent NVIDIA hardware to test this, so it's disabled on NVIDIA for safety
-//#if !gpu_nvidia(DEVICE_INFO) || SM_MAJOR >= 5
-#if !gpu_nvidia(DEVICE_INFO)
-#define USE_BITSELECT 1
+// TODO: previously disabled for NVIDIA because older cards and drivers
+//       lacked proper support.  We now enable the optimized path for
+//       NVIDIA GPUs with compute capability (SM) >= 5 and reasonably
+//       recent drivers, while keeping the fallback for other devices.
+#if gpu_nvidia(DEVICE_INFO)
+# if SM_MAJOR >= 5
+#  define USE_BITSELECT 1
+# endif
+#else
+# define USE_BITSELECT 1
 #endif
 
 #if cpu(DEVICE_INFO)
 #define HAVE_ANDNOT 1
 #endif
 
-// TODO: I've no recent NVIDIA hardware to test this, so it's disabled for safety
-//#if SM_MAJOR >= 5 && (DEV_VER_MAJOR > 352 || (DEV_VER_MAJOR == 352 && DEV_VER_MINOR >= 21))
-//#define HAVE_LUT3	1
-//inline uint lut3(uint a, uint b, uint c, uint imm)
-//{
-//	uint r;
-//	asm("lop3.b32 %0, %1, %2, %3, %4;"
-//	    : "=r" (r)
-//	    : "r" (a), "r" (b), "r" (c), "i" (imm));
-//	return r;
-//}
-//#endif
+// TODO: this LUT3-based variant uses the LOP3 instruction.  Enable it
+//       for NVIDIA devices with SM >= 5 and driver version 352.21 or newer.
+#if gpu_nvidia(DEVICE_INFO) && SM_MAJOR >= 5 && \
+    (DEV_VER_MAJOR > 352 || (DEV_VER_MAJOR == 352 && DEV_VER_MINOR >= 21))
+#define HAVE_LUT3     1
+inline uint lut3(uint a, uint b, uint c, uint imm)
+{
+    uint r;
+    asm("lop3.b32 %0, %1, %2, %3, %4;"
+        : "=r" (r)
+        : "r" (a), "r" (b), "r" (c), "i" (imm));
+    return r;
+}
+#endif
 
 #if USE_BITSELECT
 #define SWAP64(n)	bitselect( \
