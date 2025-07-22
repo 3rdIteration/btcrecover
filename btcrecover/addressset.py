@@ -54,7 +54,7 @@ def bytes_to_int(bytes_rep):
     bytes_len = len(bytes_rep)
     if bytes_len <= 4:
         return struct.unpack(">I", (4-bytes_len)*b"\0" + bytes_rep)[0]
-    return long(base64.b16encode(bytes_rep), 16)
+    return int(base64.b16encode(bytes_rep), 16)
 
 
 class AddressSet(object):
