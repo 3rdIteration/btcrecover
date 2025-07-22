@@ -44,17 +44,14 @@ def supportedChains(magic):
 
 
 def bytes_to_int(bytes_rep):
-    """convert a string of bytes (in big-endian order) to an integer
+    """Convert a sequence of bytes (big-endian) to an integer.
 
     :param bytes_rep: the raw bytes
-    :type bytes_rep: str
+    :type bytes_rep: bytes
     :return: the unsigned integer
-    :rtype: int or long
+    :rtype: int
     """
-    bytes_len = len(bytes_rep)
-    if bytes_len <= 4:
-        return struct.unpack(">I", (4-bytes_len)*b"\0" + bytes_rep)[0]
-    return long(base64.b16encode(bytes_rep), 16)
+    return int.from_bytes(bytes_rep, "big")
 
 
 class AddressSet(object):
