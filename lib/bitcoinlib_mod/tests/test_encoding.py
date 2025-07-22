@@ -296,7 +296,7 @@ INVALID_ADDRESS_ENC = [
 
 class TestEncodingBech32SegwitAddresses(unittest.TestCase):
     """
-    Reference tests for bech32 segwit adresses
+    Reference tests for bech32 segwit addresses
 
     Copyright (c) 2017 Pieter Wuille
     Source: https://github.com/sipa/bech32/tree/master/ref/python
