@@ -43,9 +43,9 @@ python btcrecover.py --bip38-enc-privkey 6PnZC9Snn1DHyvfEq9UKUmZwonqpfaWav6vRiSV
 
 ## BIP39 Passphrase Protected Wallets & Electrum "Extra Words"
 **Notes**
-The language used to refer to a BIP39 passpharse can vary betwen vendors. Sometimes it is talked about as a "25th word", other times a "plausible deniability passphrase" or sometimes just as "passphrase". Just note that this is different from your wallet password or PIN.
+The language used to refer to a BIP39 passphrase can vary between vendors. Sometimes it is talked about as a "25th word", other times a "plausible deniability passphrase" or sometimes just as "passphrase". Just note that this is different from your wallet password or PIN.
 
-The most common symptom of you having an error in your BIP39 passphrase is that your seed+passhrase will produce a set of completely empty accounts, with no balance or transaction history. (Every BIP39 passphrase is valid, so you will not get any kind of error message)
+The most common symptom of you having an error in your BIP39 passphrase is that your seed+passphrase will produce a set of completely empty accounts, with no balance or transaction history. (Every BIP39 passphrase is valid, so you will not get any kind of error message)
 
 While BIP39 seed recovery can benefit from GPU acceleration, this is currently not the case for recovering a BIP39 passphrase.
 
@@ -65,7 +65,7 @@ All of the example commands below have the address generation limit set to 10, s
     * Samourai Wallet
     * Coinomi
     * Mycelium
-    * Zillet (Referrs to BIP39 passphrase as a "password based" wallet type)
+    * Zillet (Refers to BIP39 passphrase as a "password based" wallet type)
     * Electrum
     * Exodus
 
