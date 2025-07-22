@@ -17,7 +17,7 @@ LTC: M966MQte7agAzdCZe5ssHo7g9VriwXgyqM
 ETH: 0x72343f2806428dbbc2C11a83A1844912184b4243
 
 ## Donate Bitcoin to Gurnec ##
-This tool builds on the original work of Gurnec who created it and maintained it until late 2017. If you find *btcrecover* helpful, please consider a small donation to them too. (I will also be passing on a portion of any tips I recieve at the addys above to them too)
+This tool builds on the original work of Gurnec who created it and maintained it until late 2017. If you find *btcrecover* helpful, please consider a small donation to them too. (I will also be passing on a portion of any tips I receive at the addys above to them too)
 
 ![Donate Bitcoin](gurnec-donate-btc-qr.png)
 

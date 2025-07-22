@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Note Regarding Scammers**
-Scammers monitor the issues section of this Github and automatically reply to new issues with links to phishing websites, etc. (And Github moderation tools are very poor) You should disregard all comments recieved before a response from @3rdIteration...
+Scammers monitor the issues section of this Github and automatically reply to new issues with links to phishing websites, etc. (And Github moderation tools are very poor) You should disregard all comments received before a response from @3rdIteration...
 
 **Describe the bug**
 A clear and concise description of what the bug is.
