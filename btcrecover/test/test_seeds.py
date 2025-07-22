@@ -26,6 +26,7 @@ import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from btcrecover import btcrseed, btcrpass
+import btcrecover.addressset as addressset
 from btcrecover.addressset import AddressSet
 import btcrecover.opencl_helpers
 
@@ -1445,6 +1446,10 @@ class TestAddressSet(unittest.TestCase):
     HASH_BYTES = 1
     TABLE_LEN = 2 ** (8 * HASH_BYTES)
     BYTES_PER_ADDR = AddressSet(1)._bytes_per_addr
+
+    def test_bytes_to_int_large(self):
+        data = b'\x01\x02\x03\x04\x05'
+        self.assertEqual(addressset.bytes_to_int(data), int.from_bytes(data, 'big'))
 
     def test_add(self):
         aset = AddressSet(self.TABLE_LEN)
