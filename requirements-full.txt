@@ -24,12 +24,12 @@ pylibscrypt==2.0.0 \
     --hash=sha256:5afffc2cf056de86a000c13627ddca87fac14380939694aa6fbf4875926c0146
 py_ecc==6.0.0 \
     --hash=sha256:54e8aa4c30374fa62d582c599a99f352c153f2971352171318bd6910a643be0b
-git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0 \
-    --hash=sha256:238c2ea52bbc3ca9c11a24e7e0752291718a165f7a4a3900b07555e00f83e0c1
-git+https://github.com/3rdIteration/sjcl \
-    --hash=sha256:184efcf87912de3d91e806b48c53d86e10486dab8087db48e4f8b03fc6ed0894
-git+https://github.com/3rdIteration/groestlcoin-hash-python \
-    --hash=sha256:1babcd17c5c566a2d4881c8da6467d2b5837d6619b6747886682b8fbd42fea33
+https://github.com/ethereum/staking-deposit-cli/archive/refs/tags/v2.5.0.tar.gz#egg=staking-deposit-cli \
+    --hash=sha256:810ee8833cf5719ba6fea103bcdb44a68a04c4f19c169f853a63aaeb448dd347
+https://github.com/3rdIteration/sjcl/archive/3e06cc6240b5bd75f640c126d638b0aabbc626a3.tar.gz#egg=sjcl \
+    --hash=sha256:f83e81c58e5d98e13f24d6ba27df4429d6cbc9658f686bea6bdeb7655a63dbb5
+https://github.com/3rdIteration/groestlcoin-hash-python/archive/802c4090bdb69167211ea2d375935788129dd4b1.tar.gz#egg=groestlcoin-hash-python \
+    --hash=sha256:8a56d45eb62cb03e60303dfc06b194e36d3cba3e58c1ddfd51e045107a2e2020
 stellar_sdk==12.3.0 \
     --hash=sha256:23bd63877680d5287b497c4a449f2580deed3a339c7d6f13f271424ce057613e
 slip10==1.0.1 \
