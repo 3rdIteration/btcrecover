@@ -1,3 +1,7 @@
-coincurve~=19.0.0
-protobuf~=3.19.1
-pycryptodome~=3.19.1
+coincurve==19.0.1 \
+    --hash=sha256:8af61945ba74ba6b498fcd05a21368d01b6c4bf7cda896791876aee5aa830acc
+protobuf==3.19.6 \
+    --hash=sha256:14082457dc02be946f60b15aad35e9f5c69e738f80ebbc0900a19bc83734a5a4
+pycryptodome==3.19.1 \
+    --hash=sha256:27e1efcb68993b7ce5d1d047a46a601d41281bba9f1971e6be4aa27c69ab8065
+

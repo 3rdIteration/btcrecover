@@ -1,4 +1,9 @@
-mkdocs-autolinks-plugin
-mkdocs-include-markdown-plugin==5.1.0
-mkdocs-material
-mkdocs-git-committers-plugin
+mkdocs-autolinks-plugin==0.7.1 \
+    --hash=sha256:5c6c17f6649b68e79a9ef0b2648d59f3072e18002b90ee1586a64c505f11ab12
+mkdocs-include-markdown-plugin==5.1.0 \
+    --hash=sha256:e9ca188ab1d86f5fc4a6b96ce8c85acf6e25f114897868041056ec7945f29f65
+mkdocs-material==9.6.15 \
+    --hash=sha256:ac969c94d4fe5eb7c924b6d2f43d7db41159ea91553d18a9afc4780c34f2717a
+mkdocs-git-committers-plugin==0.2.3 \
+    --hash=sha256:4ca79efb7e61a72652d3512d61af5c40a4572e36667e1a00032aad524250780d
+

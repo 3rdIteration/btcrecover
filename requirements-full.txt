@@ -1,17 +1,35 @@
-coincurve~=19.0.0
-protobuf~=3.19.1
-pycryptodome~=3.19.1
-ecdsa==0.17.0
-eth-keyfile~=0.6.1
-py_crypto_hd_wallet~=1.3.3
-pynacl~=1.5.0
-bitstring~=3.1.9
-shamir-mnemonic[cli]~=0.3.0
-bitcoin-utils~=0.5.5
-pylibscrypt~=2.0.0
-py_ecc~=6.0.0
-git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0
-git+https://github.com/3rdIteration/sjcl
-git+https://github.com/3rdIteration/groestlcoin-hash-python
-stellar_sdk~=12.3.0
-slip10~=1.0.1
+coincurve==19.0.1 \
+    --hash=sha256:8af61945ba74ba6b498fcd05a21368d01b6c4bf7cda896791876aee5aa830acc
+protobuf==3.19.6 \
+    --hash=sha256:14082457dc02be946f60b15aad35e9f5c69e738f80ebbc0900a19bc83734a5a4
+pycryptodome==3.19.1 \
+    --hash=sha256:27e1efcb68993b7ce5d1d047a46a601d41281bba9f1971e6be4aa27c69ab8065
+ecdsa==0.17.0 \
+    --hash=sha256:5cf31d5b33743abe0dfc28999036c849a69d548f994b535e527ee3cb7f3ef676
+eth-keyfile==0.6.1 \
+    --hash=sha256:609773a1ad5956944a33348413cad366ec6986c53357a806528c8f61c4961560
+py_crypto_hd_wallet==1.3.3 \
+    --hash=sha256:39c30cc472eb254383485d46f8a7359fbf361dde809134aa026d599b172b3260
+pynacl==1.5.0 \
+    --hash=sha256:0c84947a22519e013607c9be43706dd42513f9e6ae5d39d3613ca1e142fba44d
+bitstring==3.1.9 \
+    --hash=sha256:0de167daa6a00c9386255a7cac931b45e6e24e0ad7ea64f1f92a64ac23ad4578
+shamir-mnemonic[cli]==0.3.0 \
+    --hash=sha256:188c6b5bd00d5e756e12e2b186c3cb7c98ff7ff44df608d4c1d2077f6b6e730f
+bitcoin-utils==0.5.9 \
+    --hash=sha256:b2d6d91e315595e1650f28b4d74b7c939a6683a14633ced719e320834a0dce92
+pylibscrypt==2.0.0 \
+    --hash=sha256:5afffc2cf056de86a000c13627ddca87fac14380939694aa6fbf4875926c0146
+py_ecc==6.0.0 \
+    --hash=sha256:54e8aa4c30374fa62d582c599a99f352c153f2971352171318bd6910a643be0b
+git+https://github.com/ethereum/staking-deposit-cli.git@v2.5.0 \
+    --hash=sha256:238c2ea52bbc3ca9c11a24e7e0752291718a165f7a4a3900b07555e00f83e0c1
+git+https://github.com/3rdIteration/sjcl \
+    --hash=sha256:184efcf87912de3d91e806b48c53d86e10486dab8087db48e4f8b03fc6ed0894
+git+https://github.com/3rdIteration/groestlcoin-hash-python \
+    --hash=sha256:1babcd17c5c566a2d4881c8da6467d2b5837d6619b6747886682b8fbd42fea33
+stellar_sdk==12.3.0 \
+    --hash=sha256:23bd63877680d5287b497c4a449f2580deed3a339c7d6f13f271424ce057613e
+slip10==1.0.1 \
+    --hash=sha256:4aa764369db0a261e468160ec1afeeb2b22d26392dd118c49b9daa91f642947b
+
