@@ -76,8 +76,8 @@ https://github.com/ethereum/staking-deposit-cli/archive/refs/tags/v2.5.0.tar.gz#
     --hash=sha256:810ee8833cf5719ba6fea103bcdb44a68a04c4f19c169f853a63aaeb448dd347
 https://github.com/3rdIteration/sjcl/archive/3e06cc6240b5bd75f640c126d638b0aabbc626a3.tar.gz#egg=sjcl \
     --hash=sha256:f83e81c58e5d98e13f24d6ba27df4429d6cbc9658f686bea6bdeb7655a63dbb5
-https://github.com/3rdIteration/groestlcoin-hash-python/archive/802c4090bdb69167211ea2d375935788129dd4b1.tar.gz#egg=groestlcoin-hash-python \
-    --hash=sha256:8a56d45eb62cb03e60303dfc06b194e36d3cba3e58c1ddfd51e045107a2e2020
+groestlcoin-hash==1.0.3 \
+    --hash=sha256:31a8f6fa4c19db5258c3c73c071b71702102c815ba862b6015d9e4b75ece231e
 stellar_sdk==12.3.0 \
     --hash=sha256:23bd63877680d5287b497c4a449f2580deed3a339c7d6f13f271424ce057613e
 slip10==1.0.1 \
