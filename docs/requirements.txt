@@ -6,4 +6,3 @@ mkdocs-material==9.6.15 \
     --hash=sha256:ac969c94d4fe5eb7c924b6d2f43d7db41159ea91553d18a9afc4780c34f2717a
 mkdocs-git-committers-plugin==0.2.3 \
     --hash=sha256:4ca79efb7e61a72652d3512d61af5c40a4572e36667e1a00032aad524250780d
-
