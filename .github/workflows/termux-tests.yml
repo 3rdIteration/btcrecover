@@ -21,11 +21,11 @@ jobs:
             -v ${{ github.workspace }}:/src \
             termux/termux-docker:aarch64 \
             bash -lc "\
-              pkg update -y && \
-              pkg install -y python git autoconf automake build-essential libtool pkg-config && \
+              yes | /entrypoint.sh pkg update -y && \
+              /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
-              python -m pip install --upgrade pip && \
-              pip install -r requirements.txt && \
+              /entrypoint.sh pip install --upgrade pip && \
+              /entrypoint.sh pip install -r requirements.txt && \
               python run-all-tests.py -vv\
             "
 
@@ -42,10 +42,10 @@ jobs:
             -v ${{ github.workspace }}:/src \
             termux/termux-docker:aarch64 \
             bash -lc "\
-              pkg update -y && \
-              pkg install -y python git autoconf automake build-essential libtool pkg-config && \
+              yes | /entrypoint.sh pkg update -y && \
+              /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
-              python -m pip install --upgrade pip && \
-              pip install -r requirements-full.txt && \
+              /entrypoint.sh pip install --upgrade pip && \
+              /entrypoint.sh pip install -r requirements-full.txt && \
               python run-all-tests.py -vv\
             "
