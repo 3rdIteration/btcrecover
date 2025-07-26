@@ -68,11 +68,11 @@ Some warnings and notes...
 
 * Termux is not a standard Linux environment and support is still experimental.
   Automated tests now run via a GitHub Actions workflow that uses
-  `docker/setup-qemu-action` to enable QEMU before running the
-  [termux/termux-docker](https://github.com/termux/termux-docker) container with
-  both the base and full dependency sets. Docker is invoked with `--platform
-  linux/arm64`, and the workflow runs weekly as well as for pull requests on
-  `master`.
+  `docker/setup-qemu-action` to enable QEMU before executing the
+  [termux/termux-docker](https://github.com/termux/termux-docker) container.
+  Docker is invoked with `--platform linux/arm64` and relies on the default
+  container entrypoint, which drops privileges so `pkg` commands work. The
+  workflow runs weekly as well as for pull requests on `master`.
   
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
   
