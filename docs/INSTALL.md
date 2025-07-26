@@ -68,8 +68,8 @@ Some warnings and notes...
 
 * Termux is not a standard Linux environment and support is still experimental.
   Automated tests now run via a GitHub Actions workflow that prepares QEMU
-  with the [`aptman/qus`](https://github.com/aptman/qus) container before
-  running the [termux/termux-docker](https://github.com/termux/termux-docker)
+  using the [`docker/setup-qemu-action`](https://github.com/docker/setup-qemu-action)
+  before running the [termux/termux-docker](https://github.com/termux/termux-docker)
   image. Docker runs with `--platform linux/arm64` and the container is started
   in privileged mode so that the environment is initialized correctly. The
   workflow runs weekly as well as for pull requests on `master` and tests both
