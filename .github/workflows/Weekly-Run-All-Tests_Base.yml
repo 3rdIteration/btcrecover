@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    timeout-minutes: 10 # 10 minutes is more than enough, kill after that to avoid waisting resources
+    timeout-minutes: 20 # allow extra time for occasional slow tests
     runs-on: ${{matrix.os}}
     continue-on-error: ${{ matrix.python-version == '3.9' }}
     strategy:
