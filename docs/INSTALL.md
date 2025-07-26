@@ -66,23 +66,13 @@ You can then re-run the command to install python3-pip from above.
 ### Android via Termux ###
 Some warnings and notes...
 
-* Termux is not a standard Linux environment and support is still experimental.
-  Automated tests now run via a GitHub Actions workflow that registers QEMU with
-  [`docker/setup-qemu-action`](https://github.com/docker/setup-qemu-action)
-  before running the
-  [termux/termux-docker](https://github.com/termux/termux-docker) image. Docker
-  launches the container with `--platform linux/arm64` in privileged mode so the
-  environment initializes correctly. The workflow runs weekly as well as for pull
-  requests on `master` and tests both the base and full dependency sets. See
-  [termux-docker issue #62](https://github.com/termux/termux-docker/issues/62)
-  for more information on the limitations of running Termux in CI.
+* Termux is not automatically tested like other platforms... (So I won't be automatically notified if this process breaks)
   
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
   
 * Performance will also vary dramatically between phones and Android versions... (Though it is actually fast enough to be useful for simple recoveries)
   
-* This environment is not officially supported and may require extra setup. If it
-  fails, use a PC instead.
+* Termux is not a standard Linux environment and is not officially supported, but might work following the process below... (And if it doesn't, just use a PC instead...)
   
 * Install Termux following the instructions here: <https://termux.dev/en/> (Currently not officially distributed on Google Play and the version on Google Play is not currently up-to-date)
 

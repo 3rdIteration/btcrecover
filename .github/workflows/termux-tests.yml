@@ -13,22 +13,24 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - name: Register QEMU for ARM
-        uses: docker/setup-qemu-action@v3
+      - name: Enable QEMU
+        uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64
       - name: Run tests inside Termux
         run: |
-          docker run --rm --platform linux/arm64 --privileged \
+          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
+            --user 1000 \
+            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            bash -lc "\
-              yes | pkg update -y && \
+            -lc "\
+              pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
-              pip install --upgrade pip && \
+              python -m pip install --upgrade pip && \
               pip install -r requirements.txt && \
-              python run-all-tests.py -vv --no-pause --no-buffer\
+              python run-all-tests.py -vv\
             "
 
   termux-full:
@@ -36,20 +38,22 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - name: Register QEMU for ARM
-        uses: docker/setup-qemu-action@v3
+      - name: Enable QEMU
+        uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64
       - name: Run tests inside Termux (full requirements)
         run: |
-          docker run --rm --platform linux/arm64 --privileged \
+          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
+            --user 1000 \
+            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            bash -lc "\
-              yes | pkg update -y && \
+            -lc "\
+              pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
-              pip install --upgrade pip && \
+              python -m pip install --upgrade pip && \
               pip install -r requirements-full.txt && \
-              python run-all-tests.py -vv --no-pause --no-buffer\
+              python run-all-tests.py -vv\
             "
