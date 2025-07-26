@@ -14,7 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Register QEMU for ARM
-        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
       - name: Run tests inside Termux
         run: |
           docker run --rm --platform linux/arm64 --privileged \
@@ -35,7 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Register QEMU for ARM
-        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
       - name: Run tests inside Termux (full requirements)
         run: |
           docker run --rm --platform linux/arm64 --privileged \
