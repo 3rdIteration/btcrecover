@@ -18,7 +18,7 @@ jobs:
           docker run --rm --privileged aptman/qus -s -- -p aarch64
       - name: Run tests inside Termux
         run: |
-          docker run --rm --security-opt seccomp:unconfined \
+          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
             --entrypoint /entrypoint_root.sh \
             termux/termux-docker:aarch64 \
@@ -41,7 +41,7 @@ jobs:
           docker run --rm --privileged aptman/qus -s -- -p aarch64
       - name: Run tests inside Termux (full requirements)
         run: |
-          docker run --rm --security-opt seccomp:unconfined \
+          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
             --entrypoint /entrypoint_root.sh \
             termux/termux-docker:aarch64 \
