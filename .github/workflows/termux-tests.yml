@@ -9,51 +9,91 @@ on:
 
 jobs:
   termux:
-    runs-on: ubuntu-latest
+    name: Termux Base
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    container:
+      image: termux/termux-docker:${{ matrix.architecture }}
+      volumes:
+        - /tmp/node20:/__e/node20
+    env:
+      TERMUX_MAIN_PACKAGE_FORMAT: debian
+      ANDROID_ROOT: /system
+      ANDROID_DATA: /data
+      PREFIX: /data/data/com.termux/files/usr
+      HOME: /data/data/com.termux/files/home
+      PATH: /data/data/com.termux/files/usr/bin
+      TMPDIR: /data/data/com.termux/files/usr/tmp
+      LANG: en_US.UTF-8
+      TZ: UTC
     steps:
-      - uses: actions/checkout@v3
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
-      - name: Run tests inside Termux
+      - name: set pkg mirror
+        run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
+      - name: upgrade packages
+        run: /entrypoint.sh bash -c "yes | pkg upgrade -y"
+      - name: fix executable bit
+        run: chmod -R o+x ${PREFIX}/bin
+      - name: install nodejs
         run: |
-          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
-            -v ${{ github.workspace }}:/src \
-            --user 1000 \
-            --entrypoint /data/data/com.termux/files/usr/bin/bash \
-            termux/termux-docker:aarch64 \
-            -lc "\
-              pkg update -y && \
-              pkg install -y python git autoconf automake build-essential libtool pkg-config && \
-              cd /src && \
-              python -m pip install --upgrade pip && \
-              pip install -r requirements.txt && \
-              python run-all-tests.py -vv\
-            "
+          /entrypoint.sh pkg install -y nodejs-lts
+          ln -sf ${PREFIX}/bin /__e/node20/bin
+      - uses: actions/checkout@v4
+      - name: fix permissions
+        run: chown -R 1000:1000 .
+      - name: Install dependencies
+        run: |
+          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config
+          /entrypoint.sh python -m pip install --upgrade pip
+          /entrypoint.sh pip install -r requirements.txt
+      - name: Run tests
+        run: /entrypoint.sh python run-all-tests.py -vv
 
   termux-full:
-    runs-on: ubuntu-latest
+    name: Termux Full
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    container:
+      image: termux/termux-docker:${{ matrix.architecture }}
+      volumes:
+        - /tmp/node20:/__e/node20
+    env:
+      TERMUX_MAIN_PACKAGE_FORMAT: debian
+      ANDROID_ROOT: /system
+      ANDROID_DATA: /data
+      PREFIX: /data/data/com.termux/files/usr
+      HOME: /data/data/com.termux/files/home
+      PATH: /data/data/com.termux/files/usr/bin
+      TMPDIR: /data/data/com.termux/files/usr/tmp
+      LANG: en_US.UTF-8
+      TZ: UTC
     steps:
-      - uses: actions/checkout@v3
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
-      - name: Run tests inside Termux (full requirements)
+      - name: set pkg mirror
+        run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
+      - name: upgrade packages
+        run: /entrypoint.sh bash -c "yes | pkg upgrade -y"
+      - name: fix executable bit
+        run: chmod -R o+x ${PREFIX}/bin
+      - name: install nodejs
         run: |
-          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
-            -v ${{ github.workspace }}:/src \
-            --user 1000 \
-            --entrypoint /data/data/com.termux/files/usr/bin/bash \
-            termux/termux-docker:aarch64 \
-            -lc "\
-              pkg update -y && \
-              pkg install -y python git autoconf automake build-essential libtool pkg-config && \
-              cd /src && \
-              python -m pip install --upgrade pip && \
-              pip install -r requirements-full.txt && \
-              python run-all-tests.py -vv\
-            "
+          /entrypoint.sh pkg install -y nodejs-lts
+          ln -sf ${PREFIX}/bin /__e/node20/bin
+      - uses: actions/checkout@v4
+      - name: fix permissions
+        run: chown -R 1000:1000 .
+      - name: Install dependencies
+        run: |
+          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config
+          /entrypoint.sh python -m pip install --upgrade pip
+          /entrypoint.sh pip install -r requirements-full.txt
+      - name: Run tests
+        run: /entrypoint.sh python run-all-tests.py -vv
