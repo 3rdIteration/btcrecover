@@ -13,13 +13,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
+      - name: Enable QEMU for ARM
+        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
       - name: Run tests inside Termux
         run: |
-          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
+          docker run --rm --platform linux/arm64 --privileged \
             -v ${{ github.workspace }}:/src \
             termux/termux-docker:aarch64 \
             bash -lc "\
@@ -36,13 +34,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: arm64
+      - name: Enable QEMU for ARM
+        run: docker run --rm --privileged aptman/qus -s -- -p aarch64
       - name: Run tests inside Termux (full requirements)
         run: |
-          docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
+          docker run --rm --platform linux/arm64 --privileged \
             -v ${{ github.workspace }}:/src \
             termux/termux-docker:aarch64 \
             bash -lc "\

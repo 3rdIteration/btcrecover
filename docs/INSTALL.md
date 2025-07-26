@@ -67,13 +67,13 @@ You can then re-run the command to install python3-pip from above.
 Some warnings and notes...
 
 * Termux is not a standard Linux environment and support is still experimental.
-  Automated tests now run via a GitHub Actions workflow that uses
-  `docker/setup-qemu-action` to enable QEMU before executing the
-  [termux/termux-docker](https://github.com/termux/termux-docker) container.
-  Docker runs with `--platform linux/arm64` using the container's default
-  entrypoint so that the environment is initialized correctly. The workflow
-  runs weekly as well as for pull requests on `master` and tests both the base
-  and full dependency sets.
+  Automated tests now run via a GitHub Actions workflow that prepares QEMU
+  with the [`aptman/qus`](https://github.com/aptman/qus) container before
+  running the [termux/termux-docker](https://github.com/termux/termux-docker)
+  image. Docker runs with `--platform linux/arm64` and the container is started
+  in privileged mode so that the environment is initialized correctly. The
+  workflow runs weekly as well as for pull requests on `master` and tests both
+  the base and full dependency sets.
   
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
   
