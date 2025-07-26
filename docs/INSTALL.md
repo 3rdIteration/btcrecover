@@ -67,15 +67,13 @@ You can then re-run the command to install python3-pip from above.
 Some warnings and notes...
 
 * Termux is not a standard Linux environment and support is still experimental.
-  Automated tests now run via a GitHub Actions workflow that prepares QEMU
-  using the [`docker/setup-qemu-action`](https://github.com/docker/setup-qemu-action)
-  before running the [termux/termux-docker](https://github.com/termux/termux-docker)
-  image. Docker runs with `--platform linux/arm64` and the container is started
-  in privileged mode so that the environment is initialized correctly. The
-  workflow runs weekly as well as for pull requests on `master` and tests both
-  the base and full dependency sets. When running Termux inside GitHub Actions,
-  `pkg` and `pip` commands must be prefixed with `/entrypoint.sh` so they run as
-  the unprivileged system user. See [termux-docker issue #62](https://github.com/termux/termux-docker/issues/62)
+  Automated tests now run via a GitHub Actions workflow that registers QEMU with
+  [`aptman/qus`](https://github.com/aptman/qus) before running the
+  [termux/termux-docker](https://github.com/termux/termux-docker) image. Docker
+  launches the container with `--platform linux/arm64` in privileged mode so the
+  environment initializes correctly. The workflow runs weekly as well as for pull
+  requests on `master` and tests both the base and full dependency sets. See
+  [termux-docker issue #62](https://github.com/termux/termux-docker/issues/62)
   for more information on the limitations of running Termux in CI.
   
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
