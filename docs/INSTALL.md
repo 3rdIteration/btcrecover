@@ -70,9 +70,10 @@ Some warnings and notes...
   Automated tests now run via a GitHub Actions workflow that uses
   `docker/setup-qemu-action` to enable QEMU before executing the
   [termux/termux-docker](https://github.com/termux/termux-docker) container.
-  Docker is invoked with `--platform linux/arm64` and overrides the entrypoint
-  to run `bash` as the non-root user inside the container so that `pkg` commands
-  work. The workflow runs weekly as well as for pull requests on `master`.
+  Docker runs with `--platform linux/arm64` using the container's default
+  entrypoint so that the environment is initialized correctly. The workflow
+  runs weekly as well as for pull requests on `master` and tests both the base
+  and full dependency sets.
   
 * Your phone may not have sufficient cooling to run BTCRecover for any meaninful length of time
   

@@ -21,10 +21,8 @@ jobs:
         run: |
           docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
-            --user 1000 \
-            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            -lc "\
+            bash -lc "\
               pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
@@ -46,10 +44,8 @@ jobs:
         run: |
           docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
-            --user 1000 \
-            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            -lc "\
+            bash -lc "\
               pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
