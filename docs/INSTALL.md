@@ -67,7 +67,8 @@ You can then re-run the command to install python3-pip from above.
 Some warnings and notes...
 
 * Termux is not a standard Linux environment and support is still experimental.
-  Automated tests now run via a GitHub Actions workflow that uses QEMU to run the
+  Automated tests now run via a GitHub Actions workflow that uses
+  `docker/setup-qemu-action` to enable QEMU before running the
   [termux/termux-docker](https://github.com/termux/termux-docker) container with
   both the base and full dependency sets. Docker is invoked with `--platform
   linux/arm64`, and the workflow runs weekly as well as for pull requests on

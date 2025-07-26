@@ -14,15 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Enable QEMU
-        run: |
-          docker run --rm --privileged aptman/qus -s -- -p aarch64
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
       - name: Run tests inside Termux
         run: |
           docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
-            --entrypoint /entrypoint_root.sh \
+            --user 0 \
+            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            bash -lc "\
+            -lc "\
               pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
@@ -37,15 +39,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Enable QEMU
-        run: |
-          docker run --rm --privileged aptman/qus -s -- -p aarch64
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
       - name: Run tests inside Termux (full requirements)
         run: |
           docker run --rm --platform linux/arm64 --security-opt seccomp:unconfined \
             -v ${{ github.workspace }}:/src \
-            --entrypoint /entrypoint_root.sh \
+            --user 0 \
+            --entrypoint /data/data/com.termux/files/usr/bin/bash \
             termux/termux-docker:aarch64 \
-            bash -lc "\
+            -lc "\
               pkg update -y && \
               pkg install -y python git autoconf automake build-essential libtool pkg-config && \
               cd /src && \
