@@ -48,7 +48,6 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config
-          /entrypoint.sh python -m pip install --upgrade pip
           /entrypoint.sh pip install -r requirements.txt
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
@@ -93,7 +92,6 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config
-          /entrypoint.sh python -m pip install --upgrade pip
           /entrypoint.sh pip install -r requirements-full.txt
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
