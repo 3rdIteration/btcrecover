@@ -379,6 +379,7 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         passphrases=[u"btcr-тест-пароль",])
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_groestlcoinj_xpub_legacy(self):
         # an xpub at path m/0', as Bitcoin Wallet for Android/BlackBerry would export
         self.mpk_tester(btcrseed.WalletBitcoinj,
@@ -386,6 +387,7 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         "laundry foil reform disagree cotton hope loud mix wheel snow real board")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_grs_bip39_xpub(self):
         # an xpub at path m/44'/17'/0', as any native segwit BIP39 wallet would export
         self.mpk_tester(btcrseed.WalletBIP39,
@@ -394,6 +396,7 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         "m/44'/17'/0'/0")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_grs_bip39_ypub(self):
         # an ypub at path m/49'/17'/0', as any native segwit BIP39 wallet would export
         self.mpk_tester(btcrseed.WalletBIP39,
@@ -402,6 +405,7 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         "m/49'/17'/0'/0")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_grs_bip39_zpub(self):
         # an zpub at path m/84'/17'/0', as any native segwit BIP39 wallet would export
         self.mpk_tester(btcrseed.WalletBIP39,
@@ -816,6 +820,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             ["m/44'/3'/0'/0"])
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_bip44_addr_GRS(self):
         self.address_tester(btcrseed.WalletBIP39, "FqGMQvKCb2idGbDd6SUBFuugynXRACEzuQ", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "
@@ -823,6 +828,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             ["m/44'/17'/0'/0"])
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_bip49_addr_GRS(self):
         self.address_tester(btcrseed.WalletBIP39, "384swZndJ7CjZhqx7JL29Whnommy9s9phF", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "
@@ -1214,12 +1220,14 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             pathlist_file="DOGE.txt")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_pathfile_bip44_addr_GRS(self):
         self.address_tester(btcrseed.WalletBIP39, "FqGMQvKCb2idGbDd6SUBFuugynXRACEzuQ", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform advice pen praise soap lizard festival connect baby",
                             pathlist_file="GRS.txt")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_pathfile_bip49_addr_GRS(self):
         self.address_tester(btcrseed.WalletBIP39, "384swZndJ7CjZhqx7JL29Whnommy9s9phF", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform advice pen praise soap lizard festival connect baby",
