@@ -74,6 +74,12 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
             loaded_wallet._salt_and_iv), 32)
         return
 
+    # Password Recovery for MultiBit Wallets
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletMultiBit:
+        loaded_wallet.opencl_context_multibit_md5 = loaded_wallet.opencl_algo.cl_multibit_md5_init(
+            len(loaded_wallet._salt))
+        return
+
     # Password recovery for blockchain.com wallet second password
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchainSecondpass:
         loaded_wallet.opencl_context_hash_iterations_sha256 = loaded_wallet.opencl_algo.cl_hash_iterations_init(
@@ -158,5 +164,5 @@ def init_opencl_contexts(loaded_wallet, openclDevice = 0):
         loaded_wallet.opencl_context_pbkdf2_sha512 = []
         for salt in loaded_wallet._derivation_salts:
             loaded_wallet.opencl_context_pbkdf2_sha512.append(loaded_wallet.opencl_algo.cl_pbkdf2_init("sha512",
-                                                                                              len(b"mnemonic"+salt), dklen))
+                                                                                             len(b"mnemonic"+salt), dklen))
         return

@@ -801,3 +801,32 @@ class opencl_algos:
         else:
             assert ("Error on hash type, unknown !!!")
         return [prg, bufStructs]
+    
+    def cl_multibit_md5_init(self, salt_len):
+        """Initialize OpenCL context for MultiBit MD5 processing"""
+        bufStructs = buffer_structs()
+        # Configure buffer for MD5 with specific salt length
+        self.max_out_bytes = bufStructs.specifyMD5(max_in_bytes=128, max_salt_bytes=salt_len, dklen=68) # 4B flag + 16B decrypted + 48B key material
+        prg = self.opencl_ctx.compile(bufStructs, "md5_and_aes_cbc.cl", "multibit_md5.cl")
+        return [prg, bufStructs]
+    
+    def cl_multibit_md5(self, ctx, passwords, salt, encrypted_block_bytes):
+        """Execute MultiBit MD5 processing on GPU"""
+        prg, bufStructs = ctx
+
+        # build a single Kernel instance
+        knl = cl.Kernel(prg, "multibit_md5_main")
+        
+        encrypted_buf = cl.Buffer(
+            self.opencl_ctx.ctx,
+            cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+            hostbuf=encrypted_block_bytes
+        )
+
+        def func(s, pwdim, pass_g, salt_g, result_g):
+            knl.set_arg(0, pass_g)
+            knl.set_arg(1, salt_g)
+            knl.set_arg(2, result_g)
+            knl.set_arg(3, encrypted_buf)
+            cl.enqueue_nd_range_kernel(s.queue, knl, pwdim, None)
+        return concat(self.opencl_ctx.run(bufStructs,func,iter(passwords),salt,mdpad_64_func))

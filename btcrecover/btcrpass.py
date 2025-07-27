@@ -920,6 +920,13 @@ class WalletMultiBit(object):
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     assert b"1" < b"9" < b"A" < b"Z" < b"a" < b"z"  # the b58 check below assumes ASCII ordering in the interest of speed
     def return_verified_password_or_false(self, orig_passwords): # Multibit
+        # Add OpenCL dispatch like other wallet types
+        if not isinstance(self.opencl_algo, int):
+            return self._return_verified_password_or_false_opencl(orig_passwords)
+        else:
+            return self._return_verified_password_or_false_cpu(orig_passwords)
+
+    def _return_verified_password_or_false_cpu(self, orig_passwords): # Multibit
         # Copy a few globals into local for a small speed boost
         l_md5                 = hashlib.md5
         l_aes256_cbc_decrypt  = aes256_cbc_decrypt
@@ -991,6 +998,89 @@ class WalletMultiBit(object):
                         return orig_passwords[count-1], count
                     if isinstance(orig_passwords[count - 1], bytes):
                         return orig_passwords[count-1].decode(), count
+
+        return False, count
+    
+    def _return_verified_password_or_false_opencl(self, arg_passwords):
+        # Copy a few globals into local for a small speed boost
+        l_aes256_cbc_decrypt  = aes256_cbc_decrypt
+        encrypted_block       = self._encrypted_block
+
+        # Convert Unicode strings to UTF-16 bytestrings, truncating each code unit to 8 bits
+        passwords = map(lambda p: p.encode("utf_16_le", "ignore")[::2], arg_passwords)
+
+        # Use OpenCL for MD5 computation and AES decryption of first block
+        # Returns: match flag (4B) + decrypted block (16B) + key1 (16B) + key2 (16B) + iv (16B) = 68 bytes
+        clResult = self.opencl_algo.cl_multibit_md5(self.opencl_context_multibit_md5,
+                                                    passwords, self._salt,
+                                                    self._encrypted_block[:16])
+        # Process results on CPU (further validation of decrypted data)
+        for count, derived in enumerate(clResult, 1):
+            match_flag = derived[0]
+            if not match_flag:
+                continue  # skip non-matching results immediately
+            # Extract results from OpenCL output
+            b58_privkey = derived[4:20]
+            key1        = derived[20:36]
+            key2        = derived[36:52]
+            iv          = derived[52:68]
+
+            # (all this may be fragile, e.g. what if comments or whitespace precede what's expected in future versions?)
+            if isinstance(b58_privkey, str):
+                b58_privkey = b58_privkey.encode()
+
+            if chr(b58_privkey[0]) in "LK5Q\x0a#":
+                #
+                # Does it look like a base58 private key (MultiBit, MultiDoge, or oldest-format Android key backup)?
+                if b58_privkey[0] in "LK5Q".encode():  # private keys always start with L, K, or 5, or for MultiDoge Q
+                    for c in b58_privkey[1:]:
+                        # If it's outside of the base58 set [1-9A-HJ-NP-Za-km-z], break
+                        if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
+                            break
+                    # If the loop above doesn't break, it's base58-looking so far
+                    else:
+                        # If another AES block is available, decrypt and check it as well to avoid false positives
+                        if len(encrypted_block) >= 32:
+                            b58_privkey = l_aes256_cbc_decrypt(key1 + key2, encrypted_block[:16], encrypted_block[16:32])
+                            for c in b58_privkey:
+                                if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
+                                    break  # not base58
+                            # If the loop above doesn't break, it's base58; we've found it
+                            else:
+                                if self._dump_privkeys_file:
+                                    self.dump_privkeys_keybackup(key1, key2, iv)
+                                return arg_passwords[count - 1], count
+                        else:
+                            # (when no second block is available, there's a 1 in 300 billion false positive rate here)
+                            if self._dump_privkeys_file:
+                                self.dump_privkeys_keybackup(key1, key2, iv)
+                            return arg_passwords[count - 1], count
+                #
+                # Does it look like a bitcoinj protobuf (newest Bitcoin for Android backup)
+                elif b58_privkey[2:6] == b"org." and b58_privkey[0] == 10 and b58_privkey[1] < 128:
+                    for c in b58_privkey[6:14]:
+                        # If it doesn't look like a lower alpha domain name of len >= 8 (e.g. 'bitcoin.'), break
+                        if c > ord("z") or (c < ord("a") and c != ord(".")):
+                            break
+                    # If the loop above doesn't break, it looks like a domain name; we've found it
+                    else:
+                        print("Notice: Found Bitcoin for Android Wallet Password")
+                        if self._dump_privkeys_file:
+                            #try:
+                            if True:
+                                wallet_data = l_aes256_cbc_decrypt(key1 + key2, iv, self._encrypted_wallet)
+                                self.dump_privkeys(wallet_data)
+                            #except:
+                            #    print("Unable to decode wallet mnemonic (common for very old wallets)")
+
+                        return arg_passwords[count - 1], count
+                #
+                #  Does it look like a KnC for Android key backup?
+                elif b58_privkey == b"# KEEP YOUR PRIV":
+                    if isinstance(arg_passwords[count - 1], str):
+                        return arg_passwords[count - 1], count
+                    if isinstance(arg_passwords[count - 1], bytes):
+                        return arg_passwords[count - 1].decode(), count
 
         return False, count
 
