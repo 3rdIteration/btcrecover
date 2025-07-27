@@ -984,6 +984,18 @@ def can_load_groestlcoin_hash():
             is_groestlcoin_hash_loadable = False
     return is_groestlcoin_hash_loadable
 
+bundled_bitcoinlib_mod_available = None
+def can_load_bundled_bitcoinlib_mod():
+    global bundled_bitcoinlib_mod_available
+    if bundled_bitcoinlib_mod_available is None:
+        try:
+            from lib.bitcoinlib_mod import encoding as encoding_mod
+
+            bundled_bitcoinlib_mod_available = True
+        except:
+            bundled_bitcoinlib_mod_available = False
+    return bundled_bitcoinlib_mod_available
+
 is_ecdsa_loadable = None
 def can_load_ecdsa():
     global is_ecdsa_loadable
@@ -2143,6 +2155,7 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_address_Groestlecoin(self):
         self.bip39_tester(

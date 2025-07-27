@@ -918,18 +918,21 @@ class TestRecoveryFromAddress(unittest.TestCase):
                             "advice pen praise soap lizard festival connect baby")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_walletgroestlecoin_addr_bip44(self):
         self.address_tester(btcrseed.WalletGroestlecoin, "FqGMQvKCb2idGbDd6SUBFuugynXRACEzuQ", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "
                             "advice pen praise soap lizard festival connect baby")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_walletgroestlecoin_addr_bip49(self):
         self.address_tester(btcrseed.WalletGroestlecoin, "384swZndJ7CjZhqx7JL29Whnommy9s9phF", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "
                             "advice pen praise soap lizard festival connect baby")
 
     @skipUnless(can_load_groestlcoin_hash, "requires groestlcoin_hash")
+    @skipUnless(can_load_bundled_bitcoinlib_mod, "Unable to load modified bitcoinlib in this environment")
     def test_walletgroestlecoin_addr_bip84(self):
         self.address_tester(btcrseed.WalletGroestlecoin, "grs1qy9qewq3x843gss8z6h22gmc03gfzuuj7hz505a", 2,
                             "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform "
