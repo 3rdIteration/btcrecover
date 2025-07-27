@@ -16,7 +16,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 20
     container:
       image: termux/termux-docker:${{ matrix.architecture }}
       volumes:
@@ -60,7 +60,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 20
     container:
       image: termux/termux-docker:${{ matrix.architecture }}
       volumes:
