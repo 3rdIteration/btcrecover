@@ -149,6 +149,17 @@ def can_load_slip10():
             can_load_slip10 = False
     return can_load_slip10
 
+is_ShamirMnemonic_loadable = None
+def can_load_ShamirMnemonic():
+    global is_ShamirMnemonic_loadable
+    if is_ShamirMnemonic_loadable is None:
+        try:
+            import shamir_mnemonic
+            is_ShamirMnemonic_loadable = True
+        except Exception:
+            is_ShamirMnemonic_loadable = False
+    return is_ShamirMnemonic_loadable
+
 
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
@@ -1890,6 +1901,7 @@ class QuickTests(unittest.TestSuite):
                         del suite._tests[test_num]
                         break
             self.addTests(suite)
+@unittest.skipUnless(can_load_ShamirMnemonic(), "requires Shamir-Mnemonic module")
 class TestSLIP39Seed(unittest.TestCase):
     """Tests for SLIP39 share recovery"""
     def test_share_checksum(self):
