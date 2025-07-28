@@ -365,17 +365,6 @@ Basic Ethereum Command, so need to specifcy the `--wallet-type` (But can leave o
 ```
 python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcBee4D51646cA6247487Ef91a --addr-limit 10 --passwordlist ./docs/Usage_Examples/common_passwordlist.txt --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together"
 ```
-<br>
-
-## SLIP39 Share Recovery
-`seedrecover.py` can also help fix a damaged SLIP39 share.  Supply your best
-guess of the share and allow the tool to search for close matches.
-
-```
-python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny ..." --typos 2
-```
-
-
 ## Raw Private Keys##
 BTCRecover an also be used to recover from situations where you have a damaged private key. 
 

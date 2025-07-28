@@ -129,3 +129,10 @@ One wrong word, address generation limit of two.
 ```
 python seedrecover.py --mnemonic "doctor giant eternal huge improve suit service poem logic dynamic crane summer exhibit describe later suit dignity ahead unknown fall syrup mirror nurse" --addrs GAV7E2PHIPDS3PM3BWN6DIHC623ONTZUDGXPJ7TT3EREYJRLTMENCK6Z --addr-limit 2 --no-eta --wallet-type xlm
 ```
+
+## SLIP39 Share Recovery
+`seedrecover.py` can also help fix a damaged SLIP39 share. Supply your best guess of the share and allow the tool to search for close matches.
+
+```
+python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" --typos 2
+```

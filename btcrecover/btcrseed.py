@@ -115,6 +115,13 @@ try:
 except:
     pass
 
+shamir_mnemonic_available = False
+try:
+    import shamir_mnemonic
+    shamir_mnemonic_available = True
+except Exception:
+    pass
+
 
 _T = TypeVar("_T")
 
@@ -3391,6 +3398,15 @@ class WalletSLIP39Seed(WalletBase):
     """
 
     _words = None
+
+    def __init__(self, path=None, loading=False):
+        if not shamir_mnemonic_available:
+            print()
+            print(
+                "ERROR: Cannot import shamir_mnemonic which is required for SLIP39 share recovery, install it via 'pip3 install shamir-mnemonic[cli]'"
+            )
+            exit()
+        super(WalletSLIP39Seed, self).__init__(loading)
 
     @classmethod
     def _load_wordlist(cls):
