@@ -1922,6 +1922,16 @@ class TestSLIP39Seed(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false((candidate,)),
                          (candidate, 1))
 
+    def test_assume_33_word_share(self):
+        share = (
+            "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard "
+            "adjust muscle parcel sled crucial amazing mansion losing admit adorn adult advance advocate "
+            "afraid again agency agree aide"
+        )
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        self.assertEqual(btcrseed.num_inserts, 33 - len(share.split()))
+
 
 
 if __name__ == '__main__':

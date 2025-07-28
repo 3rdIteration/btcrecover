@@ -763,6 +763,18 @@ class WalletElectrum1(WalletBase):
         num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
         num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
         if num_inserts:
+            print(
+                "Seed sentence was too short, inserting {} word{} into each guess.".format(
+                    num_inserts, "s" if num_inserts > 1 else ""
+                )
+            )
+        if num_deletes:
+            print(
+                "Seed sentence was too long, deleting {} word{} from each guess.".format(
+                    num_deletes, "s" if num_deletes > 1 else ""
+                )
+            )
+        if num_inserts:
             print("Seed sentence was too short, inserting {} word{} into each guess."
                   .format(num_inserts, "s" if num_inserts > 1 else ""))
         if num_deletes:
@@ -3457,8 +3469,16 @@ class WalletSLIP39Seed(WalletBase):
                     print(f"'{word}' was in your guess, but there is no similar SLIP39 word;\n    trying all possible seed words here instead.")
                 mnemonic_ids_guess += None,
 
+        guess_len = len(mnemonic_ids_guess)
         if expected_len is None:
-            expected_len = max(len(mnemonic_ids_guess), slip39_min_words)
+            expected_len = max(guess_len, slip39_min_words)
+            if guess_len > 28:
+                expected_len = 33
+            print(
+                "Assuming a",
+                expected_len,
+                "word share. (This can be overridden with --share-length)",
+            )
 
         num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
         num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
@@ -3780,6 +3800,7 @@ def main(argv):
         parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
         parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
         parser.add_argument("--slip39", action="store_true", help="recover a SLIP39 seed share")
+        parser.add_argument("--share-length", type=int, metavar="WORD-COUNT", help="the length of the SLIP39 share (default: auto)")
         parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
@@ -4016,6 +4037,9 @@ def main(argv):
 
         if args.mnemonic_length is not None:
             config_mnemonic_params["expected_len"] = args.mnemonic_length
+
+        if args.share_length is not None:
+            config_mnemonic_params["expected_len"] = args.share_length
 
         if args.bip32_path and not args.pathlist:
             if args.wallet:

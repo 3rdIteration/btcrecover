@@ -143,3 +143,7 @@ word of the same share still succeeds:
 ```
 python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion" --typos 2
 ```
+
+If the share is longer than twenty-eight words, `seedrecover.py` assumes it is a
+thirty-three word share. You can override this by supplying
+`--share-length WORDS`.
