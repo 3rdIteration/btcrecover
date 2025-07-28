@@ -3492,6 +3492,13 @@ class WalletSLIP39Seed(WalletBase):
             if None not in mnemonic_ids and self._verify_checksum(mnemonic_ids):
                 return mnemonic_ids, count
         return False, count
+
+    def performance_iterator(self):
+        """Generate infinite SLIP39 share guesses for performance testing."""
+        length = len(mnemonic_ids_guess) + num_inserts - num_deletes
+        prefix = tuple(random.randrange(len(self._words)) for _ in range(max(length - 4, 0)))
+        for guess in itertools.product(range(len(self._words)), repeat=min(length, 4)):
+            yield prefix + guess
 ################################### Main ###################################
 
 tk_root = None
