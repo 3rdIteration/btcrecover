@@ -141,7 +141,7 @@ The tool can also recover shares with missing words. For example, omitting the l
 word of the same share still succeeds:
 
 ```
-python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion" --typos 2
+python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion" --big-typos 2
 ```
 
 If the share is longer than twenty-eight words, `seedrecover.py` assumes it is a
