@@ -1905,7 +1905,8 @@ class WalletElectrum2(WalletBIP39):
     def _load_wordlists(cls):
         assert not cls._language_words, "_load_wordlists() should only be called once from the first init()"
         cls._do_load_wordlists("electrum2")
-        cls._do_load_wordlists("bip39", ("en", "es", "ja", "zh-hans"))  # only the four bip39 ones used by Electrum2
+        # Load full BIP39 wordlists so later wallets can use any language
+        cls._do_load_wordlists("bip39")
         assert all(len(w) >= 1411 for w in cls._language_words.values()), \
                "Electrum2 wordlists are at least 1411 words long" # because we assume a max mnemonic length of 13
 
