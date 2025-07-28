@@ -1905,8 +1905,10 @@ class WalletElectrum2(WalletBIP39):
     @classmethod
     def _load_wordlists(cls):
         assert not cls._language_words, "_load_wordlists() should only be called once from the first init()"
+        # Load all standard BIP39 wordlists first so Electrum2-specific
+        # lists cannot overwrite them if they share the same language code
+        cls._do_load_wordlists("bip39")
         cls._do_load_wordlists("electrum2")
-        cls._do_load_wordlists("bip39")  # load all standard BIP39 languages
         for lang in list(cls._language_words):
             words = cls._language_words[lang]
             if len(words) == 2048 and lang in ("en", "es", "fr", "it", "pt", "cs"):
