@@ -9,8 +9,14 @@ from collections import deque
 from itertools import chain, repeat, zip_longest
 import numpy as np
 import pyopencl as cl
+
+# Minimum number of items to execute in a single OpenCL batch.  Some
+# OpenCL runtimes (such as PoCL) crash when a kernel is launched with a
+# very small global size, so pad the batch to at least this many items.
+MIN_BATCH_SIZE = 8
 from lib.opencl_brute.buffer_structs import buffer_structs
 import os, sys, inspect
+
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
 
@@ -51,8 +57,16 @@ class opencl_interface:
 
     # Initialiser for the key properties
     #   pbkdf related initialisation removed, will reappear somewhere else
-    def __init__(self, platformNum, debug=0, write_combined_file=False, maxWorkgroupSize=60000, inv_memory_density=1,
-                 N_value=15, openclDevice = 0):
+    def __init__(
+        self,
+        platformNum,
+        debug=0,
+        write_combined_file=False,
+        maxWorkgroupSize=60000,
+        inv_memory_density=1,
+        N_value=15,
+        openclDevice=0,
+    ):
         self.workgroupsize = 0
         self.computeunits = 0
         self.wordSize = None
@@ -72,16 +86,37 @@ class opencl_interface:
         self.debug = debug
 
         for device in devices:
-            printif(debug, '--------------------------------------------------------------------------')
-            printif(debug, ' Device - Name: ' + device.name)
-            printif(debug, ' Device - Type: ' + cl.device_type.to_string(device.type))
-            printif(debug, ' Device - Compute Units: {0}'.format(device.max_compute_units))
-            printif(debug, ' Device - Max Work Group Size: {0:.0f}'.format(device.max_work_group_size))
-            printif(debug, ' Device - Global memory size: {}'.format(device.global_mem_size))
-            printif(debug, ' Device - Local memory size:  {}'.format(device.local_mem_size))
-            printif(debug, ' Device - Max clock frequency: {} MHz'.format(device.max_clock_frequency))
+            printif(
+                debug,
+                "--------------------------------------------------------------------------",
+            )
+            printif(debug, " Device - Name: " + device.name)
+            printif(debug, " Device - Type: " + cl.device_type.to_string(device.type))
+            printif(
+                debug, " Device - Compute Units: {0}".format(device.max_compute_units)
+            )
+            printif(
+                debug,
+                " Device - Max Work Group Size: {0:.0f}".format(
+                    device.max_work_group_size
+                ),
+            )
+            printif(
+                debug, " Device - Global memory size: {}".format(device.global_mem_size)
+            )
+            printif(
+                debug, " Device - Local memory size:  {}".format(device.local_mem_size)
+            )
+            printif(
+                debug,
+                " Device - Max clock frequency: {} MHz".format(
+                    device.max_clock_frequency
+                ),
+            )
 
-            assert device.endian_little == 1, "DEVICE is not little endian : pretty sure we rely on this!"
+            assert (
+                device.endian_little == 1
+            ), "DEVICE is not little endian : pretty sure we rely on this!"
             if self.workgroupsize == 0:
                 self.workgroupsize = maxWorkgroupSize
                 self.workgroupsize = min(self.workgroupsize, device.max_work_group_size)
@@ -102,13 +137,21 @@ class opencl_interface:
         # os.environ['PYOPENCL_COMPILER_OUTPUT'] = str(debug)
         self.write_combined_file = write_combined_file
 
-    def compile(self, bufferStructsObj, library_file, footer_file=None, N=15, invMemoryDensity=2):
+    def compile(
+        self, bufferStructsObj, library_file, footer_file=None, N=15, invMemoryDensity=2
+    ):
         assert type(N) == int
-        assert N < 20, "N >= 20 won't fit in a single buffer, so is unsupported. " + \
-                       "Nothing sane should use 20, is this wickr?"
+        assert N < 20, (
+            "N >= 20 won't fit in a single buffer, so is unsupported. "
+            + "Nothing sane should use 20, is this wickr?"
+        )
         self.N = N
-        assert bufferStructsObj is not None, "need to supply a bufferStructsObj : set all to 0 if necessary"
-        assert bufferStructsObj.code is not None, "bufferStructsObj should be initialised"
+        assert (
+            bufferStructsObj is not None
+        ), "need to supply a bufferStructsObj : set all to 0 if necessary"
+        assert (
+            bufferStructsObj.code is not None
+        ), "bufferStructsObj should be initialised"
         bufStructs = bufferStructsObj
         self.wordSize = bufStructs.wordSize
 
@@ -124,11 +167,17 @@ class opencl_interface:
         else:
             src = ""
         if library_file:
-            with open(os.path.join("lib","opencl_brute","worker","generic",library_file), "r") as rf:
+            with open(
+                os.path.join("lib", "opencl_brute", "worker", "generic", library_file),
+                "r",
+            ) as rf:
                 src += rf.read()
 
         if footer_file:
-            with open(os.path.join("lib","opencl_brute","worker","generic",footer_file), "r") as rf:
+            with open(
+                os.path.join("lib", "opencl_brute", "worker", "generic", footer_file),
+                "r",
+            ) as rf:
                 src += rf.read()
 
         # Standardise to using no \r's, move to bytes to stop trickery
@@ -146,9 +195,11 @@ class opencl_interface:
         # Check that it starts with 2 newlines, for adding our defines
         if src.startswith("\n\n"):
             src = "\n\n" + src
-            src = src[len("\n\n"):]
+            src = src[len("\n\n") :]
             # Prepend define N and invMemoryDensity
-            defines = "#define N {}\n#define invMemoryDensity {}\n".format(N, invMemoryDensity)
+            defines = "#define N {}\n#define invMemoryDensity {}\n".format(
+                N, invMemoryDensity
+            )
             src = defines + src
 
         # Kernel function instantiation. Build returns self.
@@ -179,17 +230,23 @@ class opencl_interface:
         if len(inpArray) == 0:
             inpArray = b"\x00"
 
-        inp_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=inpArray)
+        inp_g = cl.Buffer(
+            self.ctx,
+            cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+            hostbuf=inpArray,
+        )
 
         return inp_g, numEaten
 
-    def run(self, bufStructs, func, pwdIter, salt=b"", paddedLenFunc=None, rtnPwds=None):
+    def run(
+        self, bufStructs, func, pwdIter, salt=b"", paddedLenFunc=None, rtnPwds=None
+    ):
         # PaddedLenFunc is just for checking: lower bound with original length if not supplied
-        wordType=self.wordType
-        wordSize=self.wordSize
-        ctx=self.ctx
-        queue=self.queue
-        hashBlockSize_bits=bufStructs.hashBlockSize_bits
+        wordType = self.wordType
+        wordSize = self.wordSize
+        ctx = self.ctx
+        queue = self.queue
+        hashBlockSize_bits = bufStructs.hashBlockSize_bits
         if not paddedLenFunc:
             paddedLenFunc = lambda x, bs: x
 
@@ -222,16 +279,36 @@ class opencl_interface:
 
                 pwLen = len(pw)
                 # Now passing hash block size as a parameter.. could be None?
-                assert paddedLenFunc(pwLen, hashBlockSize_bits // 8) <= inBufSize_bytes, \
-                    "password #" + str(i) + ", '" + pw.decode() + "' (length " + str(
-                        pwLen) + ") exceeds the input buffer (length " + str(inBufSize_bytes) + ") when padded"
+                assert (
+                    paddedLenFunc(pwLen, hashBlockSize_bits // 8) <= inBufSize_bytes
+                ), (
+                    "password #"
+                    + str(i)
+                    + ", '"
+                    + pw.decode()
+                    + "' (length "
+                    + str(pwLen)
+                    + ") exceeds the input buffer (length "
+                    + str(inBufSize_bytes)
+                    + ") when padded"
+                )
 
                 # Add the length to our pwArray, then pad with 0s to struct size
                 # prev code was np.array([pwLen], dtype=np.uint32), this ultimately is equivalent
-                pwArray.extend(pwLen.to_bytes(wordSize, 'little')+pw+(b"\x00"* (inBufSize_bytes - pwLen)))
+                pwArray.extend(
+                    pwLen.to_bytes(wordSize, "little")
+                    + pw
+                    + (b"\x00" * (inBufSize_bytes - pwLen))
+                )
 
             if chunkSize == 0:
                 break
+
+            realChunk = chunkSize
+            if chunkSize < MIN_BATCH_SIZE:
+                pad = MIN_BATCH_SIZE - chunkSize
+                pwArray.extend(b"\x00" * ((wordSize + inBufSize_bytes) * pad))
+                chunkSize = MIN_BATCH_SIZE
             # print("Chunksize = {}".format(chunkSize))
 
             # Convert the pwArray into a numpy array, just the once.
@@ -241,14 +318,27 @@ class opencl_interface:
 
             # Make the salty array, with length at the front
             saltLen = len(salt)
-            saltArray = bytearray(saltLen.to_bytes(wordSize, 'little')+salt+(b"\x00" * (saltBufferSize_bytes - saltLen)))
+            saltArray = bytearray(
+                saltLen.to_bytes(wordSize, "little")
+                + salt
+                + (b"\x00" * (saltBufferSize_bytes - saltLen))
+            )
             saltArray = np.frombuffer(saltArray, dtype=wordType)
-            assert saltArray.nbytes - wordSize == saltBufferSize_bytes, "Salt doesn't fit in the " \
-                                                                                        "buffer! "
+            assert saltArray.nbytes - wordSize == saltBufferSize_bytes, (
+                "Salt doesn't fit in the " "buffer! "
+            )
 
             # Allocate memory for variables on the device
-            pass_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=pwArray)
-            salt_g = cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=saltArray)
+            pass_g = cl.Buffer(
+                ctx,
+                cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+                hostbuf=pwArray,
+            )
+            salt_g = cl.Buffer(
+                ctx,
+                cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+                hostbuf=saltArray,
+            )
             result_g = cl.Buffer(ctx, cl.mem_flags.WRITE_ONLY, result.nbytes)
 
             # print("=========== Initial buffers ==============")
@@ -270,19 +360,30 @@ class opencl_interface:
             # Chop up into the individual hash digests, then trim to necessary hash length.
 
             # Yield this block of results
-            yield [bytes(result[i:i + outBufSize_bytes // wordSize])
-                   for i in range(0, len(result), outBufSize_bytes // wordSize)]
+            results = [
+                bytes(result[i : i + outBufSize_bytes // wordSize])
+                for i in range(0, len(result), outBufSize_bytes // wordSize)
+            ]
+            yield results[:realChunk]
 
         # No main return
         return None
 
-    def run_saltlist(self, bufStructs, func, saltIter, password = b"", paddedLenFunc=None, rtnSalts=None):
+    def run_saltlist(
+        self,
+        bufStructs,
+        func,
+        saltIter,
+        password=b"",
+        paddedLenFunc=None,
+        rtnSalts=None,
+    ):
         # PaddedLenFunc is just for checking: lower bound with original length if not supplied
-        wordType=self.wordType
-        wordSize=self.wordSize
-        ctx=self.ctx
-        queue=self.queue
-        hashBlockSize_bits=bufStructs.hashBlockSize_bits
+        wordType = self.wordType
+        wordSize = self.wordSize
+        ctx = self.ctx
+        queue = self.queue
+        hashBlockSize_bits = bufStructs.hashBlockSize_bits
         if not paddedLenFunc:
             paddedLenFunc = lambda x, bs: x
 
@@ -314,18 +415,34 @@ class opencl_interface:
 
                 saltLen = len(salt)
                 # Now passing hash block size as a parameter.. could be None?
-                assert paddedLenFunc(saltLen, hashBlockSize_bits // 8) <= inBufSize_bytes, \
-                    "salt #" + str(i) + ", '" + salt.decode() + "' (length " + str(
-                        saltLen) + ") exceeds the input buffer (length " + str(inBufSize_bytes) + ") when padded"
+                assert (
+                    paddedLenFunc(saltLen, hashBlockSize_bits // 8) <= inBufSize_bytes
+                ), (
+                    "salt #"
+                    + str(i)
+                    + ", '"
+                    + salt.decode()
+                    + "' (length "
+                    + str(saltLen)
+                    + ") exceeds the input buffer (length "
+                    + str(inBufSize_bytes)
+                    + ") when padded"
+                )
 
                 # Add the length to our saltLen, then pad with 0s to struct size
                 # prev code was np.array([saltLen], dtype=np.uint32), this ultimately is equivalent
-                saltArray.extend((saltLen).to_bytes(self.wordSize, 'little'))
+                saltArray.extend((saltLen).to_bytes(self.wordSize, "little"))
                 saltArray.extend(salt)
                 saltArray.extend([0] * (inBufSize_bytes - saltLen))
 
             if chunkSize == 0:
                 break
+
+            realChunk = chunkSize
+            if chunkSize < MIN_BATCH_SIZE:
+                pad = MIN_BATCH_SIZE - chunkSize
+                saltArray.extend(b"\x00" * ((self.wordSize + inBufSize_bytes) * pad))
+                chunkSize = MIN_BATCH_SIZE
             # print("Chunksize = {}".format(chunkSize))
 
             # Convert the pwArray into a numpy array, just the once.
@@ -335,16 +452,26 @@ class opencl_interface:
 
             # Make the salty array, with length at the front
             pwLen = len(password)
-            pwArray = bytearray((pwLen).to_bytes(self.wordSize, 'little'))
+            pwArray = bytearray((pwLen).to_bytes(self.wordSize, "little"))
             pwArray.extend(password)
             ##saltArray.extend(b"\x00" * ((-saltLen) % 4))
             pwArray.extend(b"\x00" * (bufStructs.pwdBufferSize_bytes - pwLen))
             pwArray = np.frombuffer(pwArray, dtype=self.wordType)
-            assert pwArray.nbytes - self.wordSize == bufStructs.pwdBufferSize_bytes, "Salt doesn't fit in the buffer!"
+            assert (
+                pwArray.nbytes - self.wordSize == bufStructs.pwdBufferSize_bytes
+            ), "Salt doesn't fit in the buffer!"
 
             # Allocate memory for variables on the device
-            pass_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=pwArray)
-            salt_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=saltArray)
+            pass_g = cl.Buffer(
+                self.ctx,
+                cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+                hostbuf=pwArray,
+            )
+            salt_g = cl.Buffer(
+                self.ctx,
+                cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
+                hostbuf=saltArray,
+            )
             result_g = cl.Buffer(self.ctx, cl.mem_flags.WRITE_ONLY, result.nbytes)
 
             # print("=========== Initial buffers ==============")
@@ -372,11 +499,11 @@ class opencl_interface:
             #    results.append(hexRes)
 
             for i in range(0, len(result), outBufSize_bytes // bufStructs.wordSize):
-                v = bytes(result[i:i + outBufSize_bytes // bufStructs.wordSize])
+                v = bytes(result[i : i + outBufSize_bytes // bufStructs.wordSize])
                 results.append(v)
 
             # Yield this block of results
-            yield results
+            yield results[:realChunk]
 
         # No main return
         return None
@@ -390,13 +517,17 @@ class opencl_interface:
             memoryForOneCore = BLOCK_LEN_BYTES * 2 + N_blocks_bytes  # input, output & V
 
             ## ! Restrict to 98% of avaiable memory
-            coresOnDevice = (int(0.98 * device.global_mem_size) // memoryForOneCore)
-            percentUsage = 100 * memoryForOneCore * coresOnDevice / device.global_mem_size
+            coresOnDevice = int(0.98 * device.global_mem_size) // memoryForOneCore
+            percentUsage = (
+                100 * memoryForOneCore * coresOnDevice / device.global_mem_size
+            )
             percentUsage = str(percentUsage)[:4]
             if self.debug == 1:
-                print("Using {} cores on device with global memory {}, = {}%".format(
-                    coresOnDevice, device.global_mem_size, percentUsage
-                ))
+                print(
+                    "Using {} cores on device with global memory {}, = {}%".format(
+                        coresOnDevice, device.global_mem_size, percentUsage
+                    )
+                )
             wgSize += coresOnDevice
 
         if self.debug == 1:
@@ -426,7 +557,9 @@ class opencl_interface:
 
             # arr = np.frombuffer(bytes(gangSize * N_blocks_bytes), dtype=np.uint32)
             # Why is this read only?
-            arr_g = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY, size=gangSize * N_blocks_bytes)
+            arr_g = cl.Buffer(
+                self.ctx, cl.mem_flags.READ_ONLY, size=gangSize * N_blocks_bytes
+            )
             largeBuffers.append(arr_g)
 
             # Produce the gang's output buffer and (small) numpy array to copy out to
@@ -453,7 +586,9 @@ class opencl_interface:
             inCounts = []
             for gangSize in take_in_chunks(self.sworkgroupsize, maxGangSize):
                 input_g, numEaten = self.make_input_buffer(dkIter, gangSize)
-                iterActive = (numEaten == gangSize)  # note gangSize > 0, so once False this will persist
+                iterActive = (
+                    numEaten == gangSize
+                )  # note gangSize > 0, so once False this will persist
                 newInputs.append(input_g)
                 inCounts.append(numEaten)
 
@@ -461,13 +596,19 @@ class opencl_interface:
             #       and copy output buffers out to numpy (minimal time loss here, could use
             #       2 sets of output buffers instead)
             #   Note we may well have copied too much: this is dealt with in 4. below
-            for outSize, outNumpy, outBuf in zip_longest(outSizes, outNumpys, outBuffers):
+            for outSize, outNumpy, outBuf in zip_longest(
+                outSizes, outNumpys, outBuffers
+            ):
                 if outSize > 0:
-                    cl.enqueue_copy(self.queue, outNumpy, outBuf)  # is_blocking defaults to true :)
+                    cl.enqueue_copy(
+                        self.queue, outNumpy, outBuf
+                    )  # is_blocking defaults to true :)
 
             # print("Calling kernels..")
             #   3. (NON-BLOCKING) queue the kernel calls
-            for input_g, arr_g, result_g, inCount in zip_longest(newInputs, largeBuffers, outBuffers, inCounts):
+            for input_g, arr_g, result_g, inCount in zip_longest(
+                newInputs, largeBuffers, outBuffers, inCounts
+            ):
                 if inCount > 0:
                     dim = (inCount,)
                     # print("inCount = {}".format(inCount))
@@ -487,7 +628,7 @@ class opencl_interface:
                 assert outSize % BLOCK_LEN_BYTES == 0
                 outBytes = outNumpy.tobytes()
                 for j in range(0, outSize, BLOCK_LEN_BYTES):
-                    yield outBytes[j:j + BLOCK_LEN_BYTES]
+                    yield outBytes[j : j + BLOCK_LEN_BYTES]
 
                 outSizes[i] = inCount * BLOCK_LEN_BYTES
 
@@ -503,11 +644,11 @@ class opencl_interface:
             assert outSize % BLOCK_LEN_BYTES == 0
             outBytes = outNumpy.tobytes()
             for i in range(0, outSize, BLOCK_LEN_BYTES):
-                yield outBytes[i:i + BLOCK_LEN_BYTES]
+                yield outBytes[i : i + BLOCK_LEN_BYTES]
 
 
 def mdpad_128_func(pwdLen, blockSize):
-    llen = (pwdLen + 1 + 16)
+    llen = pwdLen + 1 + 16
     llen += (-llen) % blockSize
     return llen
 
@@ -515,7 +656,7 @@ def mdpad_128_func(pwdLen, blockSize):
 def mdpad_64_func(pwdLen, blockSize):
     # both parameters in bytes
     # length appended as a 64-bit integer
-    llen = (pwdLen + 1 + 8)
+    llen = pwdLen + 1 + 8
     llen += (-llen) % blockSize
     return llen
 
@@ -525,27 +666,60 @@ def concat(ll):
 
 
 class opencl_algos:
-    def __init__(self, platform, debug, write_combined_file, inv_memory_density=1, openclDevice = 0):
+    def __init__(
+        self,
+        platform,
+        debug,
+        write_combined_file,
+        inv_memory_density=1,
+        openclDevice=0,
+        workgroupsize=None,
+    ):
         if not debug:
             debug = 0
-        self.opencl_ctx = opencl_interface(platform, debug, write_combined_file, openclDevice = openclDevice)
+        kwargs = {}
+        if workgroupsize is not None:
+            kwargs["maxWorkgroupSize"] = workgroupsize
+        self.opencl_ctx = opencl_interface(
+            platform, debug, write_combined_file, openclDevice=openclDevice, **kwargs
+        )
         self.platform_number = platform
         self.inv_memory_density = inv_memory_density
-        self.max_out_bytes=0
+        self.max_out_bytes = 0
 
-    def cl_scrypt_init(self, N_value=15, forceAltKernel = None):
+    def cl_scrypt_init(self, N_value=15, forceAltKernel=None):
         # Initialise the openCL context & compile, with both debugging settings off
         debug = 0
         bufStructs = buffer_structs()
         if forceAltKernel:
             print("Loading Alternative sCrypt Kernel:", forceAltKernel)
-            sprg = self.opencl_ctx.compile(bufStructs, forceAltKernel, None, N=N_value, invMemoryDensity=self.inv_memory_density)
+            sprg = self.opencl_ctx.compile(
+                bufStructs,
+                forceAltKernel,
+                None,
+                N=N_value,
+                invMemoryDensity=self.inv_memory_density,
+            )
         else:
-            sprg=self.opencl_ctx.compile(bufStructs, "sCrypt.cl", None, N=N_value, invMemoryDensity=self.inv_memory_density)
-        return [sprg,bufStructs]
+            sprg = self.opencl_ctx.compile(
+                bufStructs,
+                "sCrypt.cl",
+                None,
+                N=N_value,
+                invMemoryDensity=self.inv_memory_density,
+            )
+        return [sprg, bufStructs]
 
-    def cl_scrypt(self, ctx, passwords, N_value=15, r_value=3, p_value=1, desired_key_length=32,
-                  hex_salt=unhexlify("DEADBEEFDEADBEEFDEADBEEFDEADBEEF")):
+    def cl_scrypt(
+        self,
+        ctx,
+        passwords,
+        N_value=15,
+        r_value=3,
+        p_value=1,
+        desired_key_length=32,
+        hex_salt=unhexlify("DEADBEEFDEADBEEFDEADBEEFDEADBEEF"),
+    ):
 
         def get_dk_iter(p, salt, pwdIter, rtnPwds=None):
             # r fixed as 8 in the OpenCL
@@ -559,7 +733,7 @@ class opencl_algos:
 
                 # Yield
                 for i in range(p):
-                    yield dk[i * blockSize: (i + 1) * blockSize]
+                    yield dk[i * blockSize : (i + 1) * blockSize]
 
         sprg = ctx[0]
 
@@ -582,7 +756,9 @@ class opencl_algos:
             if len(group) == 1 << p_value:
                 expensiveSalt = b"".join(group)
                 commonPwd = passwordList_popleft()
-                sCryptResult = pbkdf2_hmac("sha256", commonPwd, expensiveSalt, 1, desired_key_length)
+                sCryptResult = pbkdf2_hmac(
+                    "sha256", commonPwd, expensiveSalt, 1, desired_key_length
+                )
 
                 # For now print out for debugging
                 # print("Password={}".format(commonPwd))
@@ -597,11 +773,13 @@ class opencl_algos:
     #    l += (64 - (l % 64)) % 64
     #    return l
 
-    def cl_sha512_init(self, option="", max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0):
+    def cl_sha512_init(
+        self, option="", max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0
+    ):
         bufStructs = buffer_structs()
         bufStructs.specifySHA2(512, max_in_bytes, max_salt_bytes, dklen, max_ct_bytes)
         assert bufStructs.wordSize == 8  # set when you specify sha512
-        prg = self.opencl_ctx.compile(bufStructs, 'sha512.cl', option)
+        prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", option)
         return [prg, bufStructs]
 
     def cl_sha512(self, ctx, passwordlist):
@@ -612,13 +790,19 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), b"", mdpad_128_func))
+        return concat(
+            self.opencl_ctx.run(
+                bufStructs, func, iter(passwordlist), b"", mdpad_128_func
+            )
+        )
 
-    def cl_sha256_init(self, option="", max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0):
+    def cl_sha256_init(
+        self, option="", max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0
+    ):
         bufStructs = buffer_structs()
         bufStructs.specifySHA2(256, max_in_bytes, max_salt_bytes, dklen, max_ct_bytes)
         assert bufStructs.wordSize == 4  # set when you specify sha256
-        prg = self.opencl_ctx.compile(bufStructs, 'sha256.cl', option)
+        prg = self.opencl_ctx.compile(bufStructs, "sha256.cl", option)
         return [prg, bufStructs]
 
     def cl_sha256(self, ctx, passwordlist):
@@ -629,13 +813,17 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), b"", mdpad_64_func))
+        return concat(
+            self.opencl_ctx.run(
+                bufStructs, func, iter(passwordlist), b"", mdpad_64_func
+            )
+        )
 
     def cl_md5_init(self, option=""):
         bufStructs = buffer_structs()
         bufStructs.specifyMD5()
         assert bufStructs.wordSize == 4  # set when you specify md5
-        prg = self.opencl_ctx.compile(bufStructs, 'md5.cl', option)
+        prg = self.opencl_ctx.compile(bufStructs, "md5.cl", option)
         return [prg, bufStructs]
 
     def cl_md5(self, ctx, passwordlist):
@@ -646,13 +834,17 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), b"", mdpad_64_func))
+        return concat(
+            self.opencl_ctx.run(
+                bufStructs, func, iter(passwordlist), b"", mdpad_64_func
+            )
+        )
 
     def cl_sha1_init(self, option=""):
         bufStructs = buffer_structs()
         bufStructs.specifySHA1()
         assert bufStructs.wordSize == 4  # set when you specify sha1
-        prg = self.opencl_ctx.compile(bufStructs, 'sha1.cl', option)
+        prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", option)
         return [prg, bufStructs]
 
     def cl_sha1(self, ctx, passwordlist):
@@ -663,7 +855,11 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), b"", mdpad_64_func))
+        return concat(
+            self.opencl_ctx.run(
+                bufStructs, func, iter(passwordlist), b"", mdpad_64_func
+            )
+        )
 
     # ===========================================================================================
 
@@ -699,8 +895,16 @@ class opencl_algos:
         bufStructs = ctx[1]
 
         def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.pbkdf2(s.queue, pwdim, None, pass_g, salt_g, result_g,
-                       iters.to_bytes(4, 'little'), dklen.to_bytes(4, 'little'))  # ! iters, dklen are always ints
+            prg.pbkdf2(
+                s.queue,
+                pwdim,
+                None,
+                pass_g,
+                salt_g,
+                result_g,
+                iters.to_bytes(4, "little"),
+                dklen.to_bytes(4, "little"),
+            )  # ! iters, dklen are always ints
 
         result = concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), salt))
         if dklen != self.max_out_bytes:
@@ -716,15 +920,15 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif rtype == "sha1":
             if saltlen < 32 and dklen < 32:
-                 dklen=32
-                 self.max_out_bytes = bufStructs.specifySHA1(32, saltlen, dklen)
-                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha1_32.cl", None)
+                dklen = 32
+                self.max_out_bytes = bufStructs.specifySHA1(32, saltlen, dklen)
+                prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha1_32.cl", None)
             else:
                 self.max_out_bytes = bufStructs.specifySHA1(128, saltlen, dklen)
                 prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
         elif rtype == "sha256":
             if saltlen <= 64 and dklen <= 64:
-                dklen=64
+                dklen = 64
             self.max_out_bytes = bufStructs.specifySHA2(256, 128, saltlen, dklen)
             if saltlen <= 64 and dklen <= 64:
                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha256_32.cl", None)
@@ -734,7 +938,7 @@ class opencl_algos:
             self.max_out_bytes = bufStructs.specifySHA2(512, 256, saltlen, dklen)
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
-            assert ("Error on hash type, unknown !!!")
+            assert "Error on hash type, unknown !!!"
         return [prg, bufStructs]
 
     # ===========================================================================================
@@ -742,11 +946,22 @@ class opencl_algos:
     def cl_pbkdf2_saltlist(self, ctx, password, saltlist, iters, dklen):
         prg = ctx[0]
         bufStructs = ctx[1]
-        def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.pbkdf2_saltlist(s.queue, pwdim, None, pass_g, salt_g, result_g,
-                       (iters).to_bytes(4, 'little'), (dklen).to_bytes(4, 'little'))    # ! iters, dklen are always ints
 
-        result = concat(self.opencl_ctx.run_saltlist(bufStructs, func, iter(saltlist), password))
+        def func(s, pwdim, pass_g, salt_g, result_g):
+            prg.pbkdf2_saltlist(
+                s.queue,
+                pwdim,
+                None,
+                pass_g,
+                salt_g,
+                result_g,
+                (iters).to_bytes(4, "little"),
+                (dklen).to_bytes(4, "little"),
+            )  # ! iters, dklen are always ints
+
+        result = concat(
+            self.opencl_ctx.run_saltlist(bufStructs, func, iter(saltlist), password)
+        )
         if dklen != self.max_out_bytes:
             # We may have made more space for a multiple of the digest size
             result = [hexRes[:dklen] for hexRes in result]
@@ -755,21 +970,43 @@ class opencl_algos:
     def cl_pbkdf2_saltlist_init(self, type, pwdlen, dklen):
         bufStructs = buffer_structs()
         if type == "md5":
-            self.max_out_bytes = bufStructs.specifyMD5(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
+            self.max_out_bytes = bufStructs.specifyMD5(
+                max_in_bytes=128,
+                max_salt_bytes=128,
+                dklen=dklen,
+                max_password_bytes=pwdlen,
+            )
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif type == "sha1":
-            self.max_out_bytes = bufStructs.specifySHA1(max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
+            self.max_out_bytes = bufStructs.specifySHA1(
+                max_in_bytes=128,
+                max_salt_bytes=128,
+                dklen=dklen,
+                max_password_bytes=pwdlen,
+            )
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
         elif type == "sha256":
-            self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=256, max_in_bytes=128, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
-            prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2.cl")
+            self.max_out_bytes = bufStructs.specifySHA2(
+                hashDigestSize_bits=256,
+                max_in_bytes=128,
+                max_salt_bytes=128,
+                dklen=dklen,
+                max_password_bytes=pwdlen,
+            )
+            prg = self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2.cl")
         elif type == "sha512":
-            self.max_out_bytes = bufStructs.specifySHA2(hashDigestSize_bits=512, max_in_bytes=256, max_salt_bytes=128, dklen=dklen, max_password_bytes=pwdlen)
-            prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
+            self.max_out_bytes = bufStructs.specifySHA2(
+                hashDigestSize_bits=512,
+                max_in_bytes=256,
+                max_salt_bytes=128,
+                dklen=dklen,
+                max_password_bytes=pwdlen,
+            )
+            prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
-            assert ("Error on hash type, unknown !!!")
+            assert "Error on hash type, unknown !!!"
         return [prg, bufStructs]
 
     # ===========================================================================================
@@ -777,27 +1014,40 @@ class opencl_algos:
     def cl_hash_iterations(self, ctx, passwordlist, iters, hash_size):
         prg = ctx[0]
         bufStructs = ctx[1]
-        def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.hash_iterations(s.queue, pwdim, None, pass_g, result_g, iters.to_bytes(4, 'little'), hash_size.to_bytes(4, 'little'))    # ! iters are always ints
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), b"", mdpad_64_func))
+        def func(s, pwdim, pass_g, salt_g, result_g):
+            prg.hash_iterations(
+                s.queue,
+                pwdim,
+                None,
+                pass_g,
+                result_g,
+                iters.to_bytes(4, "little"),
+                hash_size.to_bytes(4, "little"),
+            )  # ! iters are always ints
+
+        return concat(
+            self.opencl_ctx.run(
+                bufStructs, func, iter(passwordlist), b"", mdpad_64_func
+            )
+        )
 
     def cl_hash_iterations_init(self, type):
         bufStructs = buffer_structs()
         if type == "md5":
             self.max_out_bytes = bufStructs.specifyMD5()
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "md5.cl", "hash_iterations.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "hash_iterations.cl")
         elif type == "sha1":
             self.max_out_bytes = bufStructs.specifySHA1()
             ## hmac is defined in with pbkdf2, as a kernel function
-            prg=self.opencl_ctx.compile(bufStructs, "sha1.cl", "hash_iterations.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", "hash_iterations.cl")
         elif type == "sha256":
             self.max_out_bytes = bufStructs.specifySHA2()
-            prg=self.opencl_ctx.compile(bufStructs, "sha256.cl", "hash_iterations.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "sha256.cl", "hash_iterations.cl")
         elif type == "sha512":
             self.max_out_bytes = bufStructs.specifySHA2(512, 256, 0, 64)
-            prg=self.opencl_ctx.compile(bufStructs, "sha512.cl", "hash_iterations.cl")
+            prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "hash_iterations.cl")
         else:
-            assert ("Error on hash type, unknown !!!")
+            assert "Error on hash type, unknown !!!"
         return [prg, bufStructs]
