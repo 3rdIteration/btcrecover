@@ -116,8 +116,10 @@ except:
     pass
 
 shamir_mnemonic_available = False
+slip39_min_words = 20
 try:
     import shamir_mnemonic
+    from shamir_mnemonic.constants import MIN_MNEMONIC_LENGTH_WORDS as slip39_min_words
     shamir_mnemonic_available = True
 except Exception:
     pass
@@ -3456,7 +3458,7 @@ class WalletSLIP39Seed(WalletBase):
                 mnemonic_ids_guess += None,
 
         if expected_len is None:
-            expected_len = len(mnemonic_ids_guess)
+            expected_len = max(len(mnemonic_ids_guess), slip39_min_words)
 
         num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
         num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)

@@ -1911,6 +1911,17 @@ class TestSLIP39Seed(unittest.TestCase):
         self.assertEqual(wallet.return_verified_password_or_false((btcrseed.mnemonic_ids_guess,)),
                          (btcrseed.mnemonic_ids_guess, 1))
 
+    def test_insert_missing_word(self):
+        share = "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion"
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        # append the missing word to create the correct mnemonic ids
+        missing_id = wallet._word_to_id["losing"]
+        candidate = btcrseed.mnemonic_ids_guess + (missing_id,)
+        self.assertTrue(wallet.verify_mnemonic_syntax(candidate))
+        self.assertEqual(wallet.return_verified_password_or_false((candidate,)),
+                         (candidate, 1))
+
 
 
 if __name__ == '__main__':

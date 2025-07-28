@@ -136,3 +136,10 @@ python seedrecover.py --mnemonic "doctor giant eternal huge improve suit service
 ```
 python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" --typos 2
 ```
+
+The tool can also recover shares with missing words. For example, omitting the last
+word of the same share still succeeds:
+
+```
+python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion" --typos 2
+```
