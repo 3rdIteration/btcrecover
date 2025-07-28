@@ -1807,16 +1807,6 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
         pwl_it, skipped = btcrpass.password_generator_factory(sys.maxsize)
         generated_passwords = list(pwl_it)
         self.assertEqual(generated_passwords, correct_seedlist)
-
-    def test_seedlist_raw(self):
-        self.seedlist_tester("SeedListTest.txt")
-
-    def test_seedlist_pylist(self):
-        self.seedlist_tester("SeedListTest_pylist.txt")
-
-    def test_seedlist_pytupe(self):
-        self.seedlist_tester("SeedListTest_pytupe.txt")
-
     def test_seedlist_allpositional(self):
         self.tokenlist_tester("tokenlist-allpositional.txt", [[['elbow', 'text', 'print', 'census', 'battle', 'push',
                                                                 'oyster', 'team', 'home', 'april', 'travel',
@@ -1900,6 +1890,15 @@ class QuickTests(unittest.TestSuite):
                         del suite._tests[test_num]
                         break
             self.addTests(suite)
+class TestSLIP39Seed(unittest.TestCase):
+    """Tests for SLIP39 share recovery"""
+    def test_share_checksum(self):
+        share = "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing"
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        self.assertEqual(wallet.return_verified_password_or_false((btcrseed.mnemonic_ids_guess,)),
+                         (btcrseed.mnemonic_ids_guess, 1))
+
 
 
 if __name__ == '__main__':

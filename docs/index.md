@@ -44,6 +44,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
     * Zilliqa
     * And many other 'Bitcoin Like' cryptos
  * SLIP39 Passphrase Recovery for most coins supported by the Trezor T
+ * SLIP39 Seed Share recovery with `seedrecover.py`
     * Bitcoin
     * Bitcoin Cash
     * Dash

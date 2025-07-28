@@ -71,6 +71,10 @@ if __name__ == "__main__":
                 "You may also consider donating to Gurnec, who created and maintained this tool until late 2017 @ 3Au8ZodNHPei7MQiSVAWb7NB2yqsb48GW4")
             print()
             print("Seed found:", mnemonic_sentence)  # never dies from printing Unicode
+            if isinstance(btcrseed.loaded_wallet, btcrseed.WalletSLIP39Seed):
+                print(
+                    "NOTE: SLIP39 seed recovery matches checksums, so needs to be manually verified"
+                )
 
         # print this if there's any chance of Unicode-related display issues
         if any(ord(c) > 126 for c in mnemonic_sentence):

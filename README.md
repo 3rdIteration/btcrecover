@@ -42,6 +42,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
     * Zilliqa
     * And many other 'Bitcoin Like' cryptos
  * SLIP39 Passphrase Recovery for most coins supported by the Trezor T
+ * SLIP39 Seed Share recovery with `seedrecover.py`
     * Bitcoin
     * Bitcoin Cash
     * Dash

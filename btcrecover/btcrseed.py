@@ -3379,6 +3379,94 @@ class WalletXLM(WalletBIP39):
 
         return hash160s
 
+############### SLIP39 Seed Share ###############
+
+@register_selectable_wallet_class("SLIP39 Seed Share")
+class WalletSLIP39Seed(WalletBase):
+    """Wallet class used to validate SLIP39 shares.
+
+    This class allows :mod:`seedrecover.py` to recover SLIP39 shares with
+    typographical errors.  It validates guesses using the ``shamir-mnemonic``
+    library without requiring any address checking.
+    """
+
+    _words = None
+
+    @classmethod
+    def _load_wordlist(cls):
+        if not cls._words:
+            from shamir_mnemonic import wordlist as sw
+            cls._words = tuple(sw.WORDLIST)
+            cls._word_to_id = {word: idx for idx, word in enumerate(cls._words)}
+
+    @property
+    def word_ids(self):
+        return range(len(self._words))
+
+    @classmethod
+    def id_to_word(cls, idx):
+        return cls._words[idx]
+
+    @classmethod
+    def config_mnemonic(cls, mnemonic_guess=None, closematch_cutoff=0.65, expected_len=None):
+        """Configure globals for SLIP39 share recovery."""
+        if not mnemonic_guess:
+            init_gui()
+            if tk_root:
+                mnemonic_guess = tk.simpledialog.askstring(
+                    "SLIP39 share", "Please enter your best guess for the SLIP39 share:")
+            else:
+                print("No mnemonic guess specified... Exiting...")
+                exit()
+            if not mnemonic_guess:
+                sys.exit("canceled")
+
+        cls._load_wordlist()
+        mnemonic_guess = str(mnemonic_guess)
+
+        global mnemonic_ids_guess, close_mnemonic_ids, num_inserts, num_deletes
+        mnemonic_ids_guess = ()
+        close_mnemonic_ids = {}
+        for word in mnemonic_guess.lower().split():
+            close_words = difflib.get_close_matches(word, cls._words, sys.maxsize, closematch_cutoff)
+            if close_words:
+                if close_words[0] != word:
+                    print(f"'{word}' was in your guess, but it's not a valid SLIP39 word;\n    trying '{close_words[0]}' instead.")
+                mnemonic_ids_guess += cls._word_to_id[close_words[0]],
+                close_mnemonic_ids[mnemonic_ids_guess[-1]] = tuple((cls._word_to_id[w],) for w in close_words[1:])
+            else:
+                if word != 'seed_token_placeholder':
+                    print(f"'{word}' was in your guess, but there is no similar SLIP39 word;\n    trying all possible seed words here instead.")
+                mnemonic_ids_guess += None,
+
+        if expected_len is None:
+            expected_len = len(mnemonic_ids_guess)
+
+        num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
+        num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
+
+    @classmethod
+    def create_from_params(cls, *args, **kwargs):
+        self = cls(loading=True)
+        self._load_wordlist()
+        return self
+
+    def passwords_per_seconds(self, seconds):
+        return max(int(seconds * 1000), 1)
+
+    def _verify_checksum(self, mnemonic_ids):
+        from shamir_mnemonic.share import Share
+        try:
+            Share.from_mnemonic(" ".join(self.id_to_word(i) for i in mnemonic_ids))
+            return True
+        except Exception:
+            return False
+
+    def return_verified_password_or_false(self, mnemonic_ids_list):
+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
+            if None not in mnemonic_ids and self._verify_checksum(mnemonic_ids):
+                return mnemonic_ids, count
+        return False, count
 ################################### Main ###################################
 
 tk_root = None
@@ -3657,6 +3745,7 @@ def main(argv):
         parser.add_argument("--language",    metavar="LANG-CODE",       help="the wordlist language to use (see wordlists/README.md, default: auto)")
         parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
         parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
+        parser.add_argument("--slip39", action="store_true", help="recover a SLIP39 seed share")
         parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
@@ -3752,7 +3841,9 @@ def main(argv):
                     args.wallet_type = "bip39"
 
         # Look up the --wallet-type arg in the list of selectable_wallet_classes
-        if args.wallet_type:
+        if args.slip39:
+            wallet_type = WalletSLIP39Seed
+        elif args.wallet_type:
             if args.wallet:
                 print("warning: --wallet-type is ignored when a wallet is provided", file=sys.stderr)
             else:
@@ -4260,6 +4351,11 @@ def show_mnemonic_gui(mnemonic_sentence, path_coin):
     tk.Label(text="WARNING: seed information is sensitive, carefully protect it and do not share", fg="red") \
         .pack(padx=padding, pady=padding)
     tk.Label(text="Seed found:").pack(padx=padding, pady=padding)
+    if isinstance(loaded_wallet, WalletSLIP39Seed):
+        tk.Label(
+            text="NOTE: SLIP39 seed recovery matches checksums, so needs to be manually verified",
+            fg="red",
+        ).pack(padx=padding, pady=padding)
 
     entry = tk.Entry(width=120, readonlybackground="white")
     entry.insert(0, mnemonic_sentence)

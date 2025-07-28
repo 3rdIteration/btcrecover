@@ -367,6 +367,15 @@ python btcrecover.py --slip39 --wallet-type ethereum --addrs 0x0Ef61684B1E671dcB
 ```
 <br>
 
+## SLIP39 Share Recovery
+`seedrecover.py` can also help fix a damaged SLIP39 share.  Supply your best
+guess of the share and allow the tool to search for close matches.
+
+```
+python seedrecover.py --slip39 --mnemonic "hearing echo academic acid deny ..." --typos 2
+```
+
+
 ## Raw Private Keys##
 BTCRecover an also be used to recover from situations where you have a damaged private key. 
 
