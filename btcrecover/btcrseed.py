@@ -3467,6 +3467,15 @@ class WalletSLIP39Seed(WalletBase):
         self._load_wordlist()
         return self
 
+    # Performs basic checks so that clearly invalid mnemonic_ids can be skipped
+    @staticmethod
+    def verify_mnemonic_syntax(mnemonic_ids):
+        return (
+            len(mnemonic_ids)
+            == len(mnemonic_ids_guess) + num_inserts - num_deletes
+            and None not in mnemonic_ids
+        )
+
     def passwords_per_seconds(self, seconds):
         return max(int(seconds * 1000), 1)
 
