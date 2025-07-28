@@ -1030,12 +1030,21 @@ class BlockChainPasswordV3(BlockChainPassword):
             raise ValueError('Invalid Mnemonic Checksum. Please enter it carefully.')
 
         obj = {}
+        password_bytes = str_bytes
         if version == 4:
             guid_part = str_bytes[:16]
-            obj['guid'] = '-'.join([''.join('{:02x}'.format(b) for b in guid_part[i:i + 2]) for i in range(0, 16, 2)])
+            obj['guid'] = (
+                ''.join('{:02x}'.format(b) for b in guid_part[:4]) + '-' +
+                ''.join('{:02x}'.format(b) for b in guid_part[4:6]) + '-' +
+                ''.join('{:02x}'.format(b) for b in guid_part[6:8]) + '-' +
+                ''.join('{:02x}'.format(b) for b in guid_part[8:10]) + '-' +
+                ''.join('{:02x}'.format(b) for b in guid_part[10:])
+            )
+            password_bytes = str_bytes[16:]
         elif version == 5:
             obj['time'] = bytes_to_int(str_bytes[:4], 4)
-        obj['password'] = self.bytes_to_string(str_bytes)
+            password_bytes = str_bytes[4:]
+        obj['password'] = self.bytes_to_string(password_bytes)
         return obj
             
 @register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic v2")
