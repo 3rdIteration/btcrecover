@@ -9083,8 +9083,7 @@ def main():
             CHUNKSIZE_SECONDS = 1.0 / 100.0
             measure_performance_iterations = loaded_wallet.passwords_per_seconds(0.5)
             inner_iterations = int(round(2*measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
-            outer_iterations = int(round(measure_performance_iterations / inner_iterations))
-            assert outer_iterations > 0
+            outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
         #
         performance_generator = performance_base_password_generator()  # generates dummy passwords
         start = timeit.default_timer()

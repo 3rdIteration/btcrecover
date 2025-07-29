@@ -146,6 +146,21 @@ class GeneratorTester(unittest.TestCase):
         self.assertIn(expected_error, cm.exception.code)
 
 
+class TestOuterIterations(unittest.TestCase):
+    def test_outer_iterations_minimum(self):
+        class DummyWallet:
+            def passwords_per_seconds(self, seconds):
+                return 0
+            def return_verified_password_or_false(self, pw_list):
+                pass
+        wallet = DummyWallet()
+        CHUNKSIZE_SECONDS = 1.0 / 100.0
+        measure_performance_iterations = wallet.passwords_per_seconds(0.5)
+        inner_iterations = int(round(2 * measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1
+        outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
+        self.assertEqual(outer_iterations, 1)
+
+
 class Test01Basics(GeneratorTester):
 
     def test_alternate(self):
