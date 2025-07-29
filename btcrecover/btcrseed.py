@@ -851,7 +851,10 @@ class BlockChainPassword(WalletBase):
             init_gui()
             if tk_root:
                 expected_len = tk.simpledialog.askinteger("Blockchain Legacy Wallet Recovery Mnemonic number of words",
-                    "Please enter your best guess for number of words in your BitcoinPassword seed:")
+                    "Please enter your best guess for number of words in your BitcoinPassword seed "
+                    "\n(Defaults to the number of words you entered on the previous step):",
+                                                          minvalue=1,
+                                                          initialvalue=len(mnemonic_guess.split(" ")))
             else:
                 print("No number of words specified... Exiting...")
                 exit()
