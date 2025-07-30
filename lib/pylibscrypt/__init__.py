@@ -16,14 +16,41 @@
 
 __version__ = '2.0.0-git'
 
-# First, try hashlib
+# Prefer wallycore for scrypt as it performs about 20% faster than
+# the pylibscrypt backend. If unavailable we fall back to pylibscrypt
+# (via hashlib or libsodium as needed).
 _done = False
 try:
-    from .hashlibscrypt import *
+    import wallycore as _wallycore
+    from . import mcf as mcf_mod
+    from .common import (
+        SCRYPT_N, SCRYPT_r, SCRYPT_p, SCRYPT_MCF_PREFIX_DEFAULT, check_args)
+
+    def scrypt(password, salt, N=SCRYPT_N, r=SCRYPT_r, p=SCRYPT_p, olen=64):
+        check_args(password, salt, N, r, p, olen)
+        out = bytearray(olen)
+        _wallycore.scrypt(password, salt, N, r, p, out)
+        return bytes(out)
+
+    def scrypt_mcf(password, salt=None, N=SCRYPT_N, r=SCRYPT_r, p=SCRYPT_p,
+                   prefix=SCRYPT_MCF_PREFIX_DEFAULT):
+        return mcf_mod.scrypt_mcf(scrypt, password, salt, N, r, p, prefix)
+
+    def scrypt_mcf_check(mcf, password):
+        return mcf_mod.scrypt_mcf_check(scrypt, mcf, password)
 except ImportError:
     pass
 else:
     _done = True
+
+# First, try hashlib if wallycore isn't available
+if not _done:
+    try:
+        from .hashlibscrypt import *
+    except ImportError:
+        pass
+    else:
+        _done = True
 
 # If that didn't work, try loading libscrypt
 if not _done:

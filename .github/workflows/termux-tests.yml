@@ -49,7 +49,7 @@ jobs:
         run: chown -R 1000:1000 .
       - name: Install dependencies
         run: |
-          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust
+          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust swig
           /entrypoint.sh pip install -r requirements.txt
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
@@ -93,7 +93,7 @@ jobs:
         run: chown -R 1000:1000 .
       - name: Install dependencies
         run: |
-          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust
+          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust swig
           /entrypoint.sh pip install -r requirements-full.txt
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
