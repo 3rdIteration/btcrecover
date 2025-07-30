@@ -1135,6 +1135,15 @@ def has_any_opencl_devices():
         opencl_device_count = len(opencl_devices_list)
     return opencl_device_count > 0
 
+def is_pocl_platform():
+    if not has_any_opencl_devices():
+        return False
+    try:
+        import pyopencl as cl
+        return cl.get_platforms()[0].name.startswith("Portable Computing Language")
+    except Exception:
+        return False
+
 class Test07WalletDecryption(unittest.TestCase):
 
     # Checks a test wallet against the known password, and ensures
@@ -1657,6 +1666,30 @@ class Test07WalletDecryption(unittest.TestCase):
             [tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2")]), (False, 2),
             "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " found a false positive")
         self.assertEqual(btcrpass.WalletBlockchainSecondpass._return_verified_password_or_false_opencl(btcrpass.loaded_wallet,
+            [tstr("btcr-wrong-password-3"), tstr("btcr-test-password"), tstr("btcr-wrong-password-4")]), (tstr("btcr-test-password"), 2),
+            "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " failed to find password")
+
+        del btcrpass.loaded_wallet
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(lambda: not is_pocl_platform(), "OpenCL MultiBit kernel not supported on PoCL")
+    def test_multibit_OpenCL_Brute(self):
+        wallet_filename = os.path.join(WALLET_DIR, "multibit-wallet.key")
+        temp_dir        = tempfile.mkdtemp("-test-btcr")
+        temp_wallet_filename = os.path.join(temp_dir, os.path.basename(wallet_filename))
+        shutil.copyfile(wallet_filename, temp_wallet_filename)
+
+        btcrpass.loaded_wallet = btcrpass.WalletMultiBit.load_from_filename(temp_wallet_filename)
+
+        btcrecover.opencl_helpers.auto_select_opencl_platform(btcrpass.loaded_wallet)
+
+        btcrecover.opencl_helpers.init_opencl_contexts(btcrpass.loaded_wallet)
+
+        self.assertEqual(btcrpass.WalletMultiBit._return_verified_password_or_false_opencl(btcrpass.loaded_wallet,
+            [tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2")]), (False, 2),
+            "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " found a false positive")
+        self.assertEqual(btcrpass.WalletMultiBit._return_verified_password_or_false_opencl(btcrpass.loaded_wallet,
             [tstr("btcr-wrong-password-3"), tstr("btcr-test-password"), tstr("btcr-wrong-password-4")]), (tstr("btcr-test-password"), 2),
             "Platform:" + str(btcrpass.loaded_wallet.opencl_platform) + " failed to find password")
 
@@ -2708,7 +2741,8 @@ class OpenCL_Tests(unittest.TestSuite) :
         self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("Test07WalletDecryption." + method_name
             for method_name in (
                 "test_blockchain_second_OpenCL_Brute",
-                "test_electrum28_OpenCL_Brute")),
+                "test_electrum28_OpenCL_Brute",
+                "test_multibit_OpenCL_Brute")),
             module=sys.modules[__name__]
         ))
         self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("Test08BIP39Passwords." + method_name
