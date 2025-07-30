@@ -203,7 +203,15 @@ Locate your wallet type in the list below, and follow the instructions for only 
  * Eth Keystore Files: [eth-keyfile](https://pypi.org/project/eth-keyfile/)
  * Eth2 Validator Seed Recovery: [staking-deposit](#staking-deposit)
  * Groestlecoin BIP39 Wallets: [groestlcoin_hash](https://pypi.org/project/groestlcoin-hash/)
- * BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)
+
+* BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)
+
+### scrypt
+
+BTCRecover prefers the `wallycore` implementation of `scrypt` when available.
+If `wallycore` is not installed it falls back to `pylibscrypt`, which is
+approximately 20% slower for BIP38 operations and other wallet formats that rely
+on scrypt.
 
 ----------
 
