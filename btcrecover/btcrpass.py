@@ -385,17 +385,24 @@ def load_from_base64_key(key_crc_base64):
 # Load the OpenCL libraries and return a list of available devices
 cl_devices_avail = None
 def get_opencl_devices():
+    """Return a cached list of available OpenCL devices."""
     global pyopencl, numpy, cl_devices_avail
     if cl_devices_avail is None:
         try:
             import pyopencl, numpy
-            cl_devices_avail = filter(lambda d: d.available==1 and d.profile=="FULL_PROFILE" and d.endian_little==1,
-                itertools.chain(*[p.get_devices() for p in pyopencl.get_platforms()]))
+            platforms = pyopencl.get_platforms()
+            devices = []
+            for p in platforms:
+                for d in p.get_devices():
+                    if d.available == 1 and d.profile == "FULL_PROFILE" and d.endian_little == 1:
+                        devices.append(d)
+            cl_devices_avail = devices
         except ImportError as e:
             print("Warning:", e, file=sys.stderr)
             cl_devices_avail = []
         except pyopencl.LogicError as e:
-            if "platform not found" not in str(e): raise  # unexpected error
+            if "platform not found" not in str(e):
+                raise  # unexpected error
             cl_devices_avail = []  # PyOpenCL loaded OK but didn't find any supported hardware
     return cl_devices_avail
 
@@ -9166,8 +9173,7 @@ def main():
             CHUNKSIZE_SECONDS = 1.0 / 100.0
             measure_performance_iterations = loaded_wallet.passwords_per_seconds(0.5)
             inner_iterations = int(round(2*measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
-            outer_iterations = int(round(measure_performance_iterations / inner_iterations))
-            assert outer_iterations > 0
+            outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
         #
         performance_generator = performance_base_password_generator()  # generates dummy passwords
         start = timeit.default_timer()

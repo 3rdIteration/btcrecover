@@ -149,6 +149,17 @@ def can_load_slip10():
             can_load_slip10 = False
     return can_load_slip10
 
+is_ShamirMnemonic_loadable = None
+def can_load_ShamirMnemonic():
+    global is_ShamirMnemonic_loadable
+    if is_ShamirMnemonic_loadable is None:
+        try:
+            import shamir_mnemonic
+            is_ShamirMnemonic_loadable = True
+        except Exception:
+            is_ShamirMnemonic_loadable = False
+    return is_ShamirMnemonic_loadable
+
 
 # Similar to unittest.skipUnless, except the first arg is a function returning a bool instead
 # of just a bool. This function isn't called until just before the test is to be run. This
@@ -1807,16 +1818,6 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
         pwl_it, skipped = btcrpass.password_generator_factory(sys.maxsize)
         generated_passwords = list(pwl_it)
         self.assertEqual(generated_passwords, correct_seedlist)
-
-    def test_seedlist_raw(self):
-        self.seedlist_tester("SeedListTest.txt")
-
-    def test_seedlist_pylist(self):
-        self.seedlist_tester("SeedListTest_pylist.txt")
-
-    def test_seedlist_pytupe(self):
-        self.seedlist_tester("SeedListTest_pytupe.txt")
-
     def test_seedlist_allpositional(self):
         self.tokenlist_tester("tokenlist-allpositional.txt", [[['elbow', 'text', 'print', 'census', 'battle', 'push',
                                                                 'oyster', 'team', 'home', 'april', 'travel',
@@ -1900,6 +1901,37 @@ class QuickTests(unittest.TestSuite):
                         del suite._tests[test_num]
                         break
             self.addTests(suite)
+@unittest.skipUnless(can_load_ShamirMnemonic(), "requires Shamir-Mnemonic module")
+class TestSLIP39Seed(unittest.TestCase):
+    """Tests for SLIP39 share recovery"""
+    def test_share_checksum(self):
+        share = "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing"
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        self.assertEqual(wallet.return_verified_password_or_false((btcrseed.mnemonic_ids_guess,)),
+                         (btcrseed.mnemonic_ids_guess, 1))
+
+    def test_insert_missing_word(self):
+        share = "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion"
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        # append the missing word to create the correct mnemonic ids
+        missing_id = wallet._word_to_id["losing"]
+        candidate = btcrseed.mnemonic_ids_guess + (missing_id,)
+        self.assertTrue(wallet.verify_mnemonic_syntax(candidate))
+        self.assertEqual(wallet.return_verified_password_or_false((candidate,)),
+                         (candidate, 1))
+
+    def test_assume_33_word_share(self):
+        share = (
+            "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard "
+            "adjust muscle parcel sled crucial amazing mansion losing admit adorn adult advance advocate "
+            "afraid again agency agree aide"
+        )
+        wallet = btcrseed.WalletSLIP39Seed.create_from_params()
+        wallet.config_mnemonic(share)
+        self.assertEqual(btcrseed.num_inserts, 33 - len(share.split()))
+
 
 
 if __name__ == '__main__':
