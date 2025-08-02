@@ -439,6 +439,7 @@ class WalletBitcoinCore(object):
     opencl_algo = -1
     opencl_context_hash_iterations_sha512 = -1
 
+    @staticmethod
     def data_extract_id():
         return "bc"
 
@@ -761,6 +762,7 @@ class WalletBitcoinCore(object):
 @register_wallet_class
 class WalletPywallet(WalletBitcoinCore):
 
+    @staticmethod
     def data_extract_id():
         return False  # there is none
 
@@ -838,6 +840,7 @@ class WalletMultiBit(object):
     opencl_algo = -1
     _dump_privkeys_file = None
 
+    @staticmethod
     def data_extract_id():
         return "mb"
 
@@ -1102,6 +1105,7 @@ class WalletBitcoinj(object):
     opencl_algo = -1
     _dump_privkeys_file = None
 
+    @staticmethod
     def data_extract_id():
         return "bj"
 
@@ -1299,6 +1303,7 @@ class WalletCoinomi(WalletBitcoinj):
     _using_extract = False
     _dump_privkeys_file = None
 
+    @staticmethod
     def data_extract_id():
         return "cn"
 
@@ -1425,6 +1430,7 @@ class WalletCoinomi(WalletBitcoinj):
 class WalletMultiBitHD(WalletBitcoinj):
     _dump_privkeys_file = None
 
+    @staticmethod
     def data_extract_id():
         return "m5"
     # id "m2", which *only* supported MultiBit HD prior to v0.5.0 ("m5" supports
@@ -1578,6 +1584,7 @@ class WalletAndroidSpendingPIN(WalletBitcoinj):
 class WalletMsigna(object):
     opencl_algo = -1
 
+    @staticmethod
     def data_extract_id():
         return "ms"
 
@@ -1722,6 +1729,7 @@ class WalletElectrum(object):
 @register_wallet_class
 class WalletElectrum1(WalletElectrum):
 
+    @staticmethod
     def data_extract_id():
         return "el"
 
@@ -1785,6 +1793,7 @@ class WalletElectrum1(WalletElectrum):
 @register_wallet_class
 class WalletElectrum2(WalletElectrum):
 
+    @staticmethod
     def data_extract_id():
         return "e2"
 
@@ -1934,6 +1943,7 @@ class WalletElectrum2(WalletElectrum):
 @register_wallet_class
 class WalletElectrumLooseKey(WalletElectrum):
 
+    @staticmethod
     def data_extract_id():
         return "ek"
 
@@ -2120,6 +2130,7 @@ class WalletBlockchain(object):
     _dump_wallet_file = None
     _using_extract = False
 
+    @staticmethod
     def data_extract_id():
         return "bk"
 
@@ -2487,6 +2498,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
     _dump_wallet_file = None
     _using_extract = False
 
+    @staticmethod
     def data_extract_id():
         return "bs"
 
@@ -2941,6 +2953,7 @@ class WalletDogechain(object):
     _dump_wallet_file = None
     _using_extract = False
 
+    @staticmethod
     def data_extract_id():
         return "dc"
 
@@ -3222,6 +3235,7 @@ class WalletMetamask(object):
 
     _mobileWallet = False
 
+    @staticmethod
     def data_extract_id():
         return "mt"
 
@@ -3528,6 +3542,7 @@ class WalletMetamask(object):
 class WalletBither(object):
     opencl_algo = -1
 
+    @staticmethod
     def data_extract_id():
         return "bt"
 
