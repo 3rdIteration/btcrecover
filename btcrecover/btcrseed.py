@@ -1140,11 +1140,14 @@ class WalletBIP32(WalletBase):
 
             self._path_indexes.append(current_path_indexes)
 
+    def _get_pps_divisor(self) -> float:
+        return 1.0
+
     def passwords_per_seconds(self, seconds: float) -> int:
         if not self._passwords_per_second:
             scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
+            for i in self._path_indexes[0]:  # Just use the first derivation path for this...
+                if i < 2147483648:  # if it's a normal child key
                     scalar_multiplies += 1  # then it requires a scalar multiply
             if not self._chaincode:
                 scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
@@ -1152,7 +1155,8 @@ class WalletBIP32(WalletBase):
                 calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
         passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
         # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return int(passwords_per_second / len(self._derivation_salts))
+        divisor = len(self._derivation_salts) * self._get_pps_divisor()
+        return int(passwords_per_second / divisor) if divisor else passwords_per_second
 
 
 
@@ -2375,19 +2379,8 @@ class WalletCardano(WalletBIP39):
         self = super(WalletCardano, cls).create_from_params(*args, **kwargs)
         return self
 
-    def passwords_per_seconds(self, seconds):
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 5
+    def _get_pps_divisor(self) -> float:
+        return 5.0
 
     @staticmethod
     def _addresses_to_hash160s(addresses):
@@ -2620,22 +2613,13 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         self = super(WalletPyCryptoHDWallet, cls).create_from_params(*args, **kwargs)
         return self
 
-    def passwords_per_seconds(self, seconds):
+    def _get_pps_divisor(self) -> float:
+        return 10.0
+
+    def passwords_per_seconds(self, seconds: float) -> int:
         if self.opencl:
             exit("Error: Wallet Type does not support OpenCL acceleration")
-
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 10
+        return super().passwords_per_seconds(seconds)
 
     # Default method for adding addresses, doesn't worry about validating the addresses
     @staticmethod
