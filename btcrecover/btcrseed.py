@@ -350,6 +350,46 @@ def convert_to_xpub(input_mpk: str) -> str:
 
     return output_mpk
 
+
+def address_to_hash160(address: str) -> bytes:
+    if address.startswith("r"):  # Convert XRP addresses to standard Bitcoin Legacy Addresses
+        address = base58_tools.b58encode(
+            base58_tools.b58decode(address, alphabet=base58_tools.XRP_ALPHABET)).decode()
+    try:
+        # Check if we are getting BCH Cashaddresses and if so, convert them to standard legacy addresses
+        if address.lower().startswith("bitcoincash:"):
+            address = convert.to_legacy_address(address)
+        else:
+            try:
+                address = convert.to_legacy_address(f"bitcoincash:{address}")
+            except convert.InvalidAddress:
+                pass
+        hash160 = binascii.unhexlify(
+            encoding.addr_base58_to_pubkeyhash(address, True))  # assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
+    except (encoding.EncodingError, AssertionError) as e:
+        try:
+            hash160 = binascii.unhexlify(encoding.grs_addr_base58_to_pubkeyhash(address,
+                                                                                True))  # assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
+        except Exception as e:
+            try:
+                hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,
+                                                                                include_witver=False,
+                                                                                as_hex=True))  # Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
+            except Exception as e:
+                if bundled_bitcoinlib_mod_available:
+                    # Try for some obscure altcoins which require modified versions of Bitcoinlib
+                    try:
+                        hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
+                    except Exception as e:
+                        hash160 = binascii.unhexlify(
+                            encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None, include_witver=False,
+                                                                   as_hex=True))
+                else:
+                    print("Address not valid and unable to load modified bitcoinlib on this platform...")
+                    return b''
+    return hash160
+
+
 ############### WalletBase ###############
 
 # Methods common to most wallets, but overridden by WalletEthereum
@@ -375,36 +415,9 @@ class WalletBase(object):
     def _addresses_to_hash160s(addresses: List[str]) -> set:
         hash160s = set()
         for address in addresses:
-            if address.startswith("r"): # Convert XRP addresses to standard Bitcoin Legacy Addresses
-                address = base58_tools.b58encode(
-                    base58_tools.b58decode(address, alphabet=base58_tools.XRP_ALPHABET)).decode()
-            try:
-                # Check if we are getting BCH Cashaddresses and if so, convert them to standard legacy addresses
-                if address.lower().startswith("bitcoincash:"):
-                    address = convert.to_legacy_address(address)
-                else:
-                    try:
-                        address = convert.to_legacy_address(f"bitcoincash:{address}")
-                    except convert.InvalidAddress:
-                        pass
-                hash160 = binascii.unhexlify(encoding.addr_base58_to_pubkeyhash(address, True)) #assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
-            except (encoding.EncodingError, AssertionError) as e:
-                try:
-                    hash160 = binascii.unhexlify(encoding.grs_addr_base58_to_pubkeyhash(address, True)) #assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
-                except Exception as e:
-                    try:
-                        hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
-                    except Exception as e:
-                        if bundled_bitcoinlib_mod_available:
-                            # Try for some obscure altcoins which require modified versions of Bitcoinlib
-                            try:
-                                hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
-                            except Exception as e:
-                                hash160 = binascii.unhexlify(encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True))
-                        else:
-                            print("Address not valid and unable to load modified bitcoinlib on this platform...")
-
-            hash160s.add(hash160)
+            hash160 = address_to_hash160(address)
+            if hash160:
+                hash160s.add(hash160)
         return hash160s
 
     @staticmethod
