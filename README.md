@@ -122,7 +122,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
  * Typo simulation for passwords and seeds
  * Progress bar and ETA display (at the command line)
  * Optional autosave - interrupt and continue password recoveries without losing progress
- * Automated seed recovery with a simple graphical user interface
+ * A simple graphical user interface for password and seed recovery
  * Ability to search multiple derivation paths simultaneously for a given seed via --pathlist command (example pathlist files in the )
  * “Offline” mode for nearly all supported wallets - use one of the [extract scripts (click for more information)](docs/Extract_Scripts.md) to extract just enough information to attempt password recovery, without giving *btcrecover* or whoever runs it access to *any* of the addresses or private keys in your Bitcoin wallet.
 
@@ -142,6 +142,20 @@ If you don't know an address in the wallet that you are searching for, you can c
 To try recovering your password or a BIP39 passphrase, please start with the **[Password Recovery Quick Start](docs/TUTORIAL.md#btcrecover-tutorial)**.
 
 If you mostly know your recovery seed/mnemonic (12-24 recovery words), but think there may be a mistake in it, please see the **[Seed Recovery Quick Start](docs/Seedrecover_Quick_Start_Guide.md)**.
+
+## Graphical User Interface (GUI) ##
+
+This tool includes a simple graphical user interface (GUI) to make password and seed recovery easier.
+
+To run the GUI, simply run the following command from your terminal:
+```
+python3 btcrecover_gui.py
+```
+
+The GUI has two main tabs:
+
+*   **Password Recovery**: This tab allows you to select a wallet file and a password list to begin the recovery process.
+*   **Seed Recovery**: This tab helps you recover seeds by providing your mnemonic, wallet type, and an address from your wallet.
 
 ## If this tool or other content on my YouTube channel was helpful, feel free to send a tip to: ##
 
