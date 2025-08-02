@@ -432,6 +432,27 @@ def prompt_unicode_password(prompt, error_msg):
         error_exit(error_msg)
     return password
 
+def _dispatch_to_cpu_or_gpu(wallet_instance, passwords):
+    """Dispatches password verification to the appropriate CPU or GPU/OpenCL implementation."""
+    # Legacy GPU path for WalletBitcoinCore
+    if hasattr(wallet_instance, "_cl_devices"):
+        return wallet_instance._return_verified_password_or_false_gpu(passwords)
+
+    # Determine if OpenCL should be used
+    use_opencl = False
+    # The check for self.opencl is for BIP39, Cardano, Yoroi, Brainwallet
+    if hasattr(wallet_instance, 'opencl') and wallet_instance.opencl:
+        use_opencl = not isinstance(wallet_instance.opencl_algo, int)
+    # The check for just opencl_algo is for most other wallets
+    elif hasattr(wallet_instance, 'opencl_algo'):
+        use_opencl = not isinstance(wallet_instance.opencl_algo, int)
+
+    if use_opencl:
+        return wallet_instance._return_verified_password_or_false_opencl(passwords)
+    else:
+        return wallet_instance._return_verified_password_or_false_cpu(passwords)
+
+
 ############### Bitcoin Core ###############
 
 @register_wallet_class
@@ -582,14 +603,8 @@ class WalletBitcoinCore(object):
     def difficulty_info(self):
         return "{:,} SHA-512 iterations".format(self._iter_count)
 
-    # Defer to either the cpu or OpenCL implementation
     def return_verified_password_or_false(self, passwords): # Bitcoin Core
-        if hasattr(self, "_cl_devices"):
-            return self._return_verified_password_or_false_gpu(passwords)
-        elif not isinstance(self.opencl_algo,int):
-            return self._return_verified_password_or_false_opencl(passwords)
-        else:
-            return self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -930,11 +945,7 @@ class WalletMultiBit(object):
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     assert b"1" < b"9" < b"A" < b"Z" < b"a" < b"z"  # the b58 check below assumes ASCII ordering in the interest of speed
     def return_verified_password_or_false(self, orig_passwords): # Multibit
-        # Add OpenCL dispatch like other wallet types
-        if not isinstance(self.opencl_algo, int):
-            return self._return_verified_password_or_false_opencl(orig_passwords)
-        else:
-            return self._return_verified_password_or_false_cpu(orig_passwords)
+        return _dispatch_to_cpu_or_gpu(self, orig_passwords)
 
     def _return_verified_password_or_false_cpu(self, orig_passwords): # Multibit
         # Copy a few globals into local for a small speed boost
@@ -2057,8 +2068,7 @@ class WalletElectrum28(object):
         return "1024 PBKDF2-SHA512 iterations + ECC"
 
     def return_verified_password_or_false(self, passwords): # Electrum28
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2417,8 +2427,7 @@ class WalletBlockchain(object):
         return False
 
     def return_verified_password_or_false(self, passwords): # Blockchain.com Main Password
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2676,8 +2685,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         return ("{:,}".format(self._iter_count) if self._iter_count else "1-10") + " SHA-256 iterations"
 
     def return_verified_password_or_false(self, passwords): # Blockchain.com second Password
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3155,8 +3163,7 @@ class WalletDogechain(object):
         return False
 
     def return_verified_password_or_false(self, passwords):  # dogechain.info Main Password
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo, int)) \
-            else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3482,8 +3489,7 @@ class WalletMetamask(object):
                 logfile.write(json.dumps(decrypted_vault_json))
 
     def return_verified_password_or_false(self, passwords):  # Metamask
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo, int)) \
-            else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3931,8 +3937,7 @@ class WalletBIP38(object):
         return "sCrypt N=14, r=8, p=8"
 
     def return_verified_password_or_false(self, passwords): # BIP38 Encrypted Private Keys
-        return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(passwords)
+        return _dispatch_to_cpu_or_gpu(self, passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4065,8 +4070,7 @@ class WalletBIP39(object):
         return "2048 PBKDF2-SHA512 iterations + ECC"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4252,8 +4256,7 @@ class WalletSLIP39(object):
         return "40,000 PBKDF2-SHA256 iterations + ECC"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4362,9 +4365,7 @@ class WalletCardano(WalletBIP39):
         return "4096 PBKDF2-SHA512 iterations (2048 for Ledger)"
 
     def return_verified_password_or_false(self, mnemonic_ids_list):  # BIP39-Passphrase
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (
-                    self.opencl and not isinstance(self.opencl_algo, int)) \
-            else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4633,8 +4634,7 @@ class WalletYoroi(object):
         return "19162 PBKDF2-SHA512 iterations + ChaCha20_Poly1305"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # Yoroi Cadano Wallet
-        return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4783,8 +4783,7 @@ class WalletBrainwallet(object):
             return "1 SHA-256 iteration"
 
     def return_verified_password_or_false(self, password_list): # Brainwallet
-        return self._return_verified_password_or_false_opencl(password_list) if (self.opencl and not isinstance(self.opencl_algo,int)) \
-          else self._return_verified_password_or_false_cpu(password_list)
+        return _dispatch_to_cpu_or_gpu(self, password_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
