@@ -35,8 +35,9 @@ if __name__ == "__main__":
 	print("Starting", btcrpass.full_version(),
 		  file=sys.stderr if any(a.startswith("--listp") for a in sys.argv[1:]) else sys.stdout)  # --listpass
 
-	btcrpass.parse_arguments(sys.argv[1:])
-	(password_found, not_found_msg) = btcrpass.main()
+	context = btcrpass.RecoveryContext()
+	btcrpass.parse_arguments(context, sys.argv[1:])
+	(password_found, not_found_msg) = btcrpass.main(context)
 
 	if isinstance(password_found, str):
 		print()
