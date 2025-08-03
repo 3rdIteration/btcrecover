@@ -296,25 +296,59 @@ simple_typo_args["replace"]   = dict( metavar="WILDCARD-STRING", help="replace a
 
 
 # A class decorator which adds a wallet class to the registered list
-wallet_types       = []
-wallet_types_by_id = {}
-def register_wallet_class(cls):
-    global wallet_types, wallet_types_by_id
-    wallet_types.append(cls)
-    try:
-        assert cls.data_extract_id() not in wallet_types_by_id,\
-            "register_wallet_class: registered wallet types must have unique data_extract_id's"
-        wallet_types_by_id[cls.data_extract_id()] = cls
-    except AttributeError:
-        pass
+def register_wallet_class(context):
+    def decorator(cls):
+        context.wallet_types.append(cls)
+        try:
+            assert cls.data_extract_id() not in context.wallet_types_by_id, \
+                "register_wallet_class: registered wallet types must have unique data_extract_id's"
+            context.wallet_types_by_id[cls.data_extract_id()] = cls
+        except AttributeError:
+            pass
+        return cls
+    return decorator
 
-    return cls
+
+class WalletBase:
+    _dump_privkeys_file = None
+    _dump_wallet_file = None
+
+    def passwords_per_seconds(self, seconds):
+        raise NotImplementedError
+
+    def dump_privkeys(self, *args, **kwargs):
+        if self._dump_privkeys_file:
+            raise NotImplementedError
+
+    def dump_wallet(self, *args, **kwargs):
+        if self._dump_wallet_file:
+            raise NotImplementedError
+
+    def _dispatch_to_cpu_or_gpu(self, passwords):
+        """Dispatches password verification to the appropriate CPU or GPU/OpenCL implementation."""
+        # Legacy GPU path for WalletBitcoinCore
+        if hasattr(self, "_cl_devices"):
+            return self._return_verified_password_or_false_gpu(passwords)
+
+        # Determine if OpenCL should be used
+        use_opencl = False
+        # The check for self.opencl is for BIP39, Cardano, Yoroi, Brainwallet
+        if hasattr(self, 'opencl') and self.opencl:
+            use_opencl = not isinstance(self.opencl_algo, int)
+        # The check for just opencl_algo is for most other wallets
+        elif hasattr(self, 'opencl_algo'):
+            use_opencl = not isinstance(self.opencl_algo, int)
+
+        if use_opencl:
+            return self._return_verified_password_or_false_opencl(passwords)
+        else:
+            return self._return_verified_password_or_false_cpu(passwords)
+
 
 # Clears the current set of registered wallets (including those registered by default below)
-def clear_registered_wallets():
-    global wallet_types, wallet_types_by_id
-    wallet_types       = []
-    wallet_types_by_id = {}
+def clear_registered_wallets(context):
+    context.wallet_types = []
+    context.wallet_types_by_id = {}
 
 
 # The max wallet file size in bytes (prevents trying to load huge files which clearly aren't wallets)
@@ -432,31 +466,12 @@ def prompt_unicode_password(prompt, error_msg):
         error_exit(error_msg)
     return password
 
-def _dispatch_to_cpu_or_gpu(wallet_instance, passwords):
-    """Dispatches password verification to the appropriate CPU or GPU/OpenCL implementation."""
-    # Legacy GPU path for WalletBitcoinCore
-    if hasattr(wallet_instance, "_cl_devices"):
-        return wallet_instance._return_verified_password_or_false_gpu(passwords)
-
-    # Determine if OpenCL should be used
-    use_opencl = False
-    # The check for self.opencl is for BIP39, Cardano, Yoroi, Brainwallet
-    if hasattr(wallet_instance, 'opencl') and wallet_instance.opencl:
-        use_opencl = not isinstance(wallet_instance.opencl_algo, int)
-    # The check for just opencl_algo is for most other wallets
-    elif hasattr(wallet_instance, 'opencl_algo'):
-        use_opencl = not isinstance(wallet_instance.opencl_algo, int)
-
-    if use_opencl:
-        return wallet_instance._return_verified_password_or_false_opencl(passwords)
-    else:
-        return wallet_instance._return_verified_password_or_false_cpu(passwords)
 
 
 ############### Bitcoin Core ###############
 
 @register_wallet_class
-class WalletBitcoinCore(object):
+class WalletBitcoinCore(WalletBase):
     opencl_algo = -1
     opencl_context_hash_iterations_sha512 = -1
 
@@ -464,8 +479,7 @@ class WalletBitcoinCore(object):
     def data_extract_id():
         return "bc"
 
-    @staticmethod
-    def passwords_per_seconds(seconds):
+    def passwords_per_seconds(self, seconds):
         return max(int(round(10 * seconds)), 1)
 
     @staticmethod
@@ -604,7 +618,7 @@ class WalletBitcoinCore(object):
         return "{:,} SHA-512 iterations".format(self._iter_count)
 
     def return_verified_password_or_false(self, passwords): # Bitcoin Core
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -774,12 +788,11 @@ class WalletBitcoinCore(object):
         return False, i + 1
 
 
-@register_wallet_class
 class WalletPywallet(WalletBitcoinCore):
 
     @staticmethod
     def data_extract_id():
-        return False  # there is none
+        return "pw"
 
     @staticmethod
     def is_wallet_file(wallet_file): return None   # there's no easy way to check this
@@ -851,9 +864,8 @@ class WalletPywallet(WalletBitcoinCore):
 # - KnC for Android key backup files (same as the above)
 
 @register_wallet_class
-class WalletMultiBit(object):
+class WalletMultiBit(WalletBase):
     opencl_algo = -1
-    _dump_privkeys_file = None
 
     @staticmethod
     def data_extract_id():
@@ -945,7 +957,7 @@ class WalletMultiBit(object):
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     assert b"1" < b"9" < b"A" < b"Z" < b"a" < b"z"  # the b58 check below assumes ASCII ordering in the interest of speed
     def return_verified_password_or_false(self, orig_passwords): # Multibit
-        return _dispatch_to_cpu_or_gpu(self, orig_passwords)
+        return self._dispatch_to_cpu_or_gpu(orig_passwords)
 
     def _return_verified_password_or_false_cpu(self, orig_passwords): # Multibit
         # Copy a few globals into local for a small speed boost
@@ -1112,9 +1124,8 @@ class WalletMultiBit(object):
 EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
 
 @register_wallet_class
-class WalletBitcoinj(object):
+class WalletBitcoinj(WalletBase):
     opencl_algo = -1
-    _dump_privkeys_file = None
 
     @staticmethod
     def data_extract_id():
@@ -1312,7 +1323,6 @@ EncryptionParams = collections.namedtuple("EncryptionParams", "salt n r p")
 class WalletCoinomi(WalletBitcoinj):
     opencl_algo = -1
     _using_extract = False
-    _dump_privkeys_file = None
 
     @staticmethod
     def data_extract_id():
@@ -1439,7 +1449,6 @@ class WalletCoinomi(WalletBitcoinj):
 
 @register_wallet_class
 class WalletMultiBitHD(WalletBitcoinj):
-    _dump_privkeys_file = None
 
     @staticmethod
     def data_extract_id():
@@ -1592,7 +1601,7 @@ class WalletAndroidSpendingPIN(WalletBitcoinj):
 ############### mSIGNA ###############
 
 @register_wallet_class
-class WalletMsigna(object):
+class WalletMsigna(WalletBase):
     opencl_algo = -1
 
     @staticmethod
@@ -1709,7 +1718,7 @@ class WalletMsigna(object):
 ############### Electrum ###############
 
 # Comman base class for all Electrum wallets
-class WalletElectrum(object):
+class WalletElectrum(WalletBase):
     opencl_algo = -1
 
     def __init__(self, loading = False):
@@ -1991,7 +2000,7 @@ class WalletElectrumLooseKey(WalletElectrum):
 
 
 @register_wallet_class
-class WalletElectrum28(object):
+class WalletElectrum28(WalletBase):
     opencl_algo = -1
 
     def passwords_per_seconds(self, seconds):
@@ -2068,7 +2077,7 @@ class WalletElectrum28(object):
         return "1024 PBKDF2-SHA512 iterations + ECC"
 
     def return_verified_password_or_false(self, passwords): # Electrum28
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2126,7 +2135,7 @@ class WalletElectrum28(object):
 ############### Blockchain ###############
 
 @register_wallet_class
-class WalletBlockchain(object):
+class WalletBlockchain(WalletBase):
 
     #Some of these strings are concatenated to 10 chars, as a the full string may not fit in the single decrypted block
     matchStrings = b"\"guid\"|\"sharedKey\"|\"double_enc|\"dpasswordh|\"metadataHD|\"options\"|\"address_bo|\"tx_notes\"|\"tx_names\"|\"keys\"|\"hd_wallets|\"paidTo\"|\"tag_names\""
@@ -2136,8 +2145,6 @@ class WalletBlockchain(object):
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
 
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
     _using_extract = False
 
     @staticmethod
@@ -2427,7 +2434,7 @@ class WalletBlockchain(object):
         return False
 
     def return_verified_password_or_false(self, passwords): # Blockchain.com Main Password
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2503,8 +2510,6 @@ class WalletBlockchain(object):
 @register_wallet_class
 class WalletBlockchainSecondpass(WalletBlockchain):
 
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
     _using_extract = False
 
     @staticmethod
@@ -2685,7 +2690,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         return ("{:,}".format(self._iter_count) if self._iter_count else "1-10") + " SHA-256 iterations"
 
     def return_verified_password_or_false(self, passwords): # Blockchain.com second Password
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -2809,12 +2814,10 @@ class WalletBlockchainSecondpass(WalletBlockchain):
 ############### Block.io ###############
 
 @register_wallet_class
-class WalletBlockIO(object):
+class WalletBlockIO(WalletBase):
     opencl_algo = -1
     _savepossiblematches = False
 
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
     _using_extract = False
 
     def __init__(self):
@@ -2891,12 +2894,10 @@ class WalletBlockIO(object):
 ############### Bitgo User Key ###############
 
 @register_wallet_class
-class WalletBitGo(object):
+class WalletBitGo(WalletBase):
     opencl_algo = -1
     _savepossiblematches = False
 
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
     _using_extract = False
 
     def __init__(self):
@@ -2950,15 +2951,13 @@ class WalletBitGo(object):
 ############### Dogechain.info ###############
 
 @register_wallet_class
-class WalletDogechain(object):
+class WalletDogechain(WalletBase):
     opencl_algo = -1
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
 
     matchStrings = b"\"guid\"|\"sharedKey\"|\"keys\""
 
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
     _using_extract = False
 
     @staticmethod
@@ -3163,7 +3162,7 @@ class WalletDogechain(object):
         return False
 
     def return_verified_password_or_false(self, passwords):  # dogechain.info Main Password
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3229,14 +3228,11 @@ class WalletDogechain(object):
 ############### Metamask ###############
 
 @register_wallet_class
-class WalletMetamask(object):
+class WalletMetamask(WalletBase):
     opencl_algo = -1
 
     _savepossiblematches = True
     _possible_passwords_file = "possible_passwords.log"
-
-    _dump_privkeys_file = None
-    _dump_wallet_file = None
 
     _using_extract = False
 
@@ -3489,7 +3485,7 @@ class WalletMetamask(object):
                 logfile.write(json.dumps(decrypted_vault_json))
 
     def return_verified_password_or_false(self, passwords):  # Metamask
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3545,7 +3541,7 @@ class WalletMetamask(object):
 ############### Bither ###############
 
 @register_wallet_class
-class WalletBither(object):
+class WalletBither(WalletBase):
     opencl_algo = -1
 
     @staticmethod
@@ -3867,7 +3863,7 @@ def prefactor_to_passpoint(prefactor, has_lotsequence_flag, encpriv):
     return passpoint
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletBIP38(object):
+class WalletBIP38(WalletBase):
     opencl_algo = -1
 
     def __init__(self, enc_privkey, bip38_network = 'bitcoin'):
@@ -3937,7 +3933,7 @@ class WalletBIP38(object):
         return "sCrypt N=14, r=8, p=8"
 
     def return_verified_password_or_false(self, passwords): # BIP38 Encrypted Private Keys
-        return _dispatch_to_cpu_or_gpu(self, passwords)
+        return self._dispatch_to_cpu_or_gpu(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -3997,7 +3993,7 @@ class WalletBIP38(object):
 ############### BIP-39 ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletBIP39(object):
+class WalletBIP39(WalletBase):
     opencl_algo = -1
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
@@ -4070,7 +4066,7 @@ class WalletBIP39(object):
         return "2048 PBKDF2-SHA512 iterations + ECC"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
-        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
+        return self._dispatch_to_cpu_or_gpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4131,7 +4127,7 @@ class WalletBIP39(object):
 ############### SLIP-39 ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletSLIP39(object):
+class WalletSLIP39(WalletBase):
     opencl_algo = -1
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
@@ -4256,7 +4252,7 @@ class WalletSLIP39(object):
         return "40,000 PBKDF2-SHA256 iterations + ECC"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # BIP39-Passphrase
-        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
+        return self._dispatch_to_cpu_or_gpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4365,7 +4361,7 @@ class WalletCardano(WalletBIP39):
         return "4096 PBKDF2-SHA512 iterations (2048 for Ledger)"
 
     def return_verified_password_or_false(self, mnemonic_ids_list):  # BIP39-Passphrase
-        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
+        return self._dispatch_to_cpu_or_gpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4582,7 +4578,7 @@ class WalletEthereumValidator(WalletBIP39):
 ############### Cadano Yoroi Wallet ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletYoroi(object):
+class WalletYoroi(WalletBase):
     opencl_algo = -1
 
     def __init__(self, master_password = None, is_performance = False):
@@ -4634,7 +4630,7 @@ class WalletYoroi(object):
         return "19162 PBKDF2-SHA512 iterations + ChaCha20_Poly1305"
 
     def return_verified_password_or_false(self, mnemonic_ids_list): # Yoroi Cadano Wallet
-        return _dispatch_to_cpu_or_gpu(self, mnemonic_ids_list)
+        return self._dispatch_to_cpu_or_gpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4678,7 +4674,7 @@ class WalletYoroi(object):
 ############### Brainwallet ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletBrainwallet(object):
+class WalletBrainwallet(WalletBase):
     opencl_algo = -1
 
     # Dictionary containing all the hash suffixes for memwallet https://github.com/dvdbng/memwallet
@@ -4783,7 +4779,7 @@ class WalletBrainwallet(object):
             return "1 SHA-256 iteration"
 
     def return_verified_password_or_false(self, password_list): # Brainwallet
-        return _dispatch_to_cpu_or_gpu(self, password_list)
+        return self._dispatch_to_cpu_or_gpu(password_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
@@ -4985,7 +4981,7 @@ class WalletBrainwallet(object):
 ############### Brainwallet ###############
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
-class WalletRawPrivateKey(object):
+class WalletRawPrivateKey(WalletBase):
     opencl_algo = -1
 
     # Dictionary containing all the hash suffixes for memwallet https://github.com/dvdbng/memwallet
@@ -5214,10 +5210,8 @@ class WalletRawPrivateKey(object):
 ############### Ethereum UTC Keystore ###############
 
 @register_wallet_class
-class WalletEthKeystore(object):
+class WalletEthKeystore(WalletBase):
     opencl_algo = -1
-
-    _dump_privkeys_file = None
 
     # This just dumps the wallet private keys
     def dump_privkeys(self, correct_password):
@@ -5351,7 +5345,7 @@ class WalletImtokenKeystore(WalletEthKeystore):
 # as closely as possible
 
 @register_wallet_class
-class Walletbtc_com(object):
+class Walletbtc_com(WalletBase):
     opencl_algo = -1
 
     def decode(self, mnemonic):
@@ -5438,9 +5432,8 @@ class Walletbtc_com(object):
 
 ############### ToastWallet  ###############
 @register_wallet_class
-class Wallettoastwallet(object):
+class Wallettoastwallet(WalletBase):
     opencl_algo = -1
-    _dump_privkeys_file = None
 
     def __init__(self, loading = False):
         if not nacl_available:
@@ -5519,7 +5512,7 @@ class Wallettoastwallet(object):
 # A fake wallet which has no correct password;
 # used for testing password generation performance
 
-class WalletNull(object):
+class WalletNull(WalletBase):
 
     def passwords_per_seconds(self, seconds):
         return max(int(round(500000 * seconds)), 1)
@@ -6148,7 +6141,7 @@ def clean_autosave_args(argList, listName):
 #                  which should return False if the the item should not be checked.
 #
 # TODO: document kwds usage (as used by unit tests)
-def parse_arguments(effective_argv, wallet = None, base_iterator = None,
+def parse_arguments(context, effective_argv, wallet = None, base_iterator = None,
                     perf_iterator = None, inserted_items = None, check_only = None, disable_security_warning_param = False, **kwds):
     # effective_argv is what we are effectively given, either via the command line, via embedded
     # options in the tokenlist file, or as a result of restoring a session, before any argument
@@ -6310,37 +6303,36 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # on the command line in which case the saved arguments completely replace everything else,
     # or specify --autosave along with the exact same arguments as are in the autosave file.
     #
-    global savestate, restored, autosave_file
-    savestate = None
-    restored  = False
-    # If args.restore was specified, load and completely replace current arguments
-    autosave_file = open_or_use(args.restore, "r+b", kwds.get("restore"))
-    if autosave_file:
+    context.savestate = None
+    context.restored  = False
+    # If context.args.restore was specified, load and completely replace current arguments
+    context.autosave_file = open_or_use(context.args.restore, "r+b", kwds.get("restore"))
+    if context.autosave_file:
         if len(effective_argv) > 2 or "=" in effective_argv[0] and len(effective_argv) > 1:
             error_exit("the --restore option must be the only option when used")
-        load_savestate(autosave_file)
-        effective_argv = savestate["argv"]  # argv is effectively being replaced; it's reparsed below
+        load_savestate(context.autosave_file)
+        effective_argv = context.savestate["argv"]  # argv is effectively being replaced; it's reparsed below
         print("Restoring session:", " ".join(effective_argv))
-        print("Last session ended having finished password #", savestate["skip"])
-        restore_filename = args.restore      # save this before it's overwritten below
-        args = parser.parse_args(effective_argv)
+        print("Last session ended having finished password #", context.savestate["skip"])
+        restore_filename = context.args.restore      # save this before it's overwritten below
+        context.args = parser.parse_args(effective_argv)
         # Check this again as early as possible so user doesn't miss any error messages
-        if args.pause: enable_pause()
+        if context.args.pause: enable_pause()
         # If the order of passwords generated has changed since the last version, don't permit a restore
-        restored_ordering_version = savestate.get("ordering_version")
+        restored_ordering_version = context.savestate.get("ordering_version")
         if restored_ordering_version != __ordering_version__:
             if restored_ordering_version == __ordering_version__ + b"-Unicode":
-                args.utf8 = True  # backwards compatibility with versions < 0.15.0
+                context.args.utf8 = True  # backwards compatibility with versions < 0.15.0
             else:
                 error_exit("autosave was created with an incompatible version of "+prog)
-        assert args.autosave,         "parse_arguments: autosave option enabled in restored autosave file"
-        assert not args.passwordlist, "parse_arguments: passwordlist option not specified in restored autosave file"
+        assert context.args.autosave,         "parse_arguments: autosave option enabled in restored autosave file"
+        assert not context.args.passwordlist, "parse_arguments: passwordlist option not specified in restored autosave file"
         # If --utf8 was specified in the autosave file, it's not too late
         # to change the character mode (we haven't yet called open_or_use())
-        if args.utf8: enable_unicode_mode()
+        if context.args.utf8: enable_unicode_mode()
         #
         # We finally know the tokenlist filename; open it here
-        tokenlist_file = open_or_use(args.tokenlist, "r", kwds.get("tokenlist"),
+        tokenlist_file = open_or_use(context.args.tokenlist, "r", kwds.get("tokenlist"),
             default_filename=TOKENS_AUTO_FILENAME, permit_stdin=True, make_peekable=True)
         if hasattr(tokenlist_file, "name") and tokenlist_file.name.startswith(TOKENS_AUTO_FILENAME):
             enable_pause()  # enabled by default when using btcrecover-tokens-auto.txt
@@ -6351,18 +6343,18 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             if re.match(r"#\s*--", first_line, re.UNICODE):  # if it's additional args, not just a comment
                 print("Warning: all options loaded from restore file; ignoring options in tokenlist file '"+tokenlist_file.name+"'", file=sys.stderr)
         print("Using autosave file '"+restore_filename+"'")
-        args.skip = savestate["skip"]  # override this with the most recent value
-        restored = True  # a global flag for future reference
+        context.args.skip = context.savestate["skip"]  # override this with the most recent value
+        context.restored = True  # a global flag for future reference
     #
-    elif args.autosave:
+    elif context.args.autosave:
         # If there's anything in the specified file, assume it's autosave data and try to load it
-        autosave_file = open_or_use(args.autosave, "r+b", kwds.get("autosave"), require_data=True)
-        if autosave_file:
+        context.autosave_file = open_or_use(context.args.autosave, "r+b", kwds.get("autosave"), require_data=True)
+        if context.autosave_file:
             # Load and compare to current arguments
-            load_savestate(autosave_file)
-            restored_argv = savestate["argv"]
+            load_savestate(context.autosave_file)
+            restored_argv = context.savestate["argv"]
             print("Restoring session:", " ".join(restored_argv))
-            print("Last session ended having finished password #", savestate["skip"])
+            print("Last session ended having finished password #", context.savestate["skip"])
             if restored_argv != effective_argv: # If the arguments provided are different to the save file, check if the difference actually makes a difference to password generation ordering/etc
                 savecheck_restored_argv = clean_autosave_args(restored_argv, "AutoSaveFile")
                 savecheck_effective_argv = clean_autosave_args(effective_argv, "CurrentArgs")
@@ -6380,27 +6372,27 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                     error_exit("Disallowed Arguments Difference:", " ".join(args_difference))
 
             # If the order of passwords generated has changed since the last version, don't permit a restore
-            if __ordering_version__ != savestate.get("ordering_version"):
+            if __ordering_version__ != context.savestate.get("ordering_version"):
                 error_exit("autosave was created with an incompatible version of "+prog)
-            print("Using autosave file '"+args.autosave+"'")
-            args.skip = savestate["skip"]  # override this with the most recent value
-            restored = True  # a global flag for future reference
+            print("Using autosave file '"+context.args.autosave+"'")
+            context.args.skip = context.savestate["skip"]  # override this with the most recent value
+            context.restored = True  # a global flag for future reference
         #
         # Else if the specified file is empty or doesn't exist:
         else:
             assert not (wallet or base_iterator or inserted_items), \
                         '--autosave is not supported with custom parse_arguments()'
-            if args.listpass:
+            if context.args.listpass:
                 print("Warning: --autosave is ignored with --listpass", file=sys.stderr)
-            elif args.performance:
+            elif context.args.performance:
                 print("Warning: --autosave is ignored with --performance", file=sys.stderr)
             else:
                 # create an initial savestate that is populated throughout the rest of parse_arguments()
-                savestate = dict(argv = effective_argv, ordering_version = __ordering_version__)
+                context.savestate = dict(argv = effective_argv, ordering_version = __ordering_version__)
 
 
     # Do some basic globals initialization; the rest are all done below
-    init_wildcards(args.wildcard_custom_list_e, args.wildcard_custom_list_f, args.wildcard_custom_list_j, args.wildcard_custom_list_k)
+    init_wildcards(context.args.wildcard_custom_list_e, context.args.wildcard_custom_list_f, context.args.wildcard_custom_list_j, context.args.wildcard_custom_list_k)
     init_password_generator()
 
     # Do a bunch of argument sanity checking
@@ -6408,126 +6400,122 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # Either we're using a passwordlist file (though it's not yet opened),
     # or we're using a tokenlist file which should have been found and opened by now,
     # or we're running a performance test (and neither is open; already checked above).
-    if not (args.passwordlist or tokenlist_file or args.performance or base_iterator or
-            ((args.correct_wallet_password or args.correct_wallet_password) and (args.dump_wallet or args.dump_privkeys))):
+    if not (context.args.passwordlist or tokenlist_file or context.args.performance or base_iterator or
+            ((context.args.correct_wallet_password or context.args.correct_wallet_password) and (context.args.dump_wallet or context.args.dump_privkeys))):
         error_exit("argument --tokenlist or --passwordlist is required (or file "+TOKENS_AUTO_FILENAME+" must be present)")
 
-    if tokenlist_file and args.max_tokens < args.min_tokens:
+    if tokenlist_file and context.args.max_tokens < context.args.min_tokens:
         error_exit("--max-tokens must be greater than --min-tokens")
 
-    assert not (inserted_items and args.typos_insert), "can't specify inserted_items with --typos-insert"
+    assert not (inserted_items and context.args.typos_insert), "can't specify inserted_items with --typos-insert"
     if inserted_items:
-        args.typos_insert = True
+        context.args.typos_insert = True
 
     # Sanity check the --max-typos-* options
     for typo_name in itertools.chain(("swap",), simple_typos.keys(), ("insert",)):
-        typo_max = args.__dict__["max_typos_"+typo_name]
+        typo_max = context.args.__dict__["max_typos_"+typo_name]
         if typo_max < sys.maxsize:
             #
             # Sanity check for when a --max-typos-* is specified, but the corresponding --typos-* is not
-            if not args.__dict__["typos_"+typo_name]:
+            if not context.args.__dict__["typos_"+typo_name]:
                 print("Warning: --max-typos-"+typo_name+" is ignored without --typos-"+typo_name, file=sys.stderr)
             #
             # Sanity check for a a --max-typos-* <= 0
             elif typo_max <= 0:
                 print("Warning: --max-typos-"+typo_name, typo_max, "disables --typos-"+typo_name, file=sys.stderr)
-                args.__dict__["typos_"+typo_name] = None
+                context.args.__dict__["typos_"+typo_name] = None
             #
             # Sanity check --max-typos-* vs the total number of --typos
-            elif args.typos and typo_max > args.typos:
-                print("Warning: --max-typos-"+typo_name+" ("+str(typo_max)+") is limited by the number of --typos ("+str(args.typos)+")", file=sys.stderr)
+            elif context.args.typos and typo_max > context.args.typos:
+                print("Warning: --max-typos-"+typo_name+" ("+str(typo_max)+") is limited by the number of --typos ("+str(context.args.typos)+")", file=sys.stderr)
 
     # Sanity check --typos--closecase
-    if args.typos_closecase and args.typos_case:
+    if context.args.typos_closecase and context.args.typos_case:
         print("Warning: specifying --typos-case disables --typos-closecase", file=sys.stderr)
-        args.typos_closecase = None
+        context.args.typos_closecase = None
 
     # Build an ordered list of enabled simple typo generators. This list MUST be in the same relative
     # order as the items in simple_typos to prevent the breakage of --skip and --restore features
-    global enabled_simple_typos
-    enabled_simple_typos = tuple(
-        generator for name,generator in simple_typos.items() if args.__dict__["typos_"+name])
+    context.enabled_simple_typos = tuple(
+        generator for name,generator in simple_typos.items() if context.args.__dict__["typos_"+name])
 
     # Have _any_ (simple or otherwise) typo types been specified?
-    any_typo_types_specified = enabled_simple_typos or \
-        args.typos_capslock or args.typos_swap or args.typos_insert
+    any_typo_types_specified = context.enabled_simple_typos or \
+        context.args.typos_capslock or context.args.typos_swap or context.args.typos_insert
 
     # Sanity check the values of --typos and --min-typos
     if not any_typo_types_specified:
-        if args.min_typos > 0:
+        if context.args.min_typos > 0:
             error_exit("no passwords are produced when no type of typo is chosen, but --min-typos were required")
-        if args.typos:
+        if context.args.typos:
             print("Warning: --typos has no effect because no type of typo was chosen", file=sys.stderr)
     #
     else:
-        if args.typos is None:
-            if args.min_typos:
-                print("Warning: --typos COUNT not specified; assuming same as --min_typos ("+str(args.min_typos)+")", file=sys.stderr)
-                args.typos = args.min_typos
+        if context.args.typos is None:
+            if context.args.min_typos:
+                print("Warning: --typos COUNT not specified; assuming same as --min_typos ("+str(context.args.min_typos)+")", file=sys.stderr)
+                context.args.typos = context.args.min_typos
             else:
                 print("Warning: --typos COUNT not specified; assuming 1", file=sys.stderr)
-                args.typos = 1
+                context.args.typos = 1
         #
-        elif args.typos < args.min_typos:
+        elif context.args.typos < context.args.min_typos:
             error_exit("--min_typos must be less than --typos")
         #
-        elif args.typos <= 0:
-            print("Warning: --typos", args.typos, " disables all typos", file=sys.stderr)
-            enabled_simple_typos = args.typos_capslock = args.typos_swap = args.typos_insert = inserted_items = None
+        elif context.args.typos <= 0:
+            print("Warning: --typos", context.args.typos, " disables all typos", file=sys.stderr)
+            context.enabled_simple_typos = context.args.typos_capslock = context.args.typos_swap = context.args.typos_insert = inserted_items = None
 
     # If any simple typos have been enabled, set max_simple_typos and sum_max_simple_typos appropriately
-    global max_simple_typos, sum_max_simple_typos
-    if enabled_simple_typos:
-        max_simple_typos = \
-            [args.__dict__["max_typos_"+name] for name in simple_typos.keys() if args.__dict__["typos_"+name]]
-        if min(max_simple_typos) == sys.maxsize:    # if none were specified
-            max_simple_typos     = None
-            sum_max_simple_typos = sys.maxsize
-        elif max(max_simple_typos) == sys.maxsize:  # if one, but not all were specified
-            sum_max_simple_typos = sys.maxsize
+    if context.enabled_simple_typos:
+        context.max_simple_typos = \
+            [context.args.__dict__["max_typos_"+name] for name in simple_typos.keys() if context.args.__dict__["typos_"+name]]
+        if min(context.max_simple_typos) == sys.maxsize:    # if none were specified
+            context.max_simple_typos     = None
+            context.sum_max_simple_typos = sys.maxsize
+        elif max(context.max_simple_typos) == sys.maxsize:  # if one, but not all were specified
+            context.sum_max_simple_typos = sys.maxsize
         else:                                      # else all were specified
-            sum_max_simple_typos = sum(max_simple_typos)
+            context.sum_max_simple_typos = sum(context.max_simple_typos)
 
     # Sanity check --max-adjacent-inserts (inserts are not a "simple" typo)
-    if args.max_adjacent_inserts != 1:
-        if not args.typos_insert:
+    if context.args.max_adjacent_inserts != 1:
+        if not context.args.typos_insert:
             print("Warning: --max-adjacent-inserts has no effect unless --typos-insert is used", file=sys.stderr)
-        elif args.max_adjacent_inserts < 1:
-            print("Warning: --max-adjacent-inserts", args.max_adjacent_inserts, " disables --typos-insert", file=sys.stderr)
-            args.typos_insert = None
-        elif args.max_adjacent_inserts > min(args.typos, args.max_typos_insert):
-            if args.max_typos_insert < args.typos:
-                print("Warning: --max-adjacent-inserts ("+str(args.max_adjacent_inserts)+") is limited by --max-typos-insert ("+str(args.max_typos_insert)+")", file=sys.stderr)
+        elif context.args.max_adjacent_inserts < 1:
+            print("Warning: --max-adjacent-inserts", context.args.max_adjacent_inserts, " disables --typos-insert", file=sys.stderr)
+            context.args.typos_insert = None
+        elif context.args.max_adjacent_inserts > min(context.args.typos, context.args.max_typos_insert):
+            if context.args.max_typos_insert < context.args.typos:
+                print("Warning: --max-adjacent-inserts ("+str(context.args.max_adjacent_inserts)+") is limited by --max-typos-insert ("+str(context.args.max_typos_insert)+")", file=sys.stderr)
             else:
-                print("Warning: --max-adjacent-inserts ("+str(args.max_adjacent_inserts)+") is limited by the number of --typos ("+str(args.typos)+")", file=sys.stderr)
+                print("Warning: --max-adjacent-inserts ("+str(context.args.max_adjacent_inserts)+") is limited by the number of --typos ("+str(context.args.typos)+")", file=sys.stderr)
 
     # For custom inserted_items, temporarily set this to disable wildcard expansion of --insert
     if inserted_items:
-        args.typos_insert = False
+        context.args.typos_insert = False
 
     # Parse the custom wildcard set option
-    if args.custom_wild:
-        global wildcard_keys
-        if (args.passwordlist or base_iterator) and not \
-                (args.has_wildcards or args.typos_insert or args.typos_replace):
+    if context.args.custom_wild:
+        if (context.args.passwordlist or base_iterator) and not \
+                (context.args.has_wildcards or context.args.typos_insert or context.args.typos_replace):
             print("Warning: ignoring unused --custom-wild", file=sys.stderr)
         else:
-            args.custom_wild = tstr_from_stdin(args.custom_wild)
-            check_chars_range(args.custom_wild, "--custom-wild")
-            custom_set_built         = build_wildcard_set(args.custom_wild)
-            wildcard_sets[tstr("c")] = custom_set_built  # (duplicates already removed by build_wildcard_set)
-            wildcard_sets[tstr("C")] = duplicates_removed(custom_set_built.upper())
+            context.args.custom_wild = tstr_from_stdin(context.args.custom_wild)
+            check_chars_range(context.args.custom_wild, "--custom-wild")
+            custom_set_built         = build_wildcard_set(context.args.custom_wild)
+            context.wildcard_sets[tstr("c")] = custom_set_built  # (duplicates already removed by build_wildcard_set)
+            context.wildcard_sets[tstr("C")] = duplicates_removed(custom_set_built.upper())
             # If there are any case-sensitive letters in the set, build the case-insensitive versions
             custom_set_caseswapped = custom_set_built.swapcase()
             if custom_set_caseswapped != custom_set_built:
-                wildcard_nocase_sets[tstr("c")] = duplicates_removed(custom_set_built + custom_set_caseswapped)
-                wildcard_nocase_sets[tstr("C")] = wildcard_nocase_sets[tstr("c")].swapcase()
-            wildcard_keys += tstr("cC")  # keep track of available wildcard types (this is used in regex's)
+                context.wildcard_nocase_sets[tstr("c")] = duplicates_removed(custom_set_built + custom_set_caseswapped)
+                context.wildcard_nocase_sets[tstr("C")] = context.wildcard_nocase_sets[tstr("c")].swapcase()
+            context.wildcard_keys += tstr("cC")  # keep track of available wildcard types (this is used in regex's)
 
     # Syntax check and expand --typos-insert/--typos-replace wildcards
     # N.B. changing the iteration order below will break autosave/restore between btcr versions
-    global typos_insert_expanded, typos_replace_expanded
-    for arg_name, arg_val in ("--typos-insert", args.typos_insert), ("--typos-replace", args.typos_replace):
+    for arg_name, arg_val in ("--typos-insert", context.args.typos_insert), ("--typos-replace", context.args.typos_replace):
         if arg_val:
             arg_val = tstr_from_stdin(arg_val)
             check_chars_range(arg_val, arg_name)
@@ -6536,79 +6524,76 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 error_exit(arg_name, arg_val, ":", count_or_error_msg)
             if count_or_error_msg:
                 load_backreference_maps_from_token(arg_val)
-    if args.typos_insert:
-        typos_insert_expanded  = tuple(expand_wildcards_generator(args.typos_insert))
-    if args.typos_replace:
-        typos_replace_expanded = tuple(expand_wildcards_generator(args.typos_replace))
+    if context.args.typos_insert:
+        context.typos_insert_expanded  = tuple(expand_wildcards_generator(context.args.typos_insert))
+    if context.args.typos_replace:
+        context.typos_replace_expanded = tuple(expand_wildcards_generator(context.args.typos_replace))
 
     if inserted_items:
-        args.typos_insert     = True  # undo the temporary change from above
-        typos_insert_expanded = tuple(inserted_items)
+        context.args.typos_insert     = True  # undo the temporary change from above
+        context.typos_insert_expanded = tuple(inserted_items)
 
     if args.delimiter:
         args.delimiter = tstr_from_stdin(args.delimiter)
 
-    # Process any --typos-map file: build a dict (typos_map) mapping replaceable characters to their replacements
-    global typos_map
-    typos_map = None
-    if args.typos_map:
-        sha1 = hashlib.sha1() if savestate else None
-        typos_map = parse_mapfile(open_or_use(args.typos_map, "r", kwds.get("typos_map")), sha1, "--typos-map")
+    # Process any --typos-map file: build a dict (context.typos_map) mapping replaceable characters to their replacements
+    context.typos_map = None
+    if context.args.typos_map:
+        sha1 = hashlib.sha1() if context.savestate else None
+        context.typos_map = parse_mapfile(open_or_use(context.args.typos_map, "r", kwds.get("typos_map")), sha1, "--typos-map")
         #
         # If autosaving, take the hash of the typos_map and either check it
         # during a session restore to make sure we're actually restoring
         # the exact same session, or save it for future such checks
-        if savestate:
+        if context.savestate:
             typos_map_hash = sha1.digest()
             del sha1
-            if restored:
-                if typos_map_hash != savestate["typos_map_hash"]:
+            if context.restored:
+                if typos_map_hash != context.savestate["typos_map_hash"]:
                     error_exit("can't restore previous session: the typos-map file has changed")
             else:
-                savestate["typos_map_hash"] = typos_map_hash
+                context.savestate["typos_map_hash"] = typos_map_hash
     #
-    # Else if not args.typos_map but these were specified:
-    elif (args.passwordlist or base_iterator) and args.delimiter:
+    # Else if not context.args.typos_map but these were specified:
+    elif (context.args.passwordlist or base_iterator) and context.args.delimiter:
         # With --passwordlist, --delimiter is only used for a --typos-map
         print("Warning: ignoring unused --delimiter", file=sys.stderr)
 
     # Compile the regex options
-    global regex_only, regex_never
-    try:   regex_only  = re.compile(tstr_from_stdin(args.regex_only),  re.U) if args.regex_only  else None
-    except re.error as e: error_exit("invalid --regex-only",  args.regex_only, ":", e)
-    try:   regex_never = re.compile(tstr_from_stdin(args.regex_never), re.U) if args.regex_never else None
-    except re.error as e: error_exit("invalid --regex-never", args.regex_only, ":", e)
+    try:   context.regex_only  = re.compile(tstr_from_stdin(context.args.regex_only),  re.U) if context.args.regex_only  else None
+    except re.error as e: error_exit("invalid --regex-only",  context.args.regex_only, ":", e)
+    try:   context.regex_never = re.compile(tstr_from_stdin(context.args.regex_never), re.U) if context.args.regex_never else None
+    except re.error as e: error_exit("invalid --regex-never", context.args.regex_only, ":", e)
 
-    global custom_final_checker
-    custom_final_checker = check_only
+    context.custom_final_checker = check_only
 
-    if args.length_min < 0:
+    if context.args.length_min < 0:
         print("Warning: length-min must be >= 0, assuming 0", file=sys.stderr)
-        args.length_min = 0
+        context.args.length_min = 0
 
-    if args.length_max < args.length_min:
+    if context.args.length_max < context.args.length_min:
         print("Warning: length-max must be >= length-min, assuming length-min", file=sys.stderr)
-        args.length_max = args.length_min
+        context.args.length_max = context.args.length_min
 
-    if args.skip < 0:
+    if context.args.skip < 0:
         print("Warning: --skip must be >= 0, assuming 0", file=sys.stderr)
-        args.skip = 0
+        context.args.skip = 0
 
-    if args.threads:
-        if args.threads < 1:
+    if context.args.threads:
+        if context.args.threads < 1:
             print("Warning: --threads must be >= 1, assuming 1", file=sys.stderr)
-            args.threads = 1
+            context.args.threads = 1
 
-        if args.threads > 60:
+        if context.args.threads > 60:
             if sys.platform == "win32":
                 print("WARNING: Windows doesn't support more than 60 threads")
-                args.threads = 60
+                context.args.threads = 60
 
-    if args.worker:  # worker servers
+    if context.args.worker:  # worker servers
         global worker_id, workers_total
-        workers_total = int(args.worker.split("/")[1])
+        workers_total = int(context.args.worker.split("/")[1])
 
-        worker_id = args.worker.split("/")[0].split(",")
+        worker_id = context.args.worker.split("/")[0].split(",")
         worker_id = [int(x) -1 for x in worker_id] # now it's in the range [0, workers_total)
 
         if workers_total < 2:
@@ -6619,7 +6604,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             error_exit("in --worker ID#/TOTAL#, ID# must be <= TOTAL#")
 
     global have_progress, progressbar
-    if args.no_progress:
+    if context.args.no_progress:
         have_progress = False
     else:
         try:
@@ -6634,70 +6619,69 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
     # --bip39 is implied if any bip39 option is used
     for action in bip39_group._group_actions:
-        if args.__dict__[action.dest]:
-            args.bip39 = True
+        if context.args.__dict__[action.dest]:
+            context.args.bip39 = True
             break
 
     # --mkey and --privkey are deprecated synonyms of --data-extract
-    if args.mkey or args.privkey:
-        args.data_extract = True
+    if context.args.mkey or context.args.privkey:
+        context.args.data_extract = True
 
     required_args = 0
-    if args.wallet:                 required_args += 1
-    if args.data_extract:           required_args += 1
-    if args.data_extract_string:    required_args += 1
-    if args.bip38_enc_privkey:      required_args += 1
-    if args.bip39:                  required_args += 1
-    if args.yoroi_master_password:  required_args += 1
-    if args.brainwallet:            required_args += 1
-    if args.rawprivatekey:          required_args += 1
-    if args.warpwallet:             required_args += 1
-    if args.listpass:               required_args += 1
+    if context.args.wallet:                 required_args += 1
+    if context.args.data_extract:           required_args += 1
+    if context.args.data_extract_string:    required_args += 1
+    if context.args.bip38_enc_privkey:      required_args += 1
+    if context.args.bip39:                  required_args += 1
+    if context.args.yoroi_master_password:  required_args += 1
+    if context.args.brainwallet:            required_args += 1
+    if context.args.rawprivatekey:          required_args += 1
+    if context.args.warpwallet:             required_args += 1
+    if context.args.listpass:               required_args += 1
     if wallet:                      required_args += 1
-    if required_args != 1 and (args.seedgenerator == False):
+    if required_args != 1 and (context.args.seedgenerator == False):
         assert not wallet, 'custom wallet object not permitted with --wallet, --data-extract, --brainwallet, --warpwallet, --bip39, --yoroi-master-password, --bip38_enc_privkey, or --listpass'
         error_exit("argument --wallet (or --data-extract, --bip39, --brainwallet, --warpwallet, --rawprivatekey, --yoroi-master-password, --bip38_enc_privkey, or --listpass, exactly one) is required")
 
     # If specificed, use a custom wallet object instead of loading a wallet file or data-extract
-    global loaded_wallet
     if wallet:
-        loaded_wallet = wallet
+        context.loaded_wallet = wallet
 
     # Load the wallet file (this sets the loaded_wallet global)
-    if args.wallet:
-        if args.android_pin:
-            loaded_wallet = WalletAndroidSpendingPIN.load_from_filename(args.wallet)
-        elif args.blockchain_secondpass:
-            if args.blockchain_correct_mainpass:
-                loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet, args.blockchain_correct_mainpass)
-            elif args.correct_wallet_password:
-                loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet, args.correct_wallet_password)
+    if context.args.wallet:
+        if context.args.android_pin:
+            context.loaded_wallet = WalletAndroidSpendingPIN.load_from_filename(context.args.wallet)
+        elif context.args.blockchain_secondpass:
+            if context.args.blockchain_correct_mainpass:
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet, context.args.blockchain_correct_mainpass)
+            elif context.args.correct_wallet_password:
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet, context.args.correct_wallet_password)
             else:
-                loaded_wallet = WalletBlockchainSecondpass.load_from_filename(args.wallet)
-        elif args.wallet == "__null":
-            loaded_wallet = WalletNull()
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet)
+        elif context.args.wallet == "__null":
+            context.loaded_wallet = WalletNull()
         else:
-            load_global_wallet(args.wallet)
-            if type(loaded_wallet) is WalletBitcoinj:
+            load_global_wallet(context, context.args.wallet)
+            if type(context.loaded_wallet) is WalletBitcoinj:
                 print("Notice: for MultiBit, use a .key file instead of a .wallet file if possible")
-            if isinstance(loaded_wallet, WalletMultiBit) and not args.android_pin:
+            if isinstance(context.loaded_wallet, WalletMultiBit) and not context.args.android_pin:
                 print("Notice: use --android-pin to recover the spending PIN of\n"
                            "    a Bitcoin Wallet for Android/BlackBerry backup (instead of the backup password)")
-        if args.msigna_keychain and not isinstance(loaded_wallet, WalletMsigna):
+        if context.args.msigna_keychain and not isinstance(context.loaded_wallet, WalletMsigna):
             print("Warning: ignoring --msigna-keychain (wallet file is not an mSIGNA vault)")
 
 
-    if args.bip38_enc_privkey:
-        if args.bip38_currency:
-            loaded_wallet = WalletBIP38(args.bip38_enc_privkey, args.bip38_currency)
+    if context.args.bip38_enc_privkey:
+        if context.args.bip38_currency:
+            context.loaded_wallet = WalletBIP38(context.args.bip38_enc_privkey, context.args.bip38_currency)
         else:
-            loaded_wallet = WalletBIP38(args.bip38_enc_privkey)
+            context.loaded_wallet = WalletBIP38(context.args.bip38_enc_privkey)
 
     # Parse --bip39 related options, and create a WalletBIP39 object
-    if args.bip39:
-        if args.mnemonic:
-            mnemonic = args.mnemonic
-        elif args.mnemonic_prompt:
+    if context.args.bip39:
+        if context.args.mnemonic:
+            mnemonic = context.args.mnemonic
+        elif context.args.mnemonic_prompt:
             encoding = sys.stdin.encoding or "ASCII"
             if "utf" not in encoding.lower():
                 print("terminal does not support UTF; mnemonics with non-ASCII chars might not work", file=sys.stderr)
@@ -6707,49 +6691,49 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         else:
             mnemonic = None
 
-        args.wallet_type = args.wallet_type.strip().lower() if args.wallet_type else "bip39"
+        context.args.wallet_type = context.args.wallet_type.strip().lower() if context.args.wallet_type else "bip39"
 
-        if args.wallet_type == "cardano":
-            loaded_wallet = WalletCardano(args.addrs, args.addressdb, mnemonic,
-                                        args.language, args.bip32_path, args.performance)
-        elif args.wallet_type in ['avalanche', 'tron', 'solana', 'cosmos', 'tezos','stellar','multiversx']:
-            loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
-        elif args.wallet_type in ['polkadotsubstrate']:
-            loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.substrate_path, args.wallet_type, args.performance)
-        elif args.wallet_type == "ethereumvalidator":
-            loaded_wallet = WalletEthereumValidator(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
-        elif args.slip39:
-            loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
+        if context.args.wallet_type == "cardano":
+            context.loaded_wallet = WalletCardano(context.args.addrs, context.args.addressdb, mnemonic,
+                                        context.args.language, context.args.bip32_path, context.args.performance)
+        elif context.args.wallet_type in ['avalanche', 'tron', 'solana', 'cosmos', 'tezos','stellar','multiversx']:
+            context.loaded_wallet = WalletPyCryptoHDWallet(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
+        elif context.args.wallet_type in ['polkadotsubstrate']:
+            context.loaded_wallet = WalletPyCryptoHDWallet(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.substrate_path, context.args.wallet_type, context.args.performance)
+        elif context.args.wallet_type == "ethereumvalidator":
+            context.loaded_wallet = WalletEthereumValidator(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
+        elif context.args.slip39:
+            context.loaded_wallet = WalletSLIP39(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, context.args.slip39_shares,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
         else:
-            loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance, force_p2sh = args.force_p2sh,checksinglexpubaddress =  args.checksinglexpubaddress, force_p2tr = args.force_p2tr)
+            context.loaded_wallet = WalletBIP39(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance, force_p2sh = context.args.force_p2sh,checksinglexpubaddress =  context.args.checksinglexpubaddress, force_p2tr = context.args.force_p2tr)
 
 
-    if args.yoroi_master_password:
-        loaded_wallet = WalletYoroi(args.yoroi_master_password, args.performance)
+    if context.args.yoroi_master_password:
+        context.loaded_wallet = WalletYoroi(context.args.yoroi_master_password, context.args.performance)
 
-    if args.brainwallet or args.warpwallet:
-        loaded_wallet = WalletBrainwallet(addresses = args.addrs,
-                                          addressdb = args.addressdb,
-                                          check_compressed = not(args.skip_compressed),
-                                          check_uncompressed = not(args.skip_uncompressed),
-                                          force_check_p2sh = args.force_check_p2sh,
-                                          isWarpwallet=args.warpwallet,
-                                          salt=args.warpwallet_salt,
-                                          crypto=args.memwallet_coin)
+    if context.args.brainwallet or context.args.warpwallet:
+        context.loaded_wallet = WalletBrainwallet(addresses = context.args.addrs,
+                                          addressdb = context.args.addressdb,
+                                          check_compressed = not(context.args.skip_compressed),
+                                          check_uncompressed = not(context.args.skip_uncompressed),
+                                          force_check_p2sh = context.args.force_check_p2sh,
+                                          isWarpwallet=context.args.warpwallet,
+                                          salt=context.args.warpwallet_salt,
+                                          crypto=context.args.memwallet_coin)
 
-    if args.rawprivatekey:
-        loaded_wallet = WalletRawPrivateKey(addresses = args.addrs,
-                                          addressdb = args.addressdb,
-                                          check_compressed = not(args.skip_compressed),
-                                          check_uncompressed = not(args.skip_uncompressed),
-                                          force_check_p2sh = args.force_check_p2sh,
-                                          crypto=args.wallet_type,
-                                            correct_wallet_password = args.correct_wallet_password)
+    if context.args.rawprivatekey:
+        context.loaded_wallet = WalletRawPrivateKey(addresses = context.args.addrs,
+                                          addressdb = context.args.addressdb,
+                                          check_compressed = not(context.args.skip_compressed),
+                                          check_uncompressed = not(context.args.skip_uncompressed),
+                                          force_check_p2sh = context.args.force_check_p2sh,
+                                          crypto=context.args.wallet_type,
+                                            correct_wallet_password = context.args.correct_wallet_password)
 
     # Set the default number of threads to use. For GPU processing, things like hyperthreading are unhelpful, so use physical cores only...
     if not args.threads:
@@ -6768,14 +6752,14 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
     # Prompt for data extracted by one of the extract-* scripts
     # instead of loading a wallet file
-    if args.data_extract or args.data_extract_string:
+    if context.args.data_extract or context.args.data_extract_string:
         key_crc_base64 = kwds.get("data_extract")  # for unittest
-        if args.data_extract_string:
-            key_crc_base64 = args.data_extract_string
+        if context.args.data_extract_string:
+            key_crc_base64 = context.args.data_extract_string
         if not key_crc_base64:
             if tokenlist_file == sys.stdin:
                 print("Warning: order of data on stdin is: optional extra command-line arguments, key data, rest of tokenlist", file=sys.stderr)
-            elif args.passwordlist == "-" and not sys.stdin.isatty():  # if isatty, friendly prompts are provided instead
+            elif context.args.passwordlist == "-" and not sys.stdin.isatty():  # if isatty, friendly prompts are provided instead
                 print("Warning: order of data on stdin is: key data, password list", file=sys.stderr)
             #
             key_prompt = "Please enter the data from the extract script\n> "  # the default friendly prompt
@@ -6787,22 +6771,22 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         #
         # Emulates load_global_wallet(), but using the base64 key data instead of a wallet
         # file (this sets the loaded_wallet global, and returns the validated CRC)
-        key_crc = load_from_base64_key(key_crc_base64)
+        key_crc = load_from_base64_key(context, key_crc_base64)
         #
-        if isinstance(loaded_wallet, WalletMsigna):
-            if args.msigna_keychain:
+        if isinstance(context.loaded_wallet, WalletMsigna):
+            if context.args.msigna_keychain:
                 print("Warning: ignoring --msigna-keychain (the extract script has already chosen the keychain)")
-        elif args.msigna_keychain:
+        elif context.args.msigna_keychain:
             print("Warning: ignoring --msigna-keychain (--data-extract is not from an mSIGNA vault)")
         #
         # If autosaving, either check the key_crc during a session restore to make sure we're
         # actually restoring the exact same session, or save it for future such checks
-        if savestate:
-            if restored:
-                if key_crc != savestate["key_crc"]:
+        if context.savestate:
+            if context.restored:
+                if key_crc != context.savestate["key_crc"]:
                     error_exit("can't restore previous session: the encrypted key entered is not the same")
             else:
-                savestate["key_crc"] = key_crc
+                context.savestate["key_crc"] = key_crc
 
     #############################################
     #
@@ -6810,32 +6794,32 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     #
     #############################################
 
-    if args.dump_wallet:
+    if context.args.dump_wallet:
         try:
-            if loaded_wallet._dump_wallet_file:
+            if context.loaded_wallet._dump_wallet_file:
                 pass
         except AttributeError:
             exit("This wallet type does not currently support dumping the decrypted wallet file... (But it might support decrypting private keys (--dump-privkeys), so give that a try)")
 
-        loaded_wallet._dump_wallet_file = args.dump_wallet
+        context.loaded_wallet._dump_wallet_file = context.args.dump_wallet
 
-    if args.dump_privkeys:
+    if context.args.dump_privkeys:
         try:
-            if loaded_wallet._dump_privkeys_file:
+            if context.loaded_wallet._dump_privkeys_file:
                 pass
         except AttributeError:
             exit("This wallet type does not currently support dumping the decrypted private keys...")
 
-        loaded_wallet._dump_privkeys_file = args.dump_privkeys
+        context.loaded_wallet._dump_privkeys_file = context.args.dump_privkeys
 
-    if (args.dump_privkeys or args.dump_wallet) and \
-            (args.correct_wallet_password or args.correct_wallet_secondpassword) and \
-            (not (args.passwordlist or args.tokenlist or args.performance)):
+    if (context.args.dump_privkeys or context.args.dump_wallet) and \
+            (context.args.correct_wallet_password or context.args.correct_wallet_secondpassword) and \
+            (not (context.args.passwordlist or context.args.tokenlist or context.args.performance)):
         print("\nDumping Wallet File or Keys...")
-        if args.correct_wallet_secondpassword:
-            result, count = loaded_wallet.return_verified_password_or_false([args.correct_wallet_secondpassword])
-        elif args.correct_wallet_password:
-            result, count = loaded_wallet.return_verified_password_or_false([args.correct_wallet_password])
+        if context.args.correct_wallet_secondpassword:
+            result, count = context.loaded_wallet.return_verified_password_or_false([context.args.correct_wallet_secondpassword])
+        elif context.args.correct_wallet_password:
+            result, count = context.loaded_wallet.return_verified_password_or_false([context.args.correct_wallet_password])
 
         if result:
             print("\nWallet successfully dumped...")
@@ -6845,12 +6829,12 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         exit()
 
 
-    if args.disable_save_possible_passwords:
-        loaded_wallet._savepossiblematches = False
+    if context.args.disable_save_possible_passwords:
+        context.loaded_wallet._savepossiblematches = False
     else:
         try:
-            loaded_wallet._possible_passwords_file = args.possible_passwords_file
-            loaded_wallet.init_logfile()
+            context.loaded_wallet._possible_passwords_file = context.args.possible_passwords_file
+            context.loaded_wallet.init_logfile()
         except AttributeError: # Not all wallet types will automatically prodce a logfile
             pass
 
@@ -6859,16 +6843,16 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     ##############################
 
     try: #This will fail during some older unit tests if there is no loaded wallet
-        loaded_wallet.opencl = False
-        loaded_wallet.opencl_algo = -1
-        loaded_wallet.opencl_context_pbkdf2_sha1 = -1
+        context.loaded_wallet.opencl = False
+        context.loaded_wallet.opencl_algo = -1
+        context.loaded_wallet.opencl_context_pbkdf2_sha1 = -1
     except AttributeError:
         pass
 
     # Parse and syntax check all of the GPU related options
-    if args.enable_opencl:
+    if context.args.enable_opencl:
         try:
-            if(len(loaded_wallet.btcrseed_wallet._path_indexes) > 1):
+            if(len(context.loaded_wallet.btcrseed_wallet._path_indexes) > 1):
                 print("=======================================================================")
                 print()
                 print("Performance Warning:\n"
@@ -6881,7 +6865,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 print()
                 print("=======================================================================")
 
-            if(loaded_wallet.btcrseed_wallet._addrs_to_generate > 1):
+            if(context.loaded_wallet.btcrseed_wallet._addrs_to_generate > 1):
                 print("=======================================================================")
                 print()
                 print("Performance Warning:\n"
@@ -6894,7 +6878,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 print("=======================================================================")
         except:
             pass
-        if args.warpwallet:
+        if context.args.warpwallet:
             print("=======================================================================")
             print()
             print("Warning: Warpwallet GPU doesn't accelerate the sCrypt portion of hashing, "
@@ -6903,7 +6887,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             print()
             print("=======================================================================")
         try:
-            if loaded_wallet._iter_count == 0: # V0 blockchain wallets have an iter_count of zero and don't benefit from GPU acceleration...
+            if context.loaded_wallet._iter_count == 0: # V0 blockchain wallets have an iter_count of zero and don't benefit from GPU acceleration...
                 print("ERROR: The version of your blockchain.com wallet doesn't support OpenCL acceleration, this cannot changed. Please disable it and try again...")
                 exit()
         except AttributeError: #BIP39 wallets don't have an iter_count in the same way as other wallets
@@ -6918,43 +6902,43 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         info = opencl_information()
         info.printplatforms()
         print()
-        if not hasattr(loaded_wallet, "_return_verified_password_or_false_opencl"):
-            if args.bip39:
-                error_exit("Wallet Type: " + loaded_wallet.__class__.__name__ + " does not support OpenCL acceleration for Passphrase Recovery")
+        if not hasattr(context.loaded_wallet, "_return_verified_password_or_false_opencl"):
+            if context.args.bip39:
+                error_exit("Wallet Type: " + context.loaded_wallet.__class__.__name__ + " does not support OpenCL acceleration for Passphrase Recovery")
             else:
-                error_exit("Wallet Type: " + loaded_wallet.__class__.__name__ + " does not support OpenCL acceleration")
+                error_exit("Wallet Type: " + context.loaded_wallet.__class__.__name__ + " does not support OpenCL acceleration")
 
-        loaded_wallet.opencl = True
+        context.loaded_wallet.opencl = True
         # Append GPU related arguments to be sent to BTCrpass
 
         #
-        if args.opencl_platform:
-            loaded_wallet.opencl_platform = args.opencl_platform[0]
-            loaded_wallet.opencl_device_worksize = 0
-            for device in pyopencl.get_platforms()[args.opencl_platform[0]].get_devices():
-                if device.max_work_group_size > loaded_wallet.opencl_device_worksize:
-                    loaded_wallet.opencl_device_worksize = device.max_work_group_size
+        if context.args.opencl_platform:
+            context.loaded_wallet.opencl_platform = context.args.opencl_platform[0]
+            context.loaded_wallet.opencl_device_worksize = 0
+            for device in pyopencl.get_platforms()[context.args.opencl_platform[0]].get_devices():
+                if device.max_work_group_size > context.loaded_wallet.opencl_device_worksize:
+                    context.loaded_wallet.opencl_device_worksize = device.max_work_group_size
         #
         # Else if specific devices weren't requested, try to build a good default list
         else:
-            btcrecover.opencl_helpers.auto_select_opencl_platform(loaded_wallet)
+            btcrecover.opencl_helpers.auto_select_opencl_platform(context.loaded_wallet)
 
-        print("OpenCL: Using Platform:", loaded_wallet.opencl_platform)
+        print("OpenCL: Using Platform:", context.loaded_wallet.opencl_platform)
 
-        if args.opencl_devices:
-            loaded_wallet.opencl_devices = args.opencl_devices.split(",")
-            loaded_wallet.opencl_devices = [int(x) for x in loaded_wallet.opencl_devices]
-            if max(loaded_wallet.opencl_devices) > (len(pyopencl.get_platforms()[loaded_wallet.opencl_platform].get_devices()) - 1):
+        if context.args.opencl_devices:
+            context.loaded_wallet.opencl_devices = context.args.opencl_devices.split(",")
+            context.loaded_wallet.opencl_devices = [int(x) for x in context.loaded_wallet.opencl_devices]
+            if max(context.loaded_wallet.opencl_devices) > (len(pyopencl.get_platforms()[context.loaded_wallet.opencl_platform].get_devices()) - 1):
                 print("Error: Invalid OpenCL device selected")
                 exit()
 
-        loaded_wallet.opencl_algo = 0
+        context.loaded_wallet.opencl_algo = 0
 
-        if args.opencl_workgroup_size:
-            loaded_wallet.opencl_device_worksize = args.opencl_workgroup_size[0]
-            loaded_wallet.chunksize = args.opencl_workgroup_size[0]
+        if context.args.opencl_workgroup_size:
+            context.loaded_wallet.opencl_device_worksize = context.args.opencl_workgroup_size[0]
+            context.loaded_wallet.chunksize = context.args.opencl_workgroup_size[0]
         else:
-            if args.bip38_enc_privkey:
+            if context.args.bip38_enc_privkey:
                 # Optimal Chunksize Examples
                 # NVidia MX250 2GB = 7 (~7 p/s Slower than CPU in the same PC...)
                 # NVidia 1660Ti 6GB = 16 (~18.5 p/s Almost identical CPU in the same PC...)
@@ -6962,7 +6946,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 # Seems like chunksize of 16 is basically optimal and needs ~2gb VRAM per thread...Increasing chunksize beyond 16 gives no performance benefit and hits workgroup limits...
                 # Probably just worth leaving it at 16 and exiting if less than a 6gb GPU... (As performance won't be worthwhile anyway)
                 device_min_vmem = 99999
-                for device in pyopencl.get_platforms()[loaded_wallet.opencl_platform].get_devices():
+                for device in pyopencl.get_platforms()[context.loaded_wallet.opencl_platform].get_devices():
                     if (device.global_mem_size / 1073741824.0) < device_min_vmem:
                         device_min_vmem = device.global_mem_size / 1073741824.0
                 print("OpenCL: Minimum GPU Memory Available for platform:", device_min_vmem, "GB")
@@ -6973,33 +6957,33 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                     exit()
                 else:
                     print("OpenCL: Sufficient GPU VRAM for sCrypt... Ok to run!")
-                    loaded_wallet.chunksize = 16
+                    context.loaded_wallet.chunksize = 16
             else:
-                loaded_wallet.chunksize = loaded_wallet.opencl_device_worksize
+                context.loaded_wallet.chunksize = context.loaded_wallet.opencl_device_worksize
 
 
-        print("OpenCL: Using Work Group Size: ", loaded_wallet.chunksize)
+        print("OpenCL: Using Work Group Size: ", context.loaded_wallet.chunksize)
         print()
 
     # Parse and syntax check all of the GPU related options
-    if args.enable_gpu:
-        if not hasattr(loaded_wallet, "init_opencl_kernel"):
-            error_exit(loaded_wallet.__class__.__name__ + " does not support GPU acceleration (Though it might support OpenCL acceleration using your GPU, so try --enable-opencl)")
+    if context.args.enable_gpu:
+        if not hasattr(context.loaded_wallet, "init_opencl_kernel"):
+            error_exit(context.loaded_wallet.__class__.__name__ + " does not support GPU acceleration (Though it might support OpenCL acceleration using your GPU, so try --enable-opencl)")
         devices_avail = list(get_opencl_devices())  # all available OpenCL device objects
         if not devices_avail:
             error_exit("no supported GPUs found")
-        if args.int_rate <= 0:
+        if context.args.int_rate <= 0:
             error_exit("--int-rate must be > 0")
         #
         # If specific devices were requested by name, build a list of devices from those available
-        if args.gpu_names:
+        if context.args.gpu_names:
             # Create a list of names of available devices, exactly the same way as --list-gpus except all lower case
             avail_names = []  # will be the *names* of available devices
             for i, dev in enumerate(devices_avail, 1):
                 avail_names.append("#"+str(i)+" "+dev.name.strip().lower())
             #
             devices = []  # will be the list of devices to actually use, taken from devices_avail
-            for device_name in args.gpu_names:  # for each name specified at the command line
+            for device_name in context.args.gpu_names:  # for each name specified at the command line
                 if device_name == "":
                     error_exit("empty name in --gpus")
                 device_name = device_name.lower()
@@ -7036,7 +7020,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         #
         # --global-ws and --local-ws lists must be the same length as the number of devices to use, unless
         # they are of length one in which case they are repeated until they are the correct length
-        for argname, arglist in ("--global-ws", args.global_ws), ("--local-ws", args.local_ws):
+        for argname, arglist in ("--global-ws", context.args.global_ws), ("--local-ws", context.args.local_ws):
             if len(arglist) == len(devices): continue
             if len(arglist) != 1:
                 error_exit("number of", argname, "integers must be either one or be the number of GPUs utilized")
@@ -7044,82 +7028,79 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         #
         # Check the values of --global-ws and --local-ws
         local_ws_warning = False
-        if args.local_ws[0] is not None:  # if one is specified, they're all specified
-            for i in range(len(args.local_ws)):
-                if args.local_ws[i] < 1:
+        if context.args.local_ws[0] is not None:  # if one is specified, they're all specified
+            for i in range(len(context.args.local_ws)):
+                if context.args.local_ws[i] < 1:
                     error_exit("each --local-ws must be a postive integer")
-                if args.local_ws[i] > devices[i].max_work_group_size:
-                    error_exit("--local-ws of", args.local_ws[i], "exceeds max of", devices[i].max_work_group_size, "for GPU '"+devices[i].name.strip()+"'")
-                if args.global_ws[i] % args.local_ws[i] != 0:
-                    error_exit("each --global-ws ("+str(args.global_ws[i])+") must be evenly divisible by its --local-ws ("+str(args.local_ws[i])+")")
-                if args.local_ws[i] % 32 != 0 and not local_ws_warning:
+                if context.args.local_ws[i] > devices[i].max_work_group_size:
+                    error_exit("--local-ws of", context.args.local_ws[i], "exceeds max of", devices[i].max_work_group_size, "for GPU '"+devices[i].name.strip()+"'")
+                if context.args.global_ws[i] % context.args.local_ws[i] != 0:
+                    error_exit("each --global-ws ("+str(context.args.global_ws[i])+") must be evenly divisible by its --local-ws ("+str(context.args.local_ws[i])+")")
+                if context.args.local_ws[i] % 32 != 0 and not local_ws_warning:
                     print("Warning: each --local-ws should probably be divisible by 32 for good performance", file=sys.stderr)
                     local_ws_warning = True
-        for ws in args.global_ws:
+        for ws in context.args.global_ws:
             if ws < 1:
                 error_exit("each --global-ws must be a postive integer")
             if ws % 32 != 0:
                 print("Warning: each --global-ws should probably be divisible by 32 for good performance", file=sys.stderr)
                 break
 
-        if args.enable_gpu:
+        if context.args.enable_gpu:
             #If we are dealing with a Bitcoin Core wallet
-            if args.threads != parser.get_default("threads"):
+            if context.args.threads != parser.get_default("threads"):
                 print("Warning: --threads ignored for GPU based Bitcoin Core recovery", file=sys.stderr)
-            args.threads = 1
+            context.args.threads = 1
             extra_opencl_args = ()
-            loaded_wallet.init_opencl_kernel(devices, args.global_ws, args.local_ws, args.int_rate, *extra_opencl_args)
+            context.loaded_wallet.init_opencl_kernel(devices, context.args.global_ws, context.args.local_ws, context.args.int_rate, *extra_opencl_args)
     #
     # if not --enable-gpu: sanity checks
     else:
         for argkey in "gpu_names", "global_ws", "local_ws", "int_rate":
-            if args.__dict__[argkey] != parser.get_default(argkey):
+            if context.args.__dict__[argkey] != parser.get_default(argkey):
                 print("Warning: --"+argkey.replace("_", "-"), "is ignored without --enable-gpu", file=sys.stderr)
 
 
     # If specified, use a custom base password generator instead of a tokenlist or passwordlist file
-    global base_password_generator, has_any_wildcards
     if base_iterator:
-        if args.seedgenerator is False:
-            assert not args.passwordlist, "can't specify --passwordlist with base_iterator"
+        if context.args.seedgenerator is False:
+            assert not context.args.passwordlist, "can't specify --passwordlist with base_iterator"
         # (--tokenlist is already excluded by argparse when base_iterator is specified)
-        base_password_generator = base_iterator
-        has_any_wildcards       = args.has_wildcards  # allowed if requested
+        context.base_password_generator = base_iterator
+        context.has_any_wildcards       = context.args.has_wildcards  # allowed if requested
 
     # If specified, usa a custom password generator for performance testing
-    global performance_base_password_generator
-    performance_base_password_generator = perf_iterator if perf_iterator \
+    context.performance_base_password_generator = perf_iterator if perf_iterator \
         else default_performance_base_password_generator
 
-    if args.performance:
-        base_password_generator = performance_base_password_generator
-        has_any_wildcards       = args.has_wildcards  # allowed if requested
-        if args.listpass:
+    if context.args.performance:
+        context.base_password_generator = context.performance_base_password_generator
+        context.has_any_wildcards       = context.args.has_wildcards  # allowed if requested
+        if context.args.listpass:
             error_exit("--performance tests require a wallet or data-extract")  # or a custom checker
 
     # ETAs are always disabled with --listpass or --performance
-    if args.listpass or args.performance:
-        args.no_eta = True
+    if context.args.listpass or context.args.performance:
+        context.args.no_eta = True
 
 
     # If we're using a passwordlist file, open it here. If we're opening stdin, read in at least an
     # initial portion. If we manage to read up until EOF, then we won't need to disable ETA features.
     # TODO: support --autosave with --passwordlist files and short stdin inputs
-    global passwordlist_file, initial_passwordlist, passwordlist_allcached
-    passwordlist_file = open_or_use(args.passwordlist, "r", kwds.get("passwordlist"),
+    context.passwordlist_file = open_or_use(context.args.passwordlist, "r", kwds.get("passwordlist"),
                                     permit_stdin=True, decoding_errors="replace")
     try:
-        loaded_wallet.passwordlist_file = args.passwordlist # There are some instance where the generator will be initialised without a loaded wallet, so ignore these
+        context.loaded_wallet.passwordlist_file = context.args.passwordlist # There are some instance where the generator will be initialised without a loaded wallet, so ignore these
     except AttributeError:
         pass
 
-    if passwordlist_file:
-        initial_passwordlist    = []
-        passwordlist_allcached  = False
-        has_any_wildcards       = False
-        base_password_generator = passwordlist_base_password_generator
+    if context.passwordlist_file:
+        context.initial_passwordlist    = []
+        context.passwordlist_allcached  = False
+        context.has_any_wildcards       = False
+        context.base_password_generator = passwordlist_base_password_generator
         #
-        if passwordlist_file == sys.stdin:
+        if context.passwordlist_file == sys.stdin:
             passwordlist_isatty = sys.stdin.isatty()
             if passwordlist_isatty:  # be user friendly
                 print("Please enter your password guesses, one per line (with no extra spaces)")
@@ -7128,48 +7109,48 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 print("Reading passwordlist from stdin")
             #
             for line_num in range(1, 1000000):
-                line = passwordlist_file.readline()
+                line = context.passwordlist_file.readline()
                 eof  = not line
                 line = line.strip("\r\n")
                 if eof or passwordlist_isatty and line == "exit()":
-                    passwordlist_allcached = True
+                    context.passwordlist_allcached = True
                     break
                 try:
                     check_chars_range(line, "line", no_replacement_chars=True)
                 except SystemExit as e:
                     passwordlist_warn(None if passwordlist_isatty else line_num, e.code)
                     line = None  # add a None to the list so we can count line numbers correctly
-                if args.has_wildcards and "%" in line:
+                if context.args.has_wildcards and "%" in line:
                     count_or_error_msg = count_valid_wildcards(line, permit_contracting_wildcards=True)
                     if isinstance(count_or_error_msg, str):
                         passwordlist_warn(None if passwordlist_isatty else line_num, count_or_error_msg)
                         line = None  # add a None to the list so we can count line numbers correctly
                     else:
-                        has_any_wildcards = True
+                        context.has_any_wildcards = True
                         try:
                             load_backreference_maps_from_token(line)
                         except IOError as e:
                             passwordlist_warn(None if passwordlist_isatty else line_num, e)
                             line = None  # add a None to the list so we can count line numbers correctly
-                initial_passwordlist.append(line)
+                context.initial_passwordlist.append(line)
             #
-            if not passwordlist_allcached and not args.no_eta:
+            if not context.passwordlist_allcached and not context.args.no_eta:
                 # ETA calculations require that the passwordlist file is seekable or all in RAM
                 print("Warning: --no-eta has been enabled because --passwordlist is stdin and is large", file=sys.stderr)
-                args.no_eta = True
+                context.args.no_eta = True
         #
-        if not passwordlist_allcached and args.has_wildcards:
-            has_any_wildcards = True  # If not all cached, need to assume there are wildcards
+        if not context.passwordlist_allcached and context.args.has_wildcards:
+            context.has_any_wildcards = True  # If not all cached, need to assume there are wildcards
 
 
-    # Some final sanity checking, now that args.no_eta's value is known
-    if args.no_eta:  # always true for --listpass and --performance
-        if not args.no_dupchecks:
-            if args.performance:
+    # Some final sanity checking, now that context.args.no_eta's value is known
+    if context.args.no_eta:  # always true for --listpass and --performance
+        if not context.args.no_dupchecks:
+            if context.args.performance:
                 print("Warning: --performance without --no-dupchecks will eventually cause an out-of-memory error", file=sys.stderr)
-            elif not args.listpass:
+            elif not context.args.listpass:
                 print("Warning: --no-eta without --no-dupchecks can cause out-of-memory failures while searching", file=sys.stderr)
-        if args.max_eta != parser.get_default("max_eta"):
+        if context.args.max_eta != parser.get_default("max_eta"):
             print("Warning: --max-eta is ignored with --no-eta, --listpass, or --performance", file=sys.stderr)
 
 
@@ -7178,38 +7159,36 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         if tokenlist_file == sys.stdin:
             print("Reading tokenlist from stdin")
         parse_tokenlist(tokenlist_file, tokenlist_first_line_num)
-        base_password_generator = tokenlist_base_password_generator
+        context.base_password_generator = tokenlist_base_password_generator
 
 
     # Open a new autosave file (if --restore was specified, the restore file
-    # is still open and has already been assigned to autosave_file instead)
-    if savestate and not restored:
-        global autosave_nextslot
-        autosave_file = open_or_use(args.autosave, "wb", kwds.get("autosave"), new_or_empty=True)
-        if not autosave_file:
-            error_exit("--autosave file '"+args.autosave+"' already exists, won't overwrite")
-        autosave_nextslot = 0
-        print("Using autosave file '"+args.autosave+"'")
+    # is still open and has already been assigned to context.autosave_file instead)
+    if context.savestate and not context.restored:
+        context.autosave_file = open_or_use(context.args.autosave, "wb", kwds.get("autosave"), new_or_empty=True)
+        if not context.autosave_file:
+            error_exit("--autosave file '"+context.args.autosave+"' already exists, won't overwrite")
+        context.autosave_nextslot = 0
+        print("Using autosave file '"+context.args.autosave+"'")
 
 
     # Process any --exclude-passwordlist file: create the password_dups object earlier than normal and
     # instruct it to always consider passwords found in this file as duplicates (so they'll be skipped).
     # This is done near the end because it may take a while (all the syntax checks are done by now).
-    if args.exclude_passwordlist:
-        exclude_file = open_or_use(args.exclude_passwordlist, "r", kwds.get("exclude_passwordlist"), permit_stdin=True)
+    if context.args.exclude_passwordlist:
+        exclude_file = open_or_use(context.args.exclude_passwordlist, "r", kwds.get("exclude_passwordlist"), permit_stdin=True)
         if exclude_file == tokenlist_file:
             error_exit("can't use stdin for both --tokenlist and --exclude-passwordlist")
-        if exclude_file == passwordlist_file:
+        if exclude_file == context.passwordlist_file:
             error_exit("can't use stdin for both --passwordlist and --exclude-passwordlist")
         #
-        global password_dups
-        password_dups = DuplicateChecker()
-        sha1          = hashlib.sha1() if savestate else None
+        context.password_dups = DuplicateChecker()
+        sha1          = hashlib.sha1() if context.savestate else None
         try:
             for excluded_pw in exclude_file:
                 excluded_pw = excluded_pw.strip("\r\n")
                 check_chars_range(excluded_pw, "--exclude-passwordlist file")
-                password_dups.exclude(excluded_pw)  # now is_duplicate(excluded_pw) will always return True
+                context.password_dups.exclude(excluded_pw)  # now is_duplicate(excluded_pw) will always return True
                 if sha1:
                     sha1.update(excluded_pw.encode("utf_8"))
         except MemoryError:
@@ -7221,19 +7200,22 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         # If autosaving, take the hash of the excluded passwords and either
         # check it during a session restore to make sure we're actually
         # restoring the exact same session, or save it for future such checks
-        if savestate:
+        if context.savestate:
             exclude_passwordlist_hash = sha1.digest()
             del sha1
-            if restored:
-                if exclude_passwordlist_hash != savestate["exclude_passwordlist_hash"]:
+            if context.restored:
+                if exclude_passwordlist_hash != context.savestate["exclude_passwordlist_hash"]:
                     error_exit("can't restore previous session: the exclude-passwordlist file has changed")
             else:
-                savestate["exclude_passwordlist_hash"] = exclude_passwordlist_hash
+                context.savestate["exclude_passwordlist_hash"] = exclude_passwordlist_hash
         #
         # Normally password_dups isn't even created when --no-dupchecks is specified, but it's required
         # for exclude-passwordlist; instruct the password_dups to disable future duplicate checking
-        if args.no_dupchecks:
-            password_dups.disable_duplicate_tracking()
+        if context.args.no_dupchecks:
+            context.password_dups.disable_duplicate_tracking()
+
+    from . import btcrseed
+    btcrseed.register_autodetecting_wallets(context)
 
     if not disable_security_warnings:
         # Print a security warning before giving users the chance to enter ir seed....
@@ -7260,16 +7242,16 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # stdin now so we don't keep the redirected files alive while running, but only
     # if we're done with it (done reading the passwordlist_file and no --pause option)
     if (    not sys.stdin.closed and not sys.stdin.isatty() and (
-                args.data_extract                or
+                context.args.data_extract                or
                 tokenlist_file    == sys.stdin   or
-                passwordlist_file == sys.stdin   or
-                args.exclude_passwordlist == '-' or
-                args.android_pin                 or
-                args.blockchain_secondpass       or
-                args.mnemonic_prompt
+                context.passwordlist_file == sys.stdin   or
+                context.args.exclude_passwordlist == '-' or
+                context.args.android_pin                 or
+                context.args.blockchain_secondpass       or
+                context.args.mnemonic_prompt
             ) and (
-                passwordlist_file != sys.stdin   or
-                passwordlist_allcached
+                context.passwordlist_file != sys.stdin   or
+                context.passwordlist_allcached
             ) and not pause_registered ):
         sys.stdin.close()   # this doesn't really close the fd
         try:   os.close(0)  # but this should, where supported
@@ -9125,7 +9107,137 @@ def write_checked_seeds(worker_out_queue,loaded_wallet):
 #   the first element is the password, if found, otherwise False;
 #   the second is a human-readable result iff no password was found; or
 #   returns (None, None) for abnormal but not fatal errors (e.g. Ctrl-C)
-def main():
+def load_wallet_for_recovery(context):
+    if context.args.wallet:
+        if context.args.android_pin:
+            context.loaded_wallet = WalletAndroidSpendingPIN.load_from_filename(context.args.wallet)
+        elif context.args.blockchain_secondpass:
+            if context.args.blockchain_correct_mainpass:
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet, context.args.blockchain_correct_mainpass)
+            elif context.args.correct_wallet_password:
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet, context.args.correct_wallet_password)
+            else:
+                context.loaded_wallet = WalletBlockchainSecondpass.load_from_filename(context.args.wallet)
+        elif context.args.wallet == "__null":
+            context.loaded_wallet = WalletNull()
+        else:
+            load_global_wallet(context, context.args.wallet)
+            if type(context.loaded_wallet) is WalletBitcoinj:
+                print("Notice: for MultiBit, use a .key file instead of a .wallet file if possible")
+            if isinstance(context.loaded_wallet, WalletMultiBit) and not context.args.android_pin:
+                print("Notice: use --android-pin to recover the spending PIN of\n"
+                           "    a Bitcoin Wallet for Android/BlackBerry backup (instead of the backup password)")
+        if context.args.msigna_keychain and not isinstance(context.loaded_wallet, WalletMsigna):
+            print("Warning: ignoring --msigna-keychain (wallet file is not an mSIGNA vault)")
+    elif context.args.bip38_enc_privkey:
+        if context.args.bip38_currency:
+            context.loaded_wallet = WalletBIP38(context.args.bip38_enc_privkey, context.args.bip38_currency)
+        else:
+            context.loaded_wallet = WalletBIP38(context.args.bip38_enc_privkey)
+    elif context.args.bip39:
+        if context.args.mnemonic:
+            mnemonic = context.args.mnemonic
+        elif context.args.mnemonic_prompt:
+            encoding = sys.stdin.encoding or "ASCII"
+            if "utf" not in encoding.lower():
+                print("terminal does not support UTF; mnemonics with non-ASCII chars might not work", file=sys.stderr)
+            mnemonic = input("Please enter your mnemonic (seed)\n> ")
+            if not mnemonic:
+                sys.exit("canceled")
+        else:
+            mnemonic = None
+
+        context.args.wallet_type = context.args.wallet_type.strip().lower() if context.args.wallet_type else "bip39"
+
+        if context.args.wallet_type == "cardano":
+            context.loaded_wallet = WalletCardano(context.args.addrs, context.args.addressdb, mnemonic,
+                                        context.args.language, context.args.bip32_path, context.args.performance)
+        elif context.args.wallet_type in ['avalanche', 'tron', 'solana', 'cosmos', 'tezos','stellar','multiversx']:
+            context.loaded_wallet = WalletPyCryptoHDWallet(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
+        elif context.args.wallet_type in ['polkadotsubstrate']:
+            context.loaded_wallet = WalletPyCryptoHDWallet(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.substrate_path, context.args.wallet_type, context.args.performance)
+        elif context.args.wallet_type == "ethereumvalidator":
+            context.loaded_wallet = WalletEthereumValidator(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
+        elif context.args.slip39:
+            context.loaded_wallet = WalletSLIP39(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, context.args.slip39_shares,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance)
+        else:
+            context.loaded_wallet = WalletBIP39(context.args.mpk, context.args.addrs, context.args.addr_limit, context.args.addressdb, mnemonic,
+                                    context.args.language, context.args.bip32_path, context.args.wallet_type, context.args.performance, force_p2sh = context.args.force_p2sh,checksinglexpubaddress =  context.args.checksinglexpubaddress, force_p2tr = context.args.force_p2tr)
+    elif context.args.yoroi_master_password:
+        context.loaded_wallet = WalletYoroi(context.args.yoroi_master_password, context.args.performance)
+    elif context.args.brainwallet or context.args.warpwallet:
+        context.loaded_wallet = WalletBrainwallet(addresses = context.args.addrs,
+                                          addressdb = context.args.addressdb,
+                                          check_compressed = not(context.args.skip_compressed),
+                                          check_uncompressed = not(context.args.skip_uncompressed),
+                                          force_check_p2sh = context.args.force_check_p2sh,
+                                          isWarpwallet=context.args.warpwallet,
+                                          salt=context.args.warpwallet_salt,
+                                          crypto=context.args.memwallet_coin)
+    elif context.args.rawprivatekey:
+        context.loaded_wallet = WalletRawPrivateKey(addresses = context.args.addrs,
+                                          addressdb = context.args.addressdb,
+                                          check_compressed = not(context.args.skip_compressed),
+                                          check_uncompressed = not(context.args.skip_uncompressed),
+                                          force_check_p2sh = context.args.force_check_p2sh,
+                                          crypto=context.args.wallet_type,
+                                            correct_wallet_password = context.args.correct_wallet_password)
+    elif context.args.data_extract or context.args.data_extract_string:
+        key_crc_base64 = context.kwds.get("data_extract")  # for unittest
+        if context.args.data_extract_string:
+            key_crc_base64 = context.args.data_extract_string
+        if not key_crc_base64:
+            if context.tokenlist_file == sys.stdin:
+                print("Warning: order of data on stdin is: optional extra command-line arguments, key data, rest of tokenlist", file=sys.stderr)
+            elif context.args.passwordlist == "-" and not sys.stdin.isatty():  # if isatty, friendly prompts are provided instead
+                print("Warning: order of data on stdin is: key data, password list", file=sys.stderr)
+            #
+            key_prompt = "Please enter the data from the extract script\n> "  # the default friendly prompt
+            try:
+                if not sys.stdin.isatty() or sys.stdin.peeked:
+                    key_prompt = "Reading extract data from stdin\n" # message to use if key data has already been entered
+            except AttributeError: pass
+            key_crc_base64 = input(key_prompt)
+        #
+        # Emulates load_global_wallet(), but using the base64 key data instead of a wallet
+        # file (this sets the loaded_wallet global, and returns the validated CRC)
+        key_crc = load_from_base64_key(context, key_crc_base64)
+        #
+        if isinstance(context.loaded_wallet, WalletMsigna):
+            if context.args.msigna_keychain:
+                print("Warning: ignoring --msigna-keychain (the extract script has already chosen the keychain)")
+        elif context.args.msigna_keychain:
+            print("Warning: ignoring --msigna-keychain (--data-extract is not from an mSIGNA vault)")
+        #
+        # If autosaving, either check the key_crc during a session restore to make sure we're
+        # actually restoring the exact same session, or save it for future such checks
+        if context.savestate:
+            if context.restored:
+                if key_crc != context.savestate["key_crc"]:
+                    error_exit("can't restore previous session: the encrypted key entered is not the same")
+            else:
+                context.savestate["key_crc"] = key_crc
+
+
+class RecoveryContext:
+    def __init__(self):
+        self.wallet_types = []
+        self.wallet_types_by_id = {}
+        self.savestate = None
+        self.restored = False
+        self.autosave_file = None
+        self.args = None
+        self.loaded_wallet = None
+        self.kwds = {}
+        self.tokenlist_file = None
+        self.passwordlist_file = None
+
+
+def main(context):
 
     # Once installed, performs cleanup prior to a requested process shutdown on Windows
     # (this is defined inside main so it can access the passwords_tried local)
@@ -9135,20 +9247,22 @@ def main():
         #
         # Python on Windows is a bit touchy with signal handlers; it's safest to just do
         # all the cleanup code here (even though it'd be cleaner to throw an exception)
-        if savestate:
-            do_autosave(args.skip + passwords_tried, inside_interrupt_handler=True)  # do this first, it's most important
-            autosave_file.close()
-        print("\nInterrupted after finishing password #", args.skip + passwords_tried, file=sys.stderr)
+        if context.savestate:
+            do_autosave(context.args.skip + passwords_tried, inside_interrupt_handler=True)  # do this first, it's most important
+            context.autosave_file.close()
+        print("\nInterrupted after finishing password #", context.args.skip + passwords_tried, file=sys.stderr)
         if sys.stdout.isatty() ^ sys.stderr.isatty():  # if they're different, print to both to be safe
-            print("\nInterrupted after finishing password #", args.skip + passwords_tried)
+            print("\nInterrupted after finishing password #", context.args.skip + passwords_tried)
         os._exit(1)
 
     # Copy a global into local for a small speed boost
-    l_savestate = savestate
+    l_savestate = context.savestate
+
+    load_wallet_for_recovery(context)
 
     # If --listpass was requested, just list out all the passwords and exit
     passwords_count = 0
-    if args.listpass:
+    if context.args.listpass:
         password_iterator, skipped_count = password_generator_factory()
         plus_skipped = " (plus " + str(skipped_count) + " skipped)" if skipped_count else ""
         try:
@@ -9175,37 +9289,37 @@ def main():
 
     # Measure the performance of the verification function
     # (for CPU, run for about 0.5s; for GPU, run for one global-worksize chunk)
-    if args.performance and args.enable_gpu:  # skip this time-consuming & unnecessary measurement in this case
+    if context.args.performance and context.args.enable_gpu:  # skip this time-consuming & unnecessary measurement in this case
         est_secs_per_password = 0.01          # set this to something relatively big, it doesn't matter exactly what
     else:
-        if args.enable_gpu:
-            inner_iterations = sum(args.global_ws)
+        if context.args.enable_gpu:
+            inner_iterations = sum(context.args.global_ws)
             outer_iterations = 1
         else:
             # Passwords are verified in "chunks" to reduce call overhead. One chunk includes enough passwords to
             # last for about 1/100th of a second (determined experimentally to be about the best I could do, YMMV)
             CHUNKSIZE_SECONDS = 1.0 / 100.0
-            measure_performance_iterations = loaded_wallet.passwords_per_seconds(0.5)
+            measure_performance_iterations = context.loaded_wallet.passwords_per_seconds(0.5)
             inner_iterations = int(round(2*measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
             outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
         #
-        performance_generator = performance_base_password_generator()  # generates dummy passwords
+        performance_generator = context.performance_base_password_generator()  # generates dummy passwords
         start = timeit.default_timer()
         # Emulate calling the verification function with lists of size inner_iterations
 
-        loaded_wallet.pre_start_benchmark = True
+        context.loaded_wallet.pre_start_benchmark = True
         for o in range(outer_iterations):
-            loaded_wallet.return_verified_password_or_false(list(
+            context.loaded_wallet.return_verified_password_or_false(list(
                 itertools.islice(filter(custom_final_checker, performance_generator), inner_iterations)))
         est_secs_per_password = (timeit.default_timer() - start) / (outer_iterations * inner_iterations)
         del performance_generator
-        loaded_wallet.pre_start_benchmark = False
+        context.loaded_wallet.pre_start_benchmark = False
         assert isinstance(est_secs_per_password, float) and est_secs_per_password > 0.0
 
-    if args.enable_gpu:
-        chunksize = sum(args.global_ws)
-    elif args.enable_opencl:
-        chunksize = loaded_wallet.chunksize
+    if context.args.enable_gpu:
+        chunksize = sum(context.args.global_ws)
+    elif context.args.enable_opencl:
+        chunksize = context.loaded_wallet.chunksize
     else:
         # (see CHUNKSIZE_SECONDS above)
         chunksize = int(round(CHUNKSIZE_SECONDS / est_secs_per_password)) or 1
@@ -9214,25 +9328,25 @@ def main():
     # becomes comparable to verifying passwords, therefore this should count towards being a "worker" thread
     if est_secs_per_password < 1.0 / 75000.0:
         main_thread_is_worker = True
-        spawned_threads   = args.threads - 1      # spawn 1 fewer than requested (might be 0)
+        spawned_threads   = context.args.threads - 1      # spawn 1 fewer than requested (might be 0)
         verifying_threads = spawned_threads or 1
     else:
         main_thread_is_worker = False
-        spawned_threads   = args.threads if args.threads > 1 else 0
-        verifying_threads = args.threads
+        spawned_threads   = context.args.threads if context.args.threads > 1 else 0
+        verifying_threads = context.args.threads
 
     # Adjust estimate for the number of verifying threads (final estimate is probably an underestimate)
     est_secs_per_password /= min(verifying_threads, logical_cpu_cores)
 
     # Count how many passwords there are (excluding skipped ones) so we can display and conform to ETAs
-    if not args.no_eta:
+    if not context.args.no_eta:
 
-        assert args.skip >= 0
-        if args.dynamic_passwords_count:
+        assert context.args.skip >= 0
+        if context.args.dynamic_passwords_count:
             # this is global because it's used in count_passwords_async
             global passwords_count_generator
             passwords_count_generator = count_and_check_eta_dynamic(est_secs_per_password)
-        elif l_savestate and "total_passwords" in l_savestate and args.no_dupchecks:
+        elif l_savestate and "total_passwords" in l_savestate and context.args.no_dupchecks:
             passwords_count = l_savestate["total_passwords"]  # we don't need to do a recount
             iterate_time = 0
         else:
@@ -9245,23 +9359,23 @@ def main():
                 else:
                     l_savestate["total_passwords"] = passwords_count
 
-        if not args.dynamic_passwords_count:
-            passwords_count -= args.skip
+        if not context.args.dynamic_passwords_count:
+            passwords_count -= context.args.skip
             if passwords_count <= 0:
-                return False, "Skipped all "+str(passwords_count + args.skip)+" passwords, exiting"
+                return False, "Skipped all "+str(passwords_count + context.args.skip)+" passwords, exiting"
 
         # If additional ETA calculations are required
-        if not args.dynamic_passwords_count and (l_savestate or not have_progress):
+        if not context.args.dynamic_passwords_count and (l_savestate or not have_progress):
             eta_seconds = passwords_count * est_secs_per_password
             # if the main thread is sharing CPU time with a verifying thread
-            if spawned_threads == 0 and not args.enable_gpu or spawned_threads >= logical_cpu_cores:
+            if spawned_threads == 0 and not context.args.enable_gpu or spawned_threads >= logical_cpu_cores:
                 eta_seconds += iterate_time
             if l_savestate:
                 est_passwords_per_5min = int(round(passwords_count / eta_seconds * 300.0))
                 assert est_passwords_per_5min > 0
             eta_seconds = int(round(eta_seconds)) or 1
 
-    # else if args.no_eta and savestate, calculate a simple approximate of est_passwords_per_5min
+    # else if context.args.no_eta and savestate, calculate a simple approximate of est_passwords_per_5min
     elif l_savestate:
         est_passwords_per_5min = int(round(300.0 / est_secs_per_password))
         assert est_passwords_per_5min > 0
@@ -9269,25 +9383,25 @@ def main():
     # If there aren't many passwords, give each of the N workers 1/Nth of the passwords
     # (rounding up) and also don't bother spawning more threads than there are passwords
     # note that if the passwords are counted dynamically, we can't tell that there aren't many passwords
-    if not args.dynamic_passwords_count and not args.no_eta and spawned_threads * chunksize > passwords_count:
+    if not context.args.dynamic_passwords_count and not context.args.no_eta and spawned_threads * chunksize > passwords_count:
         if spawned_threads > passwords_count:
             spawned_threads = passwords_count
         chunksize = (passwords_count-1) // spawned_threads + 1
 
     # Create an iterator which produces the password permutations in chunks, skipping some if so instructed
-    if args.skip > 0:
-        print("Starting with password #", args.skip + 1)
+    if context.args.skip > 0:
+        print("Starting with password #", context.args.skip + 1)
     password_iterator, skipped_count = password_generator_factory(chunksize)
-    if skipped_count < args.skip:
-        assert args.no_eta, "discovering all passwords have been skipped this late only happens if --no-eta"
+    if skipped_count < context.args.skip:
+        assert context.args.no_eta, "discovering all passwords have been skipped this late only happens if --no-eta"
         return False, "Skipped all "+str(skipped_count)+" passwords, exiting"
-    assert skipped_count == args.skip
+    assert skipped_count == context.args.skip
 
     # Print Timestamp that this step occured
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ", end="")
 
-    if args.enable_gpu:
-        cl_devices = loaded_wallet._cl_devices
+    if context.args.enable_gpu:
+        cl_devices = context.loaded_wallet._cl_devices
         if len(cl_devices) == 1:
             print("Using OpenCL", pyopencl.device_type.to_string(cl_devices[0].type), cl_devices[0].name.strip())
         else:
@@ -9295,10 +9409,10 @@ def main():
             for dev in cl_devices:
                 print(" ", pyopencl.device_type.to_string(dev.type), dev.name.strip())
     else:
-        print("Using", args.threads, "worker", "threads" if args.threads > 1 else "thread")  # (they're actually worker processes)
+        print("Using", context.args.threads, "worker", "threads" if context.args.threads > 1 else "thread")  # (they're actually worker processes)
 
     if have_progress:
-        if args.no_eta:
+        if context.args.no_eta:
             progress = progressbar.ProgressBar(maxval=progressbar.UnknownLength, poll=0.1, widgets=[
                 progressbar.AnimatedMarker(),
                 progressbar.FormatLabel(" %(value)d  elapsed: %(elapsed)s  rate: "),
@@ -9306,7 +9420,7 @@ def main():
             ])
             progress.update_interval = sys.maxsize  # work around performance bug in ProgressBar
         else:
-            if args.dynamic_passwords_count:
+            if context.args.dynamic_passwords_count:
                 try:
                     passwords_count = passwords_count_generator.__next__()
 
@@ -9320,11 +9434,11 @@ def main():
             ])
     else:
         progress = None
-        if args.dynamic_passwords_count:
-            # TODO: print timeout estimate if not args.no_eta even
+        if context.args.dynamic_passwords_count:
+            # TODO: print timeout estimate if not context.args.no_eta even
             #       if --dynamic-passwords-count is used
             print("Passwords will be counted dynamically")
-        elif args.no_eta:
+        elif context.args.no_eta:
             print("Searching for password ...")
         else:
             # If progressbar is unavailable, print out a time estimate instead
@@ -9351,13 +9465,13 @@ def main():
     # by executing the return_verified_password_or_false worker function in possibly multiple threads
     if spawned_threads == 0:
         pool = None
-        if loaded_wallet.opencl_algo == 0:
-            btcrecover.opencl_helpers.init_opencl_contexts(loaded_wallet)
+        if context.loaded_wallet.opencl_algo == 0:
+            btcrecover.opencl_helpers.init_opencl_contexts(context.loaded_wallet)
         password_found_iterator = map(return_verified_password_or_false, password_iterator)
         set_process_priority_idle()  # this, the only thread, should be nice
     else:
-        pool = multiprocessing.Pool(spawned_threads, init_worker, (loaded_wallet, tstr, worker_out_queue))
-        if args.dynamic_passwords_count:
+        pool = multiprocessing.Pool(spawned_threads, init_worker, (context.loaded_wallet, tstr, worker_out_queue))
+        if context.args.dynamic_passwords_count:
             current_passwords_count = multiprocessing.Manager().Value('current_passwords_count', progress.maxval if progress else 0)
             passwords_counting_result = pool.apply_async(count_passwords_async, args = (current_passwords_count,))
         password_found_iterator = pool.imap(return_verified_password_or_false, password_iterator)
@@ -9365,8 +9479,8 @@ def main():
 
     # If we are writing out the checksummed seed files, spawn a process that will handle taking the seeds produced by the workers and writing them out to a file
     try:
-        if loaded_wallet._savevalidseeds:
-            write_checked_seeds_worker = multiprocessing.Process(target = write_checked_seeds, args = (worker_out_queue,loaded_wallet))
+        if context.loaded_wallet._savevalidseeds:
+            write_checked_seeds_worker = multiprocessing.Process(target = write_checked_seeds, args = (worker_out_queue,context.loaded_wallet))
             write_checked_seeds_worker.start()
     except AttributeError: # Not all loaded wallets will have this attribute
         pass
@@ -9419,17 +9533,17 @@ def main():
                 break
             passwords_tried += passwords_tried_last
             if progress:
-                if args.dynamic_passwords_count:
+                if context.args.dynamic_passwords_count:
                     progress.maxval = current_passwords_count.value
                     if passwords_counting_result.ready() and not passwords_counting_result.successful():
                         passwords_counting_result.get()
                 progress.update(passwords_tried)
             if l_savestate and passwords_tried % est_passwords_per_5min == 0:
-                do_autosave(args.skip + passwords_tried)
+                do_autosave(context.args.skip + passwords_tried)
         else:  # if the for loop exits normally (without breaking)
             if pool: pool.close()
             if progress:
-                if args.no_eta:
+                if context.args.no_eta:
                     progress.maxval = passwords_tried
                 else:
                     progress.widgets.pop()  # remove the ETA
@@ -9445,9 +9559,9 @@ def main():
         if not handled: print()  # move to the next line if handle_oom() hasn't already done so
         if pool: pool.close()
 
-        print("Interrupted after finishing password #", args.skip + passwords_tried, file=sys.stderr)
+        print("Interrupted after finishing password #", context.args.skip + passwords_tried, file=sys.stderr)
         if sys.stdout.isatty() ^ sys.stderr.isatty():  # if they're different, print to both to be safe
-            print("Interrupted after finishing password #", args.skip + passwords_tried)
+            print("Interrupted after finishing password #", context.args.skip + passwords_tried)
 
         if not handled and not isinstance(e, KeyboardInterrupt): raise
         password_found = None  # neither False nor True -- unknown
@@ -9458,8 +9572,8 @@ def main():
     # Autosave the final state (for all non-error cases -- we're shutting down (e.g. Ctrl-C or a
     # reboot), the password was found, or the search was exhausted -- or for handled out-of-memory)
     if l_savestate:
-        do_autosave(args.skip + passwords_tried)
-        autosave_file.close()
+        do_autosave(context.args.skip + passwords_tried)
+        context.autosave_file.close()
 
     worker_out_queue.close()
 
