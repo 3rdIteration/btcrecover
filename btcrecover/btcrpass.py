@@ -140,6 +140,10 @@ try:
 except:
     pass
 
+# Argument namespace populated by parse_arguments();
+# initialized here to allow direct wallet class use in tests
+args = argparse.Namespace()
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 def load_customTokenWildcard(customTokenWildcardFile):
@@ -4028,9 +4032,11 @@ class WalletBIP39(object):
         # Verify that the entered mnemonic is valid
         if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
             error_exit("one or more words are missing from the mnemonic")
-        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+        skip_checksum = getattr(args, "skip_mnemonic_checksum", False)
+        if not skip_checksum and not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
             error_exit("invalid mnemonic (the checksum is wrong)")
-        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        # Either the checksum was verified or the user chose to skip verification, so
+        # assume all mnemonic guesses will be processed:
         self.btcrseed_wallet._checksum_ratio = 1
 
         self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
@@ -4325,9 +4331,10 @@ class WalletCardano(WalletBIP39):
         # Verify that the entered mnemonic is valid
         if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
             error_exit("one or more words are missing from the mnemonic")
-        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+        skip_checksum = getattr(args, "skip_mnemonic_checksum", False)
+        if not skip_checksum and not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
             error_exit("invalid mnemonic (the checksum is wrong)")
-        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        # Either the checksum was verified or the user chose to skip verification
         self.btcrseed_wallet._checksum_ratio = 1
 
         self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
@@ -4481,9 +4488,10 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         # Verify that the entered mnemonic is valid
         if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
             error_exit("one or more words are missing from the mnemonic")
-        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+        skip_checksum = getattr(args, "skip_mnemonic_checksum", False)
+        if not skip_checksum and not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
             error_exit("invalid mnemonic (the checksum is wrong)")
-        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        # Either the checksum was verified or skipping was requested
         self.btcrseed_wallet._checksum_ratio = 1
 
         self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
@@ -4540,9 +4548,10 @@ class WalletEthereumValidator(WalletBIP39):
         # Verify that the entered mnemonic is valid
         if not self.btcrseed_wallet.verify_mnemonic_syntax(btcrseed.mnemonic_ids_guess):
             error_exit("one or more words are missing from the mnemonic")
-        if not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
+        skip_checksum = getattr(args, "skip_mnemonic_checksum", False)
+        if not skip_checksum and not self.btcrseed_wallet._verify_checksum(btcrseed.mnemonic_ids_guess):
             error_exit("invalid mnemonic (the checksum is wrong)")
-        # We just verified the mnemonic checksum is valid, so 100% of the guesses will also be valid:
+        # Either the checksum was verified or verification was skipped
         self.btcrseed_wallet._checksum_ratio = 1
 
         self._mnemonic = " ".join(btcrseed.mnemonic_ids_guess)
@@ -6031,6 +6040,8 @@ def init_parser_common():
         bip39_group.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         bip39_group.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
         bip39_group.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
+        bip39_group.add_argument("--skip-mnemonic-checksum", action="store_true",
+                                 help="skip validating the checksum of the provided mnemonic")
         bip39_group.add_argument("--mnemonic-prompt", action="store_true", help="prompt for the mnemonic guess via the terminal (default: via the GUI)")
         yoroi_group = parser_common.add_argument_group("Yoroi Cadano Wallet")
         yoroi_group.add_argument("--yoroi-master-password", metavar="Master_Password",
@@ -6086,6 +6097,7 @@ def clean_autosave_args(argList, listName):
                           ("--int-rate", True),
                           ("--threads", True),
                           ("--max-eta", True),
+                          ("--skip-mnemonic-checksum", False),
                           ("--autosave", True)
                           }
 

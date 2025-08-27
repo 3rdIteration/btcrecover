@@ -21,7 +21,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib
+import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -1878,6 +1878,28 @@ class Test08BIP39Passwords(unittest.TestCase):
         self.assertRaises(StopIteration, password_found_iterator.next)
         pool.close()
         pool.join()
+
+    @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_skip_mnemonic_checksum(self):
+        invalid_mnemonic = " ".join(["abandon"] * 12)
+        btcrpass.args = argparse.Namespace(skip_mnemonic_checksum=False)
+        with self.assertRaises(SystemExit):
+            btcrpass.WalletBIP39(
+                mpk="xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+                mnemonic=invalid_mnemonic,
+                lang="en",
+            )
+        btcrpass.args = argparse.Namespace(skip_mnemonic_checksum=True)
+        wallet = btcrpass.WalletBIP39(
+            mpk="xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+            mnemonic=invalid_mnemonic,
+            lang="en",
+        )
+        self.assertEqual(
+            wallet._return_verified_password_or_false_cpu((tstr("wrong"),)),
+            (False, 1),
+        )
+        btcrpass.args = argparse.Namespace()
 
     def cardano_tester_opencl(self, *args, **kwargs):
 
