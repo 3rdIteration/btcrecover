@@ -336,6 +336,13 @@ def varint(data, offset):
         return struct.unpack_from("<Q", data, offset + 1)[0], offset + 9
     assert False
 
+#De-XOR the bytes based on their position with a repeating 8-byte key
+def xor_at(data: bytes, key: bytes | None, offset: int) -> bytes:
+    if not key or not data:
+        return data
+    m = len(key)
+    return bytes(b ^ key[(offset + i) % m] for i, b in enumerate(data))
+
 def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-01", endBlockDate="3000-12-31", startBlockFile = 0, addressDB_yolo = False, outputToText = False, update = False, progress_bar = True, addresslistfile = None, multiFile = False, forcegzip = False):
     """Creates an AddressSet database and saves it to a file
 
@@ -479,6 +486,18 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
             except ImportError:
                 progress_bar = False
 
+        xor_detected = False
+        xor_filename = path.join(blockdir, "xor.dat")       # since Bitcoin Core v28
+        xor_key = b"\0\0\0\0\0\0\0\0"
+        if path.isfile(xor_filename):
+            print("Xor.dat detected")
+            with open(xor_filename, "rb") as xf:
+                xor_key = xf.read(8)
+
+            if len(xor_key) == 8 and xor_key != b"\0\0\0\0\0\0\0\0":
+                xor_detected = True
+                print("XOR-key: ", ''.join(f'\\x{byte:02x}' for byte in xor_key))
+        
         if progress_bar:
             print("Parsing block files ...")
             for filenum in itertools.count(first_filenum):
@@ -509,7 +528,11 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "   ", end="")
                     print(path.basename(filename), end=" ")
 
+                if xor_detected:
+                    hdr_off = blockfile.tell()
                 header = blockfile.read(8)  # read in the magic and remaining (after these 8 bytes) block length
+                if xor_detected:
+                    header = xor_at(header, xor_key, hdr_off)
                 chain_magic = header[:4]
                 #print("Found Magic:", chain_magic.encode("hex"))
                 while len(header) == 8 and header[4:] != b"\0\0\0\0":
@@ -524,8 +547,12 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
 
                             exit()
 
+                    if xor_detected:
+                        blk_off = blockfile.tell()
                     block = blockfile.read(struct.unpack_from("<I", header, 4)[0])  # read in the rest of the block
-
+                    if xor_detected:
+                        block = xor_at(block, xor_key, blk_off)
+                    
                     tx_count, offset = varint(block, 80)                            # skips 80 bytes of header
 
                     #Extract Block Header info (Useful for debugging extra new chains)
@@ -593,7 +620,11 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
 
                             offset += 4                                                 # skips the 4-byte locktime
 
+                    if xor_detected:
+                        hdr_off = blockfile.tell()
                     header = blockfile.read(8)  # read in the next magic and remaining block length
+                    if xor_detected:
+                        header = xor_at(header, xor_key, hdr_off)
 
             if progress_bar:
                 block_bar_widgets[3] = progressbar.FormatLabel(" {:11,} addrs. %(elapsed)s, ".format(len(address_set))) # updates address count
