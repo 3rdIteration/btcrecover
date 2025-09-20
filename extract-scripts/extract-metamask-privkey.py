@@ -69,14 +69,22 @@ if "\"lib\":\"original\"" in wallet_data:
     salt = wallet_json["salt"].encode()
     encrypted_block = base64.b64decode(wallet_json["cipher"])[:16]
     iv = binascii.unhexlify(wallet_json["iv"])
+    hash_iterations = 5000
+elif "keyMetadata" in wallet_json:
+    salt = base64.b64decode(wallet_json["salt"])
+    encrypted_block = base64.b64decode(wallet_json["data"])[:16]
+    iv = base64.b64decode(wallet_json["iv"])
+    params = wallet_json["keyMetadata"].get("params", {})
+    hash_iterations = int(params.get("iterations", 10000))
 else:
     salt = base64.b64decode(wallet_json["salt"])
     encrypted_block = base64.b64decode(wallet_json["data"])[:16]
     iv = base64.b64decode(wallet_json["iv"])
+    hash_iterations = 10000
 
 print("Metamask first 16 encrypted bytes, iv, and salt in base64:", file=sys.stderr)
 
-bytes = b"mt:" + struct.pack("< 16s 16s 32s 1?", encrypted_block, iv, salt, isMobileWallet)
+bytes = b"mt:" + struct.pack("< 16s 16s 32s I 1?", encrypted_block, iv, salt, hash_iterations, isMobileWallet)
 crc_bytes = struct.pack("<I", zlib.crc32(bytes) & 0xffffffff)
 
 print(base64.b64encode(bytes + crc_bytes).decode())

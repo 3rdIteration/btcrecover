@@ -3354,12 +3354,21 @@ class WalletMetamask(object):
     @classmethod
     def load_from_data_extract(cls, file_data):
         # These are the same first encrypted block, iv and salt count retrieved above
-        encrypted_block, iv, salt, isMobileWallet = struct.unpack(b"< 16s 16s 32s 1?", file_data)
+        extract_with_iterations = struct.calcsize("< 16s 16s 32s I 1?")
+        extract_without_iterations = struct.calcsize("< 16s 16s 32s 1?")
+
+        if len(file_data) == extract_with_iterations:
+            encrypted_block, iv, salt, hash_iterations, isMobileWallet = struct.unpack(b"< 16s 16s 32s I 1?", file_data)
+        elif len(file_data) == extract_without_iterations:
+            encrypted_block, iv, salt, isMobileWallet = struct.unpack(b"< 16s 16s 32s 1?", file_data)
+            hash_iterations = 5000 if isMobileWallet else 10000
+        else:
+            raise ValueError("unrecognized metamask extract format")
+
+        self = cls(hash_iterations, loading=True)
         if isMobileWallet:
-            self = cls(5000, loading=True)
             self.salt = salt[:-8]
         else:
-            self = cls(10000, loading=True)
             self.salt = salt
         self.encrypted_block = encrypted_block
         self.iv = iv
@@ -3372,7 +3381,7 @@ class WalletMetamask(object):
         if not self._mobileWallet:
             return str(self._iter_count) + " PBKDF2-SHA256 iterations"
         else:
-            return "5,000 PBKDF2-SHA512 iterations"
+            return format(self._iter_count, ",") + " PBKDF2-SHA512 iterations"
 
     def init_logfile(self):
         with open(self._possible_passwords_file, 'a') as logfile:
