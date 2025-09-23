@@ -27,9 +27,10 @@ except:
 import btcrecover.btcrpass
 
 
-def auto_select_opencl_platform(loaded_wallet):
+def auto_select_opencl_platform(loaded_wallet: 'btcrecover.btcrpass.Wallet') -> None:
     best_device_worksize = 0
     best_score_sofar = -1
+    best_platform = -1
     for i, platformNum in enumerate(pyopencl.get_platforms()):
         for device in platformNum.get_devices():
             cur_score = 0
@@ -57,7 +58,7 @@ def auto_select_opencl_platform(loaded_wallet):
     print("OpenCL: Auto Selecting Best Platform")
 
 
-def init_opencl_contexts(loaded_wallet, openclDevice=0):
+def init_opencl_contexts(loaded_wallet: 'btcrecover.btcrpass.Wallet', openclDevice: int = 0) -> None:
     dklen = 64
     platform = loaded_wallet.opencl_platform
     debug = 0

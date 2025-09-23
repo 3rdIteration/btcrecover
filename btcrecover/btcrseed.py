@@ -27,7 +27,7 @@ disable_security_warnings = True
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
        unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
 import bisect
-from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
+from typing import Any, AnyStr, List, Optional, Sequence, Tuple, TypeVar, Union
 
 # Import modules bundled with BTCRecover
 from . import btcrpass
@@ -147,17 +147,14 @@ ADDRESSDB_DEF_FILENAME = "addresses.db"
 
 no_gui = False
 
-def full_version():
-    return "seedrecover {}, {}".format(
-        __version__,
-        btcrpass.full_version()
-    )
+def full_version() -> str:
+    return f"seedrecover {__version__}, {btcrpass.full_version()}"
 
 
 ################################### Utility Functions ###################################
 
 
-def bytes_to_int(bytes_rep):
+def bytes_to_int(bytes_rep: bytes) -> int:
     """convert a string of bytes (in big-endian order) to a long integer
 
     :param bytes_rep: the raw bytes
@@ -167,7 +164,7 @@ def bytes_to_int(bytes_rep):
     """
     return int(base64.b16encode(bytes_rep), 16)
 
-def int_to_bytes(int_rep, min_length):
+def int_to_bytes(int_rep: int, min_length: int) -> bytes:
     """convert an unsigned integer to a string of bytes (in big-endian order)
 
     :param int_rep: a non-negative integer
@@ -178,17 +175,17 @@ def int_to_bytes(int_rep, min_length):
     :rtype: str
     """
     assert int_rep >= 0
-    hex_rep = "{:X}".format(int_rep)
+    hex_rep = f"{int_rep:X}"
     if len(hex_rep) % 2 == 1:    # The hex decoder below requires
         hex_rep = "0" + hex_rep  # exactly 2 chars per byte.
-    return base64.b16decode(hex_rep).rjust(min_length, "\0".encode("utf-8"))
+    return base64.b16decode(hex_rep).rjust(min_length, b"\0")
 
 
 dec_digit_to_base58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 base58_digit_to_dec = { b58:dec for dec,b58 in enumerate(dec_digit_to_base58) }
 
 
-def base58check_to_bytes(base58_rep, expected_size):
+def base58check_to_bytes(base58_rep: str, expected_size: int) -> bytes:
     """decode a base58check string to its raw bytes
 
     :param base58_rep: check-code appended base58-encoded string
@@ -208,7 +205,7 @@ def base58check_to_bytes(base58_rep, expected_size):
     # Convert int to raw bytes
     all_bytes  = int_to_bytes(int_rep, expected_size + 4)
 
-    zero_count = next(zeros for zeros,byte in enumerate(all_bytes) if byte != "\0")
+    zero_count = next(zeros for zeros,byte in enumerate(all_bytes) if byte != 0)
     if len(base58_rep) - len(base58_stripped) != zero_count:
         raise ValueError("prepended zeros mismatch")
 
@@ -223,7 +220,7 @@ def base58check_to_bytes(base58_rep, expected_size):
 BIP32ExtendedKey = collections.namedtuple("BIP32ExtendedKey",
     "version depth fingerprint child_number chaincode key")
 #
-def base58check_to_bip32(base58_rep):
+def base58check_to_bip32(base58_rep: str) -> BIP32ExtendedKey:
     """decode a bip32-serialized extended key from its base58check form
 
     :param base58_rep: check-code appended base58-encoded bip32 extended key
@@ -232,10 +229,10 @@ def base58check_to_bip32(base58_rep):
     :rtype: BIP32ExtendedKey
     """
     decoded_bytes = base58check_to_bytes(base58_rep, 4 + 1 + 4 + 4 + 32 + 33)
-    return BIP32ExtendedKey(decoded_bytes[0:4],  ord(decoded_bytes[ 4:5]), decoded_bytes[ 5:9],
+    return BIP32ExtendedKey(decoded_bytes[0:4],  decoded_bytes[4], decoded_bytes[5:9],
         struct.unpack(">I", decoded_bytes[9:13])[0], decoded_bytes[13:45], decoded_bytes[45:])
 
-def compress_pubkey(uncompressed_pubkey):
+def compress_pubkey(uncompressed_pubkey: bytes) -> bytes:
     """convert an uncompressed public key into a compressed public key
 
     :param uncompressed_pubkey: the uncompressed public key
@@ -244,36 +241,34 @@ def compress_pubkey(uncompressed_pubkey):
     :rtype: str
     """
     assert len(uncompressed_pubkey) == 65 and uncompressed_pubkey[0] == 4
-    return chr((uncompressed_pubkey[-1] & 1) + 2).encode() + uncompressed_pubkey[1:33]
+    return bytes([(uncompressed_pubkey[-1] & 1) + 2]) + uncompressed_pubkey[1:33]
 
 
-def load_pathlist(pathlistFile):
-    pathlist_file = open(pathlistFile, "r")
-    pathlist_lines = pathlist_file.readlines()
+def load_pathlist(pathlistFile: str) -> List[str]:
+    with open(pathlistFile, "r") as pathlist_file:
+        pathlist_lines = pathlist_file.readlines()
     pathlist = []
     for path in pathlist_lines:
-        if path[0] == '#' or len(path.strip()) == 0:
+        if path.startswith('#') or not path.strip():
             continue
         pathlist.append(path.split("#")[0].strip())
-    pathlist_file.close()
     return pathlist
 
-def load_passphraselist(passphraselistFile):
-    passphraselist_file = open(passphraselistFile, "r")
-    passphraselist = passphraselist_file.read().splitlines()
-    passphraselist_file.close()
+def load_passphraselist(passphraselistFile: str) -> List[str]:
+    with open(passphraselistFile, "r") as passphraselist_file:
+        passphraselist = passphraselist_file.read().splitlines()
     return passphraselist
 
 import hmac
 import hashlib
 from struct import pack
 
-def get_master_key_and_chain_code(seed):
+def get_master_key_and_chain_code(seed: bytes) -> tuple[bytes, bytes]:
     key = b"ed25519 seed"
     I = hmac.new(key, seed, hashlib.sha512).digest()
     return I[:32], I[32:]
 
-def derive_child_key(parent_key, parent_chain_code, index):
+def derive_child_key(parent_key: bytes, parent_chain_code: bytes, index: int) -> tuple[bytes, bytes]:
     # Hardened index: index >= 0x80000000
     assert index >= 0x80000000
 
@@ -281,7 +276,7 @@ def derive_child_key(parent_key, parent_chain_code, index):
     I = hmac.new(parent_chain_code, data, hashlib.sha512).digest()
     return I[:32], I[32:]
 
-def derive_path(master_key, master_chain_code, path):
+def derive_path(master_key: bytes, master_chain_code: bytes, path: str) -> tuple[bytes, bytes]:
     keys = (master_key, master_chain_code)
     for index_str in path.lstrip("m/").split("/"):
         hardened = index_str.endswith("'")
@@ -306,18 +301,18 @@ def register_selectable_wallet_class(description):
 # Loads a wordlist from a file into a list of Python unicodes. Note that the
 # unicodes are normalized in NFC format, which is not what BIP39 requires (NFKD).
 wordlists_dir = os.path.join(os.path.dirname(__file__), "wordlists")
-def load_wordlist(name, lang):
-    filename = os.path.join(wordlists_dir, "{}-{}.txt".format(name, lang))
+def load_wordlist(name: str, lang: str) -> List[str]:
+    filename = os.path.join(wordlists_dir, f"{name}-{lang}.txt")
     with io.open(filename, encoding="utf_8_sig") as wordlist_file:
         wordlist = []
         for word in wordlist_file:
             word = word.strip()
-            if word and not word.startswith(u"#"):
+            if word and not word.startswith("#"):
                 wordlist.append(unicodedata.normalize("NFC", word))
     return wordlist
 
 
-def calc_passwords_per_second(checksum_ratio, kdf_overhead, scalar_multiplies):
+def calc_passwords_per_second(checksum_ratio: float, kdf_overhead: float, scalar_multiplies: int) -> float:
     """estimate the number of mnemonics that can be checked per second (per CPU core)
 
     :param checksum_ratio: chances that a random mnemonic has the correct checksum [0.0 - 1.0]
@@ -338,7 +333,7 @@ def calc_passwords_per_second(checksum_ratio, kdf_overhead, scalar_multiplies):
 #  Doesn't attempt any error checking, as this is handled by the callers. Will simply return the input MPK
 #  Given that derivation paths are specified elsewhere it's enough to just convert all Master Public Keys to an xpub...
 
-def convert_to_xpub(input_mpk):
+def convert_to_xpub(input_mpk: str) -> str:
     output_mpk = input_mpk
 
     try:
@@ -355,6 +350,46 @@ def convert_to_xpub(input_mpk):
 
     return output_mpk
 
+
+def address_to_hash160(address: str) -> bytes:
+    if address.startswith("r"):  # Convert XRP addresses to standard Bitcoin Legacy Addresses
+        address = base58_tools.b58encode(
+            base58_tools.b58decode(address, alphabet=base58_tools.XRP_ALPHABET)).decode()
+    try:
+        # Check if we are getting BCH Cashaddresses and if so, convert them to standard legacy addresses
+        if address.lower().startswith("bitcoincash:"):
+            address = convert.to_legacy_address(address)
+        else:
+            try:
+                address = convert.to_legacy_address(f"bitcoincash:{address}")
+            except convert.InvalidAddress:
+                pass
+        hash160 = binascii.unhexlify(
+            encoding.addr_base58_to_pubkeyhash(address, True))  # assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
+    except (encoding.EncodingError, AssertionError) as e:
+        try:
+            hash160 = binascii.unhexlify(encoding.grs_addr_base58_to_pubkeyhash(address,
+                                                                                True))  # assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
+        except Exception as e:
+            try:
+                hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,
+                                                                                include_witver=False,
+                                                                                as_hex=True))  # Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
+            except Exception as e:
+                if bundled_bitcoinlib_mod_available:
+                    # Try for some obscure altcoins which require modified versions of Bitcoinlib
+                    try:
+                        hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
+                    except Exception as e:
+                        hash160 = binascii.unhexlify(
+                            encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None, include_witver=False,
+                                                                   as_hex=True))
+                else:
+                    print("Address not valid and unable to load modified bitcoinlib on this platform...")
+                    return b''
+    return hash160
+
+
 ############### WalletBase ###############
 
 # Methods common to most wallets, but overridden by WalletEthereum
@@ -366,54 +401,27 @@ class WalletBase(object):
     _skip_worker_checksum = False
     _savevalidseeds = False
 
-    def __init__(self, loading = False):
+    def __init__(self, loading: bool = False):
         if not hashlib_ripemd160_available:
             print("Warning: Native RIPEMD160 not available via Hashlib, using Pure-Python (This will significantly reduce performance)")
-        assert loading, "use load_from_filename or create_from_params to create a " + self.__class__.__name__
+        assert loading, f"use load_from_filename or create_from_params to create a {self.__class__.__name__}"
 
     @staticmethod
-    def set_securityWarningsFlag(setflag):
+    def set_securityWarningsFlag(setflag: bool) -> None:
         global disable_security_warnings
         disable_security_warnings = setflag
 
     @staticmethod
-    def _addresses_to_hash160s(addresses):
+    def _addresses_to_hash160s(addresses: List[str]) -> set:
         hash160s = set()
         for address in addresses:
-            if address[:1] == "r": # Convert XRP addresses to standard Bitcoin Legacy Addresses
-                address = base58_tools.b58encode(
-                    base58_tools.b58decode(address, alphabet=base58_tools.XRP_ALPHABET)).decode()
-            try:
-                # Check if we are getting BCH Cashaddresses and if so, convert them to standard legacy addresses
-                if address[:12].lower() == "bitcoincash:":
-                    address = convert.to_legacy_address(address)
-                else:
-                    try:
-                        address = convert.to_legacy_address("bitcoincash:" + address)
-                    except convert.InvalidAddress:
-                        pass
-                hash160 = binascii.unhexlify(encoding.addr_base58_to_pubkeyhash(address, True)) #assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
-            except (encoding.EncodingError, AssertionError) as e:
-                try:
-                    hash160 = binascii.unhexlify(encoding.grs_addr_base58_to_pubkeyhash(address, True)) #assume we have a P2PKH (Legacy) or Segwit (P2SH) so try a Base58 conversion
-                except Exception as e:
-                    try:
-                        hash160 = binascii.unhexlify(encoding.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True)) #Base58 conversion above will give a keyError if attempted with a Bech32 address for things like BTC
-                    except Exception as e:
-                        if bundled_bitcoinlib_mod_available:
-                            # Try for some obscure altcoins which require modified versions of Bitcoinlib
-                            try:
-                                hash160 = binascii.unhexlify(encoding_mod.grs_addr_base58_to_pubkeyhash(address, True))
-                            except Exception as e:
-                                hash160 = binascii.unhexlify(encoding_mod.addr_bech32_to_pubkeyhash(address, prefix=None,  include_witver=False, as_hex=True))
-                        else:
-                            print("Address not valid and unable to load modified bitcoinlib on this platform...")
-
-            hash160s.add(hash160)
+            hash160 = address_to_hash160(address)
+            if hash160:
+                hash160s.add(hash160)
         return hash160s
 
     @staticmethod
-    def pubkey_to_hash160(uncompressed_pubkey):
+    def pubkey_to_hash160(uncompressed_pubkey: bytes) -> bytes:
         """convert from an uncompressed public key to its Bitcoin compressed-pubkey hash160 form
 
         :param uncompressed_pubkey: SEC 1 EllipticCurvePoint OctetString
@@ -424,7 +432,7 @@ class WalletBase(object):
         return ripemd160(hashlib.sha256(compress_pubkey(uncompressed_pubkey)).digest())
 
     # Simple accessor to be able to identify the BIP44 coin number of the wallet
-    def get_path_coin(self):
+    def get_path_coin(self) -> int:
         coin = 0  # Just assume bitcoin by default
         try:
             coin = self._path_indexes[0][1] - 2 ** 31
@@ -446,17 +454,19 @@ class WalletElectrum1(WalletBase):
             cls._word_to_id = { word:id for id,word in enumerate(cls._words) }
 
     @property
-    def word_ids(self):      return range(len(self._words))
+    def word_ids(self) -> range:
+        return range(len(self._words))
     @classmethod
-    def id_to_word(cls, id): return cls._words[id]
+    def id_to_word(cls, id: int) -> str:
+        return cls._words[id]
 
     @staticmethod
-    def is_wallet_file(wallet_file):
+    def is_wallet_file(wallet_file) -> Optional[bool]:
         wallet_file.seek(0)
         # returns "maybe yes" or "definitely no"
         return None if wallet_file.read(2) == b"{'" else False
 
-    def __init__(self, loading = False):
+    def __init__(self, loading: bool = False):
         super(WalletElectrum1, self).__init__(loading)
         self._master_pubkey        = None
         self._passwords_per_second = None
@@ -464,7 +474,7 @@ class WalletElectrum1(WalletBase):
         self._load_wordlist()
         self._num_words = len(self._words)  # needs to be an instance variable so it can be pickled
 
-    def passwords_per_seconds(self, seconds):
+    def passwords_per_seconds(self, seconds: float) -> int:
         if not self._passwords_per_second:
             self._passwords_per_second = \
                 calc_passwords_per_second(1, 0.12, 1 if self._master_pubkey else self._addrs_to_generate + 1)
@@ -472,28 +482,32 @@ class WalletElectrum1(WalletBase):
 
     # Load an Electrum1 wallet file (the part of it we need, just the master public key)
     @classmethod
-    def load_from_filename(cls, wallet_filename):
+    def load_from_filename(cls, wallet_filename: str) -> "WalletElectrum1":
         from ast import literal_eval
         with open(wallet_filename) as wallet_file:
             wallet = literal_eval(wallet_file.read(btcrpass.MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k
         return cls._load_from_dict(wallet)
 
     @classmethod
-    def _load_from_dict(cls, wallet):
+    def _load_from_dict(cls, wallet: dict) -> "WalletElectrum1":
         seed_version = wallet.get("seed_version")
         if seed_version is None:             raise ValueError("Unrecognized wallet format (Electrum1 seed_version not found)")
-        if seed_version != 4:                raise NotImplementedError("Unsupported Electrum1 seed version " + seed_version)
+        if seed_version != 4:                raise NotImplementedError(f"Unsupported Electrum1 seed version {seed_version}")
         if not wallet.get("use_encryption"): raise ValueError("Electrum1 wallet is not encrypted")
         master_pubkey = base64.b16decode(wallet["master_public_key"], casefold=True)
         if len(master_pubkey) != 64:         raise ValueError("Electrum1 master public key is not 64 bytes long")
         self = cls(loading=True)
-        self._master_pubkey = "\x04".encode() + master_pubkey  # prepend the uncompressed tag
+        self._master_pubkey = b"\x04" + master_pubkey  # prepend the uncompressed tag
         return self
 
     # Creates a wallet instance from either an mpk, an addresses container and address_limit,
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
+    def create_from_params(cls, mpk: Optional[str] = None, addresses: Optional[List[str]] = None,
+                           address_limit: Optional[int] = None, hash160s: Optional[set] = None,
+                           is_performance: bool = False, address_start_index: Optional[int] = None,
+                           force_p2sh: bool = False, checksinglexpubaddress: bool = False,
+                           force_p2tr: bool = False) -> "WalletElectrum1":
         self = cls(loading=True)
 
         # Process the mpk (master public key) argument
@@ -567,7 +581,7 @@ class WalletElectrum1(WalletBase):
         # If an mpk has been provided (in the function call or from a user), convert it to the needed format
         if mpk:
             assert len(mpk) == 64, "mpk is 64 bytes long (after decoding from hex)"
-            self._master_pubkey = "\x04".encode() + mpk  # prepend the uncompressed tag
+            self._master_pubkey = b"\x04" + mpk  # prepend the uncompressed tag
 
         # If an mpk wasn't provided (at all), and addresses and hash160s arguments also
         # weren't provided (in the original function call), prompt the user for addresses.
@@ -590,14 +604,14 @@ class WalletElectrum1(WalletBase):
                         self._known_hash160s = self._addresses_to_hash160s(addresses)
                         break
                     except (ValueError, TypeError) as e:
-                        tk.messagebox.showerror("Addresses", "An entered address is invalid ({})".format(e))
+                        tk.messagebox.showerror("Addresses", f"An entered address is invalid ({e})")
 
                 # If there are still no hash160s available (and no mpk), check for an address database before giving up
                 if not self._known_hash160s:
                     if os.path.isfile(ADDRESSDB_DEF_FILENAME):
-                        print("Using address database file '"+ADDRESSDB_DEF_FILENAME+"' in the current directory.")
+                        print(f"Using address database file '{ADDRESSDB_DEF_FILENAME}' in the current directory.")
                     else:
-                        print("notice: address database file '"+ADDRESSDB_DEF_FILENAME+"' does not exist in current directory", file=sys.stderr)
+                        print(f"notice: address database file '{ADDRESSDB_DEF_FILENAME}' does not exist in current directory", file=sys.stderr)
                         sys.exit("canceled")
 
             if not address_limit:
@@ -607,7 +621,7 @@ class WalletElectrum1(WalletBase):
                     address_limit = tk.simpledialog.askinteger("Address limit",
                         "Please enter the address generation limit. Smaller will\n"
                         "be faster, but it must be equal to at least the number\n"
-                        "of addresses created before the "+before_the+":\n"
+                        f"of addresses created before the {before_the}:\n"
                         "(If unsure, 10 is a sensible default...)", minvalue=1, initialvalue=10)
                 else:
                     print("No address generation limit specified... Exiting...")
@@ -620,18 +634,18 @@ class WalletElectrum1(WalletBase):
             if not self._known_hash160s:
                 print("Loading address database ...")
                 self._known_hash160s = AddressSet.fromfile(open(ADDRESSDB_DEF_FILENAME, "rb"))
-                print("Loaded", len(self._known_hash160s), "addresses from database ...")
+                print(f"Loaded {len(self._known_hash160s)} addresses from database ...")
 
         return self
 
     # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
     @staticmethod
-    def verify_mnemonic_syntax(mnemonic_ids):
+    def verify_mnemonic_syntax(mnemonic_ids: List[int]) -> bool:
         return len(mnemonic_ids) in [12,24] and None not in mnemonic_ids
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def return_verified_password_or_false(self, mnemonic_ids_list):
+    def return_verified_password_or_false(self, mnemonic_ids_list: List[List[Union[str, int]]]) -> Union[Tuple[List[int], int], Tuple[bool, int]]:
         # Copy some vars into local for a small speed boost
         l_sha256     = hashlib.sha256
         hashlib_new  = hashlib.new
@@ -796,26 +810,28 @@ class BlockChainPassword(WalletBase):
     _v2words = None
 
     @property
-    def word_ids(self):      return range(self._num_words)
+    def word_ids(self) -> range:
+        return range(self._num_words)
 
     @classmethod
-    def id_to_word(self, id): return self._words[id]
+    def id_to_word(cls, id: int) -> str:
+        return cls._words[id]
 
     @classmethod
-    def _load_wordlist(self, wordlist):
-        self._words = tuple(map(str, load_wordlist(wordlist, "en")))
-        self._num_words = len(self._words)
-        self._word_to_id = { word:id for id,word in enumerate(self._words) }
-        return self._words, self._word_to_id
+    def _load_wordlist(cls, wordlist: str) -> tuple[tuple[str, ...], dict[str, int]]:
+        cls._words = tuple(map(str, load_wordlist(wordlist, "en")))
+        cls._num_words = len(cls._words)
+        cls._word_to_id = { word:id for id,word in enumerate(cls._words) }
+        return cls._words, cls._word_to_id
 
-    def __init__(self, loading = False):
+    def __init__(self, loading: bool = False):
         super(BlockChainPassword, self).__init__(loading)
         self._passwords_per_second = None
         # v2 words are used by v3+ also
         self._v2words = tuple(map(str, load_wordlist("blockchainpassword_words_v2", "en")))
         self._v2word_to_id = { word:id for id,word in enumerate(self._v2words) }
 
-    def passwords_per_seconds(self, seconds):
+    def passwords_per_seconds(self, seconds: float) -> int:
         if not self._passwords_per_second:
             self._passwords_per_second = \
                 calc_passwords_per_second(0.1, 0.1, 1)
@@ -823,18 +839,18 @@ class BlockChainPassword(WalletBase):
     
     # Creates a wallet instance
     @classmethod
-    def create_from_params(self, is_performance = False, force_p2tr = False):
-        self = self(loading=True)
+    def create_from_params(cls, is_performance: bool = False, force_p2tr: bool = False) -> "BlockChainPassword":
+        self = cls(loading=True)
         return self
     
     # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
     @staticmethod
-    def verify_mnemonic_syntax(mnemonic_ids):
+    def verify_mnemonic_syntax(mnemonic_ids: List[int]) -> bool:
         return len(mnemonic_ids) == len(mnemonic_ids_guess) + num_inserts - num_deletes
     
     # Configures the values of four globals used later in config_btcrecover():
     # mnemonic_ids_guess, close_mnemonic_ids, num_inserts, and num_deletes
-    def config_mnemonic(cls, mnemonic_guess = None, closematch_cutoff = 0.65, expected_len = None):
+    def config_mnemonic(self, mnemonic_guess: Optional[str] = None, closematch_cutoff: float = 0.65, expected_len: Optional[int] = None) -> None:
         # If a mnemonic guess wasn't provided, prompt the user for one
         if not mnemonic_guess:
             init_gui()
@@ -861,8 +877,8 @@ class BlockChainPassword(WalletBase):
 
             if not expected_len:
                 sys.exit("canceled")                
-        cls.expected_len = expected_len
-        cls._initial_words_valid = False
+        self.expected_len = expected_len
+        self._initial_words_valid = False
         mnemonic_guess = str(mnemonic_guess)  # ensures it's ASCII
 
         # Convert the mnemonic words into numeric ids and pre-calculate similar mnemonic words
@@ -873,28 +889,26 @@ class BlockChainPassword(WalletBase):
         # length 1 tuples contains a single mnemonic_id which is similar to the dict's key
         close_mnemonic_ids = {}
         for word in mnemonic_guess.lower().split():
-            close_words = difflib.get_close_matches(word, cls._words, sys.maxsize, closematch_cutoff)
+            close_words = difflib.get_close_matches(word, self._words, sys.maxsize, closematch_cutoff)
             if close_words:
                 if close_words[0] != word:
-                    print("'{}' was in your guess, but it's not a valid BlockchainPassword seed word;\n"
-                          "    trying '{}' instead.".format(word, close_words[0]))
-                mnemonic_ids_guess += cls._word_to_id[close_words[0]],
-                close_mnemonic_ids[mnemonic_ids_guess[-1]] = tuple( (cls._word_to_id[w],) for w in close_words[1:] )
+                    print(f"'{word}' was in your guess, but it's not a valid BlockchainPassword seed word;\n"
+                          f"    trying '{close_words[0]}' instead.")
+                mnemonic_ids_guess += self._word_to_id[close_words[0]],
+                close_mnemonic_ids[mnemonic_ids_guess[-1]] = tuple( (self._word_to_id[w],) for w in close_words[1:] )
             else:
                 if word != 'seed_token_placeholder':
-                    print("'{}' was in your guess, but there is no similar BlockchainPassword seed word;\n"
-                          "    trying all possible seed words here instead.".format(word))
+                    print(f"'{word}' was in your guess, but there is no similar BlockchainPassword seed word;\n"
+                          f"    trying all possible seed words here instead.")
                 mnemonic_ids_guess += None,
 
         global num_inserts, num_deletes
         num_inserts = max(expected_len - len(mnemonic_ids_guess), 0)
         num_deletes = max(len(mnemonic_ids_guess) - expected_len, 0)
         if num_inserts:
-            print("Seed sentence was too short, inserting {} word{} into each guess."
-                  .format(num_inserts, "s" if num_inserts > 1 else ""))
+            print(f"Seed sentence was too short, inserting {num_inserts} word{'s' if num_inserts > 1 else ''} into each guess.")
         if num_deletes:
-            print("Seed sentence was too long, deleting {} word{} from each guess."
-                  .format(num_deletes, "s" if num_deletes > 1 else ""))
+            print(f"Seed sentence was too long, deleting {num_deletes} word{'s' if num_deletes > 1 else ''} from each guess.")
 
     # Produces a long stream of differing and incorrect mnemonic_ids guesses (for testing)
     def performance_iterator(self):
@@ -905,7 +919,7 @@ class BlockChainPassword(WalletBase):
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def return_verified_password_or_false(self, mnemonic_ids_list):
+    def return_verified_password_or_false(self, mnemonic_ids_list: List[List[int]]) -> Union[Tuple[List[int], int], Tuple[bool, int]]:
         # Copy some vars into local for a small speed boost
         for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
             result = False
@@ -918,22 +932,22 @@ class BlockChainPassword(WalletBase):
             return mnemonic_ids, count
         return False, count
     
-    def _verify_checksum(self, words):
+    def _verify_checksum(self, words: List[int]) -> bool:
         raise ValueError
 
     @staticmethod    
-    def mn_mod(a, b):
+    def mn_mod(a: int, b: int) -> int:
         return b + a if a < 0 else a % b
     
     @staticmethod
-    def words_to_bytes(words):
+    def words_to_bytes(words: List[int]) -> List[int]:
         byte_array = []
         for word in words:
             byte_array.extend(word.to_bytes(4, byteorder='big', signed=False))
         return byte_array
     
     @staticmethod
-    def bytes_to_words(byte_array):
+    def bytes_to_words(byte_array: List[int]) -> List[int]:
         words = []
         for i in range(0, len(byte_array), 4):
             word = int.from_bytes(byte_array[i:i+4], byteorder='big', signed=False)
@@ -941,10 +955,10 @@ class BlockChainPassword(WalletBase):
         return words
 
     @staticmethod
-    def bytes_to_string(byte_array):
+    def bytes_to_string(byte_array: List[int]) -> str:
         return bytes(byte_array).decode('utf-8', errors='ignore')
     
-    def decode_v2(self, word1, word2, word3):
+    def decode_v2(self, word1: int, word2: int, word3: int) -> int:
         if not word2 or not word3:
             raise ValueError("seeds are not a multiple of 3")
         n = len(self._v2words)
@@ -954,7 +968,7 @@ class BlockChainPassword(WalletBase):
         return w1 + n * self.mn_mod(w2 - w1, n) + n * n * self.mn_mod(w3 - w2, n)
         
     @staticmethod  
-    def safe_get(lst, index):
+    def safe_get(lst: list, index: int) -> Optional[Any]:
         try:
             return lst[index]
         except IndexError:
@@ -964,12 +978,12 @@ class BlockChainPassword(WalletBase):
 @register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic v3")
 class BlockChainPasswordV3(BlockChainPassword):
 
-    def __init__(self, loading = False):
+    def __init__(self, loading: bool = False):
         self._words, self._word_to_id = self._load_wordlist("blockchainpassword_words_v3")
         self._num_words = len(self._words)
         super(BlockChainPasswordV3, self).__init__(loading)
 
-    def _verify_checksum(self, words):
+    def _verify_checksum(self, words: List[int]) -> bool:
         if len(words) < 3:
             raise ValueError('Mnemonic must have at least 2 words to do checksum')
         
@@ -988,9 +1002,9 @@ class BlockChainPasswordV3(BlockChainPassword):
             if version not in (3, 4, 5, 6): return False
 
             obj = self.decode_v3456_word_list(words[3:], version, checksum)
-            print('\nPassword found: ' + obj['password'] + '\n')
-            if obj['guid']:
-                print('\nAccount ID found: ' + obj['guid'] + '\n')
+            print(f"\nPassword found: {obj['password']}\n")
+            if obj.get('guid'):
+                print(f"\nAccount ID found: {obj['guid']}\n")
             
             return True
         except ValueError:
@@ -999,17 +1013,17 @@ class BlockChainPasswordV3(BlockChainPassword):
             print(e)
             return False
     
-    def decode_v3(self, word1, word2):
+    def decode_v3(self, word1: int, word2: Optional[int]) -> List[int]:
         val1 = word1
         if word2 is None:
             if val1 == -1:
-                raise ValueError('Unknown Word ' + self._words[word1])
+                raise ValueError(f'Unknown Word {self._words[word1]}')
             b1 = self.words_to_bytes([val1])
             return self.bytes_to_words([b1[2], b1[3], 0, 0])
         else:
             val2 = word2
             if val1 == -1 or val2 == -1:
-                raise ValueError('Unknown Word ' + self._words[word1] + ' or ' + self._words[word2])
+                raise ValueError(f'Unknown Word {self._words[word1]} or {self._words[word2]}')
             b1 = self.words_to_bytes([val1])
             b2 = self.words_to_bytes([val2])
             try:
@@ -1017,7 +1031,7 @@ class BlockChainPasswordV3(BlockChainPassword):
             except:
                 raise ValueError
             
-    def decode_v3456_word_list(self, wlist, version, checksum):
+    def decode_v3456_word_list(self, wlist: List[int], version: int, checksum: int) -> dict:
         words = [self.decode_v3(wlist[i], self.safe_get(wlist, i + 1))[0] for i in range(0, len(wlist), 2)]
         str_bytes = self.words_to_bytes(words)
         str_bytes = bytearray([byte for byte in str_bytes if byte != 0])
@@ -1037,15 +1051,15 @@ class BlockChainPasswordV3(BlockChainPassword):
         if version == 4:
             guid_part = str_bytes[:16]
             obj['guid'] = (
-                ''.join('{:02x}'.format(b) for b in guid_part[:4]) + '-' +
-                ''.join('{:02x}'.format(b) for b in guid_part[4:6]) + '-' +
-                ''.join('{:02x}'.format(b) for b in guid_part[6:8]) + '-' +
-                ''.join('{:02x}'.format(b) for b in guid_part[8:10]) + '-' +
-                ''.join('{:02x}'.format(b) for b in guid_part[10:])
+                f"{guid_part[:4].hex()}-"
+                f"{guid_part[4:6].hex()}-"
+                f"{guid_part[6:8].hex()}-"
+                f"{guid_part[8:10].hex()}-"
+                f"{guid_part[10:].hex()}"
             )
             password_bytes = str_bytes[16:]
         elif version == 5:
-            obj['time'] = bytes_to_int(str_bytes[:4], 4)
+            obj['time'] = bytes_to_int(str_bytes[:4])
             password_bytes = str_bytes[4:]
         obj['password'] = self.bytes_to_string(password_bytes)
         return obj
@@ -1053,19 +1067,19 @@ class BlockChainPasswordV3(BlockChainPassword):
 @register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic v2")
 class BlockChainPasswordV2(BlockChainPassword):
 
-    def __init__(self, loading = False):
+    def __init__(self, loading: bool = False):
         self._words, self._word_to_id = self._load_wordlist("blockchainpassword_words_v2")
         self._v2words = self._words
         self._v2word_to_id = self._word_to_id
         super(BlockChainPasswordV2, self).__init__(loading)
 
-    def config_mnemonic(self, mnemonic_guess = None, closematch_cutoff = 0.65, expected_len = None):
-        super(BlockChainPasswordV2, self).config_mnemonic(mnemonic_guess, closematch_cutoff, expected_len) 
+    def config_mnemonic(self, mnemonic_guess: Optional[str] = None, closematch_cutoff: float = 0.65, expected_len: Optional[int] = None) -> None:
+        super(BlockChainPasswordV2, self).config_mnemonic(mnemonic_guess, closematch_cutoff, expected_len)
         length = len(mnemonic_ids_guess) + num_inserts - num_deletes
         if length % 3 != 0:
             exit("BlockChain Password V2 seeds should be a length divisible by 3")
 
-    def _verify_checksum(self, words):
+    def _verify_checksum(self, words: List[int]) -> bool:
         if len(words) < 3:
             raise ValueError('Mnemonic must have at least 3 words do checksum')
         
@@ -1084,7 +1098,7 @@ class BlockChainPasswordV2(BlockChainPassword):
             print(e)
             return False    
         
-    def decode_v2_word_list(self, wlist, checksum):
+    def decode_v2_word_list(self, wlist: List[int], checksum: int) -> dict:
         try:
             words = [self.decode_v2(wlist[i], self.safe_get(wlist, i + 1), self.safe_get(wlist, i + 2)) for i in range(0, len(wlist), 3)]
             str_bytes = self.words_to_bytes(words)
@@ -1107,7 +1121,7 @@ class BlockChainPasswordV2(BlockChainPassword):
 
 class WalletBIP32(WalletBase):
 
-    def __init__(self, arg_derivationpath = None, loading = False):
+    def __init__(self, arg_derivationpath: Optional[List[str]] = None, loading: bool = False):
         super(WalletBIP32, self).__init__(loading)
         self._chaincode            = None
         self._passwords_per_second = None
@@ -1126,24 +1140,27 @@ class WalletBIP32(WalletBase):
         self._path_indexes = []
         for path in derivation_paths:
             path_indexes = path.split("/")
-            if path_indexes[0] == "m" or path_indexes[0] == "":
+            if path_indexes[0] in ("m", ""):
                 del path_indexes[0]   # the optional leading "m/"
             if path_indexes[-1] == "":
                 del path_indexes[-1]  # the optional trailing "/"
             current_path_indexes = []
             for path_index in path_indexes:
                 if path_index.endswith("'"):
-                    current_path_indexes += int(path_index[:-1]) + 2**31,
+                    current_path_indexes.append(int(path_index[:-1]) + 2**31)
                 else:
-                    current_path_indexes += int(path_index),
+                    current_path_indexes.append(int(path_index))
 
             self._path_indexes.append(current_path_indexes)
 
-    def passwords_per_seconds(self, seconds):
+    def _get_pps_divisor(self) -> float:
+        return 1.0
+
+    def passwords_per_seconds(self, seconds: float) -> int:
         if not self._passwords_per_second:
             scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
+            for i in self._path_indexes[0]:  # Just use the first derivation path for this...
+                if i < 2147483648:  # if it's a normal child key
                     scalar_multiplies += 1  # then it requires a scalar multiply
             if not self._chaincode:
                 scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
@@ -1151,7 +1168,8 @@ class WalletBIP32(WalletBase):
                 calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
         passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
         # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts)
+        divisor = len(self._derivation_salts) * self._get_pps_divisor()
+        return int(passwords_per_second / divisor) if divisor else passwords_per_second
 
 
 
@@ -1159,14 +1177,18 @@ class WalletBIP32(WalletBase):
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     # (the BIP32 key derivation path is by default BIP44's account 0)
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
+    def create_from_params(cls, mpk: Optional[str] = None, addresses: Optional[List[str]] = None,
+                           address_limit: Optional[int] = None, hash160s: Optional[set] = None,
+                           path: Optional[List[str]] = None, is_performance: bool = False,
+                           address_start_index: Optional[int] = None, force_p2sh: bool = False,
+                           checksinglexpubaddress: bool = False, force_p2tr: bool = False) -> "WalletBIP32":
         self = cls(path, loading=True)
 
         # Process the mpk (master public key) argument
         if mpk:
             mpk = convert_to_xpub(mpk)
             if not mpk.startswith("xpub"):
-                raise ValueError("the BIP32 extended public key must begin with 'xpub, ypub or zpub'" + " " + mpk)
+                raise ValueError(f"the BIP32 extended public key must begin with 'xpub, ypub or zpub' {mpk}")
             mpk = base58check_to_bip32(mpk)
             # (it's processed more later)
 
@@ -1232,7 +1254,7 @@ class WalletBIP32(WalletBase):
                     mpk = base58check_to_bip32(mpk)
                     break
                 except ValueError as e:
-                    tk.messagebox.showerror("Master extended public key", "The entered key is invalid ({})".format(e))
+                    tk.messagebox.showerror("Master extended public key", f"The entered key is invalid ({e})")
 
         # If an mpk has been provided (in the function call or from a user), extract the
         # required chaincode and adjust the path to match the mpk's depth and child number
@@ -1244,11 +1266,10 @@ class WalletBIP32(WalletBase):
                 if mpk.child_number < 2**31:
                     child_num = mpk.child_number
                 else:
-                    child_num = str(mpk.child_number - 2**31) + "'"
-                print("xpub depth:       {}\n"
-                      "xpub parent fingerprint: {}\n"
-                      "xpub child #:     {}"
-                      .format(mpk.depth, base64.b16encode(mpk.fingerprint), child_num))
+                    child_num = f"{mpk.child_number - 2**31}'"
+                print(f"xpub depth:       {mpk.depth}\n"
+                      f"xpub parent fingerprint: {base64.b16encode(mpk.fingerprint)}\n"
+                      f"xpub child #:     {child_num}")
             self._chaincode = mpk.chaincode
             for i in range(0, len(self._path_indexes)):
                 if mpk.depth <= len(self._path_indexes[i]):                  # if this, ensure the path
@@ -1256,20 +1277,19 @@ class WalletBIP32(WalletBase):
                     if self._path_indexes[i] and self._path_indexes[i][-1] != mpk.child_number:
                         if len(self._path_indexes) > 1: #If multiple derivation paths have been specified
                             #Just throw a warning
-                            print("WARNING: Derivaton path: " + str(i+1) + " does not match the xpub you have provided.")
+                            print(f"WARNING: Derivaton path: {i+1} does not match the xpub you have provided.")
                         else:
                             raise ValueError("the extended public key's child # doesn't match "
                                              "the corresponding index of this wallet's path")
                 elif mpk.depth == 1 + len(self._path_indexes[i]) and self._append_last_index:
-                    self._path_indexes[i] += mpk.child_number,
+                    self._path_indexes[i].append(mpk.child_number)
                 else:
                     if len(self._path_indexes) > 1:  # If multiple derivation paths have been specified
                         # Just throw a warning
-                        print("WARNING: Derivaton path: " + str(i+1) + " does not match the xpub you have provided.")
+                        print(f"WARNING: Derivaton path: {i+1} does not match the xpub you have provided.")
                     else:
                         raise ValueError(
-                            "the extended public key's depth exceeds the length of this wallet's path ({})"
-                            .format(len(self._path_indexes[i])))
+                            f"the extended public key's depth exceeds the length of this wallet's path ({len(self._path_indexes[i])})")
 
         else:  # else if not mpk
 
@@ -1277,7 +1297,7 @@ class WalletBIP32(WalletBase):
             # index, assume it's the external (non-change) chain
             if self._append_last_index:
                 for current_path_indexes in self._path_indexes:
-                    current_path_indexes += 0,
+                    current_path_indexes.append(0)
 
             # If an mpk Testing Mnemonic:'t provided (at all), and addresses and hash160s arguments also
             # weren't provided (in the original function call), prompt the user for addresses.
@@ -1299,14 +1319,14 @@ class WalletBIP32(WalletBase):
                         self._known_hash160s = self._addresses_to_hash160s(addresses)
                         break
                     except (ValueError, TypeError) as e:
-                        tk.messagebox.showerror("Addresses", "An entered address is invalid ({})".format(e))
+                        tk.messagebox.showerror("Addresses", f"An entered address is invalid ({e})")
 
                 # If there are still no hash160s available (and no mpk), check for an address database before giving up
                 if not self._known_hash160s:
                     if os.path.isfile(ADDRESSDB_DEF_FILENAME):
-                        print("Using address database file '"+ADDRESSDB_DEF_FILENAME+"' the in current directory.")
+                        print(f"Using address database file '{ADDRESSDB_DEF_FILENAME}' the in current directory.")
                     else:
-                        print("notice: address database file '"+ADDRESSDB_DEF_FILENAME+"' does not exist in current directory", file=sys.stderr)
+                        print(f"notice: address database file '{ADDRESSDB_DEF_FILENAME}' does not exist in current directory", file=sys.stderr)
                         sys.exit("canceled")
 
             # There are some wallets where address generation limit doesn't apply at all...
@@ -1327,7 +1347,7 @@ class WalletBIP32(WalletBase):
                     address_limit = tk.simpledialog.askinteger("Address limit",
                         "Please enter the address generation limit. Smaller will\n"
                         "be faster, but it must be equal to at least the number\n"
-                        "of addresses created before the "+before_the+":\n"
+                        f"of addresses created before the {before_the}:\n"
                         "(If unsure, the number below is a sensible default...)", minvalue=1, initialvalue=suggested_addr_limit)
                 else:
                     print("No address generation limit specified... Exiting...")
@@ -1340,7 +1360,7 @@ class WalletBIP32(WalletBase):
             if not self._known_hash160s:
                 print("Loading address database ...")
                 self._known_hash160s = AddressSet.fromfile(open(ADDRESSDB_DEF_FILENAME, "rb"))
-                print("Loaded", len(self._known_hash160s), "addresses from database ...")
+                print(f"Loaded {len(self._known_hash160s)} addresses from database ...")
 
         return self
 
@@ -1349,17 +1369,17 @@ class WalletBIP32(WalletBase):
 
     # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
     @staticmethod
-    def verify_mnemonic_syntax(mnemonic_ids):
+    def verify_mnemonic_syntax(mnemonic_ids: List[int]) -> bool:
         # Length must be divisible by 3 and all ids must be present
         return len(mnemonic_ids) % 3 == 0 and None not in mnemonic_ids
 
-    def return_verified_password_or_false(self, mnemonic_ids_list):
+    def return_verified_password_or_false(self, mnemonic_ids_list: List[List[int]]) -> Union[Tuple[List[int], int], Tuple[bool, int]]:
         return self._return_verified_password_or_false_opencl(mnemonic_ids_list) if not isinstance(self.opencl_algo,int) \
           else self._return_verified_password_or_false_cpu(mnemonic_ids_list)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
-    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
+    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list: List[List[int]]) -> Union[Tuple[List[int], int], Tuple[bool, int]]:
         for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
 
             if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
@@ -1386,7 +1406,7 @@ class WalletBIP32(WalletBase):
 
         return False, count
 
-    def _return_verified_password_or_false_opencl(self, mnemonic_ids_list):
+    def _return_verified_password_or_false_opencl(self, mnemonic_ids_list: List[List[int]]) -> Union[Tuple[List[int], int], Tuple[bool, int]]:
         cleaned_mnemonic_ids_list = []
 
         for mnemonic in mnemonic_ids_list:
@@ -1429,7 +1449,7 @@ class WalletBIP32(WalletBase):
 
         return False, len(mnemonic_ids_list)
 
-    def _verify_seed(self, arg_seed_bytes, salt = None):
+    def _verify_seed(self, arg_seed_bytes: bytes, salt: Optional[bytes] = None) -> bool:
         if salt is None:
             salt = self._derivation_salts[0]
         # Derive the chain of private keys for the specified path as per BIP32
@@ -1441,8 +1461,8 @@ class WalletBIP32(WalletBase):
             pubkey_hash160 = self.pubkey_to_hash160(pubkey)
             if pubkey_hash160 in self._known_hash160s:
                 privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey_bytes + bytes([0x1]))
-                print("Match found on Non-Standard Single Address, Privkey (Bitcoin Base58): ", privkey_wif)
-                print("Match found on Non-Standard Single Address, Privkey (Generic Hex): ", privkey_bytes.hex())
+                print(f"Match found on Non-Standard Single Address, Privkey (Bitcoin Base58): {privkey_wif}")
+                print(f"Match found on Non-Standard Single Address, Privkey (Generic Hex): {privkey_bytes.hex()}")
                 return True
 
         for current_path_index in self._path_indexes:
@@ -1513,19 +1533,20 @@ class WalletBIP32(WalletBase):
                             for index in current_path_index:
                                 if index >= 2147483648:
                                     index -= 2 ** 31
-                                    seedfoundpath += str(index) + "'"
+                                    seedfoundpath += f"{index}'"
                                 else:
                                     seedfoundpath += str(index)
 
                                 seedfoundpath += "/"
 
                             seedfoundpath += str(i)
+                            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                            print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched on Address at derivation path:", seedfoundpath)
+                            print(f"{now}: ***MATCHING SEED FOUND***, Matched on Address at derivation path: {seedfoundpath}")
                             #print("Found match with Hash160: ", binascii.hexlify(test_hash160))
 
                             if(len(self._derivation_salts) > 1):
-                                print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase:", salt.decode())
+                                print(f"{now}: ***MATCHING SEED FOUND***, Matched with BIP39 Passphrase: {salt.decode()}")
 
                             return True
         return False
@@ -1596,7 +1617,9 @@ class WalletBIP39(WalletBIP32):
     # Configures the values of four globals used later in config_btcrecover():
     # mnemonic_ids_guess, close_mnemonic_ids, num_inserts, and num_deletes;
     # also selects the appropriate wordlist language to use
-    def config_mnemonic(self, mnemonic_guess = None, lang = None, passphrases = [u"",], expected_len = None, closematch_cutoff = 0.65):
+    def config_mnemonic(self, mnemonic_guess: Optional[str] = None, lang: Optional[str] = None,
+                        passphrases: Union[List[str], bool] = [u"",], expected_len: Optional[int] = None,
+                        closematch_cutoff: float = 0.65) -> None:
         if expected_len:
             if expected_len < 12:
                 raise ValueError("minimum BIP39 sentence length is 12 words")
@@ -1615,9 +1638,9 @@ class WalletBIP39(WalletBIP32):
         for passphrase in passphrases:
             if sys.maxunicode < 65536:  # if this Python is a "narrow" Unicode build
                 for c in passphrase:
-                    c = ord(c)
-                    if 0xD800 <= c <= 0xDBFF or 0xDC00 <= c <= 0xDFFF:
-                        raise ValueError("this version of Python doesn't support passphrases with Unicode code points > "+str(sys.maxunicode))
+                    c_ord = ord(c)
+                    if 0xD800 <= c_ord <= 0xDBFF or 0xDC00 <= c_ord <= 0xDFFF:
+                        raise ValueError(f"this version of Python doesn't support passphrases with Unicode code points > {sys.maxunicode}")
 
             _derivation_salt = self._unicode_to_bytes(passphrase)
 
@@ -1656,12 +1679,14 @@ class WalletBIP39(WalletBIP32):
                     close_mnemonic_ids.update({short_to_long[key] : tuple(expanded_vals)})
 
         # Calculate each word's index in binary (needed by _verify_checksum())
-        self._word_to_binary = { word : "{:011b}".format(i) for i,word in enumerate(self._words) }
+        self._word_to_binary = { word : f"{i:011b}" for i,word in enumerate(self._words) }
 
         # Chances a checksum is valid, e.g. 1/16 for 12 words, 1/256 for 24 words
         self._checksum_ratio = 2.0**( -( len(mnemonic_ids_guess) + num_inserts - num_deletes )//3 )
     #
-    def _config_mnemonic(self, mnemonic_guess, lang, passphrases, expected_len, closematch_cutoff):
+    def _config_mnemonic(self, mnemonic_guess: Optional[str], lang: Optional[str],
+                         passphrases: Union[List[str], bool], expected_len: Optional[int],
+                         closematch_cutoff: float) -> List[str]:
 
         # If a mnemonic guess wasn't provided, prompt the user for one
         if not mnemonic_guess:
@@ -1710,22 +1735,20 @@ class WalletBIP39(WalletBIP32):
                         "-firstfour" in best_guess[0]+second_guess[0]):
                         pass
                     else:
-                        raise ValueError("can't guess wordlist language: top best guesses ({}, {}) are too close ({}, {})"
-                                     .format(best_guess[0], second_guess[0], best_guess[1], second_guess[1]))
+                        raise ValueError(f"can't guess wordlist language: top best guesses ({best_guess[0]}, {second_guess[0]}) are too close ({best_guess[1]}, {second_guess[1]})")
             # at least half must be valid words
             if best_guess[1] < 0.5 * len(mnemonic_guess):
-                raise ValueError("can't guess wordlist language: best guess ({}) has only {} valid word(s)"
-                                 .format(best_guess[0], best_guess[1]))
+                raise ValueError(f"can't guess wordlist language: best guess ({best_guess[0]}) has only {best_guess[1]} valid word(s)")
             lang = best_guess[0]
         #
         try:
             words = self._language_words[lang]
             self.current_wordlist = words
         except KeyError:  # consistently raise ValueError for any bad inputs
-            raise ValueError("can't find wordlist for language code '{}'".format(lang))
+            raise ValueError(f"can't find wordlist for language code '{lang}'")
         self._lang = lang
 
-        print("Using the '{}' wordlist.".format(lang))
+        print(f"Using the '{lang}' wordlist.")
 
         # Build the mnemonic_ids_guess and pre-calculate similar mnemonic words
         global mnemonic_ids_guess, close_mnemonic_ids
@@ -1741,19 +1764,19 @@ class WalletBIP39(WalletBIP32):
             close_words = difflib.get_close_matches(word, words, sys.maxsize, closematch_cutoff)
             if close_words:
                 if close_words[0] != word:
-                    print(u"'{}' was in your guess, but it's not a valid seed word;\n"
-                          u"    trying '{}' instead.".format(word, close_words[0]))
+                    print(f"'{word}' was in your guess, but it's not a valid seed word;\n"
+                          f"    trying '{close_words[0]}' instead.")
                     self._initial_words_valid = False
                 mnemonic_ids_guess += self._unicode_to_bytes(close_words[0]),  # *now* convert to BIP39's format
                 close_mnemonic_ids[mnemonic_ids_guess[-1]] = \
                     tuple( (self._unicode_to_bytes(w),) for w in close_words[1:] )
             else:
                 if __name__ == b"__main__":
-                    print(u"'{}' was in your guess, but there is no similar seed word;\n"
-                          u"    trying all possible seed words here instead.".format(word))
+                    print(f"'{word}' was in your guess, but there is no similar seed word;\n"
+                          f"    trying all possible seed words here instead.")
                 else:
                     if word != 'seed_token_placeholder':
-                        print(u"'{}' was in your seed, but there is no similar seed word.".format(word))
+                        print(f"'{word}' was in your seed, but there is no similar seed word.")
                 self._initial_words_valid = False
                 mnemonic_ids_guess += None,
 
@@ -1771,7 +1794,7 @@ class WalletBIP39(WalletBIP32):
                 else: # If less words have been supplied, round up to the nearest valid seed length (Assume words are missing by default)
                     expected_len = guess_len + 3 - off_by
 
-            print("Assuming a", expected_len, "word mnemonic. (This can be overridden with --mnemonic-length)")
+            print(f"Assuming a {expected_len} word mnemonic. (This can be overridden with --mnemonic-length)")
             if expected_len not in (12,24):
                 print("WARNING: Assuming an uncommon mnemonic length... (Normally 12 or 24) Double check your wallet documentation to see what mnemonic lengths it supports...")
 
@@ -1779,11 +1802,9 @@ class WalletBIP39(WalletBIP32):
         num_inserts = max(expected_len - guess_len, 0)
         num_deletes = max(guess_len - expected_len, 0)
         if num_inserts and not isinstance(self, WalletElectrum2):
-            print("Seed sentence was too short, inserting {} word{} into each guess."
-                  .format(num_inserts, "s" if num_inserts > 1 else ""))
+            print(f"Seed sentence was too short, inserting {num_inserts} word{'s' if num_inserts > 1 else ''} into each guess.")
         if num_deletes:
-            print("Seed sentence was too long, deleting {} word{} from each guess."
-                  .format(num_deletes, "s" if num_deletes > 1 else ""))
+            print(f"Seed sentence was too long, deleting {num_deletes} word{'s' if num_deletes > 1 else ''} from each guess.")
 
         # Now that we're done with the words in Unicode format,
         # convert them to BIP39's encoding and save for future reference
@@ -1809,7 +1830,7 @@ class WalletBIP39(WalletBIP32):
         return passphrases
 
     # Called by WalletBIP32.return_verified_password_or_false() to verify a BIP39 checksum
-    def _verify_checksum(self, mnemonic_words):
+    def _verify_checksum(self, mnemonic_words: List[str]) -> bool:
         # Convert from the mnemonic_words (ids) back to the entropy bytes + checksum
         try:
             bit_string        = "".join(self._word_to_binary[w] for w in mnemonic_words)
@@ -1825,11 +1846,10 @@ class WalletBIP39(WalletBIP32):
         cksum_int = int(bit_string[-cksum_len_in_bits:], 2)
         #
         # Calculate and verify the checksum
-        return ord(hashlib.sha256(entropy_bytes).digest()[:1]) >> 8-cksum_len_in_bits \
-               == cksum_int
+        return hashlib.sha256(entropy_bytes).digest()[0] >> (8 - cksum_len_in_bits) == cksum_int
 
     # Called by WalletBIP32.return_verified_password_or_false() to create a binary seed
-    def _derive_seed(self, mnemonic_words):
+    def _derive_seed(self, mnemonic_words: List[str]) -> zip:
         # Note: the words are already in BIP39's normalized form
         seedList = []
         for salt in self._derivation_salts:
@@ -1861,16 +1881,16 @@ class WalletBIP39(WalletBIP32):
 @register_selectable_wallet_class("Bitcoinj compatible")
 class WalletBitcoinj(WalletBIP39):
 
-    def __init__(self, path = None, loading = False):
+    def __init__(self, path: Optional[List[str]] = None, loading: bool = False):
         # Just calls WalletBIP39.__init__() with a hardcoded path
         if path: raise ValueError("can't specify a BIP32 path with Bitcoinj wallets")
         super(WalletBitcoinj, self).__init__(["m/0'/0/"], loading)
 
     @staticmethod
-    def is_wallet_file(wallet_file):
+    def is_wallet_file(wallet_file) -> bool:
         wallet_file.seek(0)
         if wallet_file.read(1) == b"\x0a":  # protobuf field number 1 of type length-delimited
-            network_identifier_len = ord(wallet_file.read(1))
+            network_identifier_len = wallet_file.read(1)[0]
             if 1 <= network_identifier_len < 128:
                 wallet_file.seek(2 + network_identifier_len)
                 if wallet_file.read(1) in b"\x12\x1a":   # field number 2 or 3 of type length-delimited
@@ -1879,7 +1899,7 @@ class WalletBitcoinj(WalletBIP39):
 
     # Load a bitcoinj wallet file (the part of it we need, just the chaincode)
     @classmethod
-    def load_from_filename(cls, wallet_filename):
+    def load_from_filename(cls, wallet_filename: str) -> "WalletBitcoinj":
         from . import wallet_pb2
         pb_wallet = wallet_pb2.Wallet()
         with open(wallet_filename, "rb") as wallet_file:
@@ -1904,7 +1924,7 @@ class WalletBitcoinj(WalletBIP39):
 
     # Returns a dummy xpub for performance testing purposes
     @staticmethod
-    def _performance_xpub():
+    def _performance_xpub() -> str:
         # an xpub at path m/0', as Bitcoin Wallet for Android/BlackBerry would export
         return "xpub67tjk7ug7iNivs1f1pmDswDDbk6kRCe4U1AXSiYLbtp6a2GaodSUovt3kNrDJ2q18TBX65aJZ7VqRBpnVJsaVQaBY2SANYw6kgZf4QLCpPu"
 
@@ -1936,7 +1956,7 @@ class WalletElectrum2(WalletBIP39):
 
     # Load the wordlists for all languages (actual one to use is selected in config_mnemonic() )
     @classmethod
-    def _load_wordlists(cls):
+    def _load_wordlists(cls) -> None:
         assert not cls._language_words, "_load_wordlists() should only be called once from the first init()"
         # Load all standard BIP39 wordlists first so Electrum2-specific
         # lists cannot overwrite them if they share the same language code
@@ -1949,7 +1969,7 @@ class WalletElectrum2(WalletBIP39):
         assert all(len(w) >= 1411 for w in cls._language_words.values()), \
                "Electrum2 wordlists are at least 1411 words long"  # because we assume a max mnemonic length of 13
 
-    def __init__(self, path = None, loading = False):
+    def __init__(self, path: Optional[List[str]] = None, loading: bool = False):
         # Just calls WalletBIP39.__init__() with default Electrum path if none specified
         try:
             if not path:
@@ -1972,10 +1992,10 @@ class WalletElectrum2(WalletBIP39):
         self._needs_passphrase = None
 
     @staticmethod
-    def is_wallet_file(wallet_file):
+    def is_wallet_file(wallet_file) -> Optional[bool]:
         wallet_file.seek(0)
         data = wallet_file.read(8)
-        if data[0] == ord('{'):
+        if data.startswith(b'{'):
             return None  # "maybe yes"
         try:
             data = base64.b64decode(data)
@@ -1987,7 +2007,7 @@ class WalletElectrum2(WalletBIP39):
 
     # Load an Electrum2 wallet file (the part of it we need, just the master public key)
     @classmethod
-    def load_from_filename(cls, wallet_filename):
+    def load_from_filename(cls, wallet_filename: str) -> Union["WalletElectrum1", "WalletElectrum2"]:
         import json
 
         with open(wallet_filename) as wallet_file:
@@ -2001,9 +2021,9 @@ class WalletElectrum2(WalletBIP39):
             raise ValueError("Electrum2 wallet is not encrypted")
         seed_version = wallet.get("seed_version", "(not found)")
         if wallet.get("seed_version") not in (11, 12, 13):  # all 2.x versions as of April 2022
-            raise NotImplementedError("Unsupported Electrum2 seed version " + str(seed_version))
+            raise NotImplementedError(f"Unsupported Electrum2 seed version {seed_version}")
         if wallet_type != "standard":
-            raise NotImplementedError("Unsupported Electrum2 wallet type: " + wallet_type)
+            raise NotImplementedError(f"Unsupported Electrum2 wallet type: {wallet_type}")
 
         mpk = needs_passphrase = None
         while True:  # "loops" exactly once; only here so we've something to break out of
@@ -2027,11 +2047,11 @@ class WalletElectrum2(WalletBIP39):
                     if len(mpk) != 64:
                         raise ValueError("Electrum1 master public key is not 64 bytes long")
                     self = WalletElectrum1(loading=True)
-                    self._master_pubkey = "\x04".encode() + mpk  # prepend the uncompressed tag
+                    self._master_pubkey = b"\x04" + mpk  # prepend the uncompressed tag
                     return self
 
                 else:
-                    print("warning: found unsupported keystore type " + keystore_type, file=sys.stderr)
+                    print(f"warning: found unsupported keystore type {keystore_type}", file=sys.stderr)
 
             # Electrum 2.0 - 2.6.4 wallet (of any wallet type)
             mpks = wallet.get("master_public_keys")
@@ -2049,13 +2069,15 @@ class WalletElectrum2(WalletBIP39):
     # Converts a mnemonic word from a Python unicode (as produced by load_wordlist())
     # into a bytestring (of type str) via the same method as Electrum 2.x
     @staticmethod
-    def _unicode_to_bytes(word):
+    def _unicode_to_bytes(word: str) -> str:
         assert isinstance(word, str)
         word = unicodedata.normalize("NFKD", word)
         word = filter(lambda c: not unicodedata.combining(c), word)  # Electrum 2.x removes combining marks
         return sys.intern("".join(word))
 
-    def config_mnemonic(self, mnemonic_guess = None, lang = None, passphrases = [u"",], expected_len = None, closematch_cutoff = 0.65):
+    def config_mnemonic(self, mnemonic_guess: Optional[str] = None, lang: Optional[str] = None,
+                        passphrases: Union[List[str], bool] = [u"",], expected_len: Optional[int] = None,
+                        closematch_cutoff: float = 0.65) -> None:
         if expected_len is None:
             expected_len_specified = False
             if self._needs_passphrase or getattr(self, "_passphrase_recovery", False):
@@ -2076,15 +2098,15 @@ class WalletElectrum2(WalletBIP39):
                     print("No You need to specify expected mnemonic length with this versonof electrum2 wallet.. Exiting...")
                     exit()
 
-            print("Assuming a", expected_len, "word mnemonic. (This can be overridden with --mnemonic-length)")
+            print(f"Assuming a {expected_len} word mnemonic. (This can be overridden with --mnemonic-length)")
 
         else:
             expected_len_specified = True
             if expected_len > 13:
-                print("WARNING: Maximum mnemonic length for standard Electrum2 wallets is 13 words, you specified", expected_len)
+                print(f"WARNING: Maximum mnemonic length for standard Electrum2 wallets is 13 words, you specified {expected_len}")
 
-        if self._needs_passphrase and not passphrase:
-            passphrase = True  # tells self._config_mnemonic() to prompt for a passphrase below
+        if self._needs_passphrase and not passphrases:
+            passphrases = True  # tells self._config_mnemonic() to prompt for a passphrase below
             init_gui()
             if tk_root:  # Skip if TK is not available...
                 tk.messagebox.showwarning("Passphrase",
@@ -2142,19 +2164,19 @@ class WalletElectrum2(WalletBIP39):
 
     # Performs basic checks so that clearly invalid mnemonic_ids can be completely skipped
     @staticmethod
-    def verify_mnemonic_syntax(mnemonic_ids):
+    def verify_mnemonic_syntax(mnemonic_ids: List[int]) -> bool:
         # a valid electrum mnemonic is at most 13 words long (and all ids must be present)
         # Some wallets (Cakewallet) also create 24 word seeds that use electrum checksum & derivation.
         return len(mnemonic_ids) in (list(range(1,14)) + [24]) and None not in mnemonic_ids
 
     # Called by WalletBIP32.return_verified_password_or_false() to verify an Electrum2 checksum
-    def _verify_checksum(self, mnemonic_words):
+    def _verify_checksum(self, mnemonic_words: List[str]) -> bool:
         testDigest = hmac.new("Seed version".encode(), self._space.join(mnemonic_words).encode(), hashlib.sha512) \
             .digest()[0]
         return testDigest in [1,16]
 
     # Called by WalletBIP32.return_verified_password_or_false() to create a binary seed
-    def _derive_seed(self, mnemonic_words):
+    def _derive_seed(self, mnemonic_words: List[str]) -> zip:
         # Note: the words are already in Electrum2's normalized form
         seedList = []
         for salt in self._derivation_salts:
@@ -2370,19 +2392,8 @@ class WalletCardano(WalletBIP39):
         self = super(WalletCardano, cls).create_from_params(*args, **kwargs)
         return self
 
-    def passwords_per_seconds(self, seconds):
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 5
+    def _get_pps_divisor(self) -> float:
+        return 5.0
 
     @staticmethod
     def _addresses_to_hash160s(addresses):
@@ -2615,22 +2626,13 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         self = super(WalletPyCryptoHDWallet, cls).create_from_params(*args, **kwargs)
         return self
 
-    def passwords_per_seconds(self, seconds):
+    def _get_pps_divisor(self) -> float:
+        return 10.0
+
+    def passwords_per_seconds(self, seconds: float) -> int:
         if self.opencl:
             exit("Error: Wallet Type does not support OpenCL acceleration")
-
-        if not self._passwords_per_second:
-            scalar_multiplies = 0
-            for i in self._path_indexes[0]: # Just use the first derivation path for this...
-                if i < 2147483648:          # if it's a normal child key
-                    scalar_multiplies += 1  # then it requires a scalar multiply
-            if not self._chaincode:
-                scalar_multiplies += self._addrs_to_generate + 1  # each addr. to generate req. a scalar multiply
-            self._passwords_per_second = \
-                calc_passwords_per_second(self._checksum_ratio, self._kdf_overhead, scalar_multiplies)
-        passwords_per_second = max(int(round(self._passwords_per_second * seconds)), 1)
-        # Divide the speed by however many passphrases we are testing for each seed (Otherwise the benchmarking step takes ages)
-        return  passwords_per_second / len(self._derivation_salts) / 10
+        return super().passwords_per_seconds(seconds)
 
     # Default method for adding addresses, doesn't worry about validating the addresses
     @staticmethod
@@ -3610,24 +3612,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, keep_tokens_order = False):
-    if typos < 0:  # typos == 0 is silly, but causes no harm
-        raise ValueError("typos must be >= 0")
-    if big_typos < 0:
-        raise ValueError("big-typos must be >= 0")
-    if big_typos > typos:
-        raise ValueError("typos includes big_typos, therefore it must be >= big_typos")
-    # min_typos < 0 is silly, but causes no harm
-    # typos < min_typos is an error; it's checked in btcrpass.parse_arguments()
-
-    # Local copies of globals whose changes should only be visible locally
-    l_num_inserts = num_inserts
-    l_num_deletes = num_deletes
-
-    # Number of words that were definitely wrong in the guess
-    num_wrong = sum(map(lambda id: id is None, mnemonic_ids_guess))
-
-    # Start building the command-line arguments
+def build_btcr_args(typos, big_typos, min_typos, is_performance, tokenlist, passwordlist, listpass, min_tokens, max_tokens, mnemonic_length, seed_transform_wordswaps, keep_tokens_order):
     btcr_args = "--typos " + str(typos)
 
     if tokenlist:
@@ -3658,11 +3643,35 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
 
     if is_performance:
         btcr_args += " --performance"
-        # These typos are not supported by seedrecover with --performance testing:
-        l_num_inserts = l_num_deletes = num_wrong = 0
 
     if seed_transform_wordswaps:
         btcr_args += " --seed-transform-wordswaps " + str(seed_transform_wordswaps)
+
+    return btcr_args
+
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, keep_tokens_order = False):
+    if typos < 0:  # typos == 0 is silly, but causes no harm
+        raise ValueError("typos must be >= 0")
+    if big_typos < 0:
+        raise ValueError("big-typos must be >= 0")
+    if big_typos > typos:
+        raise ValueError("typos includes big_typos, therefore it must be >= big_typos")
+    # min_typos < 0 is silly, but causes no harm
+    # typos < min_typos is an error; it's checked in btcrpass.parse_arguments()
+
+    # Local copies of globals whose changes should only be visible locally
+    l_num_inserts = num_inserts
+    l_num_deletes = num_deletes
+
+    # Number of words that were definitely wrong in the guess
+    num_wrong = sum(map(lambda id: id is None, mnemonic_ids_guess))
+
+    # Start building the command-line arguments
+    btcr_args = build_btcr_args(typos, big_typos, min_typos, is_performance, tokenlist, passwordlist, listpass, min_tokens, max_tokens, mnemonic_length, seed_transform_wordswaps, keep_tokens_order)
+
+    if is_performance:
+        # These typos are not supported by seedrecover with --performance testing:
+        l_num_inserts = l_num_deletes = num_wrong = 0
 
     # First, check if there are any required typos (if there are missing or extra
     # words in the guess) and adjust the max number of other typos to later apply
@@ -3775,645 +3784,17 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
     return False  # No error occurred; the mnemonic wasn't found
 
 
-def register_autodetecting_wallets():
+def register_autodetecting_wallets(context):
     """Registers wallets which can do file auto-detection with btcrecover's auto-detect mechanism
 
     :rtype: None
     """
-    btcrpass.clear_registered_wallets()
+    btcrpass.clear_registered_wallets(context)
+    btcrpass.register_wallet_class(context)(btcrpass.WalletPywallet)
     for wallet_cls, description in selectable_wallet_classes:
         if hasattr(wallet_cls, "is_wallet_file"):
-            btcrpass.register_wallet_class(wallet_cls)
+            btcrpass.register_wallet_class(context)(wallet_cls)
 
-def main(argv):
-    global loaded_wallet
-    loaded_wallet = wallet_type = None
-    create_from_params     = {}  # additional args to pass to wallet_type.create_from_params()
-    config_mnemonic_params = {}  # additional args to pass to wallet.config_mnemonic()
-    phase                  = {}  # if only one phase is requested, the args to pass to run_btcrecover()
-    extra_args             = []  # additional args to pass to btcrpass.parse_arguments() (in run_btcrecover())
-    listseeds = False
-
-    if argv or "_ARGCOMPLETE" in os.environ:
-        import argparse
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--wallet",      metavar="FILE",        help="the wallet file")
-        parser.add_argument("--wallet-type", metavar="TYPE",        help="if not using a wallet file, the wallet type")
-        parser.add_argument("--mpk",         metavar="XPUB-OR-HEX", help="if not using a wallet file, the master public key (xpub, ypub or zpub)")
-        parser.add_argument("--addrs",       metavar="ADDRESS",     nargs="+", help="if not using an mpk, address(es) in the wallet")
-        parser.add_argument("--addressdb",   metavar="FILE", nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
-        parser.add_argument("--addr-limit",  type=int, metavar="COUNT", help="if using addrs or addressdb, the address generation limit")
-        parser.add_argument("--addr-start-index",  type=int, metavar="COUNT", help="The index at which the addr-limit starts counting (Useful for wallets like Wasabi that may not start at zero)")
-        parser.add_argument("--typos",       type=int, metavar="COUNT", help="the max number of mistakes to try (default: auto)")
-        parser.add_argument("--big-typos",   type=int, metavar="COUNT", help="the max number of big (entirely different word) mistakes to try (default: auto or 0)")
-        parser.add_argument("--min-typos",   type=int, metavar="COUNT", help="enforce a min # of mistakes per guess")
-        parser.add_argument("--close-match",type=float,metavar="CUTOFF",help="try words which are less/more similar for each mistake (0.0 to 1.0, default: 0.65)")
-        parser.add_argument("--passphrase",  action="store_true",       help="the mnemonic is augmented with a known passphrase (BIP39 or Electrum 2.x only)")
-        parser.add_argument("--passphrase-arg",  metavar="PASSPHRASE", nargs="+", help="the mnemonic is augmented with a known passphrase, entered directly as an argument (BIP39 or Electrum 2.x only)")
-        parser.add_argument("--passphrase-list", metavar="FILE", help="Path to a file containing a list of passphrases to test")
-        parser.add_argument("--passphrase-prompt", action="store_true", help="prompt for the mnemonic passphrase via the terminal (default: via the GUI)")
-        parser.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
-        parser.add_argument("--mnemonic-prompt",   action="store_true", help="prompt for the mnemonic guess via the terminal (default: via the GUI)")
-        parser.add_argument("--mnemonic-length", type=int, metavar="WORD-COUNT", help="the length of the correct mnemonic (default: auto)")
-        parser.add_argument("--language",    metavar="LANG-CODE",       help="the wordlist language to use (see wordlists/README.md, default: auto)")
-        parser.add_argument("--bip32-path",  metavar="PATH", nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
-        parser.add_argument("--substrate-path",  metavar="PATH", nargs="+",           help="Substrate path (eg: //hard/soft). You can specify multiple derivation paths by a space Eg: //hard /soft //hard/soft (default: No Path)")
-        parser.add_argument("--slip39", action="store_true", help="recover a SLIP39 seed share")
-        parser.add_argument("--share-length", type=int, metavar="WORD-COUNT", help="the length of the SLIP39 share (default: auto)")
-        parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
-        parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
-        parser.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
-        parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
-        parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
-        parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
-        parser.add_argument("--threads", type=int, metavar="COUNT", help="number of worker threads (default: For CPU Processing, logical CPU cores, for GPU, physical CPU cores)")
-        parser.add_argument("--worker",      metavar="ID#(ID#2, ID#3)/TOTAL#",   help="divide the workload between TOTAL# servers, where each has a different ID# between 1 and TOTAL# (You can optionally assign between 1 and TOTAL IDs of work to a server (eg: 1,2/3 will assign both slices 1 and 2 of the 3 to the server...)")
-        parser.add_argument("--max-eta",     type=int,              help="max estimated runtime before refusing to even start (default: 168 hours, i.e. 1 week)")
-        parser.add_argument("--no-eta",      action="store_true",   help="disable calculating the estimated time to completion")
-        parser.add_argument("--no-dupchecks", "-d", action="count", default=0, help="disable duplicate guess checking to save memory; specify up to four times for additional effect")
-        parser.add_argument("--no-progress", action="store_true",   help="disable the progress bar")
-        parser.add_argument("--no-pause",    action="store_true",   help="never pause before exiting (default: auto)")
-        parser.add_argument("--no-gui", action="store_true", help="Force disable the gui elements")
-        parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
-        parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
-        parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
-        parser.add_argument("--disablesecuritywarnings", "--dsw", action="store_true", help="Disable Security Warning Messages")
-        parser.add_argument("--tokenlist", metavar="FILE", help="The list of BIP39 words to be searched, formatted as a tokenlist")
-        parser.add_argument("--keep-tokens-order", action="store_true",
-                            help="try tokens in the order in which they are listed in the file, without trying their permutations")
-        parser.add_argument("--max-tokens", type=int, help="The max number of tokens use to create potential seeds from the tokenlist")
-        parser.add_argument("--min-tokens", type=int, help="The minimum number of tokens use to create potential seeds from the tokenlist")
-        parser.add_argument("--seedlist", metavar="FILE", nargs="?", const="-",
-                            help="A list of seed phrases to test (exactly one per line) from this file or from stdin, if used in conjunction with --multi-file-seedlist, this is the name of the first file to load")
-        parser.add_argument("--multi-file-seedlist",action="store_true",   help="Enables the loading of a seedlist file split over mulitple files with the suffix _XXXX.txt")
-
-        parser.add_argument("--listseeds", action="store_true",
-                                   help="Just list all seed phrase combinations to test and exit")
-        parser.add_argument("--savevalidseeds", metavar="FILE",
-                                   help="Only list valid seed combinations, then exit. (Similar to --listseeds, but only lists valid BIP39/Electrum seeds)")
-        parser.add_argument("--savevalidseeds-filesize", type=int, metavar="COUNT", help="The number of valid seeds to include in each file, multiple output files are automatically incremented when this number is reached")
-
-        parser.add_argument("--skip-worker-checksum", action="store_true",
-                            help="Skip the checksum test for BIP39/Electrum seeds (This will force test all seeds, as opposed to 1/10, and will slow things down a lot)")
-        opencl_group = parser.add_argument_group("OpenCL acceleration")
-        opencl_group.add_argument("--enable-opencl", action="store_true",     help="enable experimental OpenCL-based (GPU) acceleration (only supports BIP39 (for supported coin) and Electrum wallets)")
-        opencl_group.add_argument("--opencl-workgroup-size",  type=int, nargs="+", metavar="PASSWORD-COUNT", help="OpenCL global work size (Seeds are tested in batches, this impacts that batch size)")
-        opencl_group.add_argument("--opencl-platform",  type=int, nargs="+", metavar="ID", help="Choose the OpenCL platform (GPU) to use (default: auto)")
-        opencl_group.add_argument("--opencl-devices", metavar="ID1 ID2 ID3", nargs="+", help="Choose which OpenCL devices for a given to use as a space seperated list eg: 1 2 4 (default: all)")
-        opencl_group.add_argument("--opencl-info",  action="store_true",     help="list available GPU names and IDs, then exit")
-        opencl_group.add_argument("--force-checksum-in-generator",  action="store_true",     help="GPU processing currently performs seed checksums in the main thread, which works well for 12 word BIP39 seeds, but hurts performance in 12 and 24 word seeds")
-
-        # Optional bash tab completion support
-        try:
-            import argcomplete
-            argcomplete.autocomplete(parser)
-        except ImportError:
-            pass
-        assert argv
-
-        # Parse the args; unknown args will be passed to btcrpass.parse_arguments() iff --btcr-args is specified
-        args, extra_args = parser.parse_known_args(argv)
-        if extra_args and not args.btcr_args:
-            parser.parse_args(argv)  # re-parse them just to generate an error for the unknown args
-            assert False
-
-        # Assign the no-gui to a global variable...
-        global no_gui
-        if args.no_gui:
-            no_gui = True
-
-        # Pass an argument so that btcrpass knows that we are running a seed recovery
-        extra_args.append("--btcrseed")
-
-        #Disable Security Warnings if parameter set...
-        global disable_security_warnings
-        if args.disablesecuritywarnings:
-            disable_security_warnings = True
-        else:
-            disable_security_warnings = False
-
-        # Version information is always printed by seedrecover.py, so just exit
-        if args.version: sys.exit(0)
-
-        if args.opencl_info:
-            info = opencl_information()
-            info.printfullinfo()
-            exit(0)
-
-        if args.wallet:
-            loaded_wallet = btcrpass.load_wallet(args.wallet)
-
-        if args.savevalidseeds:
-            if args.enable_opencl: exit("Error: SaveValidSeeds not a valid option when OpenCL is in use...")
-            print("WARNING: Seeds aren't actually checked when --savevalidseeds argument is used, only generated, checksummed and saved...")
-            args.addrs = ['1QLSbWFtVNnTFUq5vxDRoCpvvsSqTTS88P']
-            args.addr_limit = 1
-            args.no_eta = True
-            args.no_dupchecks = 4
-            if args.wallet_type:
-                if args.wallet_type.lower() == "ethereum":
-                    args.wallet_type = "bip39"
-
-        # Look up the --wallet-type arg in the list of selectable_wallet_classes
-        if args.slip39:
-            wallet_type = WalletSLIP39Seed
-        elif args.wallet_type:
-            if args.wallet:
-                print("warning: --wallet-type is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                args.wallet_type  = args.wallet_type.lower()
-                wallet_type_names = []
-                for cls, desc in selectable_wallet_classes:
-                    wallet_type_names.append(cls.__name__.replace("Wallet", "", 1).lower())
-                    if wallet_type_names[-1] == args.wallet_type:
-                        wallet_type = cls
-                        break
-                else:
-                    wallet_type_names.sort()
-                    sys.exit("--wallet-type must be one of: " + ", ".join(wallet_type_names))
-
-        if args.mpk:
-            if args.wallet:
-                print("warning: --mpk is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                create_from_params["mpk"] = args.mpk
-
-        if args.addrs:
-            if args.wallet:
-                print("warning: --addrs is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                create_from_params["addresses"] = args.addrs
-
-        if args.addr_limit is not None:
-            if args.wallet:
-                print("warning: --addr-limit is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                create_from_params["address_limit"] = args.addr_limit
-
-        if args.addr_start_index is not None:
-            create_from_params["address_start_index"] = args.addr_start_index
-
-        if args.addressdb and not os.path.isfile(args.addressdb):
-            sys.exit("file '{}' does not exist".format(args.addressdb))
-
-        if args.typos is not None:
-            phase["typos"] = args.typos
-
-        if args.big_typos is not None:
-            phase["big_typos"] = args.big_typos
-            if not args.typos:
-                phase["typos"] = args.big_typos
-
-        if args.min_typos is not None:
-            if not phase.get("typos"):
-                sys.exit("--typos must be specified when using --min_typos")
-            phase["min_typos"] = args.min_typos
-
-        if args.close_match is not None:
-            config_mnemonic_params["closematch_cutoff"] = args.close_match
-
-        if not disable_security_warnings:
-            # Print a security warning before giving users the chance to enter ir seed....
-            # Also a good idea to keep this warning as late as possible in terms of not needing it to be display for --version --help, or if there are errors in other parameters.
-            print("btcrseed")
-            print("* * * * * * * * * * * * * * * * * * * *")
-            print("*          Security: Warning          *")
-            print("* * * * * * * * * * * * * * * * * * * *")
-            print()
-            print(
-                "Most crypto wallet software and hardware wallets go to great lengths to protect your wallet password, seed phrase and private keys. BTCRecover isn't designed to offer this level of security, so it is possible that malware on your PC could gain access to this sensitive information while it is stored in memory in the use of this tool...")
-            print()
-            print(
-                "As a precaution, you should run this tool in a secure, offline environment and not simply use your normal, internet connected desktop environment... At the very least, you should disconnect your PC from the network and only reconnect it after moving your funds to a new seed... (Or if you run the tool on your internet conencted PC, move it to a new seed as soon as practical)")
-            print()
-            print("You can disable this message by running this tool with the --dsw argument")
-            print()
-            print("* * * * * * * * * * * * * * * * * * * *")
-            print("*          Security: Warning          *")
-            print("* * * * * * * * * * * * * * * * * * * *")
-            print()
-
-        if args.mnemonic:
-            config_mnemonic_params["mnemonic_guess"] = args.mnemonic
-
-        if args.mnemonic_prompt:
-            encoding = sys.stdin.encoding or "ASCII"
-            if "utf" not in encoding.lower():
-                print("terminal does not support UTF; mnemonics with non-ASCII chars might not work", file=sys.stderr)
-            mnemonic_guess = input("Please enter your best guess for your mnemonic (seed)\n> ")
-            if not mnemonic_guess:
-                sys.exit("canceled")
-            config_mnemonic_params["mnemonic_guess"] = mnemonic_guess
-
-        if args.passphrase_prompt:
-            import getpass
-            encoding = sys.stdin.encoding or "ASCII"
-            if "utf" not in encoding.lower():
-                print("warning: terminal does not support UTF; passwords with non-ASCII chars might not work", file=sys.stderr)
-            print("(note your passphrase will not be displayed as you type)")
-            while True:
-                passphrase = getpass.getpass("Please enter the passphrase you added when the seed was first created: ")
-                if not passphrase:
-                    sys.exit("canceled")
-                if passphrase == getpass.getpass("Please re-enter the passphrase: "):
-                    break
-                print("The passphrases did not match, try again.")
-            config_mnemonic_params["passphrases"] = [passphrase,]
-        elif args.passphrase_arg:
-            config_mnemonic_params["passphrases"] = args.passphrase_arg
-        elif args.passphrase or args.passphrase_list:
-            config_mnemonic_params["passphrases"] = True  # config_mnemonic() will prompt for one
-
-        if args.passphrase_list:
-            passphrases = load_passphraselist(args.passphrase_list)
-            config_mnemonic_params["passphrases"] = passphrases
-
-        if args.seedlist or args.tokenlist:
-            if args.mnemonic_length is None:
-                exit("Error: Mnemonic length needs to be specificed if using tokenlist or passwordlist")
-            if args.language is None:
-                if args.wallet_type != 'electrum1':
-                    exit("Error: Language needs to be specificed if using tokenlist or passwordlist")
-            config_mnemonic_params["mnemonic_guess"] = ("seed_token_placeholder " * args.mnemonic_length)[:-1]
-            phase["big_typos"] = args.mnemonic_length
-            phase["typos"] = args.mnemonic_length
-            phase["max_tokens"] = args.max_tokens
-            phase["min_tokens"] = args.min_tokens
-            phase["mnemonic_length"] = args.mnemonic_length
-            phase["keep_tokens_order"] = args.keep_tokens_order
-
-            if args.tokenlist:
-                phase["tokenlist"] = args.tokenlist
-
-            if args.seedlist:
-                phase["passwordlist"] = args.seedlist
-
-            if args.wallet_type == "electrum1":
-                args.language = None
-
-        if args.language:
-            config_mnemonic_params["lang"] = args.language.lower()
-
-        if args.mnemonic_length is not None:
-            config_mnemonic_params["expected_len"] = args.mnemonic_length
-
-        if args.share_length is not None:
-            config_mnemonic_params["expected_len"] = args.share_length
-
-        if args.bip32_path and not args.pathlist:
-            if args.wallet:
-                print("warning: --bip32-path is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                create_from_params["path"] = args.bip32_path
-
-        if args.substrate_path and not args.pathlist:
-            if args.wallet:
-                print("warning: --bip32-path is ignored when a wallet is provided", file=sys.stderr)
-            else:
-                create_from_params["path"] = args.substrate_path
-
-        if args.pathlist:
-            if args.bip32_path:
-                print("warning: Pathlist overrides any --bip32-path or --substrate-path provided", file=sys.stderr)
-            create_from_params["path"] = load_pathlist(args.pathlist)
-
-        if args.force_p2sh:
-            create_from_params["force_p2sh"] = True
-
-        if args.force_p2tr:
-            create_from_params["force_p2tr"] = True
-
-        if args.transform_wordswaps:
-            print("SEED-TRANSFORM: Checking", args.transform_wordswaps, "pairs of swapped words for each possible mnemonic")
-            phase["seed_transform_wordswaps"] = args.transform_wordswaps
-            
-        if args.checksinglexpubaddress:
-            create_from_params["checksinglexpubaddress"] = True
-
-        # These arguments and their values are passed on to btcrpass.parse_arguments()
-        for argkey in "skip", "threads", "worker", "max_eta":
-            if args.__dict__[argkey] is not None:
-                extra_args.extend(("--"+argkey.replace("_", "-"), str(args.__dict__[argkey])))
-
-
-        # These arguments (which have no values) are passed on to btcrpass.parse_arguments()
-        for argkey in "no_eta", "no_progress":
-            if args.__dict__[argkey]:
-                extra_args.append("--"+argkey.replace("_", "-"))
-
-        # Special Case for --no-dupchecks
-        if args.__dict__["no_dupchecks"] is not None:
-            for i in range(0, args.__dict__["no_dupchecks"]):
-                extra_args.append("--no-dupchecks")
-
-        if args.performance:
-            create_from_params["is_performance"] = phase["is_performance"] = True
-            phase.setdefault("typos", 0)
-            if not args.mnemonic_prompt:
-                # Create a dummy mnemonic; only its language and length are used for anything
-                config_mnemonic_params["mnemonic_guess"] = " ".join("act" for i in range(args.mnemonic_length or 12))
-
-        if args.addressdb:
-            print("Loading address database ...")
-            createdAddressDB = create_from_params["hash160s"] = AddressSet.fromfile(open(args.addressdb, "rb"))
-            print("Loaded", len(createdAddressDB), "addresses from database ...")
-
-            # Special Case where we don't know any mnemonic words (Using TokenList or PasswordList)
-            # simply configure the menonic to be all invalid words...
-
-        if args.listseeds:
-            listseeds = True
-            phase["listpass"] = True
-
-    else:  # else if no command-line args are present
-        # Print a security warning before giving users the chance to enter ir seed....
-        # Also a good idea to keep this warning as late as possible in terms of not needing it to be display for --version --help, or if there are errors in other parameters.
-        print("btcrseed")
-        print("* * * * * * * * * * * * * * * * * * * *")
-        print("*          Security: Warning          *")
-        print("* * * * * * * * * * * * * * * * * * * *")
-        print()
-        print(
-            "Most crypto wallet software and hardware wallets go to great lengths to protect your wallet password, seed phrase and private keys. BTCRecover isn't designed to offer this level of security, so it is possible that malware on your PC could gain access to this sensitive information while it is stored in memory in the use of this tool...")
-        print()
-        print(
-            "As a precaution, you should run this tool in a secure, offline environment and not simply use your normal, internet connected desktop environment... At the very least, you should disconnect your PC from the network and only reconnect it after moving your funds to a new seed... (Or if you run the tool on your internet conencted PC, move it to a new seed as soon as practical)")
-        print()
-        print("You can disable this message by running this tool with the --dsw argument")
-        print()
-        print("* * * * * * * * * * * * * * * * * * * *")
-        print("*          Security: Warning          *")
-        print("* * * * * * * * * * * * * * * * * * * *")
-        print()
-
-        global pause_at_exit
-        pause_at_exit = True
-        atexit.register(lambda: pause_at_exit and
-                                not multiprocessing.current_process().name.startswith("PoolWorker-") and
-                                input("Press Enter to exit ..."))
-
-    if not loaded_wallet and not wallet_type:  # neither --wallet nor --wallet-type were specified
-
-        # Ask for a wallet file
-        init_gui()
-        if tk_root: # Skip if TK is not available...
-            wallet_filename = tk.filedialog.askopenfilename(title="Please select your wallet file if you have one")
-        else:
-            print("No wallet file or type specified... Exiting...")
-            exit()
-
-        if wallet_filename:
-            loaded_wallet = btcrpass.load_wallet(wallet_filename)  # raises on failure; no second chance
-
-    if not loaded_wallet:    # if no wallet file was chosen
-
-        if not wallet_type:  # if --wallet-type wasn't specified
-
-            if tk_root:  # Skip if TK is not available...
-                # Without a wallet file, we can't automatically determine the wallet type, so prompt the
-                # user to select a wallet that's been registered with @register_selectable_wallet_class
-                selectable_wallet_classes.sort(key=lambda x: x[1])  # sort by description
-
-                class WalletTypeDialog(tk.simpledialog.Dialog):
-                    def body(self, master):
-                        self.wallet_type     = None
-                        self._index_to_cls   = []
-                        self._selected_index = tk.IntVar(value= -1)
-                        for i, (cls, desc) in enumerate(selectable_wallet_classes):
-                            self._index_to_cls.append(cls)
-                            tk.Radiobutton(master, variable=self._selected_index, value=i, text=desc) \
-                                .grid(row = i % 20, column = i // 20, sticky = tk.W, pady = 0)
-                    def validate(self):
-                        if self._selected_index.get() < 0:
-                            tk.messagebox.showwarning("Wallet Type", "Please select a wallet type")
-                            return False
-                        return True
-                    def apply(self):
-                        self.wallet_type = self._index_to_cls[self._selected_index.get()]
-                #
-                wallet_type_dialog = WalletTypeDialog(tk_root, "Please select your wallet type")
-                wallet_type = wallet_type_dialog.wallet_type
-                if not wallet_type:
-                    sys.exit("canceled")
-
-            else:
-                print("No wallet or wallet type speciiced... Exiting...")
-                exit()
-
-        try:
-            loaded_wallet = wallet_type.create_from_params(**create_from_params)
-        except TypeError as e:
-            matched = re.match(r"create_from_params\(\) got an unexpected keyword argument '(.*)'", str(e))
-            if matched:
-                sys.exit("{} does not support the {} option".format(wallet_type.__name__, matched.group(1)))
-            raise
-        except ValueError as e:
-            sys.exit(e)
-
-    # =====================
-    # Set Wallet Parameters
-    # =====================
-
-    try:
-        loaded_wallet.config_mnemonic(**config_mnemonic_params)
-    except TypeError as e:
-        matched = re.match(r"config_mnemonic\(\) got an unexpected keyword argument '(.*)'", str(e))
-        if matched:
-            sys.exit("{} does not support the {} option".format(loaded_wallet.__class__.__name__, matched.group(1)))
-        raise
-    except ValueError as e:
-        sys.exit(e)
-
-    try:
-        if args.skip_worker_checksum:
-            loaded_wallet._skip_worker_checksum = True
-        else:
-            loaded_wallet._skip_worker_checksum = False
-
-        loaded_wallet._savevalidseeds = False
-        if args.savevalidseeds:
-            loaded_wallet._savevalidseeds = args.savevalidseeds
-            if args.savevalidseeds_filesize:
-                if args.savevalidseeds_filesize <= 0:
-                    print("ERROR: --savevalidseed-filesize needs to be a positive whole number")
-                    exit()
-            else:
-                print("NOTICE: No Seed file size specified, Setting Seed Filesize to 10 million seeds per file")
-                args.savevalidseeds_filesize = 10000000 # 10 million checksummed seeds will produce files about 1gb each (for 24 word seeds), quite easy to work with...
-
-            loaded_wallet._seedfilecount = args.savevalidseeds_filesize
-            if loaded_wallet._skip_worker_checksum:
-                print("WARNING: Skipping Worker Checksum is probably not what you want when using --savevalideeds argument")
-
-        if args.multi_file_seedlist:
-            loaded_wallet.load_multi_file_seedlist = True
-        else:
-            loaded_wallet.load_multi_file_seedlist = False
-
-
-        ##############################
-        # OpenCL related arguments
-        ##############################
-
-        loaded_wallet.opencl = False
-        loaded_wallet.opencl_algo = -1
-        loaded_wallet.opencl_context_pbkdf2_sha512 = -1
-        # Parse and syntax check all of the GPU related options
-        if args.enable_opencl:
-            if not module_opencl_available:
-                exit("\nERROR: Cannot Load pyOpenCL, see the installation guide at https://btcrecover.readthedocs.io/en/latest/GPU_Acceleration/")
-
-            if not hasattr(loaded_wallet, "_return_verified_password_or_false_opencl"):
-                btcrpass.error_exit("Wallet Type: " + loaded_wallet.__class__.__name__ + " does not support OpenCL acceleration")
-
-            loaded_wallet.opencl = True
-            # Append GPU related arguments to be sent to BTCrpass
-            extra_args.append("--enable-opencl")
-
-            if args.force_checksum_in_generator:
-                print()
-                print("Note: Performing Seed Checksum in the Generator Step will result in inaccurate speed and password count numbers (Only seeds with valid checksum are included in the count)")
-                print()
-                loaded_wallet._checksum_in_generator = True
-
-            #
-            if args.opencl_platform:
-                loaded_wallet.opencl_platform = args.opencl_platform[0]
-                loaded_wallet.opencl_device_worksize = 0
-                extra_args.append("--opencl-platform")
-                extra_args.append(str(args.opencl_platform[0]))
-                for device in pyopencl.get_platforms()[args.opencl_platform[0]].get_devices():
-                    if device.max_work_group_size > loaded_wallet.opencl_device_worksize:
-                        loaded_wallet.opencl_device_worksize = device.max_work_group_size
-            #
-            # Else if specific devices weren't requested, try to build a good default list
-            else:
-                btcrecover.opencl_helpers.auto_select_opencl_platform(loaded_wallet)
-                #print("OpenCL: Auto Selecting: ", best_device, "on Platform: ", best_platform)
-
-            if args.opencl_devices:
-                loaded_wallet.opencl_devices = args.opencl_devices
-                loaded_wallet.opencl_devices = [int(x) for x in loaded_wallet.opencl_devices]
-                if max(loaded_wallet.opencl_devices) > (len(pyopencl.get_platforms()[loaded_wallet.opencl_platform].get_devices()) - 1):
-                    print("Error: Invalid OpenCL device selected")
-                    exit()
-
-            loaded_wallet.opencl_algo = 0
-            loaded_wallet.opencl_context_pbkdf2_sha512 = 0
-
-            extra_args.append("--opencl-workgroup-size")
-            if args.opencl_workgroup_size:
-                loaded_wallet.opencl_device_worksize = args.opencl_workgroup_size[0]
-                extra_args.append(str(args.opencl_workgroup_size[0]))
-                leastbad_worksize = loaded_wallet.opencl_device_worksize
-            else:
-                if args.force_checksum_in_generator or args.skip_worker_checksum:
-                    leastbad_worksize = loaded_wallet.opencl_device_worksize
-                else: # If the worksize hasn't be manually specificed, come up with a sensible automatic setting which matches the device worksize with the anticipated checksum error rate
-                    leastbad_worksize = loaded_wallet.opencl_device_worksize * 50
-                    if args.mnemonic_length:
-                        mnemonic_length = args.mnemonic_length
-                    else:
-                        mnemonic_length = len(mnemonic_ids_guess)
-                    if mnemonic_length == 12:
-                        if args.wallet_type:
-                            if args.wallet_type.lower() == "electrum2":
-                                leastbad_worksize = int(loaded_wallet.opencl_device_worksize * 125)
-                        else:
-                            leastbad_worksize = int(loaded_wallet.opencl_device_worksize * 16)
-                    if mnemonic_length == 18:
-                        leastbad_worksize = int(loaded_wallet.opencl_device_worksize * 64)
-                    if mnemonic_length == 24:
-                        leastbad_worksize = int(loaded_wallet.opencl_device_worksize * 256)
-                extra_args.append(str(leastbad_worksize))
-
-            #print("OpenCL: Using Work Group Size: ", leastbad_worksize)
-            #print()
-        #
-        # if not --enable-opencl: sanity checks
-        else:
-            loaded_wallet.opencl = False
-            for argkey in "opencl_platform", "opencl_workgroup_size":
-                if args.__dict__[argkey] != parser.get_default(argkey):
-                    print("Warning: --" + argkey.replace("_", "-"), "is ignored without --enable-opencl",
-                          file=sys.stderr)
-
-    except UnboundLocalError: pass
-
-
-    # Seeds for some wallet types have a checksum which is unlikely to be correct
-    # for the initial provided seed guess; if it is correct, let the user know
-    try:
-        if (  loaded_wallet._initial_words_valid
-          and loaded_wallet.verify_mnemonic_syntax(mnemonic_ids_guess)
-          and loaded_wallet._verify_checksum(mnemonic_ids_guess) ):
-            print(u"Initial seed guess has a valid checksum ({:.2g}% chance).".format(loaded_wallet._checksum_ratio * 100.0))
-    except AttributeError: pass
-
-    # Now that most of the GUI code is done, undo any Windows shell extension workarounds from init_gui()
-    if sys.platform == "win32" and tk_root:
-        del sys.modules["win32api"]
-        del sys.modules["win32com"]
-        # Some py2exe-compiled .dll shell extensions set sys.frozen, which should only be set
-        # for "frozen" py2exe .exe's; this causes problems with multiprocessing, so delete it
-        try:
-            del sys.frozen
-        except AttributeError: pass
-
-    if phase:
-        phases = (phase,)
-    # Set reasonable defaults for the search phases
-    else:
-        # If each guess is very slow, separate out the first two phases
-        passwords_per_seconds = loaded_wallet.passwords_per_seconds(1)
-        if passwords_per_seconds < 25:
-            phases = [ dict(typos=1), dict(typos=2, min_typos=2) ]
-        else:
-            phases = [ dict(typos=2) ]
-        #
-        # These two phases are added to all searches
-        phases.extend(( dict(typos=1, big_typos=1), dict(typos=2, big_typos=1, min_typos=2) ))
-        #
-        # Add a final more thorough phase (This one will take a few hours)
-        phases.append(dict(typos=2, big_typos=2, min_typos=2, extra_args=["--no-dupchecks"]))
-
-    for phase_num, phase_params in enumerate(phases, 1):
-        # Print Timestamp that this step occured
-        print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ", end="")
-
-        # Print a friendly message describing this phase's search settings
-        print("Phase {}/{}: ".format(phase_num, len(phases)), end="")
-        if phase_params["typos"] == 1:
-            print("1 mistake", end="")
-        else:
-            print("up to {} mistakes".format(phase_params["typos"]), end="")
-        if phase_params.get("big_typos"):
-            if phase_params["big_typos"] == phase_params["typos"] == 1:
-                print(" which can be an entirely different seed word.")
-            else:
-                print(", {} of which can be an entirely different seed word.".format(phase_params["big_typos"]))
-        else:
-            print(", excluding entirely different seed words.")
-
-        # Perform this phase's search
-        phase_params.setdefault("extra_args", []).extend(extra_args)
-
-        mnemonic_found = run_btcrecover(**phase_params)
-
-        if not listseeds:
-            # Print Timestamp that this step occured
-            print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": Search Complete")
-
-            if mnemonic_found:
-                return " ".join(loaded_wallet.id_to_word(i) for i in mnemonic_found), loaded_wallet.get_path_coin()
-            elif mnemonic_found is None:
-                return None, loaded_wallet.get_path_coin()  # An error occurred or Ctrl-C was pressed inside btcrpass.main()
-            elif loaded_wallet._savevalidseeds: # Don't give a message that seed isn't found, that isn't relevant in this instance
-                pass
-            else:
-                print(" Seed not found" + ( ", sorry..." if phase_num==len(phases) else "" ))
-
-    return False, None  # No error occurred; the mnemonic wasn't found
 
 def show_mnemonic_gui(mnemonic_sentence, path_coin):
     """may be called *after* main() to display the successful result iff the GUI is in use

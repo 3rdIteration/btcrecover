@@ -27,17 +27,19 @@
 
 import compatibility_check
 
+from btcrecover import btcrpass
 from btcrecover import btcrseed
 import sys, multiprocessing
 
 if __name__ == "__main__":
     print()
-    print("Starting", btcrseed.full_version())
+    print("Starting", btcrpass.full_version())
 
-    btcrseed.register_autodetecting_wallets()
-    mnemonic_sentence, path_coin = btcrseed.main(sys.argv[1:])
+    context = btcrpass.RecoveryContext()
+    btcrpass.parse_arguments(context, sys.argv[1:])
+    (password_found, not_found_msg) = btcrpass.main(context)
 
-    if mnemonic_sentence:
+    if isinstance(password_found, str):
         if not btcrseed.tk_root:  # if the GUI is not being used
             print()
             print(
@@ -49,19 +51,19 @@ if __name__ == "__main__":
 
             # Selective Donation Addressess depending on path being recovered... (To avoid spamming the dialogue with shitcoins...)
             # TODO: Implement this better with a dictionary mapping in seperate PY file with BTCRecover specific donation addys... (Seperate from YY Channel)
-            if path_coin == 28:
+            if context.loaded_wallet.btcrseed_wallet.path_coin == 28:
                 print("VTC: vtc1qxauv20r2ux2vttrjmm9eylshl508q04uju936n ")
 
-            if path_coin == 22:
+            if context.loaded_wallet.btcrseed_wallet.path_coin == 22:
                 print("MONA: mona1q504vpcuyrrgr87l4cjnal74a4qazes2g9qy8mv ")
 
-            if path_coin == 5:
+            if context.loaded_wallet.btcrseed_wallet.path_coin == 5:
                 print("DASH: Xx2umk6tx25uCWp6XeaD5f7CyARkbemsZG ")
 
-            if path_coin == 121:
+            if context.loaded_wallet.btcrseed_wallet.path_coin == 121:
                 print("ZEN: znUihTHfwm5UJS1ywo911mdNEzd9WY9vBP7 ")
 
-            if path_coin == 3:
+            if context.loaded_wallet.btcrseed_wallet.path_coin == 3:
                 print("DOGE: DMQ6uuLAtNoe5y6DCpxk2Hy83nYSPDwb5T ")
 
             print()
@@ -70,26 +72,27 @@ if __name__ == "__main__":
             print(
                 "You may also consider donating to Gurnec, who created and maintained this tool until late 2017 @ 3Au8ZodNHPei7MQiSVAWb7NB2yqsb48GW4")
             print()
-            print("Seed found:", mnemonic_sentence)  # never dies from printing Unicode
-            if isinstance(btcrseed.loaded_wallet, btcrseed.WalletSLIP39Seed):
+            print("Seed found:", password_found)  # never dies from printing Unicode
+            if isinstance(context.loaded_wallet, btcrseed.WalletSLIP39Seed):
                 print(
                     "NOTE: SLIP39 seed recovery matches checksums, so needs to be manually verified"
                 )
 
         # print this if there's any chance of Unicode-related display issues
-        if any(ord(c) > 126 for c in mnemonic_sentence):
-            print("HTML Encoded Seed:", mnemonic_sentence.encode("ascii", "xmlcharrefreplace").decode())
+        if any(ord(c) > 126 for c in password_found):
+            print("HTML Encoded Seed:", password_found.encode("ascii", "xmlcharrefreplace").decode())
 
         if btcrseed.tk_root:      # if the GUI is being used
-            btcrseed.show_mnemonic_gui(mnemonic_sentence, path_coin)
+            btcrseed.show_mnemonic_gui(password_found, context.loaded_wallet.btcrseed_wallet.path_coin)
 
         retval = 0
 
-    elif mnemonic_sentence is None:
-        retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
+    elif not_found_msg:
+        print(not_found_msg, file=sys.stderr if context.args.listpass else sys.stdout)
+        retval = 0
 
     else:
-        retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
+        retval = 1  # An error occurred or Ctrl-C was pressed
 
     # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
     for process in multiprocessing.active_children():

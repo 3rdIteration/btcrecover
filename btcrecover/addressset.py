@@ -23,6 +23,7 @@ __version__ =  "1.13.0-CryptoGuide"
 import binascii
 import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math
 from os import path
+from typing import Union, Optional
 
 from datetime import datetime
 
@@ -64,7 +65,7 @@ class AddressSet(object):
     HEADER_LEN = 65536
     assert HEADER_LEN % mmap.ALLOCATIONGRANULARITY == 0
 
-    def __init__(self, table_len, bytes_per_addr = 8, max_load = 0.75):
+    def __init__(self, table_len: int, bytes_per_addr: int = 8, max_load: float = 0.75):
         """
         :param table_len: hash table size in count of addresses; must be a power of 2
         :type table_len: int
@@ -97,17 +98,17 @@ class AddressSet(object):
 
         if table_len > 1000 : #only display this if we are creating an addressDB
             # Print Timestamp that this step occured
-            print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ", end="")
-            print("Creating Address Database with room for", self._max_len, "addresses")
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"{now}: Creating Address Database with room for {self._max_len} addresses")
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict:
         # mmaps can't be pickled, so save only what's needed to recreate the object from scratch later
         if isinstance(self._data, mmap.mmap):
             return {"dbfilename": self._dbfile.name, "mmap_access": self._mmap_access}
         else:
             return self.__dict__
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict) -> None:
         # If the object contained an mmap, recreate it from scratch
         if "dbfilename" in state:
             new = self.fromfile(open(state["dbfilename"], "r+b" if state["mmap_access"]==mmap.ACCESS_WRITE else "rb"),
@@ -117,13 +118,13 @@ class AddressSet(object):
         else:
             self.__dict__ = state
 
-    def  __len__(self):
+    def __len__(self) -> int:
         return self._len
 
-    def __contains__(self, address):
+    def __contains__(self, address: bytes) -> bool:
         return self._find(address) is True
 
-    def add(self, address, textAddresses = False, addressType = None, coin = 0):
+    def add(self, address: bytes, textAddresses: bool = False, addressType: str = None, coin: int = 0) -> None:
         """Adds the address to the set or outputs it to a text file
 
         :param address: the address in hash160 (length 20) format to add
@@ -133,7 +134,7 @@ class AddressSet(object):
         """
 
         #Check Address Type and convert to bytes if in str format. (Keeps unit tests working as-is in python 3)
-        if type(address) is str :
+        if isinstance(address, str):
             address = address.encode()
 
         pos = self._find(address) #Check to see if the address is already in the addressDB
@@ -156,7 +157,7 @@ class AddressSet(object):
                 print()
                 print("*****AddressDB Creation Failed*****")
                 print()
-                print("Offline Blockchain too large for AddressDB File... It might work if you retry and increase --dblength value by 1, though this will double the size of the file and RAM required to create it... (eg: 30 => 8GB required space and RAM) dblength for this run was:",int(math.log(self._dbLength,2)))
+                print(f"Offline Blockchain too large for AddressDB File... It might work if you retry and increase --dblength value by 1, though this will double the size of the file and RAM required to create it... (eg: 30 => 8GB required space and RAM) dblength for this run was: {int(math.log(self._dbLength,2))}")
                 print("Alternatily you can use --blocks-startdate and --blocks-enddate to narrow the date range to check")
                 exit() #DB Creation Failed, exit the program...
 
@@ -170,10 +171,10 @@ class AddressSet(object):
     # excluding those bytes already used for the "hash" above--are stored in the table,
     # causing different addresses to appear to be the same and false positives, however
     # (with high probability) only for invalid addresses (those w/o private keys).
-    def _find(self, addr_to_find):
+    def _find(self, addr_to_find: bytes) -> Union[int, bool]:
 
         #Check Address Type and convert to bytes if in str format (Keeps unit tests working as-is in python 3)
-        if type(addr_to_find) is str :
+        if isinstance(addr_to_find, str):
             addr_to_find = addr_to_find.encode()
 
         pos = self._bytes_per_addr * (bytes_to_int(addr_to_find[ -self._hash_bytes :]) & self._hash_mask)
@@ -208,10 +209,10 @@ class AddressSet(object):
             pos -= self._bytes_per_addr
 
     @staticmethod
-    def _remove_nonheader_attribs(attrs):
+    def _remove_nonheader_attribs(attrs: dict) -> None:
         del attrs["_data"], attrs["_dbfile"], attrs["_mmap_access"]
 
-    def _header(self):
+    def _header(self) -> bytes:
         # Construct a 64K header with the file magic, this object's attributes, plus the version
         header_dict = self.__dict__.copy()
         self._remove_nonheader_attribs(header_dict)
@@ -223,15 +224,14 @@ class AddressSet(object):
         assert header_len < self.HEADER_LEN
         return header + b"\0" * (self.HEADER_LEN - header_len)  # appends at least one nul
 
-    def tofile(self, dbfile):
+    def tofile(self, dbfile: io.BufferedIOBase) -> None:
         """Save the address set to a file
 
         :param dbfile: an open file object where the set is saved (overwriting it)
         :type dbfile: io.FileIO or file
         """
         if dbfile.tell() % mmap.ALLOCATIONGRANULARITY != 0:
-            print("AddressSet: warning: if header position in file isn't a multiple of {}, it probably can't be loaded with fromfile()"
-                  .format(mmap.ALLOCATIONGRANULARITY), file=sys.stderr)
+            print(f"AddressSet: warning: if header position in file isn't a multiple of {mmap.ALLOCATIONGRANULARITY}, it probably can't be loaded with fromfile()", file=sys.stderr)
         if "b" not in dbfile.mode:
             raise ValueError("must open file in binary mode")
         # Windows Python 2 file objects can't handle writes >= 4GiB. Objects returned
@@ -243,7 +243,7 @@ class AddressSet(object):
         dbfile.write(self._data)
 
     @classmethod
-    def fromfile(cls, dbfile, mmap_access = mmap.ACCESS_READ, preload = True):
+    def fromfile(cls, dbfile: io.BufferedIOBase, mmap_access=mmap.ACCESS_READ, preload: bool = True) -> "AddressSet":
         """Load the address set from a file
 
         :param dbfile: an open file object from which the set is loaded;
@@ -258,7 +258,7 @@ class AddressSet(object):
             raise ValueError("must open file in binary mode")
         header_pos = dbfile.tell()
         if header_pos % mmap.ALLOCATIONGRANULARITY != 0:
-            raise ValueError("header position in file must be a multiple of {}".format(mmap.ALLOCATIONGRANULARITY))
+            raise ValueError(f"header position in file must be a multiple of {mmap.ALLOCATIONGRANULARITY}")
         #
         # Read in the header safely (ast.literal_eval() is safe for untrusted data)
         header = dbfile.read(cls.HEADER_LEN)
@@ -269,8 +269,7 @@ class AddressSet(object):
         assert config_end > 0
         config = ast.literal_eval(header[magic_len:config_end].decode())
         if config["version"] != cls.VERSION:
-            raise ValueError("can't load address database version {} (only supports {})"
-                             .format(config["version"], cls.VERSION))
+            raise ValueError(f"can't load address database version {config['version']} (only supports {cls.VERSION})")
         #
         # Create an AddressSet object and replace its attributes
         self = cls(1)  # (size is irrelevant since it's getting replaced)
@@ -303,7 +302,7 @@ class AddressSet(object):
         #
         return self
 
-    def close(self, flush = True):
+    def close(self, flush: bool = True) -> None:
         if self._dbfile:                 # if present, self._data is an mmap
             if not self._dbfile.closed:  # if not closed, the mmap was opened in write/update mode
                 self._dbfile.write(self._header())  # update the header
@@ -317,14 +316,14 @@ class AddressSet(object):
         if flush:
             gc.collect()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if hasattr(self, "_dbfile"):
             self.close(flush=False)
 
 
 # Decodes a Bitcoin-style variable precision integer and
 # returns a tuple containing its value and incremented offset
-def varint(data, offset):
+def varint(data: bytes, offset: int) -> tuple[int, int]:
     b = data[offset]
     if b <= 252:
         return b, offset + 1
@@ -336,7 +335,11 @@ def varint(data, offset):
         return struct.unpack_from("<Q", data, offset + 1)[0], offset + 9
     assert False
 
-def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-01", endBlockDate="3000-12-31", startBlockFile = 0, addressDB_yolo = False, outputToText = False, update = False, progress_bar = True, addresslistfile = None, multiFile = False, forcegzip = False):
+def create_address_db(dbfilename: str, blockdir: str, table_len: int,
+                      startBlockDate: str = "2019-01-01", endBlockDate: str = "3000-12-31",
+                      startBlockFile: int = 0, addressDB_yolo: bool = False, outputToText: bool = False,
+                      update: bool = False, progress_bar: bool = True, addresslistfile: Optional[str] = None,
+                      multiFile: bool = False, forcegzip: bool = False) -> None:
     """Creates an AddressSet database and saves it to a file
 
     :param dbfilename: the file name where the database is saved (overwriting it)
@@ -370,11 +373,11 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
         for filename in glob.iglob(path.join(blockdir, "blk*.dat")):
             if path.isfile(filename): break
         else:
-            raise ValueError("no block files exist in blocks directory '{}'".format(blockdir))
+            raise ValueError(f"no block files exist in blocks directory '{blockdir}'")
 
-        filename = "blk{:05}.dat".format(first_filenum)
+        filename = f"blk{first_filenum:05}.dat"
         if not path.isfile(path.join(blockdir, filename)):
-            raise ValueError("first block file '{}' doesn't exist in blocks directory '{}'".format(filename, blockdir))
+            raise ValueError(f"first block file '{filename}' doesn't exist in blocks directory '{blockdir}'")
 
     if not update:
         # Open the file early to make sure we can, but don't overwrite it yet
@@ -396,7 +399,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
     if addresslistfile:
         import btcrecover.btcrseed
         import pathlib
-        print("Initial AddressDB Contains", len(address_set), "Addresses")
+        print(f"Initial AddressDB Contains {len(address_set)} Addresses")
 
         # Check whether we are looking at a file or a folder
         fileList = pathlib.Path(addresslistfile)
@@ -406,18 +409,18 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
             fileList = [fileList]
 
         # Iterate through the list files
-        for addresslistfile in fileList:
+        for addresslistfile_path in fileList:
             # Check whether we are parsing a compressed list or raw text
             import gzip
-            if addresslistfile.suffix == ".gz" or forcegzip:
+            if addresslistfile_path.suffix == ".gz" or forcegzip:
                 flexibleOpen = gzip.open
             else:
                 flexibleOpen = open
 
             try:
                 # Open the file
-                print("Loading: ", addresslistfile)
-                with flexibleOpen(addresslistfile) as addressList_file:
+                print(f"Loading: {addresslistfile_path}")
+                with flexibleOpen(addresslistfile_path) as addressList_file:
 
                     addresses_loaded = 0
                     for address in addressList_file:
@@ -429,11 +432,11 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                                 pass
 
                             # Strip any and handle  JSON data present for some cryptos in data exported from bigquery
-                            if (address[2:11] == 'addresses'):
+                            if address.startswith('{"addresses"'):
                                 address = address[15:-4]
 
                             # Ignore nonce and balance in Eth tsv address lists exported from blockchair
-                            addressparts = address.split("	")
+                            addressparts = address.split("\t")
                             if (len(addressparts) == 3 and len(addressparts[0]) == 40): #Looks like an Eth address
                                 address = '0x' + addressparts[0]
                             elif (len(addressparts) == 2): #Probably a Bitcoin Address
@@ -448,7 +451,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                                 #exit()
                             #else:
                             # Infer the address type based on the address formatting (This isn't ideal but is good enough for now)
-                            if(address[0:2] != '0x') and (len(address.rstrip()) != 40):
+                            if not address.startswith('0x') and len(address.rstrip()) != 40:
                                 address_set.add(btcrecover.btcrseed.WalletBase._addresses_to_hash160s([address.rstrip()]).pop())
                             else:
                                 address_set.add(btcrecover.btcrseed.WalletEthereum._addresses_to_hash160s([address.rstrip()]).pop())
@@ -456,21 +459,20 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
 
 
                             if(addresses_loaded % 1000000 == 0):
-                                print("Checked:", addresses_loaded, "addresses in current file,", len(address_set), "in unique Hash160s in AddressDB")
+                                print(f"Checked: {addresses_loaded} addresses in current file, {len(address_set)} in unique Hash160s in AddressDB")
 
                         except Exception as e:
-                            print("Skipping Invalid Line: ", address.rstrip(), e)
+                            print(f"Skipping Invalid Line: {address.rstrip()}, {e}")
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "   ", end="")
-                    print("Checked:", addresses_loaded, "addresses in current file,", len(address_set),
-                          "in unique Hash160s in AddressDB")
+                    print(f"{now}   Checked: {addresses_loaded} addresses in current file, {len(address_set)} in unique Hash160s in AddressDB")
 
             except Exception as e:
-                print("Error loading file: ", e)
+                print(f"Error loading file: {e}")
 
-            print("Finished: ", addresslistfile)
+            print(f"Finished: {addresslistfile_path}")
 
-        print("Finished AddressDB Contains", len(address_set), "Addresses")
+        print(f"Finished AddressDB Contains {len(address_set)} Addresses")
 
     else:
         if progress_bar:
@@ -482,10 +484,10 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
         if progress_bar:
             print("Parsing block files ...")
             for filenum in itertools.count(first_filenum):
-                filename = path.join(blockdir, "blk{:05}.dat".format(filenum))
+                filename = path.join(blockdir, f"blk{filenum:05}.dat")
                 if not path.isfile(filename):
                     break
-            progress_label = progressbar.FormatLabel(" {:11,} addrs. %(elapsed)s, ".format(len(address_set)))
+            progress_label = progressbar.FormatLabel(f" {{:11,}} addrs. %(elapsed)s, ".format(len(address_set)))
             block_bar_widgets = [progressbar.SimpleProgress(), " ",
                 progressbar.Bar(left="[", fill="-", right="]"),
                 progress_label,
@@ -498,7 +500,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
             # e.g. blk00943.dat   255,212,706
 
         for filenum in itertools.count(first_filenum):
-            filename = path.join(blockdir, "blk{:05}.dat".format(filenum))
+            filename = path.join(blockdir, f"blk{filenum:05}.dat")
             if not path.isfile(filename):
                 break
             address_set.last_filenum = filenum
@@ -506,8 +508,8 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
             with open(filename, "rb") as blockfile:
                 if not progress_bar:
                     # Print Timestamp that this step occured
-                    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "   ", end="")
-                    print(path.basename(filename), end=" ")
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print(f"{now}   {path.basename(filename)} ", end="")
 
                 header = blockfile.read(8)  # read in the magic and remaining (after these 8 bytes) block length
                 chain_magic = header[:4]
@@ -517,7 +519,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                         if not addressDB_yolo: #Ignore checks on the blockchain type
                             #Throw an error message and exit if we encounter unsupported magic value
                             if supportedChains(chain_magic) == -1:
-                                print("Unrecognised Block Protocol (Unrecognised Magic), Found:", chain_magic, " You can force an AddressDB creation attempt by re-running this tool with the flag --dbyolo")
+                                print(f"Unrecognised Block Protocol (Unrecognised Magic), Found: {chain_magic}, You can force an AddressDB creation attempt by re-running this tool with the flag --dbyolo")
 
                             if supportedChains(chain_magic) == 0:
                                 print("Incompatible Block Protocol, You can force an AddressDB creation attempt by re-running this tool with the flag --dbyolo, but it probably won't work")
@@ -553,7 +555,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                     blockDate = datetime.fromtimestamp(float(block_time))
 
                     #Only add addresses which occur in blocks that are within the time window we are looking at
-                    if datetime.strptime(startBlockDate + " 00:00:00", '%Y-%m-%d %H:%M:%S') <= blockDate and datetime.strptime(endBlockDate + " 23:59:59", '%Y-%m-%d %H:%M:%S') >= blockDate:
+                    if datetime.strptime(f"{startBlockDate} 00:00:00", '%Y-%m-%d %H:%M:%S') <= blockDate and datetime.strptime(f"{endBlockDate} 23:59:59", '%Y-%m-%d %H:%M:%S') >= blockDate:
 
                         for tx_num in range(tx_count):
                             #txDataPlus = block[offset:offset + 100]
@@ -596,14 +598,14 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                     header = blockfile.read(8)  # read in the next magic and remaining block length
 
             if progress_bar:
-                block_bar_widgets[3] = progressbar.FormatLabel(" {:11,} addrs. %(elapsed)s, ".format(len(address_set))) # updates address count
+                block_bar_widgets[3] = progressbar.FormatLabel(f" {{:11,}} addrs. %(elapsed)s, ".format(len(address_set))) # updates address count
                 nextval = progress_bar.currval + 1
                 if nextval > progress_bar.maxval:  # can happen if the bitcoin client is left running
                     progress_bar.maxval = nextval
                 progress_bar.update(nextval)
             else:
-                print("   {:13,}".format(len(address_set)), end="")
-                print("    ", blockDate)
+                print(f"   {len(address_set):13,}", end="")
+                print(f"    {blockDate}")
 
         if progress_bar:
             progress_bar.widgets.pop()  # remove the ETA
@@ -618,5 +620,5 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
         dbfile.close()
 
     # Print Timestamp that this step occured
-    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ", end="")
-    print("\nDone.")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{now}: \nDone.")
