@@ -894,8 +894,10 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
 
+        pbkdf2_kernel = prg.pbkdf2
+
         def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.pbkdf2(
+            pbkdf2_kernel(
                 s.queue,
                 pwdim,
                 None,
@@ -947,8 +949,10 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
 
+        pbkdf2_saltlist_kernel = prg.pbkdf2_saltlist
+
         def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.pbkdf2_saltlist(
+            pbkdf2_saltlist_kernel(
                 s.queue,
                 pwdim,
                 None,
