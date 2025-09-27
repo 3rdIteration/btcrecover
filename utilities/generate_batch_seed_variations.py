@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 WORDLIST_PATH = Path(__file__).resolve().parents[1] / "btcrecover" / "wordlists" / "bip39-en.txt"
-DEFAULT_OUTPUT = Path("batch_seed.txt")
+DEFAULT_OUTPUT = Path("batch_seeds.txt")
 
 
 def read_bip39_wordlist() -> list[str]:
