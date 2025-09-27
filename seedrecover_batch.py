@@ -53,6 +53,16 @@ def _parse_batch_arguments(argv):
         metavar="FILE",
         help="file to append completed seeds and their status (default: BATCH_FILE.progress)",
     )
+    parser.add_argument(
+        "--batch-reverse",
+        action="store_true",
+        help="process the batch file in reverse order",
+    )
+    parser.add_argument(
+        "--batch-skip-completed",
+        action="store_true",
+        help="skip seeds already marked as CHECKED or MATCHED in the progress file",
+    )
 
     parsed_args, remaining = parser.parse_known_args(argv[1:])
     sys.argv = [argv[0]] + remaining
@@ -84,7 +94,43 @@ def _parse_batch_arguments(argv):
         if max(worker_ids) >= workers_total:
             parser.error("in --batch-worker ID#/TOTAL#, ID# must be <= TOTAL#")
 
-    return parsed_args.batch_file, progress_filename, worker_ids, workers_total
+    return (
+        parsed_args.batch_file,
+        progress_filename,
+        worker_ids,
+        workers_total,
+        parsed_args.batch_reverse,
+        parsed_args.batch_skip_completed,
+    )
+
+
+def _load_completed_seeds(progress_filename):
+    completed_status = {}
+    if not progress_filename:
+        return set()
+
+    success_statuses = {"MATCHED", "CHECKED"}
+
+    try:
+        with open(progress_filename, "r", encoding="utf-8") as progress_file:
+            for line in progress_file:
+                status, _, seed = line.partition("\t")
+                seed_value = seed.rstrip("\n")
+                if seed_value:
+                    completed_status[seed_value] = status
+    except FileNotFoundError:
+        return set()
+    except OSError as exc:  # pragma: no cover - defensive programming
+        print(
+            f"Unable to read progress file '{progress_filename}' to skip completed seeds: {exc}",
+            file=sys.stderr,
+        )
+
+    return {
+        seed
+        for seed, status in completed_status.items()
+        if status in success_statuses
+    }
 
 
 def _append_progress(progress_filename, seed, status):
@@ -109,7 +155,14 @@ def _append_progress(progress_filename, seed, status):
         print(f"Unable to update progress file '{progress_filename}': {exc}", file=sys.stderr)
 
 if __name__ == "__main__":
-    batch_filename, progress_filename, worker_ids, workers_total = _parse_batch_arguments(sys.argv)
+    (
+        batch_filename,
+        progress_filename,
+        worker_ids,
+        workers_total,
+        process_reverse,
+        skip_completed,
+    ) = _parse_batch_arguments(sys.argv)
 
     print()
     print("Starting", btcrseed.full_version())
@@ -123,6 +176,13 @@ if __name__ == "__main__":
         print(f"Unable to open batch file '{batch_filename}': {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if process_reverse:
+        batch_seed_list = list(reversed(batch_seed_list))
+
+    completed_seeds = (
+        _load_completed_seeds(progress_filename) if skip_completed else set()
+    )
+
     seed_index = 0
     retval = 0
 
@@ -134,6 +194,12 @@ if __name__ == "__main__":
         if not stripped_line or stripped_line.startswith('#'):
             continue
 
+        seed_to_try = mnemonic.split("#")[0].strip()
+
+        if skip_completed and seed_to_try in completed_seeds:
+            seed_index += 1
+            continue
+
         if worker_ids is not None:
             if (seed_index % workers_total) not in worker_ids:
                 seed_index += 1
@@ -142,7 +208,6 @@ if __name__ == "__main__":
         seed_index += 1
 
         # Split seeds from any comments
-        seed_to_try = mnemonic.split("#")[0].strip()
         temp_argv.append("--mnemonic")
         temp_argv.append(seed_to_try)
 
@@ -157,6 +222,8 @@ if __name__ == "__main__":
 
         if mnemonic_sentence:
             _append_progress(progress_filename, seed_to_try, "MATCHED")
+            if skip_completed:
+                completed_seeds.add(seed_to_try)
             if not btcrseed.tk_root:  # if the GUI is not being used
                 print()
                 print(
@@ -207,6 +274,8 @@ if __name__ == "__main__":
 
         else:
             _append_progress(progress_filename, seed_to_try, "CHECKED")
+            if skip_completed:
+                completed_seeds.add(seed_to_try)
             retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
 
         # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
