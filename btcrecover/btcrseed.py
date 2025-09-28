@@ -1149,7 +1149,7 @@ class WalletBIP32(WalletBase):
             purpose_index = current_path_indexes[0] if current_path_indexes else None
             if purpose_index is not None and purpose_index >= 2 ** 31:
                 purpose_index -= 2 ** 31
-            script_type_map = {44: "p2pkh", 49: "p2sh", 84: "p2wpkh", 86: "p2tr"}
+            script_type_map = {0: "p2pkh", 44: "p2pkh", 49: "p2sh", 84: "p2wpkh", 86: "p2tr"}
             self._path_script_types.append(script_type_map.get(purpose_index))
             self._path_strings.append(self._format_path(current_path_indexes))
 
@@ -2242,6 +2242,10 @@ class WalletElectrum2(WalletBIP39):
         super(WalletElectrum2, self).__init__(path, loading)
         self._checksum_ratio   = 2.0 / 256.0  # 2 in 256 checksums are valid on average
         self._needs_passphrase = None
+
+        for idx, path_str in enumerate(getattr(self, "_path_strings", ())):
+            if path_str == "m/0'/0" and idx < len(self._path_script_types):
+                self._path_script_types[idx] = None
 
     @staticmethod
     def is_wallet_file(wallet_file):
