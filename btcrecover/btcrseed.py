@@ -493,7 +493,7 @@ class WalletElectrum1(WalletBase):
     # Creates a wallet instance from either an mpk, an addresses container and address_limit,
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, is_performance = False, address_start_index = None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False):
         self = cls(loading=True)
 
         # Process the mpk (master public key) argument
@@ -823,7 +823,7 @@ class BlockChainPassword(WalletBase):
     
     # Creates a wallet instance
     @classmethod
-    def create_from_params(self, is_performance = False, force_p2tr = False):
+    def create_from_params(self, is_performance = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, force_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False, disable_p2sh = False):
         self = self(loading=True)
         return self
     
@@ -1124,6 +1124,14 @@ class WalletBIP32(WalletBase):
                 derivation_paths.append(arg_path)
 
         self._path_indexes = []
+        self._path_script_types = []
+        self._path_strings = []
+        self._script_type_labels = {
+            "p2pkh": "BIP44 (P2PKH)",
+            "p2wpkh": "BIP84 (P2WPKH)",
+            "p2sh": "BIP49 (P2SH wrapped Segwit)",
+            "p2tr": "BIP86 (P2TR Taproot)",
+        }
         for path in derivation_paths:
             path_indexes = path.split("/")
             if path_indexes[0] == "m" or path_indexes[0] == "":
@@ -1138,6 +1146,12 @@ class WalletBIP32(WalletBase):
                     current_path_indexes += int(path_index),
 
             self._path_indexes.append(current_path_indexes)
+            purpose_index = current_path_indexes[0] if current_path_indexes else None
+            if purpose_index is not None and purpose_index >= 2 ** 31:
+                purpose_index -= 2 ** 31
+            script_type_map = {44: "p2pkh", 49: "p2sh", 84: "p2wpkh", 86: "p2tr"}
+            self._path_script_types.append(script_type_map.get(purpose_index))
+            self._path_strings.append(self._format_path(current_path_indexes))
 
     def passwords_per_seconds(self, seconds):
         if not self._passwords_per_second:
@@ -1154,12 +1168,169 @@ class WalletBIP32(WalletBase):
         return  passwords_per_second / len(self._derivation_salts)
 
 
+    @staticmethod
+    def _format_path(path_indexes):
+        if not path_indexes:
+            return "m"
+        path_parts = []
+        for index in path_indexes:
+            if index >= 2 ** 31:
+                path_parts.append(f"{index - 2 ** 31}'")
+            else:
+                path_parts.append(str(index))
+        return "m/" + "/".join(path_parts)
+
+    def _script_type_label(self, script_type):
+        if not script_type:
+            return ""
+        return self._script_type_labels.get(script_type, script_type)
+
+    def _classify_address_script_type(self, address):
+        try:
+            if isinstance(address, bytes):
+                address = address.decode()
+            address = address.strip()
+        except Exception:
+            return None
+        if not address:
+            return None
+        try:
+            base58_bytes = encoding.change_base(address, 58, 256, 25)
+            if len(base58_bytes) == 25:
+                version = base58_bytes[0]
+                if version in (0x00, 0x6f):  # Bitcoin mainnet/testnet P2PKH
+                    return "p2pkh"
+                if version in (0x05, 0xc4):  # Bitcoin mainnet/testnet P2SH
+                    return "p2sh"
+        except Exception:
+            pass
+        try:
+            decoded = encoding.addr_bech32_to_pubkeyhash(address, include_witver=True)
+            witness_tag = decoded[0]
+            data_length = decoded[1]
+            witness_version = 0 if witness_tag == 0 else witness_tag - 0x50
+            if witness_version == 0 and data_length == 20:
+                return "p2wpkh"
+            if witness_version == 1 and data_length == 32:
+                return "p2tr"
+        except Exception:
+            pass
+        return None
+
+    def _detect_address_types(self, addresses):
+        detected_types = set()
+        unknown_found = False
+        for address in addresses:
+            script_type = self._classify_address_script_type(address)
+            if script_type:
+                detected_types.add(script_type)
+            else:
+                unknown_found = True
+        if unknown_found or not detected_types:
+            return None
+        return detected_types
+
+    def _apply_script_type_filters(self):
+        detected_types = getattr(self, "_auto_detected_script_types", None)
+        detection_used = detected_types is not None
+
+        forced_types = set()
+        if getattr(self, "force_bip44", False):
+            forced_types.add("p2pkh")
+        if getattr(self, "force_bip84", False):
+            forced_types.add("p2wpkh")
+        if getattr(self, "force_p2sh", False):
+            forced_types.update({"p2sh", "p2pkh", "p2wpkh"})
+        if getattr(self, "force_p2tr", False):
+            forced_types.update({"p2tr", "p2pkh", "p2wpkh", "p2sh"})
+
+        disabled_types = set()
+        if getattr(self, "disable_bip44", False):
+            disabled_types.add("p2pkh")
+        if getattr(self, "disable_bip84", False):
+            disabled_types.add("p2wpkh")
+        if getattr(self, "disable_p2sh", False):
+            disabled_types.add("p2sh")
+        if getattr(self, "disable_p2tr", False):
+            disabled_types.add("p2tr")
+
+        if detection_used:
+            allowed_types = set(detected_types)
+        else:
+            allowed_types = {"p2pkh", "p2wpkh", "p2sh", "p2tr"}
+
+        allowed_types |= forced_types
+        allowed_types -= disabled_types
+        self._enabled_script_types = allowed_types
+
+        filtered_indexes = []
+        filtered_scripts = []
+        filtered_strings = []
+        skipped_paths = []
+
+        for idx, current_path in enumerate(self._path_indexes):
+            script_type = self._path_script_types[idx] if idx < len(self._path_script_types) else None
+            display_path = self._path_strings[idx] if idx < len(self._path_strings) else self._format_path(current_path)
+            skip_reason = None
+
+            if script_type in disabled_types:
+                skip_reason = "disabled via command line"
+            elif detection_used and script_type and script_type not in allowed_types:
+                skip_reason = "it does not match the supplied address types"
+
+            if skip_reason:
+                skipped_paths.append((display_path, script_type, skip_reason))
+                continue
+
+            filtered_indexes.append(current_path)
+            filtered_scripts.append(script_type)
+            filtered_strings.append(display_path)
+
+        if not filtered_indexes:
+            raise ValueError("No derivation paths remain after applying address and script type filters. Use the force options to override.")
+
+        self._path_indexes = filtered_indexes
+        self._path_script_types = filtered_scripts
+        self._path_strings = filtered_strings
+
+        if "p2sh" not in self._enabled_script_types:
+            self.force_p2sh = False
+        if "p2tr" not in self._enabled_script_types:
+            self.force_p2tr = False
+
+        if detection_used and detected_types:
+            detected_labels = sorted(filter(None, (self._script_type_label(t) for t in detected_types)))
+            if detected_labels:
+                print("Detected supplied address types:", ", ".join(detected_labels))
+
+        if skipped_paths:
+            for path_str, script_type, reason in skipped_paths:
+                label = self._script_type_label(script_type)
+                if label:
+                    print(f"Skipping derivation path {path_str} ({label}) because {reason}.")
+                else:
+                    print(f"Skipping derivation path {path_str} because {reason}.")
+        elif detection_used and detected_types:
+            print("All configured derivation paths match the supplied address types.")
+
+    def _should_check_path_for_script(self, script_type):
+        if not script_type:
+            return True
+        return script_type in getattr(self, "_enabled_script_types", {"p2pkh", "p2wpkh", "p2sh", "p2tr"})
+
+    def _is_script_type_enabled(self, script_type):
+        if not script_type:
+            return True
+        enabled = getattr(self, "_enabled_script_types", {"p2pkh", "p2wpkh", "p2sh", "p2tr"})
+        return script_type in enabled
+
+    
 
     # Creates a wallet instance from either an mpk, an addresses container and address_limit,
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     # (the BIP32 key derivation path is by default BIP44's account 0)
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False):
         self = cls(path, loading=True)
 
         # Process the mpk (master public key) argument
@@ -1183,8 +1354,13 @@ class WalletBIP32(WalletBase):
             if mpk or hash160s:
                 print("warning: addresses are ignored when an mpk or addressdb is provided", file=sys.stderr)
                 addresses = None
+                self._auto_detected_script_types = None
             else:
+                detected_types = self._detect_address_types(addresses)
+                self._auto_detected_script_types = detected_types
                 self._known_hash160s = self._addresses_to_hash160s(addresses)
+        else:
+            self._auto_detected_script_types = None
 
         # Process the address_limit argument
         if address_limit:
@@ -1208,6 +1384,14 @@ class WalletBIP32(WalletBase):
         self.force_p2sh = force_p2sh
         self.checksinglexpubaddress = checksinglexpubaddress
         self.force_p2tr = force_p2tr
+        self.force_bip44 = force_bip44
+        self.force_bip84 = force_bip84
+        self.disable_p2sh = disable_p2sh
+        self.disable_p2tr = disable_p2tr
+        self.disable_bip44 = disable_bip44
+        self.disable_bip84 = disable_bip84
+
+        self._apply_script_type_filters()
 
         # If mpk, addresses, and hash160s arguments were all not provided, prompt the user for an mpk first
         if not mpk and not addresses and not hash160s:
@@ -1445,7 +1629,10 @@ class WalletBIP32(WalletBase):
                 print("Match found on Non-Standard Single Address, Privkey (Generic Hex): ", privkey_bytes.hex())
                 return True
 
-        for current_path_index in self._path_indexes:
+        for path_idx, current_path_index in enumerate(self._path_indexes):
+            path_script_type = self._path_script_types[path_idx] if path_idx < len(self._path_script_types) else None
+            if not self._should_check_path_for_script(path_script_type):
+                continue
             seed_bytes = arg_seed_bytes
             privkey_bytes = seed_bytes[:32]
             chaincode_bytes = seed_bytes[32:]
@@ -1487,27 +1674,46 @@ class WalletBIP32(WalletBase):
                     d_privkey_bytes = int_to_bytes((bytes_to_int(seed_bytes[:32]) +
                                                     privkey_int) % GENERATOR_ORDER, 32)
 
-                    if ((current_path_index[0] - 2 ** 31) == 86 or self.force_p2tr):  # BIP86 Derivation Path & address
-                        d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes)
-                        d_pubkey = P2TR_tools._P2TRUtils.TweakPublicKey(d_pubkey)
-                        if len(d_pubkey) != 32: return False
-                        test_hash160 = d_pubkey
+                    script_candidates = []
+                    try_p2tr = self._is_script_type_enabled("p2tr") and (
+                        (current_path_index and (current_path_index[0] - 2 ** 31) == 86) or getattr(self, "force_p2tr", False))
+                    try_p2pkh = self._is_script_type_enabled("p2pkh") and (
+                        path_script_type in (None, "p2pkh") or getattr(self, "force_bip44", False))
+                    try_p2wpkh = self._is_script_type_enabled("p2wpkh") and (
+                        path_script_type in (None, "p2wpkh") or getattr(self, "force_bip84", False))
+                    try_p2sh = self._is_script_type_enabled("p2sh") and (
+                        (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
+
+                    if try_p2tr or try_p2pkh or try_p2wpkh or try_p2sh:
+                        base_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes)
                     else:
-                        d_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes).format(compressed=False)
-                        test_hash160 = self.pubkey_to_hash160(
-                            d_pubkey)  # Start off assuming that we have a standard BIP44/84 derivation path & address
+                        base_pubkey = None
 
-                        if((current_path_index[0] - 2**31)==49 or self.force_p2sh): #BIP49 Derivation Path & address
-                            pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
-                            WITNESS_VERSION = "\x00\x14"
-                            witness_program = WITNESS_VERSION.encode() + pubkey_hash160
-                            test_hash160 = ripemd160(hashlib.sha256(witness_program).digest())
+                    if try_p2tr and base_pubkey is not None:
+                        tweaked = P2TR_tools._P2TRUtils.TweakPublicKey(base_pubkey)
+                        if len(tweaked) != 32:
+                            return False
+                        script_candidates.append(("p2tr", tweaked))
 
-                    #Basic comparison content for Debugging
-                    #for hash160 in self._known_hash160s:
-                    #    print("Path: m/", current_path_index[0] - 2**31, "'/", current_path_index[1] - 2**31, "' Testing: ", binascii.hexlify(test_hash160), "against: ", binascii.hexlify(hash160),file=open("HashCheck.txt", "a"))
+                    if base_pubkey is not None and (try_p2pkh or try_p2wpkh or try_p2sh):
+                        d_pubkey = base_pubkey.format(compressed=False)
+                        pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
 
-                    if test_hash160 in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
+                        if try_p2pkh:
+                            script_candidates.append(("p2pkh", pubkey_hash160))
+                        if try_p2wpkh:
+                            script_candidates.append(("p2wpkh", pubkey_hash160))
+                        if try_p2sh:
+                            witness_program = b"\x00\x14" + pubkey_hash160
+                            script_candidates.append(("p2sh", ripemd160(hashlib.sha256(witness_program).digest())))
+
+                    seen_hashes = set()
+                    for candidate_type, test_hash160 in script_candidates:
+                        if test_hash160 in seen_hashes:
+                            continue
+                        seen_hashes.add(test_hash160)
+
+                        if test_hash160 in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
                             global seedfoundpath
                             seedfoundpath = "m/"
                             for index in current_path_index:
@@ -3823,6 +4029,12 @@ def main(argv):
         parser.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like Atomic, MyBitcoinWallet, PT.BTC")
         parser.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         parser.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
+        parser.add_argument("--force-bip44", action="store_true",   help="Force checking of BIP44 legacy (P2PKH) addresses even if they don't match the supplied addresses")
+        parser.add_argument("--force-bip84", action="store_true",   help="Force checking of BIP84 native SegWit (P2WPKH) addresses even if they don't match the supplied addresses")
+        parser.add_argument("--disable-p2sh", action="store_true",  help="Disable checking of P2SH segwit addresses")
+        parser.add_argument("--disable-p2tr", action="store_true",  help="Disable checking of P2TR (Taproot) addresses")
+        parser.add_argument("--disable-bip44", action="store_true", help="Disable checking of BIP44 legacy (P2PKH) addresses")
+        parser.add_argument("--disable-bip84", action="store_true", help="Disable checking of BIP84 native SegWit (P2WPKH) addresses")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
@@ -4082,6 +4294,24 @@ def main(argv):
 
         if args.force_p2tr:
             create_from_params["force_p2tr"] = True
+
+        if args.force_bip44:
+            create_from_params["force_bip44"] = True
+
+        if args.force_bip84:
+            create_from_params["force_bip84"] = True
+
+        if args.disable_p2sh:
+            create_from_params["disable_p2sh"] = True
+
+        if args.disable_p2tr:
+            create_from_params["disable_p2tr"] = True
+
+        if args.disable_bip44:
+            create_from_params["disable_bip44"] = True
+
+        if args.disable_bip84:
+            create_from_params["disable_bip84"] = True
 
         if args.transform_wordswaps:
             print("SEED-TRANSFORM: Checking", args.transform_wordswaps, "pairs of swapped words for each possible mnemonic")

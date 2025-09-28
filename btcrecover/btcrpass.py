@@ -6048,6 +6048,12 @@ def init_parser_common():
         bip39_group.add_argument("--checksinglexpubaddress", action="store_true", help="Check non-standard single address wallets (Like MyBitcoinWallet and PT.BTC")
         bip39_group.add_argument("--force-p2sh",  action="store_true",   help="Force checking of P2SH segwit addresses for all derivation paths (Required for devices like CoolWallet S if if you are using P2SH segwit accounts on a derivation path that doesn't start with m/49')")
         bip39_group.add_argument("--force-p2tr",  action="store_true",   help="Force checking of P2TR (Taproot) addresses for all derivation paths (Required for wallets like Bitkeep/Bitget that put all accounts on  m/44')")
+        bip39_group.add_argument("--force-bip44", action="store_true",   help="Force checking of BIP44 legacy (P2PKH) addresses even if they do not match the supplied addresses")
+        bip39_group.add_argument("--force-bip84", action="store_true",   help="Force checking of BIP84 native SegWit (P2WPKH) addresses even if they do not match the supplied addresses")
+        bip39_group.add_argument("--disable-p2sh", action="store_true",  help="Disable checking of P2SH segwit addresses")
+        bip39_group.add_argument("--disable-p2tr", action="store_true",  help="Disable checking of P2TR (Taproot) addresses")
+        bip39_group.add_argument("--disable-bip44", action="store_true", help="Disable checking of BIP44 legacy (P2PKH) addresses")
+        bip39_group.add_argument("--disable-bip84", action="store_true", help="Disable checking of BIP84 native SegWit (P2WPKH) addresses")
         bip39_group.add_argument("--mnemonic",  metavar="MNEMONIC",       help="Your best guess of the mnemonic (if not entered, you will be prompted)")
         bip39_group.add_argument("--skip-mnemonic-checksum", action="store_true",
                                  help="skip validating the checksum of the provided mnemonic")
@@ -6733,7 +6739,16 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance, force_p2sh = args.force_p2sh,checksinglexpubaddress =  args.checksinglexpubaddress, force_p2tr = args.force_p2tr)
+                                    args.language, args.bip32_path, args.wallet_type, args.performance,
+                                    force_p2sh = args.force_p2sh,
+                                    checksinglexpubaddress =  args.checksinglexpubaddress,
+                                    force_p2tr = args.force_p2tr,
+                                    force_bip44 = args.force_bip44,
+                                    force_bip84 = args.force_bip84,
+                                    disable_p2sh = args.disable_p2sh,
+                                    disable_p2tr = args.disable_p2tr,
+                                    disable_bip44 = args.disable_bip44,
+                                    disable_bip84 = args.disable_bip84)
 
 
     if args.yoroi_master_password:
