@@ -30,6 +30,7 @@ import os
 import compatibility_check, copy
 
 from btcrecover import btcrseed
+from btcrecover import success_alert
 import sys, multiprocessing
 
 
@@ -221,7 +222,7 @@ if __name__ == "__main__":
             continue
 
         if mnemonic_sentence:
-            btcrseed.start_success_beep()
+            success_alert.start_success_beep()
             _append_progress(progress_filename, seed_to_try, "MATCHED")
             if skip_completed:
                 completed_seeds.add(seed_to_try)
@@ -287,6 +288,6 @@ if __name__ == "__main__":
     for process in multiprocessing.active_children():
         process.join(1.0)
 
-    btcrseed.stop_success_beep()
+    success_alert.stop_success_beep()
 
     sys.exit(retval)

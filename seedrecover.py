@@ -28,21 +28,16 @@
 import compatibility_check
 
 from btcrecover import btcrseed
+from btcrecover import success_alert
 import sys, multiprocessing
 
 
 def _start_success_beep_if_needed():
-    try:
-        btcrseed.start_success_beep()
-    except AttributeError:
-        pass
+    success_alert.start_success_beep()
 
 
 def _stop_success_beep():
-    try:
-        btcrseed.stop_success_beep()
-    except AttributeError:
-        pass
+    success_alert.stop_success_beep()
 
 if __name__ == "__main__":
     print()

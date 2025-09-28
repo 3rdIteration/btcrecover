@@ -27,7 +27,7 @@
 
 import compatibility_check
 
-from btcrecover import btcrpass
+from btcrecover import btcrpass, success_alert
 import sys, multiprocessing
 
 if __name__ == "__main__":
@@ -39,6 +39,7 @@ if __name__ == "__main__":
 	(password_found, not_found_msg) = btcrpass.main()
 
 	if isinstance(password_found, str):
+		success_alert.start_success_beep()
 		print()
 		print("If this tool helped you to recover funds, please consider donating 1% of what you recovered, in your crypto of choice to:")
 		print("BTC: 37N7B7sdHahCXTcMJgEnHz7YmiR4bEqCrS ")
@@ -73,5 +74,7 @@ if __name__ == "__main__":
 	# Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
 	for process in multiprocessing.active_children():
 		process.join(1.0)
+
+	success_alert.stop_success_beep()
 
 	sys.exit(retval)

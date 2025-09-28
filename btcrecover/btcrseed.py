@@ -25,12 +25,13 @@ disable_security_warnings = True
 
 # Import modules included in standard libraries
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
-       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime, threading
+       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
 import bisect
 from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
 # Import modules bundled with BTCRecover
 from . import btcrpass
+from . import success_alert
 from .addressset import AddressSet
 from lib.bitcoinlib import encoding
 from lib.cashaddress import convert, base58
@@ -146,47 +147,6 @@ GENERATOR_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036
 ADDRESSDB_DEF_FILENAME = "addresses.db"
 
 no_gui = False
-beep_on_find = False
-
-_success_beep_stop_event = None
-_success_beep_thread = None
-
-
-def start_success_beep():
-    """Begin a background thread that emits a terminal bell every five seconds."""
-
-    global _success_beep_stop_event, _success_beep_thread
-
-    if not beep_on_find or _success_beep_thread is not None:
-        return
-
-    _success_beep_stop_event = threading.Event()
-
-    def _beep_loop():
-        while True:
-            try:
-                print("\a", end="", flush=True)
-            except Exception:
-                pass
-            if _success_beep_stop_event.wait(5):
-                break
-
-    _success_beep_thread = threading.Thread(target=_beep_loop, name="success_beep", daemon=True)
-    _success_beep_thread.start()
-
-
-def stop_success_beep():
-    """Stop the background success beep thread if it is running."""
-
-    global _success_beep_stop_event, _success_beep_thread
-
-    if _success_beep_stop_event is not None:
-        _success_beep_stop_event.set()
-    if _success_beep_thread is not None:
-        _success_beep_thread.join(timeout=0.1)
-
-    _success_beep_stop_event = None
-    _success_beep_thread = None
 
 def full_version():
     return "seedrecover {}, {}".format(
@@ -3938,8 +3898,7 @@ def main(argv):
         else:
             disable_security_warnings = False
 
-        global beep_on_find
-        beep_on_find = args.beep_on_find
+        success_alert.set_beep_on_find(args.beep_on_find)
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)
