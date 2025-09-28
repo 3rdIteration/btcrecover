@@ -1230,6 +1230,66 @@ class WalletBIP32(WalletBase):
             return None
         return detected_types
 
+    def _detect_mpk_script_types(self, mpk):
+        if not mpk:
+            return None
+        if isinstance(mpk, bytes):
+            try:
+                mpk = mpk.decode()
+            except Exception:
+                return None
+        mpk = mpk.strip()
+        if not mpk:
+            return None
+
+        prefix = mpk[:4]
+        prefix_map = {
+            "xpub": "p2pkh",
+            "xprv": "p2pkh",
+            "tpub": "p2pkh",
+            "tprv": "p2pkh",
+            "ypub": "p2sh",
+            "yprv": "p2sh",
+            "upub": "p2sh",
+            "uprv": "p2sh",
+            "zpub": "p2wpkh",
+            "zprv": "p2wpkh",
+            "vpub": "p2wpkh",
+            "vprv": "p2wpkh",
+        }
+        script_type = prefix_map.get(prefix)
+        if script_type:
+            return {script_type}
+
+        version_bytes = None
+        for decoder in (getattr(base58, "b58decode_check", None), getattr(base58, "b58grsdecode_check", None)):
+            if not decoder:
+                continue
+            try:
+                decoded = decoder(mpk)
+                if len(decoded) >= 4:
+                    version_bytes = decoded[:4]
+                    break
+            except Exception:
+                continue
+
+        if not version_bytes:
+            return None
+
+        version_map = {
+            b"\x04\x88\xb2\x1e": "p2pkh",  # xpub
+            b"\x04\x35\x87\xcf": "p2pkh",  # tpub
+            b"\x04\x9d\x7c\xb2": "p2sh",  # ypub
+            b"\x04\x4a\x52\x62": "p2sh",  # upub
+            b"\x04\xb2\x47\x46": "p2wpkh",  # zpub
+            b"\x04\x5f\x1c\xf6": "p2wpkh",  # vpub
+        }
+
+        script_type = version_map.get(version_bytes)
+        if script_type:
+            return {script_type}
+        return None
+
     def _apply_script_type_filters(self):
         detected_types = getattr(self, "_auto_detected_script_types", None)
         detection_used = detected_types is not None
@@ -1333,8 +1393,13 @@ class WalletBIP32(WalletBase):
     def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False):
         self = cls(path, loading=True)
 
+        auto_detected_types = None
+
         # Process the mpk (master public key) argument
         if mpk:
+            mpk_script_types = self._detect_mpk_script_types(mpk)
+            if mpk_script_types:
+                auto_detected_types = mpk_script_types
             mpk = convert_to_xpub(mpk)
             if not mpk.startswith("xpub"):
                 raise ValueError("the BIP32 extended public key must begin with 'xpub, ypub or zpub'" + " " + mpk)
@@ -1354,13 +1419,12 @@ class WalletBIP32(WalletBase):
             if mpk or hash160s:
                 print("warning: addresses are ignored when an mpk or addressdb is provided", file=sys.stderr)
                 addresses = None
-                self._auto_detected_script_types = None
             else:
                 detected_types = self._detect_address_types(addresses)
-                self._auto_detected_script_types = detected_types
+                auto_detected_types = detected_types
                 self._known_hash160s = self._addresses_to_hash160s(addresses)
-        else:
-            self._auto_detected_script_types = None
+
+        self._auto_detected_script_types = auto_detected_types
 
         # Process the address_limit argument
         if address_limit:
