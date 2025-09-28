@@ -30,6 +30,20 @@ import compatibility_check
 from btcrecover import btcrseed
 import sys, multiprocessing
 
+
+def _start_success_beep_if_needed():
+    try:
+        btcrseed.start_success_beep()
+    except AttributeError:
+        pass
+
+
+def _stop_success_beep():
+    try:
+        btcrseed.stop_success_beep()
+    except AttributeError:
+        pass
+
 if __name__ == "__main__":
     print()
     print("Starting", btcrseed.full_version())
@@ -38,6 +52,7 @@ if __name__ == "__main__":
     mnemonic_sentence, path_coin = btcrseed.main(sys.argv[1:])
 
     if mnemonic_sentence:
+        _start_success_beep_if_needed()
         if not btcrseed.tk_root:  # if the GUI is not being used
             print()
             print(
@@ -94,5 +109,7 @@ if __name__ == "__main__":
     # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
     for process in multiprocessing.active_children():
         process.join(1.0)
+
+    _stop_success_beep()
 
     sys.exit(retval)

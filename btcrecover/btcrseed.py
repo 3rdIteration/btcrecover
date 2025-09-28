@@ -25,7 +25,7 @@ disable_security_warnings = True
 
 # Import modules included in standard libraries
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
-       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
+       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime, threading
 import bisect
 from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
@@ -146,6 +146,47 @@ GENERATOR_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036
 ADDRESSDB_DEF_FILENAME = "addresses.db"
 
 no_gui = False
+beep_on_find = False
+
+_success_beep_stop_event = None
+_success_beep_thread = None
+
+
+def start_success_beep():
+    """Begin a background thread that emits a terminal bell every five seconds."""
+
+    global _success_beep_stop_event, _success_beep_thread
+
+    if not beep_on_find or _success_beep_thread is not None:
+        return
+
+    _success_beep_stop_event = threading.Event()
+
+    def _beep_loop():
+        while True:
+            try:
+                print("\a", end="", flush=True)
+            except Exception:
+                pass
+            if _success_beep_stop_event.wait(5):
+                break
+
+    _success_beep_thread = threading.Thread(target=_beep_loop, name="success_beep", daemon=True)
+    _success_beep_thread.start()
+
+
+def stop_success_beep():
+    """Stop the background success beep thread if it is running."""
+
+    global _success_beep_stop_event, _success_beep_thread
+
+    if _success_beep_stop_event is not None:
+        _success_beep_stop_event.set()
+    if _success_beep_thread is not None:
+        _success_beep_thread.join(timeout=0.1)
+
+    _success_beep_stop_event = None
+    _success_beep_thread = None
 
 def full_version():
     return "seedrecover {}, {}".format(
@@ -3834,6 +3875,11 @@ def main(argv):
         parser.add_argument("--no-progress", action="store_true",   help="disable the progress bar")
         parser.add_argument("--no-pause",    action="store_true",   help="never pause before exiting (default: auto)")
         parser.add_argument("--no-gui", action="store_true", help="Force disable the gui elements")
+        parser.add_argument(
+            "--beep-on-find",
+            action="store_true",
+            help="play a terminal bell every five seconds when a seed is found",
+        )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
@@ -3891,6 +3937,9 @@ def main(argv):
             disable_security_warnings = True
         else:
             disable_security_warnings = False
+
+        global beep_on_find
+        beep_on_find = args.beep_on_find
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)
