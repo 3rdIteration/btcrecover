@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 from typing import Optional
 
@@ -58,3 +59,31 @@ def stop_success_beep() -> None:
 
     _success_beep_stop_event = None
     _success_beep_thread = None
+
+
+def wait_for_user_to_stop(prompt: str = "\nPress Enter to stop the success alert and exit...") -> None:
+    """Wait for the user to press Enter before stopping the alert.
+
+    The wait only occurs when the success beep is active and stdin is interactive.
+    """
+
+    if not _beep_enabled or _success_beep_thread is None:
+        return
+
+    stdin = getattr(sys, "stdin", None)
+    if stdin is None:
+        return
+
+    try:
+        is_interactive = stdin.isatty()
+    except AttributeError:
+        is_interactive = False
+
+    if not is_interactive:
+        return
+
+    try:
+        input(prompt)
+    except EOFError:
+        # Non-interactive consumers may close stdin unexpectedly; just stop beeping.
+        pass

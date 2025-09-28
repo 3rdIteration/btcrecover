@@ -62,6 +62,7 @@ if __name__ == "__main__":
 		btcrpass.safe_print("Password found: '" + password_found + "'")
 		if any(ord(c) < 32 or ord(c) > 126 for c in password_found):
 			print("HTML Encoded Password:   '" + password_found.encode("ascii", "xmlcharrefreplace").decode() + "'")
+		success_alert.wait_for_user_to_stop()
 		retval = 0
 
 	elif not_found_msg:

@@ -90,6 +90,9 @@ if __name__ == "__main__":
         if any(ord(c) > 126 for c in mnemonic_sentence):
             print("HTML Encoded Seed:", mnemonic_sentence.encode("ascii", "xmlcharrefreplace").decode())
 
+        if not btcrseed.tk_root:
+            success_alert.wait_for_user_to_stop()
+
         if btcrseed.tk_root:      # if the GUI is being used
             btcrseed.show_mnemonic_gui(mnemonic_sentence, path_coin)
 
