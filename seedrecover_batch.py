@@ -26,7 +26,9 @@
 # PYTHON_ARGCOMPLETE_OK - enables optional bash tab completion
 
 import argparse
+import datetime
 import os
+import shlex
 import compatibility_check, copy
 
 from btcrecover import btcrseed
@@ -62,6 +64,16 @@ def _parse_batch_arguments(argv):
         "--batch-skip-completed",
         action="store_true",
         help="skip seeds already marked as CHECKED or MATCHED in the progress file",
+    )
+    parser.add_argument(
+        "--batch-progress-include-timestamp",
+        action="store_true",
+        help="include timestamps in progress log entries",
+    )
+    parser.add_argument(
+        "--batch-progress-include-arguments",
+        action="store_true",
+        help="include command arguments in progress log entries",
     )
 
     parsed_args, remaining = parser.parse_known_args(argv[1:])
@@ -101,6 +113,8 @@ def _parse_batch_arguments(argv):
         workers_total,
         parsed_args.batch_reverse,
         parsed_args.batch_skip_completed,
+        parsed_args.batch_progress_include_timestamp,
+        parsed_args.batch_progress_include_arguments,
     )
 
 
@@ -114,9 +128,20 @@ def _load_completed_seeds(progress_filename):
     try:
         with open(progress_filename, "r", encoding="utf-8") as progress_file:
             for line in progress_file:
-                status, _, seed = line.partition("\t")
-                seed_value = seed.rstrip("\n")
-                if seed_value:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 2:
+                    continue
+
+                status, seed_value = parts[0], parts[1]
+                if not seed_value:
+                    continue
+
+                previous_status = completed_status.get(seed_value)
+
+                if previous_status in success_statuses:
+                    continue
+
+                if status in success_statuses or previous_status is None:
                     completed_status[seed_value] = status
     except FileNotFoundError:
         return set()
@@ -133,7 +158,13 @@ def _load_completed_seeds(progress_filename):
     }
 
 
-def _append_progress(progress_filename, seed, status):
+def _append_progress(
+    progress_filename,
+    seed,
+    status,
+    include_timestamp=False,
+    arguments=None,
+):
     if not progress_filename:
         return
 
@@ -150,7 +181,16 @@ def _append_progress(progress_filename, seed, status):
 
     try:
         with open(progress_filename, "a", encoding="utf-8") as progress_file:
-            progress_file.write(f"{status}\t{seed}\n")
+            fields = [status, seed]
+            if include_timestamp:
+                fields.append(datetime.datetime.now().isoformat())
+            if arguments:
+                if isinstance(arguments, (list, tuple)):
+                    argument_value = " ".join(shlex.quote(arg) for arg in arguments)
+                else:
+                    argument_value = str(arguments)
+                fields.append(argument_value)
+            progress_file.write("\t".join(fields) + "\n")
     except OSError as exc:  # pragma: no cover - defensive programming
         print(f"Unable to update progress file '{progress_filename}': {exc}", file=sys.stderr)
 
@@ -162,6 +202,8 @@ if __name__ == "__main__":
         workers_total,
         process_reverse,
         skip_completed,
+        include_timestamp,
+        include_arguments,
     ) = _parse_batch_arguments(sys.argv)
 
     print()
@@ -197,6 +239,7 @@ if __name__ == "__main__":
         seed_to_try = mnemonic.split("#")[0].strip()
 
         if skip_completed and seed_to_try in completed_seeds:
+            print("Skipping Seed (already completed):", seed_to_try)
             seed_index += 1
             continue
 
@@ -217,11 +260,23 @@ if __name__ == "__main__":
             mnemonic_sentence, path_coin = btcrseed.main(temp_argv[1:])
         except Exception:  # pragma: no cover - btcrseed failures are environment dependent
             print("Generated Exception...")
-            _append_progress(progress_filename, seed_to_try, "ERROR")
+            _append_progress(
+                progress_filename,
+                seed_to_try,
+                "ERROR",
+                include_timestamp=include_timestamp,
+                arguments=temp_argv[1:] if include_arguments else None,
+            )
             continue
 
         if mnemonic_sentence:
-            _append_progress(progress_filename, seed_to_try, "MATCHED")
+            _append_progress(
+                progress_filename,
+                seed_to_try,
+                "MATCHED",
+                include_timestamp=include_timestamp,
+                arguments=temp_argv[1:] if include_arguments else None,
+            )
             if skip_completed:
                 completed_seeds.add(seed_to_try)
             if not btcrseed.tk_root:  # if the GUI is not being used
@@ -269,11 +324,23 @@ if __name__ == "__main__":
             break
 
         elif mnemonic_sentence is None:
-            _append_progress(progress_filename, seed_to_try, "ERROR")
+            _append_progress(
+                progress_filename,
+                seed_to_try,
+                "ERROR",
+                include_timestamp=include_timestamp,
+                arguments=temp_argv[1:] if include_arguments else None,
+            )
             retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
 
         else:
-            _append_progress(progress_filename, seed_to_try, "CHECKED")
+            _append_progress(
+                progress_filename,
+                seed_to_try,
+                "CHECKED",
+                include_timestamp=include_timestamp,
+                arguments=temp_argv[1:] if include_arguments else None,
+            )
             if skip_completed:
                 completed_seeds.add(seed_to_try)
             retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
