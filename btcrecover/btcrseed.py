@@ -1292,6 +1292,8 @@ class WalletBIP32(WalletBase):
 
     def _apply_script_type_filters(self):
         detected_types = getattr(self, "_auto_detected_script_types", None)
+        if getattr(self, "checksinglexpubaddress", False):
+            detected_types = None
         detection_used = detected_types is not None
 
         forced_types = set()
