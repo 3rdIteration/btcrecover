@@ -894,7 +894,14 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
 
-        pbkdf2_kernel = prg.pbkdf2
+        # `prg.pbkdf2` creates a new kernel instance every time it is accessed,
+        # which is expensive and triggers pyopencl's RepeatedKernelRetrieval
+        # warning.  Cache the kernel on the compiled program so that subsequent
+        # calls reuse the same object.
+        pbkdf2_kernel = getattr(prg, "_pbkdf2_kernel", None)
+        if pbkdf2_kernel is None:
+            pbkdf2_kernel = cl.Kernel(prg, "pbkdf2")
+            setattr(prg, "_pbkdf2_kernel", pbkdf2_kernel)
 
         def func(s, pwdim, pass_g, salt_g, result_g):
             pbkdf2_kernel(
@@ -949,7 +956,10 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
 
-        pbkdf2_saltlist_kernel = prg.pbkdf2_saltlist
+        pbkdf2_saltlist_kernel = getattr(prg, "_pbkdf2_saltlist_kernel", None)
+        if pbkdf2_saltlist_kernel is None:
+            pbkdf2_saltlist_kernel = cl.Kernel(prg, "pbkdf2_saltlist")
+            setattr(prg, "_pbkdf2_saltlist_kernel", pbkdf2_saltlist_kernel)
 
         def func(s, pwdim, pass_g, salt_g, result_g):
             pbkdf2_saltlist_kernel(
