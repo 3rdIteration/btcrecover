@@ -158,6 +158,26 @@ def _load_completed_seeds(progress_filename):
     }
 
 
+def _progress_contains_match(progress_filename):
+    if not progress_filename:
+        return False
+
+    try:
+        with open(progress_filename, "r", encoding="utf-8") as progress_file:
+            for line in progress_file:
+                if line.startswith("MATCHED\t"):
+                    return True
+    except FileNotFoundError:
+        return False
+    except OSError as exc:  # pragma: no cover - defensive programming
+        print(
+            f"Unable to read progress file '{progress_filename}' while checking for matches: {exc}",
+            file=sys.stderr,
+        )
+
+    return False
+
+
 def _append_progress(
     progress_filename,
     seed,
@@ -229,6 +249,11 @@ if __name__ == "__main__":
     retval = 0
 
     for mnemonic in batch_seed_list:
+        if _progress_contains_match(progress_filename):
+            print("Stopping: matched seed already recorded in progress file")
+            retval = 0
+            break
+
         # Make a copy of the arguments
         temp_argv = copy.deepcopy(sys.argv)
 
