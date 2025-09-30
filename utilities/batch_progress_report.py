@@ -50,14 +50,18 @@ def _parse_arguments() -> argparse.Namespace:
             "'<batch-file>.process' first and falls back to '<batch-file>.progress'."
         ),
     )
+    parser.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Process the batch seeds file in reverse order (from last to first)",
+    )
     return parser.parse_args()
 
 
-def _load_batch_seeds(batch_path: Path) -> Sequence[BatchSeedEntry]:
+def _load_batch_seeds(batch_path: Path, reverse: bool = False) -> Sequence[BatchSeedEntry]:
     """Load batch seeds, ignoring comments and blank lines."""
 
-    entries: List[BatchSeedEntry] = []
-    position = 0
+    raw_entries: List[tuple[str, int]] = []
 
     with batch_path.open("r", encoding="utf-8") as batch_file:
         for line_number, line in enumerate(batch_file, start=1):
@@ -69,8 +73,15 @@ def _load_batch_seeds(batch_path: Path) -> Sequence[BatchSeedEntry]:
             if not seed_value:
                 continue
 
-            position += 1
-            entries.append(BatchSeedEntry(seed_value, position, line_number))
+            raw_entries.append((seed_value, line_number))
+
+    if reverse:
+        raw_entries.reverse()
+
+    entries: List[BatchSeedEntry] = [
+        BatchSeedEntry(seed_value, position, line_number)
+        for position, (seed_value, line_number) in enumerate(raw_entries, start=1)
+    ]
 
     return entries
 
@@ -150,7 +161,7 @@ def main() -> None:
     if not progress_file.exists():
         raise SystemExit(f"Progress file not found: {progress_file}")
 
-    batch_entries = _load_batch_seeds(batch_file)
+    batch_entries = _load_batch_seeds(batch_file, reverse=args.reverse)
     if not batch_entries:
         print(f"No seeds found in {batch_file}.")
         return
