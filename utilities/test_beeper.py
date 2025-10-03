@@ -55,8 +55,9 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "Prefer the motherboard PC speaker for beeps when supported. This "
-            "requires appropriate permissions on Linux and falls back to the "
-            "terminal bell if unavailable."
+            "uses the Linux console tone ioctl when possible, falls back to the "
+            "external 'beep' utility if installed, and otherwise reverts to the "
+            "terminal bell."
         ),
     )
     parser.add_argument(

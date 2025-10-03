@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import atexit
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -36,6 +38,8 @@ _initial_console_bell_paths: tuple[str, ...] = _console_bell_paths
 _pcspeaker_available: Optional[bool] = None
 _pcspeaker_forced = False
 _write_lock = threading.Lock()
+_beep_command_available: Optional[bool] = None
+_beep_command_path: Optional[str] = None
 
 
 def _console_bell_fd() -> Optional[int]:
@@ -49,6 +53,46 @@ def _console_bell_fd() -> Optional[int]:
         return None
 
 
+def _beep_command() -> Optional[str]:
+    global _beep_command_path
+
+    if _beep_command_path:
+        return _beep_command_path
+
+    path = shutil.which("beep")
+    if path:
+        _beep_command_path = path
+    return _beep_command_path
+
+
+def _emit_beep_command(duration_ms: int, frequency_hz: int) -> bool:
+    """Fallback to the external ``beep`` utility when available."""
+
+    global _beep_command_available
+
+    if _beep_command_available is False:
+        return False
+
+    command_path = _beep_command()
+    if not command_path:
+        _beep_command_available = False
+        return False
+
+    try:
+        subprocess.run(
+            [command_path, "-f", str(frequency_hz), "-l", str(duration_ms)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        _beep_command_available = False
+        return False
+
+    _beep_command_available = True
+    return True
+
+
 def _emit_pc_speaker_beep(duration_ms: int, frequency_hz: int) -> bool:
     """Attempt to ring the internal PC speaker directly."""
 
@@ -59,11 +103,15 @@ def _emit_pc_speaker_beep(duration_ms: int, frequency_hz: int) -> bool:
 
     if fcntl is None:
         _pcspeaker_available = False
+        if _pcspeaker_forced:
+            return _emit_beep_command(duration_ms, frequency_hz)
         return False
 
     fd = _console_bell_fd()
     if fd is None:
         _pcspeaker_available = False
+        if _pcspeaker_forced:
+            return _emit_beep_command(duration_ms, frequency_hz)
         return False
 
     if duration_ms <= 0 or frequency_hz <= 0:
@@ -73,6 +121,8 @@ def _emit_pc_speaker_beep(duration_ms: int, frequency_hz: int) -> bool:
         fcntl.ioctl(fd, _KDMKTONE, (frequency_hz << 16) | duration_ms)
     except OSError:
         _pcspeaker_available = False
+        if _pcspeaker_forced:
+            return _emit_beep_command(duration_ms, frequency_hz)
         return False
 
     _pcspeaker_available = True
@@ -115,12 +165,18 @@ def configure_pc_speaker(
     _console_open_attempted = False
     _pcspeaker_available = None
 
+    global _beep_command_available
+
     if not enable:
+        _beep_command_available = None
         return True
 
     # Try to open the console immediately to surface failures early.
     stream = _ensure_console_bell_stream()
     if stream is None:
+        if _beep_command():
+            _beep_command_available = None
+            return True
         return False
 
     fd = _console_bell_fd()
