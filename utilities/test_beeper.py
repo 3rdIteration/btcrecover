@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -47,6 +48,24 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument(
+        "--pc-speaker",
+        action="store_true",
+        help=(
+            "Prefer the motherboard PC speaker for beeps when supported. This "
+            "requires appropriate permissions on Linux and falls back to the "
+            "terminal bell if unavailable."
+        ),
+    )
+    parser.add_argument(
+        "--console-device",
+        metavar="PATH",
+        help=(
+            "Optional console device to use for PC speaker access (defaults to "
+            os.pathsep.join(success_alert.PC_SPEAKER_DEFAULT_CONSOLE_PATHS)
+            + "). Use the OS path separator to provide multiple candidates."
+        ),
+    )
+    parser.add_argument(
         "mode",
         choices=("success", "failure", "both"),
         default="both",
@@ -58,6 +77,23 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.pc_speaker:
+        console_paths = None
+        if args.console_device:
+            console_paths = tuple(
+                path for path in args.console_device.split(os.pathsep) if path
+            )
+        pcspeaker_ready = success_alert.configure_pc_speaker(
+            True, console_paths=console_paths
+        )
+        if not pcspeaker_ready:
+            print(
+                "Warning: Unable to access the PC speaker. Falling back to the terminal bell.",
+                file=sys.stderr,
+            )
+    else:
+        success_alert.configure_pc_speaker(False)
 
     if args.mode in {"failure", "both"}:
         _run_failure_demo()

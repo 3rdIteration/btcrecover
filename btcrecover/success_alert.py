@@ -7,7 +7,7 @@ import os
 import sys
 import threading
 import time
-from typing import Iterable, Optional, TextIO
+from typing import Iterable, Optional, Sequence, TextIO
 
 try:
     import fcntl  # type: ignore
@@ -23,7 +23,18 @@ _success_beep_stop_event: Optional[threading.Event] = None
 _success_beep_thread: Optional[threading.Thread] = None
 _console_bell_stream: Optional[TextIO] = None
 _console_open_attempted = False
+_DEFAULT_CONSOLE_PATHS: tuple[str, ...] = ("/dev/console", "/dev/tty0", "/dev/vc/0")
+PC_SPEAKER_DEFAULT_CONSOLE_PATHS: tuple[str, ...] = _DEFAULT_CONSOLE_PATHS
+_ENV_CONSOLE_PATHS: tuple[str, ...] = tuple(
+    path
+    for path in os.environ.get("BTCRECOVER_CONSOLE_BELL", "").split(os.pathsep)
+    if path
+)
+
+_console_bell_paths: tuple[str, ...] = _ENV_CONSOLE_PATHS or _DEFAULT_CONSOLE_PATHS
+_initial_console_bell_paths: tuple[str, ...] = _console_bell_paths
 _pcspeaker_available: Optional[bool] = None
+_pcspeaker_forced = False
 _write_lock = threading.Lock()
 
 
@@ -43,7 +54,7 @@ def _emit_pc_speaker_beep(duration_ms: int, frequency_hz: int) -> bool:
 
     global _pcspeaker_available
 
-    if _pcspeaker_available is False:
+    if _pcspeaker_available is False and not _pcspeaker_forced:
         return False
 
     if fcntl is None:
@@ -68,6 +79,54 @@ def _emit_pc_speaker_beep(duration_ms: int, frequency_hz: int) -> bool:
     return True
 
 
+def configure_pc_speaker(
+    enable: bool,
+    *,
+    console_paths: Optional[Sequence[str]] = None,
+) -> bool:
+    """Control whether the alert attempts to use the motherboard PC speaker.
+
+    When ``enable`` is :data:`True`, the helper will try to drive the kernel PC
+    speaker interface via ``KDMKTONE`` ioctls against one of the provided
+    console device paths. The caller can provide ``console_paths`` to override
+    the default search order. When disabled, the original console configuration
+    (derived from ``BTCRECOVER_CONSOLE_BELL`` if set) is restored.
+
+    The function returns :data:`True` if the configuration succeeded or
+    :data:`False` when the PC speaker could not be prepared. Callers may still
+    attempt playback even if ``False`` is returned as hardware support and
+    privileges vary between systems.
+    """
+
+    global _console_bell_paths, _pcspeaker_available, _pcspeaker_forced, _console_open_attempted
+
+    _pcspeaker_forced = bool(enable)
+
+    if enable:
+        if console_paths is not None:
+            _console_bell_paths = tuple(path for path in console_paths if path)
+        elif not _ENV_CONSOLE_PATHS:
+            _console_bell_paths = _DEFAULT_CONSOLE_PATHS
+    else:
+        _console_bell_paths = _initial_console_bell_paths
+
+    # Reset cached state so we re-open the console with the new configuration.
+    _close_console_bell_stream()
+    _console_open_attempted = False
+    _pcspeaker_available = None
+
+    if not enable:
+        return True
+
+    # Try to open the console immediately to surface failures early.
+    stream = _ensure_console_bell_stream()
+    if stream is None:
+        return False
+
+    fd = _console_bell_fd()
+    return fd is not None
+
+
 def _close_console_bell_stream() -> None:
     global _console_bell_stream
 
@@ -90,18 +149,20 @@ def _ensure_console_bell_stream() -> Optional[TextIO]:
 
     _console_open_attempted = True
 
-    console_path = os.environ.get("BTCRECOVER_CONSOLE_BELL", "/dev/console")
-    if not console_path:
-        return None
+    for console_path in _console_bell_paths:
+        if not console_path:
+            continue
 
-    try:
-        stream = open(console_path, "w", encoding="utf-8", errors="ignore")
-    except OSError:
-        return None
+        try:
+            stream = open(console_path, "w", encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
 
-    _console_bell_stream = stream
-    atexit.register(_close_console_bell_stream)
-    return _console_bell_stream
+        _console_bell_stream = stream
+        atexit.register(_close_console_bell_stream)
+        return _console_bell_stream
+
+    return None
 
 
 def _bell_streams(skip_console: bool = False) -> Iterable[TextIO]:
