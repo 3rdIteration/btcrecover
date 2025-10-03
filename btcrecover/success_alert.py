@@ -235,7 +235,7 @@ def start_success_beep() -> None:
 
     def _beep_loop() -> None:
         while True:
-            _emit_beeps(2, spacing=1.0)
+            _emit_beeps(2, spacing=1.5)
             if _success_beep_stop_event.wait(10):
                 break
 

@@ -20,7 +20,10 @@ from btcrecover import success_alert
 
 
 def _run_success_demo() -> None:
-    print("Starting success alert demo. The alert will double-beep every 5 seconds.")
+    print(
+        "Starting success alert demo. The alert plays two beeps 1.5 seconds apart "
+        "and repeats every 10 seconds."
+    )
     print("Press Enter when you've heard enough to stop the alert.\n")
     success_alert.set_beep_on_find(True)
     success_alert.start_success_beep()
