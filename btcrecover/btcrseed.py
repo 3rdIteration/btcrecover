@@ -4181,6 +4181,8 @@ def main(argv):
             disable_security_warnings = False
 
         success_alert.set_beep_on_find(args.beep_on_find)
+        if args.beep_on_find:
+            extra_args.append("--beep-on-find")
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)
