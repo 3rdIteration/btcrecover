@@ -4122,6 +4122,11 @@ def main(argv):
             action="store_true",
             help="play a two-tone alert roughly every ten seconds when a seed is found",
         )
+        parser.add_argument(
+            "--beep-on-find-pcspeaker",
+            action="store_true",
+            help="force the alert to use the internal PC speaker when a seed is found",
+        )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
@@ -4180,9 +4185,13 @@ def main(argv):
         else:
             disable_security_warnings = False
 
-        success_alert.set_beep_on_find(args.beep_on_find)
-        if args.beep_on_find:
+        success_alert.configure_pc_speaker(args.beep_on_find_pcspeaker)
+        beep_on_find_enabled = args.beep_on_find or args.beep_on_find_pcspeaker
+        success_alert.set_beep_on_find(beep_on_find_enabled)
+        if beep_on_find_enabled:
             extra_args.append("--beep-on-find")
+        if args.beep_on_find_pcspeaker:
+            extra_args.append("--beep-on-find-pcspeaker")
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)

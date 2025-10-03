@@ -6017,6 +6017,11 @@ def init_parser_common():
             action="store_true",
             help="play a two-tone alert roughly every ten seconds when a password is found",
         )
+        parser_common.add_argument(
+            "--beep-on-find-pcspeaker",
+            action="store_true",
+            help="force the alert to use the internal PC speaker when a password is found",
+        )
         parser_common.add_argument("--possible-passwords-file", metavar="FILE", default = "possible_passwords.log", help="Specify the file to save possible close matches to. (Defaults to possible_passwords.log)")
         parser_common.add_argument("--disable-save-possible-passwords",       action="store_true", help="Disable saving possible matches to file")
         parser_common.add_argument("--version","-v",action="store_true", help="show full version information and exit")
@@ -6175,6 +6180,11 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # is changed (due to reading a tokenlist or restore file), we redo parser.parse_args() which
     # changes args, so we only do this early on before most args processing takes place.
 
+    def _apply_beep_configuration(parsed_args):
+        pcspeaker = getattr(parsed_args, "beep_on_find_pcspeaker", False)
+        success_alert.configure_pc_speaker(pcspeaker)
+        success_alert.set_beep_on_find(getattr(parsed_args, "beep_on_find", False) or pcspeaker)
+
     # If no args are present on the command line (e.g. user double-clicked the script
     # in the shell), enable --pause by default so user doesn't miss any error messages
     if not effective_argv: enable_pause()
@@ -6214,7 +6224,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         pass
     #
     args = parser.parse_args(effective_argv)
-    success_alert.set_beep_on_find(args.beep_on_find)
+    _apply_beep_configuration(args)
 
     # Do this as early as possible so user doesn't miss any error messages
     if args.pause: enable_pause()
@@ -6265,7 +6275,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         # Add these in as non-options so that args gets a copy of their values
         parser.set_defaults(autosave=False, restore=False)
         args = parser.parse_args(effective_argv)
-        success_alert.set_beep_on_find(args.beep_on_find)
+        _apply_beep_configuration(args)
 
     # Manually handle the --help option, now that we know which help (tokenlist, not passwordlist) to print
     elif args.help:
@@ -6314,7 +6324,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             tokenlist_args = first_line.split()          # TODO: support quoting / escaping?
             effective_argv = tokenlist_args + effective_argv  # prepend them so that real argv takes precedence
             args = parser.parse_args(effective_argv)     # reparse the arguments
-            success_alert.set_beep_on_find(args.beep_on_find)
+            _apply_beep_configuration(args)
             # Check this again as early as possible so user doesn't miss any error messages
             if args.pause: enable_pause()
             for arg in tokenlist_args:
@@ -6346,7 +6356,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         print("Last session ended having finished password #", savestate["skip"])
         restore_filename = args.restore      # save this before it's overwritten below
         args = parser.parse_args(effective_argv)
-        success_alert.set_beep_on_find(args.beep_on_find)
+        _apply_beep_configuration(args)
         # Check this again as early as possible so user doesn't miss any error messages
         if args.pause: enable_pause()
         # If the order of passwords generated has changed since the last version, don't permit a restore
