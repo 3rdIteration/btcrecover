@@ -143,6 +143,10 @@ To try recovering your password or a BIP39 passphrase, please start with the **[
 
 If you mostly know your recovery seed/mnemonic (12-24 recovery words), but think there may be a mistake in it, please see the **[Seed Recovery Quick Start](docs/Seedrecover_Quick_Start_Guide.md)**.
 
+## Audible Alerts ##
+
+Command-line recoveries support an optional `--beep-on-find` flag that plays a double-beep pattern every five seconds after a successful recovery and emits a single beep when the search finishes without a match. The alert uses the ASCII bell character, so it is handled by your terminal: modern desktops usually forward it to their standard sound driver, while text consoles with an attached PC speaker will trigger the internal buzzer. When available, *btcrecover* also writes the bell directly to `/dev/console`, which allows the traditional PC speaker to sound even if the active terminal suppresses the alert. Set the `BTCRECOVER_CONSOLE_BELL` environment variable to point at a different device (or to an empty string to disable the extra write) if your platform requires a custom path.
+
 ## If this tool or other content on my YouTube channel was helpful, feel free to send a tip to: ##
 
 ![Donate Bitcoin](docs/Images/donate-btc-qr.png)

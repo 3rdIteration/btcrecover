@@ -2,24 +2,97 @@
 
 from __future__ import annotations
 
+import atexit
+import os
 import sys
 import threading
 import time
-from typing import Optional
+from typing import Iterable, Optional, TextIO
 
 _beep_enabled = False
 _success_beep_stop_event: Optional[threading.Event] = None
 _success_beep_thread: Optional[threading.Thread] = None
+_console_bell_stream: Optional[TextIO] = None
+_console_open_attempted = False
+_write_lock = threading.Lock()
+
+
+def _close_console_bell_stream() -> None:
+    global _console_bell_stream
+
+    stream = _console_bell_stream
+    _console_bell_stream = None
+    if stream is not None:
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+
+def _ensure_console_bell_stream() -> Optional[TextIO]:
+    """Return a handle that writes directly to the system console when possible."""
+
+    global _console_bell_stream, _console_open_attempted
+
+    if _console_bell_stream is not None or _console_open_attempted:
+        return _console_bell_stream
+
+    _console_open_attempted = True
+
+    console_path = os.environ.get("BTCRECOVER_CONSOLE_BELL", "/dev/console")
+    if not console_path:
+        return None
+
+    try:
+        stream = open(console_path, "w", encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+
+    _console_bell_stream = stream
+    atexit.register(_close_console_bell_stream)
+    return _console_bell_stream
+
+
+def _bell_streams() -> Iterable[TextIO]:
+    """Yield file-like objects that should receive BEL characters."""
+
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        if stream is None:
+            continue
+        try:
+            if stream.isatty():
+                yield stream
+        except Exception:
+            continue
+
+    console_stream = _ensure_console_bell_stream()
+    if console_stream is not None:
+        yield console_stream
 
 
 def _emit_beeps(count: int, spacing: float = 0.2) -> None:
     """Emit ``count`` terminal bell characters with ``spacing`` seconds between them."""
 
     for index in range(count):
-        try:
-            print("\a", end="", flush=True)
-        except Exception:
-            pass
+        with _write_lock:
+            emitted = False
+            for stream in _bell_streams():
+                try:
+                    stream.write("\a")
+                    stream.flush()
+                    emitted = True
+                except Exception:
+                    continue
+
+            if not emitted:
+                # Fall back to the default stdout behaviour even if it is not a TTY.
+                try:
+                    sys.stdout.write("\a")
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+
         if index + 1 < count:
             time.sleep(spacing)
 
