@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import time
+from pathlib import Path
+
+
+if "btcrecover" not in sys.modules:
+    # Add the repository root to sys.path so local imports work when the
+    # script is executed directly (e.g. ``python utilities/test_beeper.py``).
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
 
 from btcrecover import success_alert
 
