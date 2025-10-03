@@ -4120,7 +4120,7 @@ def main(argv):
         parser.add_argument(
             "--beep-on-find",
             action="store_true",
-            help="play a terminal bell every five seconds when a seed is found",
+            help="play a two-tone alert roughly every ten seconds when a seed is found",
         )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)

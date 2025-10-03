@@ -224,7 +224,7 @@ def set_beep_on_find(enabled: bool) -> None:
 
 
 def start_success_beep() -> None:
-    """Begin a background thread that emits a terminal bell every five seconds."""
+    """Begin a background thread that emits a two-tone alert roughly every ten seconds."""
 
     global _success_beep_stop_event, _success_beep_thread
 
@@ -235,8 +235,8 @@ def start_success_beep() -> None:
 
     def _beep_loop() -> None:
         while True:
-            _emit_beeps(2)
-            if _success_beep_stop_event.wait(5):
+            _emit_beeps(2, spacing=1.0)
+            if _success_beep_stop_event.wait(10):
                 break
 
     _success_beep_thread = threading.Thread(

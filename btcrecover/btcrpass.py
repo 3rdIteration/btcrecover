@@ -6015,7 +6015,7 @@ def init_parser_common():
         parser_common.add_argument(
             "--beep-on-find",
             action="store_true",
-            help="play a terminal bell every five seconds when a password is found",
+            help="play a two-tone alert roughly every ten seconds when a password is found",
         )
         parser_common.add_argument("--possible-passwords-file", metavar="FILE", default = "possible_passwords.log", help="Specify the file to save possible close matches to. (Defaults to possible_passwords.log)")
         parser_common.add_argument("--disable-save-possible-passwords",       action="store_true", help="Disable saving possible matches to file")
