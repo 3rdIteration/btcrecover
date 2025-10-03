@@ -32,6 +32,7 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
+from . import success_alert
 import lib.cardano.cardano_utils as cardano
 from lib.eth_hash.auto import keccak
 from lib.mnemonic_btc_com_tweaked import Mnemonic
@@ -6011,6 +6012,11 @@ def init_parser_common():
         parser_common.add_argument("--listpass",    action="store_true", help="just list all password combinations to test and exit")
         parser_common.add_argument("--performance", action="store_true", help="run a continuous performance test (Ctrl-C to exit)")
         parser_common.add_argument("--pause",       action="store_true", help="pause before exiting")
+        parser_common.add_argument(
+            "--beep-on-find",
+            action="store_true",
+            help="play a terminal bell every five seconds when a password is found",
+        )
         parser_common.add_argument("--possible-passwords-file", metavar="FILE", default = "possible_passwords.log", help="Specify the file to save possible close matches to. (Defaults to possible_passwords.log)")
         parser_common.add_argument("--disable-save-possible-passwords",       action="store_true", help="Disable saving possible matches to file")
         parser_common.add_argument("--version","-v",action="store_true", help="show full version information and exit")
@@ -6208,6 +6214,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         pass
     #
     args = parser.parse_args(effective_argv)
+    success_alert.set_beep_on_find(args.beep_on_find)
 
     # Do this as early as possible so user doesn't miss any error messages
     if args.pause: enable_pause()
@@ -6258,6 +6265,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         # Add these in as non-options so that args gets a copy of their values
         parser.set_defaults(autosave=False, restore=False)
         args = parser.parse_args(effective_argv)
+        success_alert.set_beep_on_find(args.beep_on_find)
 
     # Manually handle the --help option, now that we know which help (tokenlist, not passwordlist) to print
     elif args.help:
@@ -6306,6 +6314,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             tokenlist_args = first_line.split()          # TODO: support quoting / escaping?
             effective_argv = tokenlist_args + effective_argv  # prepend them so that real argv takes precedence
             args = parser.parse_args(effective_argv)     # reparse the arguments
+            success_alert.set_beep_on_find(args.beep_on_find)
             # Check this again as early as possible so user doesn't miss any error messages
             if args.pause: enable_pause()
             for arg in tokenlist_args:
@@ -6337,6 +6346,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         print("Last session ended having finished password #", savestate["skip"])
         restore_filename = args.restore      # save this before it's overwritten below
         args = parser.parse_args(effective_argv)
+        success_alert.set_beep_on_find(args.beep_on_find)
         # Check this again as early as possible so user doesn't miss any error messages
         if args.pause: enable_pause()
         # If the order of passwords generated has changed since the last version, don't permit a restore
