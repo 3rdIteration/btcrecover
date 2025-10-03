@@ -28,7 +28,16 @@
 import compatibility_check
 
 from btcrecover import btcrseed
+from btcrecover import success_alert
 import sys, multiprocessing
+
+
+def _start_success_beep_if_needed():
+    success_alert.start_success_beep()
+
+
+def _stop_success_beep():
+    success_alert.stop_success_beep()
 
 if __name__ == "__main__":
     print()
@@ -38,6 +47,7 @@ if __name__ == "__main__":
     mnemonic_sentence, path_coin = btcrseed.main(sys.argv[1:])
 
     if mnemonic_sentence:
+        _start_success_beep_if_needed()
         if not btcrseed.tk_root:  # if the GUI is not being used
             print()
             print(
@@ -80,19 +90,25 @@ if __name__ == "__main__":
         if any(ord(c) > 126 for c in mnemonic_sentence):
             print("HTML Encoded Seed:", mnemonic_sentence.encode("ascii", "xmlcharrefreplace").decode())
 
+        if not btcrseed.tk_root:
+            success_alert.wait_for_user_to_stop()
+
         if btcrseed.tk_root:      # if the GUI is being used
             btcrseed.show_mnemonic_gui(mnemonic_sentence, path_coin)
 
         retval = 0
 
-    elif mnemonic_sentence is None:
-        retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
-
     else:
-        retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
+        success_alert.beep_failure_once()
+        if mnemonic_sentence is None:
+            retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
+        else:
+            retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
 
     # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
     for process in multiprocessing.active_children():
         process.join(1.0)
+
+    _stop_success_beep()
 
     sys.exit(retval)

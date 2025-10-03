@@ -31,6 +31,7 @@ from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
 
 # Import modules bundled with BTCRecover
 from . import btcrpass
+from . import success_alert
 from .addressset import AddressSet
 from lib.bitcoinlib import encoding
 from lib.cashaddress import convert, base58
@@ -3834,6 +3835,11 @@ def main(argv):
         parser.add_argument("--no-progress", action="store_true",   help="disable the progress bar")
         parser.add_argument("--no-pause",    action="store_true",   help="never pause before exiting (default: auto)")
         parser.add_argument("--no-gui", action="store_true", help="Force disable the gui elements")
+        parser.add_argument(
+            "--beep-on-find",
+            action="store_true",
+            help="play a terminal bell every five seconds when a seed is found",
+        )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
@@ -3891,6 +3897,8 @@ def main(argv):
             disable_security_warnings = True
         else:
             disable_security_warnings = False
+
+        success_alert.set_beep_on_find(args.beep_on_find)
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)

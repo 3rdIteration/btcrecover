@@ -30,6 +30,7 @@ import os
 import compatibility_check, copy
 
 from btcrecover import btcrseed
+from btcrecover import success_alert
 import sys, multiprocessing
 
 
@@ -185,6 +186,7 @@ if __name__ == "__main__":
 
     seed_index = 0
     retval = 0
+    match_found = False
 
     for mnemonic in batch_seed_list:
         # Make a copy of the arguments
@@ -221,6 +223,8 @@ if __name__ == "__main__":
             continue
 
         if mnemonic_sentence:
+            success_alert.start_success_beep()
+            match_found = True
             _append_progress(progress_filename, seed_to_try, "MATCHED")
             if skip_completed:
                 completed_seeds.add(seed_to_try)
@@ -262,6 +266,9 @@ if __name__ == "__main__":
             if any(ord(c) > 126 for c in mnemonic_sentence):
                 print("HTML Encoded Seed:", mnemonic_sentence.encode("ascii", "xmlcharrefreplace").decode())
 
+            if not btcrseed.tk_root:
+                success_alert.wait_for_user_to_stop()
+
             if btcrseed.tk_root:      # if the GUI is being used
                 btcrseed.show_mnemonic_gui(mnemonic_sentence, path_coin)
 
@@ -285,5 +292,10 @@ if __name__ == "__main__":
     # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
     for process in multiprocessing.active_children():
         process.join(1.0)
+
+    if not match_found:
+        success_alert.beep_failure_once()
+
+    success_alert.stop_success_beep()
 
     sys.exit(retval)
