@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help=(
             "Optional console device to use for PC speaker access (defaults to "
-            os.pathsep.join(success_alert.PC_SPEAKER_DEFAULT_CONSOLE_PATHS)
+            + os.pathsep.join(success_alert.PC_SPEAKER_DEFAULT_CONSOLE_PATHS)
             + "). Use the OS path separator to provide multiple candidates."
         ),
     )
