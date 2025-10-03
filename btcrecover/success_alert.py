@@ -4,11 +4,24 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from typing import Optional
 
 _beep_enabled = False
 _success_beep_stop_event: Optional[threading.Event] = None
 _success_beep_thread: Optional[threading.Thread] = None
+
+
+def _emit_beeps(count: int, spacing: float = 0.2) -> None:
+    """Emit ``count`` terminal bell characters with ``spacing`` seconds between them."""
+
+    for index in range(count):
+        try:
+            print("\a", end="", flush=True)
+        except Exception:
+            pass
+        if index + 1 < count:
+            time.sleep(spacing)
 
 
 def set_beep_on_find(enabled: bool) -> None:
@@ -32,10 +45,7 @@ def start_success_beep() -> None:
 
     def _beep_loop() -> None:
         while True:
-            try:
-                print("\a", end="", flush=True)
-            except Exception:
-                pass
+            _emit_beeps(2)
             if _success_beep_stop_event.wait(5):
                 break
 
@@ -87,3 +97,12 @@ def wait_for_user_to_stop(prompt: str = "\nPress Enter to stop the success alert
     except EOFError:
         # Non-interactive consumers may close stdin unexpectedly; just stop beeping.
         pass
+
+
+def beep_failure_once() -> None:
+    """Emit a single terminal bell when a recovery attempt fails."""
+
+    if not _beep_enabled:
+        return
+
+    _emit_beeps(1)

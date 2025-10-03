@@ -98,11 +98,12 @@ if __name__ == "__main__":
 
         retval = 0
 
-    elif mnemonic_sentence is None:
-        retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
-
     else:
-        retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
+        success_alert.beep_failure_once()
+        if mnemonic_sentence is None:
+            retval = 1  # An error occurred or Ctrl-C was pressed inside btcrseed.main()
+        else:
+            retval = 0  # "Seed not found" has already been printed to the console in btcrseed.main()
 
     # Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
     for process in multiprocessing.active_children():

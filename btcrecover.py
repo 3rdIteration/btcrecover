@@ -67,9 +67,11 @@ if __name__ == "__main__":
 
 	elif not_found_msg:
 		print(not_found_msg, file=sys.stderr if btcrpass.args.listpass else sys.stdout)
+		success_alert.beep_failure_once()
 		retval = 0
 
 	else:
+		success_alert.beep_failure_once()
 		retval = 1  # An error occurred or Ctrl-C was pressed
 
 	# Wait for any remaining child processes to exit cleanly (to avoid error messages from gc)
