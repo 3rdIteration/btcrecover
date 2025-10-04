@@ -914,6 +914,26 @@ class TestRecoveryFromAddress(unittest.TestCase):
             addr_start_index=10014991,
         )
 
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
+    def test_hedera_ed25519_infers_start_index(self):
+        wallet = btcrseed.WalletHederaEd25519.create_from_params(
+            addresses=["0.0.10014995", "0.0.10014991"],
+            address_limit=1,
+        )
+
+        self.assertEqual(wallet._address_start_index, 10014991)
+        self.assertEqual((wallet._hedera_shard, wallet._hedera_realm), (0, 0))
+
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
+    def test_hedera_ed25519_preserves_manual_start_index(self):
+        wallet = btcrseed.WalletHederaEd25519.create_from_params(
+            addresses=["0.0.10014991", "0.0.10014995"],
+            address_limit=1,
+            address_start_index=42,
+        )
+
+        self.assertEqual(wallet._address_start_index, 42)
+
     def test_walletripple_bip44(self):
         self.address_tester(btcrseed.WalletRipple, "rJGNUmwiYDwXEsLzUFV9njhP3syrDvA6hs", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")
