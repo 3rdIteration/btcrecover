@@ -14,12 +14,12 @@ jobs:
   build:
     timeout-minutes: 20 # allow extra time for occasional slow tests
     runs-on: ${{matrix.os}}
-    continue-on-error: ${{ matrix.python-version == '3.9' || matrix.python-version == '3.14.0-rc.1' }}
+    continue-on-error: ${{ matrix.python-version == '3.9' || matrix.python-version == '3.14.0-rc.3' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04] # Test Ubuntu Only
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14.0-rc.1'] # Test all suppoorted versions of Python
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14.0-rc.3'] # Test all suppoorted versions of Python
 
     steps:
     - uses: actions/checkout@v2
