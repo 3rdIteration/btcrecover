@@ -2609,9 +2609,11 @@ class WalletHederaEd25519(WalletBIP39):
 
         return "".join(reversed(answer))
 
-    @staticmethod
-    def _addresses_to_hash160s(addresses):
+    def _addresses_to_hash160s(self, addresses):
         hash160s = set()
+        inferred_index = None
+        detected_shard = None
+        detected_realm = None
         for address in addresses:
             if isinstance(address, bytes):
                 address = address.decode()
@@ -2637,6 +2639,13 @@ class WalletHederaEd25519(WalletBIP39):
             if "." in cleaned:
                 shard, realm, payload, checksum, is_alias = WalletHederaEd25519._parse_account_string(cleaned)
 
+                if detected_shard is None:
+                    detected_shard = shard
+                    detected_realm = realm
+                elif shard != detected_shard or realm != detected_realm:
+                    detected_shard = None
+                    detected_realm = None
+
                 if is_alias:
                     alias_hex = payload.hex()
                     alias_string = f"{shard}.{realm}.{alias_hex}"
@@ -2660,6 +2669,8 @@ class WalletHederaEd25519(WalletBIP39):
                 hash160s.add(("acc", base_account))
                 checksum = checksum or WalletHederaEd25519._hedera_checksum(shard, realm, num)
                 hash160s.add(("acc", f"{base_account}-{checksum}"))
+                if inferred_index is None or num < inferred_index:
+                    inferred_index = num
                 continue
 
             if not re.fullmatch(r"[0-9a-f]+", lowered):
@@ -2673,7 +2684,21 @@ class WalletHederaEd25519(WalletBIP39):
             else:
                 raise ValueError("hex-encoded Hedera identifiers must be 20 or 32 bytes long")
 
+        if detected_shard is not None and detected_realm is not None:
+            self._hedera_shard = detected_shard
+            self._hedera_realm = detected_realm
+        self._inferred_address_start_index = inferred_index
         return hash160s
+
+    @classmethod
+    def create_from_params(cls, *args, **kwargs):
+        provided_start_index = kwargs.get("address_start_index")
+        self = super(WalletHederaEd25519, cls).create_from_params(*args, **kwargs)
+        if provided_start_index is None:
+            inferred_index = getattr(self, "_inferred_address_start_index", None)
+            if inferred_index is not None:
+                self._address_start_index = inferred_index
+        return self
 
     def return_verified_password_or_false(self, mnemonic_ids_list):
         return self._return_verified_password_or_false_cpu(mnemonic_ids_list)
