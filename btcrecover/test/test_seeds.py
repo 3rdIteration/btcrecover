@@ -872,6 +872,33 @@ class TestRecoveryFromAddress(unittest.TestCase):
             "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
         )
 
+    def test_hedera_ed25519_evm_address(self):
+        self.address_tester(
+            btcrseed.WalletHederaEd25519,
+            "0x000000000000000000000000000000000098d10f",
+            1,
+            "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
+            addr_start_index=10014991,
+        )
+
+    def test_hedera_ed25519_account_id(self):
+        self.address_tester(
+            btcrseed.WalletHederaEd25519,
+            "0.0.10014991",
+            1,
+            "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
+            addr_start_index=10014991,
+        )
+
+    def test_hedera_ed25519_account_id_with_checksum(self):
+        self.address_tester(
+            btcrseed.WalletHederaEd25519,
+            "0.0.10014991-coiln",
+            1,
+            "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
+            addr_start_index=10014991,
+        )
+
     def test_walletripple_bip44(self):
         self.address_tester(btcrseed.WalletRipple, "rJGNUmwiYDwXEsLzUFV9njhP3syrDvA6hs", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")

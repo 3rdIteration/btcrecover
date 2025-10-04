@@ -27,7 +27,7 @@ disable_security_warnings = True
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
        unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
 import bisect
-from typing import AnyStr, List, Optional, Sequence, TypeVar, Union
+from typing import AnyStr, List, Optional, Sequence, Tuple, TypeVar, Union
 
 # Import modules bundled with BTCRecover
 from . import btcrpass
@@ -2509,12 +2509,17 @@ class WalletEthereum(WalletBIP39):
 @register_selectable_wallet_class('Hedera BIP39/44 (ed25519)')
 class WalletHederaEd25519(WalletBIP39):
 
+    _HEDERA_LEDGER_ID = b"\x00"
+    _ACCOUNT_RE = re.compile(r"^(\d+)\.(\d+)\.([0-9a-fA-F]+)(?:-([a-z]{5}))?$")
+
     def __init__(self, path=None, loading=False):
         if not bip_utils_available:
             exit("Hedera Ed25519 wallet support requires the bip_utils package. Install it via 'pip3 install bip_utils'.")
         if not path:
             path = load_pathlist("./derivationpath-lists/HEDERA.txt")
         super(WalletHederaEd25519, self).__init__(path, loading)
+        self._hedera_shard = 0
+        self._hedera_realm = 0
 
     @staticmethod
     def _alias_bytes_to_account_string(alias_bytes: bytes) -> str:
@@ -2524,21 +2529,85 @@ class WalletHederaEd25519(WalletBIP39):
         return f"{shard}.{realm}.{num}"
 
     @staticmethod
-    def _account_string_to_alias_bytes(account: str) -> bytes:
-        parts = account.split(".")
-        if len(parts) != 3:
+    def _parse_account_string(account: str) -> Tuple[int, int, Union[int, bytes], Optional[str], bool]:
+        match = WalletHederaEd25519._ACCOUNT_RE.fullmatch(account)
+        if not match:
             raise ValueError("Hedera account IDs must be in 'shard.realm.num' format")
-        try:
-            shard, realm, num = (int(p) for p in parts)
-        except ValueError:
-            raise ValueError("Hedera account IDs must contain numeric shard, realm, and num values")
-        if shard < 0 or realm < 0 or num < 0:
+
+        shard = int(match.group(1))
+        realm = int(match.group(2))
+        num_or_hex = match.group(3)
+        checksum = match.group(4)
+
+        if shard < 0 or realm < 0:
             raise ValueError("Hedera account components must be non-negative")
+
+        if re.fullmatch(r"\d+", num_or_hex):
+            num = int(num_or_hex)
+            if num < 0:
+                raise ValueError("Hedera account components must be non-negative")
+            return shard, realm, num, checksum.lower() if checksum else None, False
+
+        if len(num_or_hex) % 2:
+            raise ValueError("hex-encoded Hedera identifiers must have an even length")
+
+        try:
+            alias_bytes = bytes.fromhex(num_or_hex)
+        except ValueError as exc:
+            raise ValueError("invalid hex characters in Hedera identifier") from exc
+
+        return shard, realm, alias_bytes, checksum.lower() if checksum else None, True
+
+    @staticmethod
+    def _account_string_to_alias_bytes(account: str) -> bytes:
+        shard, realm, payload, _checksum, is_alias = WalletHederaEd25519._parse_account_string(account)
+        if is_alias:
+            raise ValueError("hex alias accounts cannot be converted to solidity addresses")
         return (
             shard.to_bytes(4, "big")
             + realm.to_bytes(8, "big")
-            + num.to_bytes(8, "big")
+            + int(payload).to_bytes(8, "big")
         )
+
+    @staticmethod
+    def _hedera_checksum(shard: int, realm: int, num: int) -> str:
+        addr = f"{shard}.{realm}.{num}"
+        digits = []
+        s0 = 0
+        s1 = 0
+        s = 0
+        sh = 0
+        p3 = 26 ** 3
+        p5 = 26 ** 5
+        ascii_a = ord("a")
+        m = 1000003
+        w = 31
+
+        ledger_bytes = bytearray(WalletHederaEd25519._HEDERA_LEDGER_ID)
+        ledger_bytes.extend(b"\x00" * 6)
+
+        for ch in addr:
+            digits.append(10 if ch == "." else int(ch, 10))
+
+        for idx, value in enumerate(digits):
+            s = (w * s + value) % p3
+            if idx % 2 == 0:
+                s0 = (s0 + value) % 11
+            else:
+                s1 = (s1 + value) % 11
+
+        for value in ledger_bytes:
+            sh = (w * sh + value) % p5
+
+        c = ((((len(addr) % 5) * 11 + s0) * 11 + s1) * p3 + s + sh) % p5
+        c = (c * m) % p5
+
+        answer = []
+        for _ in range(5):
+            answer.append(chr(ascii_a + (c % 26)))
+            c //= 26
+
+        return "".join(reversed(answer))
 
     @staticmethod
     def _addresses_to_hash160s(addresses):
@@ -2566,9 +2635,31 @@ class WalletHederaEd25519(WalletBIP39):
                 continue
 
             if "." in cleaned:
-                alias_bytes = WalletHederaEd25519._account_string_to_alias_bytes(cleaned)
+                shard, realm, payload, checksum, is_alias = WalletHederaEd25519._parse_account_string(cleaned)
+
+                if is_alias:
+                    alias_hex = payload.hex()
+                    alias_string = f"{shard}.{realm}.{alias_hex}"
+                    hash160s.add(("alias_der", alias_hex))
+                    hash160s.add(("acc", alias_string))
+                    if checksum:
+                        hash160s.add(("acc", f"{alias_string}-{checksum}"))
+                    continue
+
+                num = int(payload)
+                if num < 0:
+                    raise ValueError("Hedera account components must be non-negative")
+
+                alias_bytes = (
+                    shard.to_bytes(4, "big")
+                    + realm.to_bytes(8, "big")
+                    + num.to_bytes(8, "big")
+                )
+                base_account = f"{shard}.{realm}.{num}"
                 hash160s.add(("addr", alias_bytes.hex()))
-                hash160s.add(("acc", cleaned))
+                hash160s.add(("acc", base_account))
+                checksum = checksum or WalletHederaEd25519._hedera_checksum(shard, realm, num)
+                hash160s.add(("acc", f"{base_account}-{checksum}"))
                 continue
 
             if not re.fullmatch(r"[0-9a-f]+", lowered):
@@ -2615,24 +2706,54 @@ class WalletHederaEd25519(WalletBIP39):
 
             for account_index in range(self._address_start_index,
                                         self._address_start_index + self._addrs_to_generate):
-                child_ctx = base_ctx.ChildKey(0x80000000 + account_index)
+                relative_index = account_index - self._address_start_index
+                if relative_index < 0:
+                    continue
+                child_ctx = base_ctx.ChildKey(0x80000000 + relative_index)
 
                 priv_hex = child_ctx.PrivateKey().Raw().ToHex().lower()
                 if ("priv", priv_hex) in self._known_hash160s:
                     return True
 
                 pub_bytes = child_ctx.PublicKey().RawCompressed().ToBytes()
-                pub_hex = pub_bytes[1:].hex().lower() if len(pub_bytes) > 1 else pub_bytes.hex().lower()
+                pub_key_bytes = pub_bytes[1:] if len(pub_bytes) == 33 and pub_bytes[0] == 0 else pub_bytes
+                pub_hex = pub_key_bytes.hex().lower()
                 if ("pub", pub_hex) in self._known_hash160s:
                     return True
 
-                alias_bytes = keccak(pub_bytes)[-20:]
+                der_prefix = bytes.fromhex("302a300506032b6570032100")
+                alias_der = der_prefix + pub_key_bytes
+                alias_der_hex = alias_der.hex()
+                if ("alias_der", alias_der_hex) in self._known_hash160s:
+                    return True
+
+                proto_key = bytes.fromhex("1220") + pub_key_bytes
+                alias_bytes = keccak(proto_key)[-20:]
                 alias_hex = alias_bytes.hex()
                 if ("addr", alias_hex) in self._known_hash160s:
                     return True
 
-                account_string = self._alias_bytes_to_account_string(alias_bytes)
-                if ("acc", account_string) in self._known_hash160s:
+                shard = getattr(self, "_hedera_shard", 0)
+                realm = getattr(self, "_hedera_realm", 0)
+                solidity_bytes = (
+                    shard.to_bytes(4, "big")
+                    + realm.to_bytes(8, "big")
+                    + account_index.to_bytes(8, "big")
+                )
+                solidity_hex = solidity_bytes.hex()
+                if ("addr", solidity_hex) in self._known_hash160s:
+                    return True
+
+                base_account = f"{shard}.{realm}.{account_index}"
+                if ("acc", base_account) in self._known_hash160s:
+                    return True
+
+                checksum = WalletHederaEd25519._hedera_checksum(shard, realm, account_index)
+                if ("acc", f"{base_account}-{checksum}") in self._known_hash160s:
+                    return True
+
+                alias_account_string = f"{shard}.{realm}.{alias_der_hex}"
+                if ("acc", alias_account_string) in self._known_hash160s:
                     return True
 
         return False
