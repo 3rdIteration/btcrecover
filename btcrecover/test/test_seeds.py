@@ -149,6 +149,17 @@ def can_load_slip10():
             can_load_slip10 = False
     return can_load_slip10
 
+is_bip_utils_loadable = None
+def can_load_bip_utils():
+    global is_bip_utils_loadable
+    if is_bip_utils_loadable is None:
+        try:
+            from bip_utils import Bip32Slip10Ed25519  # noqa: F401
+            is_bip_utils_loadable = True
+        except Exception:
+            is_bip_utils_loadable = False
+    return is_bip_utils_loadable
+
 is_ShamirMnemonic_loadable = None
 def can_load_ShamirMnemonic():
     global is_ShamirMnemonic_loadable
@@ -864,6 +875,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletEthereum, "0xaeaa91ba7235dc2d90e28875d3e466aaa27e076d", 2,
                             "appear section card oak mercy output person grab rotate sort where rural")
 
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
     def test_hedera_ed25519_private_key(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
@@ -872,6 +884,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
             "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
         )
 
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
     def test_hedera_ed25519_evm_address(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
@@ -881,6 +894,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
             addr_start_index=10014991,
         )
 
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
     def test_hedera_ed25519_account_id(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
@@ -890,6 +904,7 @@ class TestRecoveryFromAddress(unittest.TestCase):
             addr_start_index=10014991,
         )
 
+    @skipUnless(can_load_bip_utils, "requires bip_utils")
     def test_hedera_ed25519_account_id_with_checksum(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
