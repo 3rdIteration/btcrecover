@@ -53,7 +53,17 @@ except ImportError:
 
 
 if __name__ == "__main__":
-    import argparse, sys, atexit, time, timeit, os, multiprocessing
+    import argparse
+    import atexit
+    import multiprocessing
+    import os
+    import py_compile
+    import subprocess
+    import sys
+    import time
+    import timeit
+    import tempfile
+    from pathlib import Path
 
     from btcrecover.test import test_passwords
 
@@ -76,7 +86,127 @@ if __name__ == "__main__":
         atexit.register(lambda: not multiprocessing.current_process().name.startswith("PoolWorker-") and
                                 input("Press Enter to exit ..."))
 
+    def verify_python_scripts() -> None:
+        """Ensure CLI scripts compile and provide a basic execution path."""
+
+        repo_root = Path(__file__).resolve().parent
+        script_dirs = (
+            repo_root,
+            repo_root / "utilities",
+            repo_root / "extract-scripts",
+        )
+
+        scripts = sorted(
+            script
+            for directory in script_dirs
+            if directory.exists()
+            for script in directory.iterdir()
+            if script.is_file() and script.suffix == ".py"
+        )
+
+        this_file = Path(__file__).resolve()
+        scripts = [script for script in scripts if script != this_file]
+
+        env = os.environ.copy()
+        pythonpath = env.get("PYTHONPATH")
+        path_entries = [str(repo_root)]
+        if pythonpath:
+            path_entries.append(pythonpath)
+        env["PYTHONPATH"] = os.pathsep.join(path_entries)
+
+        temp_files = []
+
+        try:
+            for script in scripts:
+                py_compile.compile(str(script), doraise=True)
+
+            acceptable_return_codes = {0, 2}
+
+            extra_args = {}
+            skip_execution = {
+                repo_root / "test_opencl_brute.py",
+                repo_root / "utilities" / "generate_batch_seed_variations.py",
+            }
+
+            batch_script = repo_root / "seedrecover_batch.py"
+            if batch_script in scripts:
+                temp_batch = tempfile.NamedTemporaryFile(
+                    "w", dir=str(repo_root), delete=False, encoding="utf-8"
+                )
+                temp_batch.write("# placeholder seed\n")
+                temp_batch.close()
+                temp_files.append(Path(temp_batch.name))
+                extra_args[batch_script] = ("--batch-file", temp_batch.name)
+
+            for script in scripts:
+                if script in skip_execution:
+                    continue
+
+                help_flags = ("--help", "-h", None)
+                last_result = None
+                executed_successfully = False
+
+                for flag in help_flags:
+                    command = [sys.executable, str(script)]
+                    if flag is not None:
+                        command.append(flag)
+
+                    if script in extra_args:
+                        command.extend(extra_args[script])
+
+                    last_result = subprocess.run(
+                        command,
+                        cwd=str(repo_root),
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+
+                    if last_result.returncode in acceptable_return_codes:
+                        executed_successfully = True
+                        break
+                if executed_successfully:
+                    continue
+
+                stdout = last_result.stdout if last_result else ""
+                stderr = last_result.stderr if last_result else ""
+                code = last_result.returncode if last_result else "unknown"
+
+                missing_dependency = "No module named" in stderr
+
+                if missing_dependency:
+                    print(
+                        "Skipping {} verification due to missing optional dependency.".format(
+                            script.name
+                        ),
+                        file=sys.stderr,
+                    )
+                    continue
+
+                raise RuntimeError(
+                    "Failed to execute {} with --help/-h for verification.\n"
+                    "Exit code: {}\n"
+                    "Stdout:\n{}\n"
+                    "Stderr:\n{}".format(script, code, stdout, stderr)
+                )
+        finally:
+            for temp_file in temp_files:
+                try:
+                    temp_file.unlink()
+                except OSError:
+                    pass
+
     print("Testing", full_version() + "\n")
+
+    print("Verifying Python scripts for syntax and basic execution...\n")
+
+    try:
+        verify_python_scripts()
+    except Exception as exc:
+        print("Script verification failed:", file=sys.stderr)
+        print(exc, file=sys.stderr)
+        sys.exit(1)
 
     # Additional setup normally done by green.cmdline.main()
     if has_green:
