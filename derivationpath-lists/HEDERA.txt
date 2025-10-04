@@ -1,0 +1,2 @@
+# Default Hedera ed25519 derivation path (HIP-32 compliant)
+m/44'/3030'/0'/0'

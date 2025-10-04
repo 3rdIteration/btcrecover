@@ -864,6 +864,14 @@ class TestRecoveryFromAddress(unittest.TestCase):
         self.address_tester(btcrseed.WalletEthereum, "0xaeaa91ba7235dc2d90e28875d3e466aaa27e076d", 2,
                             "appear section card oak mercy output person grab rotate sort where rural")
 
+    def test_hedera_ed25519_private_key(self):
+        self.address_tester(
+            btcrseed.WalletHederaEd25519,
+            "41f7d3cf6db29968d2ec6b74cc70530ebeb5adb65ee9196be69f44b9184e10d1",
+            1,
+            "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
+        )
+
     def test_walletripple_bip44(self):
         self.address_tester(btcrseed.WalletRipple, "rJGNUmwiYDwXEsLzUFV9njhP3syrDvA6hs", 2,
                             "certain come keen collect slab gauge photo inside mechanic deny leader drop")

@@ -107,6 +107,14 @@ try:
 except:
     pass
 
+bip_utils_available = False
+try:
+    from bip_utils import Bip32Slip10Ed25519, Bip39SeedGenerator
+
+    bip_utils_available = True
+except Exception:
+    pass
+
 eth2_staking_deposit_available = False
 try:
     from staking_deposit.key_handling.key_derivation.path import mnemonic_and_path_to_key
@@ -2495,6 +2503,139 @@ class WalletEthereum(WalletBIP39):
         """
         assert len(uncompressed_pubkey) == 65 and uncompressed_pubkey[0] == 4
         return keccak(uncompressed_pubkey[1:])[-20:]
+
+############### Hedera (Ed25519) ###############
+
+@register_selectable_wallet_class('Hedera BIP39/44 (ed25519)')
+class WalletHederaEd25519(WalletBIP39):
+
+    def __init__(self, path=None, loading=False):
+        if not bip_utils_available:
+            exit("Hedera Ed25519 wallet support requires the bip_utils package. Install it via 'pip3 install bip_utils'.")
+        if not path:
+            path = load_pathlist("./derivationpath-lists/HEDERA.txt")
+        super(WalletHederaEd25519, self).__init__(path, loading)
+
+    @staticmethod
+    def _alias_bytes_to_account_string(alias_bytes: bytes) -> str:
+        shard = int.from_bytes(alias_bytes[:4], "big")
+        realm = int.from_bytes(alias_bytes[4:12], "big")
+        num = int.from_bytes(alias_bytes[12:], "big")
+        return f"{shard}.{realm}.{num}"
+
+    @staticmethod
+    def _account_string_to_alias_bytes(account: str) -> bytes:
+        parts = account.split(".")
+        if len(parts) != 3:
+            raise ValueError("Hedera account IDs must be in 'shard.realm.num' format")
+        try:
+            shard, realm, num = (int(p) for p in parts)
+        except ValueError:
+            raise ValueError("Hedera account IDs must contain numeric shard, realm, and num values")
+        if shard < 0 or realm < 0 or num < 0:
+            raise ValueError("Hedera account components must be non-negative")
+        return (
+            shard.to_bytes(4, "big")
+            + realm.to_bytes(8, "big")
+            + num.to_bytes(8, "big")
+        )
+
+    @staticmethod
+    def _addresses_to_hash160s(addresses):
+        hash160s = set()
+        for address in addresses:
+            if isinstance(address, bytes):
+                address = address.decode()
+            cleaned = address.strip()
+            if not cleaned:
+                continue
+
+            lowered = cleaned.lower()
+
+            if lowered.startswith("0x"):
+                hex_part = lowered[2:]
+                if not re.fullmatch(r"[0-9a-f]+", hex_part):
+                    raise ValueError("invalid hex characters in Hedera identifier")
+                if len(hex_part) == 40:
+                    hash160s.add(("addr", hex_part))
+                elif len(hex_part) == 64:
+                    hash160s.add(("priv", hex_part))
+                    hash160s.add(("pub", hex_part))
+                else:
+                    raise ValueError("hex-encoded Hedera identifiers must be 20 or 32 bytes long")
+                continue
+
+            if "." in cleaned:
+                alias_bytes = WalletHederaEd25519._account_string_to_alias_bytes(cleaned)
+                hash160s.add(("addr", alias_bytes.hex()))
+                hash160s.add(("acc", cleaned))
+                continue
+
+            if not re.fullmatch(r"[0-9a-f]+", lowered):
+                raise ValueError("unsupported Hedera identifier format")
+
+            if len(lowered) == 40:
+                hash160s.add(("addr", lowered))
+            elif len(lowered) == 64:
+                hash160s.add(("priv", lowered))
+                hash160s.add(("pub", lowered))
+            else:
+                raise ValueError("hex-encoded Hedera identifiers must be 20 or 32 bytes long")
+
+        return hash160s
+
+    def return_verified_password_or_false(self, mnemonic_ids_list):
+        return self._return_verified_password_or_false_cpu(mnemonic_ids_list)
+
+    def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
+        for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
+
+            if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
+                if not self._verify_checksum(mnemonic_ids):
+                    continue
+
+            if self._savevalidseeds and not self.pre_start_benchmark:
+                self.worker_out_queue.put(mnemonic_ids)
+                continue
+
+            mnemonic_phrase = " ".join(mnemonic_ids)
+
+            for salt in self._derivation_salts:
+                salt_str = salt.decode() if isinstance(salt, bytes) else salt
+                seed_bytes = Bip39SeedGenerator(mnemonic_phrase).Generate(salt_str)
+
+                if self._verify_seed(seed_bytes, salt):
+                    return mnemonic_ids, count
+
+        return False, count
+
+    def _verify_seed(self, seed_bytes, salt=None):
+        for path_str in getattr(self, "_path_strings", ["m"]):
+            base_ctx = Bip32Slip10Ed25519.FromSeedAndPath(seed_bytes, path_str)
+
+            for account_index in range(self._address_start_index,
+                                        self._address_start_index + self._addrs_to_generate):
+                child_ctx = base_ctx.ChildKey(0x80000000 + account_index)
+
+                priv_hex = child_ctx.PrivateKey().Raw().ToHex().lower()
+                if ("priv", priv_hex) in self._known_hash160s:
+                    return True
+
+                pub_bytes = child_ctx.PublicKey().RawCompressed().ToBytes()
+                pub_hex = pub_bytes[1:].hex().lower() if len(pub_bytes) > 1 else pub_bytes.hex().lower()
+                if ("pub", pub_hex) in self._known_hash160s:
+                    return True
+
+                alias_bytes = keccak(pub_bytes)[-20:]
+                alias_hex = alias_bytes.hex()
+                if ("addr", alias_hex) in self._known_hash160s:
+                    return True
+
+                account_string = self._alias_bytes_to_account_string(alias_bytes)
+                if ("acc", account_string) in self._known_hash160s:
+                    return True
+
+        return False
 
 ############### Ethereum Validator ###############
 
