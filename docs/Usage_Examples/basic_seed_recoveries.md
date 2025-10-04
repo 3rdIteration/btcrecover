@@ -89,6 +89,23 @@ One missing word
 python seedrecover.py --wallet-type helium --addrs 13hP2Vb1XVcMYrVNdwUW4pF3ZDj8CnET92zzUHqYp7DxxzVASbB --mnemonic "arm hundred female steel describe tip physical weapon peace write advice"
 ```
 
+### Basic Hedera Ed25519 Recoveries
+Recover a Hedera account using its Solidity-style EVM address. Hedera aliases
+are deterministic on the HIP-32 derivation path used by
+`--wallet-type hederaed25519`, so the search can be limited to the first
+account.
+
+```
+python seedrecover.py --wallet-type hederaed25519 --addrs 0x000000000000000000000000000000000098d10f --mnemonic "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup" --addr-limit 1
+```
+
+The same mnemonic can be recovered with a Hedera account identifier instead of
+the Solidity address:
+
+```
+python seedrecover.py --wallet-type hederaed25519 --addrs 0.0.10014991 --mnemonic "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup" --addr-limit 1
+```
+
 ### Basic Polkadot(Substrate) Recoveries
 One missing word, blank secret derivation path
 ```
