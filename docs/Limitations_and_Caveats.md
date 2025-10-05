@@ -14,6 +14,8 @@ When *btcrecover* starts, it's first task is to count all the passwords it's abo
 
 Although this initial counting phase can be skipped by using the `--no-eta` option, it's not recommended. If you do use `--no-eta`, it's highly recommended that you also use `--no-dupchecks` at the same time.
 
+Before the main search begins *btcrecover* also runs a short benchmark to estimate how quickly passwords or seeds can be checked. This can take a noticeable amount of time for some wallet types, so a message is displayed while it runs. By default the benchmark stops after about 30 seconds, but if you want to shorten or skip this step you can supply `--pre-start-seconds <seconds>` to limit how long the benchmark runs (use `0` to skip it entirely) or `--skip-pre-start`. Skipping the benchmark may reduce the accuracy of the reported ETA.
+
 You may want to always use a single `--no-dupchecks` option when working with MultiBit Classic or Electrum wallets because the duplicate checking can actually decrease CPU efficiency (and always decreases memory efficiency) with these wallets in many cases.
 
 If you specify `--no-dupchecks` more than once, it will disable even more of the duplicate checking logic:

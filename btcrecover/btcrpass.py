@@ -5999,6 +5999,18 @@ def init_parser_common():
         parser_common.add_argument("--dynamic-passwords-count", action="store_true", help=argparse.SUPPRESS) #help="start trying the passwords while they are being counted")
         parser_common.add_argument("--no-dupchecks", "-d", action="count", default=0, help="disable duplicate guess checking to save memory; specify up to four times for additional effect")
         parser_common.add_argument("--no-progress", action="store_true",   default=not sys.stdout.isatty(), help="disable the progress bar")
+        parser_common.add_argument(
+            "--pre-start-seconds",
+            type=float,
+            default=30.0,
+            metavar="SECONDS",
+            help="limit how long the pre-start benchmark runs for (default: %(default)s seconds); use 0 to skip it",
+        )
+        parser_common.add_argument(
+            "--skip-pre-start",
+            action="store_true",
+            help="skip the pre-start benchmark; equivalent to --pre-start-seconds 0",
+        )
         parser_common.add_argument("--android-pin", action="store_true", help="search for the spending pin instead of the backup password in a Bitcoin Wallet for Android/BlackBerry")
         parser_common.add_argument("--blockchain-secondpass", action="store_true", help="search for the second password instead of the main password in a Blockchain wallet")
         parser_common.add_argument("--blockchain-correct-mainpass", metavar="STRING", help="The main password for blockchain.com wallets, eithere entered using this argument, or prompted to enter at runtime")
@@ -9223,25 +9235,65 @@ def main():
         if args.enable_gpu:
             inner_iterations = sum(args.global_ws)
             outer_iterations = 1
+            approx_passwords = loaded_wallet.passwords_per_seconds(0.5)
         else:
             # Passwords are verified in "chunks" to reduce call overhead. One chunk includes enough passwords to
             # last for about 1/100th of a second (determined experimentally to be about the best I could do, YMMV)
             CHUNKSIZE_SECONDS = 1.0 / 100.0
             measure_performance_iterations = loaded_wallet.passwords_per_seconds(0.5)
-            inner_iterations = int(round(2*measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
+            inner_iterations = int(round(2 * measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
             outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
-        #
-        performance_generator = performance_base_password_generator()  # generates dummy passwords
-        start = timeit.default_timer()
-        # Emulate calling the verification function with lists of size inner_iterations
+            approx_passwords = measure_performance_iterations
 
-        loaded_wallet.pre_start_benchmark = True
-        for o in range(outer_iterations):
-            loaded_wallet.return_verified_password_or_false(list(
-                itertools.islice(filter(custom_final_checker, performance_generator), inner_iterations)))
-        est_secs_per_password = (timeit.default_timer() - start) / (outer_iterations * inner_iterations)
-        del performance_generator
-        loaded_wallet.pre_start_benchmark = False
+        approx_passwords = max(approx_passwords, 1)
+        fallback_estimate = 0.5 / float(approx_passwords)
+
+        skip_pre_start = getattr(args, "skip_pre_start", False)
+        pre_start_limit = getattr(args, "pre_start_seconds", 30.0)
+
+        if pre_start_limit is not None:
+            if pre_start_limit < 0:
+                print("Warning: --pre-start-seconds must be >= 0, skipping benchmark", file=sys.stderr)
+                skip_pre_start = True
+                pre_start_limit = None
+            elif pre_start_limit == 0:
+                skip_pre_start = True
+                pre_start_limit = None
+
+        if skip_pre_start:
+            print("Skipping pre-start benchmark; progress estimates may be less accurate.")
+            est_secs_per_password = fallback_estimate
+        else:
+            message = "Pre-start benchmark: measuring verification speed"
+            if pre_start_limit is not None:
+                message += " (limit {:.3g} seconds)".format(pre_start_limit)
+            message += ". Use --skip-pre-start to skip or --pre-start-seconds to limit this step."
+            print(message)
+
+            performance_generator = performance_base_password_generator()  # generates dummy passwords
+            start = timeit.default_timer()
+            iterations_done = 0
+
+            loaded_wallet.pre_start_benchmark = True
+            try:
+                for o in range(outer_iterations):
+                    loaded_wallet.return_verified_password_or_false(list(
+                        itertools.islice(filter(custom_final_checker, performance_generator), inner_iterations)))
+                    iterations_done += inner_iterations
+                    if pre_start_limit is not None and timeit.default_timer() - start >= pre_start_limit:
+                        break
+            finally:
+                loaded_wallet.pre_start_benchmark = False
+                del performance_generator
+
+            elapsed = timeit.default_timer() - start
+            if iterations_done <= 0 or elapsed <= 0:
+                est_secs_per_password = fallback_estimate
+            else:
+                est_secs_per_password = elapsed / iterations_done
+                rate = iterations_done / elapsed
+                print("Pre-start benchmark completed in {:.2f}s ({:.2f} passwords/s).".format(elapsed, rate))
+
         assert isinstance(est_secs_per_password, float) and est_secs_per_password > 0.0
 
     if args.enable_gpu:

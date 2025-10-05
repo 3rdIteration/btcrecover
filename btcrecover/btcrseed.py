@@ -4402,6 +4402,18 @@ def main(argv):
         parser.add_argument("--no-eta",      action="store_true",   help="disable calculating the estimated time to completion")
         parser.add_argument("--no-dupchecks", "-d", action="count", default=0, help="disable duplicate guess checking to save memory; specify up to four times for additional effect")
         parser.add_argument("--no-progress", action="store_true",   help="disable the progress bar")
+        parser.add_argument(
+            "--pre-start-seconds",
+            type=float,
+            default=30.0,
+            metavar="SECONDS",
+            help="limit how long the pre-start benchmark runs for (default: %(default)s seconds); use 0 to skip it",
+        )
+        parser.add_argument(
+            "--skip-pre-start",
+            action="store_true",
+            help="skip the pre-start benchmark; equivalent to --pre-start-seconds 0",
+        )
         parser.add_argument("--no-pause",    action="store_true",   help="never pause before exiting (default: auto)")
         parser.add_argument("--no-gui", action="store_true", help="Force disable the gui elements")
         parser.add_argument(
@@ -4697,13 +4709,13 @@ def main(argv):
             create_from_params["checksinglexpubaddress"] = True
 
         # These arguments and their values are passed on to btcrpass.parse_arguments()
-        for argkey in "skip", "threads", "worker", "max_eta":
+        for argkey in "skip", "threads", "worker", "max_eta", "pre_start_seconds":
             if args.__dict__[argkey] is not None:
                 extra_args.extend(("--"+argkey.replace("_", "-"), str(args.__dict__[argkey])))
 
 
         # These arguments (which have no values) are passed on to btcrpass.parse_arguments()
-        for argkey in "no_eta", "no_progress":
+        for argkey in "no_eta", "no_progress", "skip_pre_start":
             if args.__dict__[argkey]:
                 extra_args.append("--"+argkey.replace("_", "-"))
 
