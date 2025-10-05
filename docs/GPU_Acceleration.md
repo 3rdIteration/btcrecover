@@ -118,6 +118,8 @@ The `--performance` option tells *btcrecover* to simply measure the performance 
 
 For automated benchmarking you can add `--performance-runtime SECONDS` to stop the run after a fixed interval instead of relying on Ctrl-C. When a performance session exits (either manually or because the runtime limit was reached) *btcrecover* now prints a summary that includes the average kP/s rate, the elapsed time, and the number of passwords attempted, making it easier to track results from repeated tests.
 
+If you want to explore a range of GPU settings automatically, add `--performance-scan` alongside `--performance`. By default this benchmarks several thread counts, global work sizes, and local work sizes (including the automatic `--local-ws` selection). You can further customize the scan with `--performance-scan-threads`, `--performance-scan-global-ws`, and `--performance-scan-local-ws` to explicitly control which values are tested. Each combination is executed as an individual performance run and summarized at the end so you can quickly spot the most efficient configuration for your hardware.
+
 Finding the right values for `--global-ws` and `--local-ws` can make a 10x improvement, so it's usually worth the effort.
 
 Generally when testing, you should increase or decrease these two values by powers of 2, for example you should increase or decrease them by 128 or 256 at a time. It's important to note that `--global-ws` must always be evenly divisible by `--local-ws`, otherwise *btcrecover* will exit with an error message.

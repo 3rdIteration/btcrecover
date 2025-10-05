@@ -6021,6 +6021,31 @@ def init_parser_common():
             metavar="SECONDS",
             help="stop a performance test automatically after SECONDS and report the average speed",
         )
+        parser_common.add_argument(
+            "--performance-scan",
+            action="store_true",
+            help="automatically benchmark multiple thread counts and GPU workgroup sizes when used with --performance",
+        )
+        parser_common.add_argument(
+            "--performance-scan-threads",
+            type=int,
+            nargs="+",
+            metavar="COUNT",
+            help="explicit thread counts to benchmark during --performance-scan (default: derived from detected CPU cores)",
+        )
+        parser_common.add_argument(
+            "--performance-scan-global-ws",
+            type=int,
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help="global work sizes to benchmark during --performance-scan (default: around the configured --global-ws)",
+        )
+        parser_common.add_argument(
+            "--performance-scan-local-ws",
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help="local work sizes to benchmark during --performance-scan; include 'auto' to test the automatic selection",
+        )
         parser_common.add_argument("--pause",       action="store_true", help="pause before exiting")
         parser_common.add_argument(
             "--beep-on-find",
@@ -6239,6 +6264,30 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         error_exit("--performance-runtime must be greater than or equal to zero")
     if args.performance_runtime and not args.performance:
         error_exit("--performance-runtime can only be used together with --performance")
+    if args.performance_scan and not args.performance:
+        error_exit("--performance-scan can only be used together with --performance")
+    if args.performance_scan_threads:
+        for value in args.performance_scan_threads:
+            if value <= 0:
+                error_exit("--performance-scan-threads values must be positive integers")
+    if args.performance_scan_global_ws:
+        for value in args.performance_scan_global_ws:
+            if value <= 0:
+                error_exit("--performance-scan-global-ws values must be positive integers")
+    if args.performance_scan_local_ws:
+        normalized_local_ws = []
+        for value in args.performance_scan_local_ws:
+            if isinstance(value, str) and value.lower() in {"auto", "none", "null", "default"}:
+                normalized_local_ws.append(None)
+                continue
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError):
+                error_exit("--performance-scan-local-ws values must be integers or 'auto'")
+            if int_value <= 0:
+                error_exit("--performance-scan-local-ws values must be positive integers")
+            normalized_local_ws.append(int_value)
+        args.performance_scan_local_ws = normalized_local_ws
     _apply_beep_configuration(args)
 
     # Do this as early as possible so user doesn't miss any error messages
