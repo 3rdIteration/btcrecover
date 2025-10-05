@@ -31,6 +31,7 @@ from btcrecover import btcrpass, success_alert
 import itertools
 import os
 import re
+import shlex
 import subprocess
 import sys
 import multiprocessing
@@ -224,8 +225,31 @@ def _run_performance_scan():
                 print(f"    stderr: {stderr}")
 
     if results:
-        print("\nPerformance scan summary (sorted by throughput):")
-        for entry in sorted(results, key=lambda item: item["rate"], reverse=True):
+        sorted_results = sorted(results, key=lambda item: item["rate"], reverse=True)
+        best_result = sorted_results[0]
+        best_label = (
+            f"threads={best_result['threads']}, global-ws={best_result['global_ws']}, local-ws={_format_local_ws(best_result['local_ws'])}"
+        )
+        print("\nBest configuration by throughput:")
+        print(
+            f"  {best_label}: {best_result['rate']:,.2f} kP/s over {best_result['elapsed']:.2f} seconds"
+            f" ({best_result['passwords']:,} passwords tried)"
+        )
+        if best_result["note"]:
+            print(f"    {best_result['note']}")
+
+        recommended_cmd = [sys.executable, script_path] + base_args
+        if runtime_limit:
+            recommended_cmd.extend(["--performance-runtime", f"{runtime_limit}"])
+        recommended_cmd.extend(["--threads", str(best_result["threads"])])
+        recommended_cmd.extend(["--global-ws", str(best_result["global_ws"])])
+        if best_result["local_ws"] is not None:
+            recommended_cmd.extend(["--local-ws", str(best_result["local_ws"])])
+        print("  Recommended command:")
+        print(f"    {' '.join(shlex.quote(arg) for arg in recommended_cmd)}")
+
+        print("\nFull performance scan summary (sorted by throughput):")
+        for entry in sorted_results:
             note_suffix = f" {entry['note']}" if entry["note"] else ""
             label = (
                 f"threads={entry['threads']}, global-ws={entry['global_ws']}, local-ws={_format_local_ws(entry['local_ws'])}"
