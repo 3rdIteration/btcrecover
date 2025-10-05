@@ -21,13 +21,21 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse
+import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse, importlib
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from btcrecover import btcrpass
 
 import btcrecover.opencl_helpers
+
+OPENCL_IMPORT_ERROR = None
+try:
+    importlib.import_module("lib.opencl_brute.opencl")
+except ModuleNotFoundError as exc:
+    OPENCL_IMPORT_ERROR = exc
+except ImportError as exc:
+    OPENCL_IMPORT_ERROR = exc
 
 class NonClosingBase(object):
     pass
@@ -1128,6 +1136,16 @@ def has_any_opencl_devices():
     global opencl_device_count
     global opencl_devices_list
     if opencl_device_count is None:
+        if OPENCL_IMPORT_ERROR is not None:
+            opencl_devices_list = ()
+            opencl_device_count = 0
+            print(
+                "Skipping OpenCL tests due to missing dependency: {}".format(
+                    OPENCL_IMPORT_ERROR
+                ),
+                file=sys.stderr,
+            )
+            return False
         try:
             opencl_devices_list = list(btcrpass.get_opencl_devices())
         except ImportError:
