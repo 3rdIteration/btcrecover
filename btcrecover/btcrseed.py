@@ -2106,8 +2106,9 @@ class WalletBIP39(WalletBIP32):
         cksum_int = int(bit_string[-cksum_len_in_bits:], 2)
         #
         # Calculate and verify the checksum
-        return ord(hashlib.sha256(entropy_bytes).digest()[:1]) >> 8-cksum_len_in_bits \
-               == cksum_int
+        digest = hashlib.sha256(entropy_bytes).digest()
+        checksum = int.from_bytes(digest, "big") >> (len(digest) * 8 - cksum_len_in_bits)
+        return checksum == cksum_int
 
     # Called by WalletBIP32.return_verified_password_or_false() to create a binary seed
     def _derive_seed(self, mnemonic_words):
