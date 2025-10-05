@@ -8,3 +8,5 @@ If you specify `--passwordlist` without a file, *btcrecover* will prompt you to 
 Be sure not to add any extra spaces, unless those spaces are actually a part of a password.
 
 Each line is used verbatim as a single password when using the `--passwordlist` option (and none of the features from above are applied). You can however use any of the Typos features described below to try different variations of the passwords in the passwordlist.
+
+If you would like to store your command line options alongside the passwordlist file itself, you can add the `--passwordlist-arguments` option when launching *btcrecover*. When this flag is present, *btcrecover* will look at the first line of the passwordlist file; if it begins with `#--`, everything after that sequence is treated as additional command line arguments. The values provided inside the file behave exactly like command line arguments, but the normal command line still takes precedence if you specify the same option in both places. For safety reasons `--passwordlist`, `--tokenlist`, `--performance`, and `--utf8` are not permitted inside the file.

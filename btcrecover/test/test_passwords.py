@@ -675,6 +675,30 @@ class Test05CommandLine(GeneratorTester):
     def test_embedded_tokenlist_option_invalid(self):
         self.expect_syntax_failure(["#--tokenlist file"], "--tokenlist option is not permitted inside a tokenlist file")
 
+    def test_embedded_passwordlist_option(self):
+        btcrpass.parse_arguments(("--passwordlist __funccall --passwordlist-arguments --listpass"+utf8_opt).split(),
+                                 passwordlist = StringIO(tstr("#--skip 1\none\ntwo")), disable_security_warning_param = True)
+        tok_it, skipped = btcrpass.password_generator_factory(2)
+        self.assertEqual(tok_it.__next__(), ["two"])
+
+    def test_embedded_passwordlist_overwridden_option(self):
+        btcrpass.parse_arguments(("--passwordlist __funccall --passwordlist-arguments --skip 1 --listpass"+utf8_opt).split(),
+                                 passwordlist = StringIO(tstr("#--skip 2\none\ntwo\nthree")), disable_security_warning_param = True)
+        tok_it, skipped = btcrpass.password_generator_factory(3)
+        self.assertEqual(tok_it.__next__(), ["two", "three"])
+
+    def test_embedded_passwordlist_option_invalid(self):
+        with self.assertRaises(SystemExit) as cm:
+            btcrpass.parse_arguments(("--passwordlist __funccall --passwordlist-arguments --listpass"+utf8_opt).split(),
+                                     passwordlist = StringIO(tstr("#--passwordlist file\none")), disable_security_warning_param = True)
+        self.assertIn("--passwordlist option is not permitted inside a passwordlist file", cm.exception.code)
+
+    def test_embedded_passwordlist_option_missing(self):
+        with self.assertRaises(SystemExit) as cm:
+            btcrpass.parse_arguments(("--passwordlist __funccall --passwordlist-arguments --listpass"+utf8_opt).split(),
+                                     passwordlist = StringIO(tstr("not-an-option\none")), disable_security_warning_param = True)
+        self.assertIn("--passwordlist-arguments requires the first line to begin with '#--'", cm.exception.code)
+
     @skipUnless(lambda: tstr == str, "Unicode mode only")
     def test_unicode(self):
         self.do_generator_test(["да"], ["да", "вда", "два", "дав"], "--typos-insert в")

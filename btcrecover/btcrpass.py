@@ -145,6 +145,12 @@ except:
 # initialized here to allow direct wallet class use in tests
 args = argparse.Namespace()
 
+passwordlist_file = None
+initial_passwordlist = ()
+passwordlist_allcached = False
+passwordlist_first_line_num = 1
+passwordlist_embedded_arguments = False
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 def load_customTokenWildcard(customTokenWildcardFile):
@@ -6190,7 +6196,9 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     if not effective_argv: enable_pause()
 
     # Create a parser which can parse any supported option, and run it
-    global args
+    global args, passwordlist_first_line_num, passwordlist_embedded_arguments
+    passwordlist_first_line_num = 1
+    passwordlist_embedded_arguments = False
     init_parser_common()
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-h", "--help",   action="store_true", help="show this help message and exit")
@@ -6210,6 +6218,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     parser.add_argument("--restore",      metavar="FILE",      help="restore progress and options from an autosave file (must be the only option on the command line)")
     parser.add_argument("--passwordlist", metavar="FILE", nargs="?", const="-", help="instead of using a tokenlist, read complete passwords (exactly one per line) from this file or from stdin")
     parser.add_argument("--has-wildcards",action="store_true", help="parse and expand wildcards inside passwordlists (default: wildcards are only parsed inside tokenlists)")
+    parser.add_argument("--passwordlist-arguments", action="store_true", help="allow the first line of the passwordlist file to start with '#--' and supply additional command line options")
     parser.add_argument("--wildcard-custom-list-e",metavar="FILE", help="Path to a custom list file which will be used fr the %%e expanding wildcard")
     parser.add_argument("--wildcard-custom-list-f",metavar="FILE", help="Path to a custom list file which will be used fr the %%f expanding wildcard")
     parser.add_argument("--wildcard-custom-list-j",metavar="FILE", help="Path to a custom list file which will be used fr the %%j expanding wildcard")
@@ -6249,6 +6258,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         parser = argparse.ArgumentParser(add_help=True)
         parser.add_argument("--passwordlist", required=not base_iterator, nargs="?", const="-", metavar="FILE", help="instead of using a tokenlist, read complete passwords (exactly one per line) from this file or from stdin")
         parser.add_argument("--has-wildcards",action="store_true", help="parse and expand wildcards inside passwordlists (default: disabled for passwordlists)")
+        parser.add_argument("--passwordlist-arguments", action="store_true", help="allow the first line of the passwordlist file to start with '#--' and supply additional command line options")
         parser.add_argument("--tokenlist", metavar="FILE", help="the list of tokens/partial passwords (required)")
         parser.add_argument("--max-tokens", type=int, default=sys.maxsize, metavar="COUNT",
                             help="enforce a max # of tokens included per guess")
@@ -6305,6 +6315,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # (if we are restoring, we don't know what to open until after the restore data is loaded)
     TOKENS_AUTO_FILENAME = "btcrecover-tokens-auto.txt"
 
+    provided_passwordlist = kwds.get("passwordlist")
+
     if (not (args.restore or args.passwordlist or args.performance or base_iterator)) or (args.seedgenerator and not args.passwordlist):
         tokenlist_file = open_or_use(args.tokenlist, "r", kwds.get("tokenlist"),
             default_filename=TOKENS_AUTO_FILENAME, permit_stdin=True, make_peekable=True)
@@ -6312,6 +6324,49 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             enable_pause()  # enabled by default when using btcrecover-tokens-auto.txt
     else:
         tokenlist_file = None
+
+    if args.passwordlist_arguments and not args.passwordlist:
+        error_exit("--passwordlist-arguments requires --passwordlist")
+
+    if args.passwordlist and args.passwordlist_arguments:
+        passwordlist_args_file = open_or_use(
+            args.passwordlist,
+            "r",
+            provided_passwordlist,
+            permit_stdin=True,
+            decoding_errors="replace",
+        )
+        if passwordlist_args_file == sys.stdin:
+            error_exit("--passwordlist-arguments cannot be used with stdin")
+        first_line = passwordlist_args_file.readline()
+        if not first_line:
+            error_exit("--passwordlist-arguments requires a non-empty passwordlist file")
+        stripped_first_line = first_line[1:].strip() if first_line.startswith("#") else None
+        if not stripped_first_line or not stripped_first_line.startswith("--"):
+            error_exit("--passwordlist-arguments requires the first line to begin with '#--'")
+        print("Read additional options from passwordlist file: " + stripped_first_line, file=sys.stderr)
+        passwordlist_args = stripped_first_line.split()
+        effective_argv = passwordlist_args + effective_argv
+        args = parser.parse_args(effective_argv)
+        _apply_beep_configuration(args)
+        if args.pause: enable_pause()
+        for arg in passwordlist_args:
+            if arg.startswith("--pas"):           # --passwordlist or --passwordlist-arguments
+                error_exit("the --passwordlist option is not permitted inside a passwordlist file")
+            elif arg.startswith("--to"):          # --tokenlist
+                error_exit("the --tokenlist option is not permitted inside a passwordlist file")
+            elif arg.startswith("--pe"):          # --performance
+                error_exit("the --performance option is not permitted inside a passwordlist file")
+            elif arg.startswith("--u"):           # --utf8
+                error_exit("the --utf8 option is not permitted inside a passwordlist file")
+        try:
+            passwordlist_args_file.seek(0)
+        except (AttributeError, io.UnsupportedOperation):
+            pass
+        if passwordlist_args_file not in (provided_passwordlist, None):
+            passwordlist_args_file.close()
+        passwordlist_first_line_num = 2
+        passwordlist_embedded_arguments = True
 
     # If the first line of the tokenlist file starts with "#\s*--", parse it as additional arguments
     # (note that command line arguments can override arguments in this file)
@@ -7148,7 +7203,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # initial portion. If we manage to read up until EOF, then we won't need to disable ETA features.
     # TODO: support --autosave with --passwordlist files and short stdin inputs
     global passwordlist_file, initial_passwordlist, passwordlist_allcached
-    passwordlist_file = open_or_use(args.passwordlist, "r", kwds.get("passwordlist"),
+    passwordlist_file = open_or_use(args.passwordlist, "r", provided_passwordlist,
                                     permit_stdin=True, decoding_errors="replace")
     try:
         loaded_wallet.passwordlist_file = args.passwordlist # There are some instance where the generator will be initialised without a loaded wallet, so ignore these
@@ -7160,6 +7215,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         passwordlist_allcached  = False
         has_any_wildcards       = False
         base_password_generator = passwordlist_base_password_generator
+        if passwordlist_embedded_arguments and passwordlist_file != sys.stdin:
+            passwordlist_file.readline()
         #
         if passwordlist_file == sys.stdin:
             passwordlist_isatty = sys.stdin.isatty()
@@ -8301,10 +8358,10 @@ def passwordlist_warn(line_num, *args):
 # used by password_generator() as base passwords that can undergo further modifications.
 def passwordlist_base_password_generator():
     global initial_passwordlist, passwordlist_warnings
-    global passwordlist_file
+    global passwordlist_file, passwordlist_first_line_num
     global loaded_wallet
 
-    line_num = 1
+    line_num = passwordlist_first_line_num
     for password_base in initial_passwordlist:  # note that these have already been syntax-checked
         if password_base is not None:           # happens if there was a wildcard syntax error
             yield password_base
