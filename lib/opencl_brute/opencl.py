@@ -921,30 +921,70 @@ class opencl_algos:
             result = [hexRes[:dklen] for hexRes in result]
         return result
 
-    def cl_pbkdf2_init(self, rtype, saltlen, dklen):
+    def cl_pbkdf2_init(self, rtype, saltlen, dklen, max_password_bytes=256):
         bufStructs = buffer_structs()
+        if max_password_bytes is None:
+            max_password_bytes = 256
+        assert max_password_bytes > 0, "max_password_bytes must be positive"
         if rtype == "md5":
-            self.max_out_bytes = bufStructs.specifyMD5(128, saltlen, dklen)
+            max_in_bytes = max(128, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifyMD5(
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
             # hmac is defined in with pbkdf2, as a kernel function
             prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif rtype == "sha1":
-            if saltlen < 32 and dklen < 32:
+            use_fast_kernel = (
+                saltlen < 32 and dklen < 32 and max_password_bytes <= 32
+            )
+            if use_fast_kernel:
                 dklen = 32
-                self.max_out_bytes = bufStructs.specifySHA1(32, saltlen, dklen)
+                self.max_out_bytes = bufStructs.specifySHA1(
+                    32,
+                    saltlen,
+                    dklen,
+                    max_password_bytes=32,
+                )
                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha1_32.cl", None)
             else:
-                self.max_out_bytes = bufStructs.specifySHA1(128, saltlen, dklen)
+                max_in_bytes = max(128, max_password_bytes)
+                self.max_out_bytes = bufStructs.specifySHA1(
+                    max_in_bytes,
+                    saltlen,
+                    dklen,
+                    max_password_bytes=max_password_bytes,
+                )
                 prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
         elif rtype == "sha256":
-            if saltlen <= 64 and dklen <= 64:
+            use_fast_kernel = (
+                saltlen <= 64 and dklen <= 64 and max_password_bytes <= 32
+            )
+            if use_fast_kernel:
                 dklen = 64
-            self.max_out_bytes = bufStructs.specifySHA2(256, 128, saltlen, dklen)
-            if saltlen <= 64 and dklen <= 64:
+            max_in_bytes = max(128, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifySHA2(
+                256,
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
+            if use_fast_kernel:
                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha256_32.cl", None)
             else:
                 prg = self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2.cl")
         elif rtype == "sha512":
-            self.max_out_bytes = bufStructs.specifySHA2(512, 256, saltlen, dklen)
+            max_in_bytes = max(256, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifySHA2(
+                512,
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
             assert "Error on hash type, unknown !!!"
@@ -985,7 +1025,7 @@ class opencl_algos:
         bufStructs = buffer_structs()
         if type == "md5":
             self.max_out_bytes = bufStructs.specifyMD5(
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -994,7 +1034,7 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif type == "sha1":
             self.max_out_bytes = bufStructs.specifySHA1(
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -1004,7 +1044,7 @@ class opencl_algos:
         elif type == "sha256":
             self.max_out_bytes = bufStructs.specifySHA2(
                 hashDigestSize_bits=256,
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -1013,7 +1053,7 @@ class opencl_algos:
         elif type == "sha512":
             self.max_out_bytes = bufStructs.specifySHA2(
                 hashDigestSize_bits=512,
-                max_in_bytes=256,
+                max_in_bytes=max(256, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
