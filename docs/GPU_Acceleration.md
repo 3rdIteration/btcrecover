@@ -116,6 +116,8 @@ A good starting point for these wallets is:
 
 The `--performance` option tells *btcrecover* to simply measure the performance until Ctrl-C is pressed, and not to try testing any particular passwords. You will still need a wallet file (or an `--extract-data` option) for performance testing. After you you have a baseline from this initial test, you can try different values for `--global-ws` and `--local-ws` to see if they improve or worsen performance.
 
+For automated benchmarking you can add `--performance-runtime SECONDS` to stop the run after a fixed interval instead of relying on Ctrl-C. When a performance session exits (either manually or because the runtime limit was reached) *btcrecover* now prints a summary that includes the average kP/s rate, the elapsed time, and the number of passwords attempted, making it easier to track results from repeated tests.
+
 Finding the right values for `--global-ws` and `--local-ws` can make a 10x improvement, so it's usually worth the effort.
 
 Generally when testing, you should increase or decrease these two values by powers of 2, for example you should increase or decrease them by 128 or 256 at a time. It's important to note that `--global-ws` must always be evenly divisible by `--local-ws`, otherwise *btcrecover* will exit with an error message.
