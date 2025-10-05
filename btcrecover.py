@@ -41,7 +41,10 @@ if __name__ == "__main__":
     btcrpass.parse_arguments(sys.argv[1:])
     (password_found, not_found_msg) = btcrpass.main()
 
-    if isinstance(password_found, str):
+    if btcrpass.args.performance and btcrpass.performance_run_completed:
+        retval = 0
+
+    elif isinstance(password_found, str):
         success_alert.start_success_beep()
         print()
         print(
