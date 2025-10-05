@@ -22,7 +22,6 @@
 
 
 import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse
-from unittest import mock
 
 from lib.opencl_brute import opencl
 if __name__ == '__main__':
@@ -3290,61 +3289,78 @@ class QuickTests(unittest.TestSuite) :
         self.addTests(tl.loadTestsFromTestCase(Test08BIP39Passwords))
 
 
-class FakeOpenCLInterface:
-    """Test double that records compilation requests."""
-
-    def __init__(self, *args, **kwargs):
-        self.compile_calls = []
-
-    def compile(self, buf_structs, library_file, footer_file=None, **kwargs):
-        self.compile_calls.append(
-            {
-                "buf_structs": buf_structs,
-                "library_file": library_file,
-                "footer_file": footer_file,
-                "kwargs": kwargs,
-            }
-        )
-        return object()
-
-
+@unittest.skipUnless(has_any_opencl_devices(), "requires OpenCL and a compatible device")
 class TestOpenCLPBKDF2BufferSizing(unittest.TestCase):
     """Ensure OpenCL PBKDF2 buffer sizes track password limits."""
 
-    def setUp(self):
-        patcher = mock.patch(
-            "lib.opencl_brute.opencl.opencl_interface", FakeOpenCLInterface
+    @classmethod
+    def setUpClass(cls):
+        super(TestOpenCLPBKDF2BufferSizing, cls).setUpClass()
+        if not has_any_opencl_devices():
+            raise unittest.SkipTest("requires OpenCL and a compatible device")
+
+        import pyopencl as cl
+
+        device = opencl_devices_list[0]
+        cls.platform_index = 0
+        cls.device_index = 0
+        for platform_index, platform in enumerate(cl.get_platforms()):
+            devices = platform.get_devices()
+            if device in devices:
+                cls.platform_index = platform_index
+                cls.device_index = devices.index(device)
+                break
+
+        cls.algos = opencl.opencl_algos(
+            cls.platform_index, 0, False, openclDevice=cls.device_index
         )
-        self.addCleanup(patcher.stop)
-        patcher.start()
-        self.algos = opencl.opencl_algos(0, 0, False)
 
     def test_sha1_fast_kernel_limits_password_bytes(self):
-        ctx = self.algos.cl_pbkdf2_init("sha1", saltlen=16, dklen=16, max_password_bytes=32)
+        password = b"a" * 32
+        salt = b"b" * 16
+        ctx = self.algos.cl_pbkdf2_init(
+            "sha1", saltlen=len(salt), dklen=16, max_password_bytes=len(password)
+        )
         buf_structs = ctx[1]
-        compile_call = self.algos.opencl_ctx.compile_calls[-1]
 
-        self.assertEqual(compile_call["library_file"], "pbkdf2_sha1_32.cl")
-        self.assertIsNone(compile_call["footer_file"])
-        self.assertEqual(buf_structs.pwdBufferSize_bytes, 32)
-        self.assertEqual(buf_structs.inBufferSize_bytes, 32)
+        self.assertEqual(buf_structs.pwdBufferSize_bytes, len(password))
+        self.assertEqual(buf_structs.inBufferSize_bytes, len(password))
+
+        result = self.algos.cl_pbkdf2(ctx, [password], salt, 1000, 16)
+        expected = [hashlib.pbkdf2_hmac("sha1", password, salt, 1000, 16)]
+        self.assertEqual(result, expected)
 
     def test_sha1_falls_back_for_long_passwords(self):
-        ctx = self.algos.cl_pbkdf2_init("sha1", saltlen=16, dklen=16, max_password_bytes=200)
+        password = b"l" * 200
+        salt = b"s" * 16
+        ctx = self.algos.cl_pbkdf2_init(
+            "sha1", saltlen=len(salt), dklen=20, max_password_bytes=len(password)
+        )
         buf_structs = ctx[1]
-        compile_call = self.algos.opencl_ctx.compile_calls[-1]
 
-        self.assertEqual(compile_call["library_file"], "sha1.cl")
-        self.assertEqual(compile_call["footer_file"], "pbkdf2.cl")
-        self.assertEqual(buf_structs.pwdBufferSize_bytes, 200)
-        self.assertEqual(buf_structs.inBufferSize_bytes, 200)
+        self.assertEqual(buf_structs.pwdBufferSize_bytes, len(password))
+        self.assertEqual(buf_structs.inBufferSize_bytes, len(password))
+
+        result = self.algos.cl_pbkdf2(ctx, [password], salt, 2000, 20)
+        expected = [hashlib.pbkdf2_hmac("sha1", password, salt, 2000, 20)]
+        self.assertEqual(result, expected)
 
     def test_saltlist_buffers_scale_with_password_length(self):
-        ctx = self.algos.cl_pbkdf2_saltlist_init("sha256", pwdlen=144, dklen=96)
+        password = b"p" * 144
+        salts = [b"salt-one", b"salt-two-long"]
+        ctx = self.algos.cl_pbkdf2_saltlist_init(
+            "sha256", pwdlen=len(password), dklen=32
+        )
         buf_structs = ctx[1]
 
-        self.assertEqual(buf_structs.pwdBufferSize_bytes, 144)
-        self.assertEqual(buf_structs.inBufferSize_bytes, 144)
+        self.assertEqual(buf_structs.pwdBufferSize_bytes, len(password))
+        self.assertEqual(buf_structs.inBufferSize_bytes, len(password))
+
+        result = self.algos.cl_pbkdf2_saltlist(ctx, password, salts, 4096, 32)
+        expected = [
+            hashlib.pbkdf2_hmac("sha256", password, salt, 4096, 32) for salt in salts
+        ]
+        self.assertEqual(result, expected)
 
 
 if __name__ == '__main__':
