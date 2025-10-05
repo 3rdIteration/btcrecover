@@ -8,7 +8,13 @@ from binascii import unhexlify
 from collections import deque
 from itertools import chain, repeat, zip_longest
 import numpy as np
-import pyopencl as cl
+
+try:
+    import pyopencl as cl
+except ImportError as _pyopencl_import_error:  # pragma: no cover - exercised in environments without PyOpenCL
+    cl = None
+else:
+    _pyopencl_import_error = None
 
 # Minimum number of items to execute in a single OpenCL batch.  Some
 # OpenCL runtimes (such as PoCL) crash when a kernel is launched with a
@@ -16,6 +22,15 @@ import pyopencl as cl
 MIN_BATCH_SIZE = 8
 from lib.opencl_brute.buffer_structs import buffer_structs
 import os, sys, inspect
+
+
+def _require_pyopencl():
+    """Ensure PyOpenCL is available before executing OpenCL operations."""
+
+    if cl is None:
+        raise ImportError(
+            "pyopencl is required for OpenCL acceleration but is not installed"
+        ) from _pyopencl_import_error
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
@@ -67,6 +82,7 @@ class opencl_interface:
         N_value=15,
         openclDevice=0,
     ):
+        _require_pyopencl()
         self.workgroupsize = 0
         self.computeunits = 0
         self.wordSize = None
