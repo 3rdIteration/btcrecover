@@ -1521,6 +1521,78 @@ class TestRecoveryFromAddress(unittest.TestCase):
         del wallet
 
 
+class TestBIP39ChecksumVerification(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"],
+            address_limit=1,
+        )
+        cls.wallet.config_mnemonic(
+            (
+                "abandon ability able about above absent absorb abstract "
+                "absurd abuse access accident"
+            ),
+            lang="en",
+        )
+        cls.wordlist = btcrseed.load_wordlist("bip39", "en")
+
+    @staticmethod
+    def _mnemonic_from_entropy(wordlist, entropy_bytes):
+        entropy_bits = "".join(f"{byte:08b}" for byte in entropy_bytes)
+        checksum_length = len(entropy_bytes) * 8 // 32
+        digest = hashlib.sha256(entropy_bytes).digest()
+        checksum_int = int.from_bytes(digest, "big")
+        checksum_bits = format(
+            checksum_int >> (len(digest) * 8 - checksum_length),
+            f"0{checksum_length}b",
+        )
+        bits = entropy_bits + checksum_bits
+        words = [
+            wordlist[int(bits[i:i + 11], 2)]
+            for i in range(0, len(bits), 11)
+        ]
+        return words, bits
+
+    @staticmethod
+    def _words_from_bits(wordlist, bits):
+        return [
+            wordlist[int(bits[i:i + 11], 2)]
+            for i in range(0, len(bits), 11)
+        ]
+
+    def _assert_checksum_for_length(self, word_count):
+        checksum_bits = word_count // 3
+        entropy_bits = word_count * 11 - checksum_bits
+        self.assertEqual(entropy_bits % 8, 0)
+        entropy = bytes(range(entropy_bits // 8))
+
+        words, bits = self._mnemonic_from_entropy(self.wordlist, entropy)
+        self.assertEqual(len(words), word_count)
+
+        encoded_words = tuple(
+            self.wallet._unicode_to_bytes(word)
+            for word in words
+        )
+        self.assertTrue(self.wallet._verify_checksum(encoded_words))
+
+        flipped_bits = bits[:-1] + ("1" if bits[-1] == "0" else "0")
+        invalid_words = self._words_from_bits(self.wordlist, flipped_bits)
+        self.assertNotEqual(invalid_words, words)
+        invalid_encoded_words = tuple(
+            self.wallet._unicode_to_bytes(word)
+            for word in invalid_words
+        )
+        self.assertFalse(self.wallet._verify_checksum(invalid_encoded_words))
+
+    def test_verify_checksum_accepts_27_word_mnemonic(self):
+        self._assert_checksum_for_length(27)
+
+    def test_verify_checksum_accepts_30_word_mnemonic(self):
+        self._assert_checksum_for_length(30)
+
+
 class OpenCL_Tests(unittest.TestSuite):
     def __init__(self):
         super(OpenCL_Tests, self).__init__()
