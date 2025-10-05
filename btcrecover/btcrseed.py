@@ -156,6 +156,208 @@ ADDRESSDB_DEF_FILENAME = "addresses.db"
 
 no_gui = False
 
+
+class SeedAutosaveContext:
+    """Manage autosave metadata for seedrecover runs."""
+
+    def __init__(self):
+        self.path = None
+        self.enabled = False
+        self.state = None
+        self.nextslot = 0
+        self.seedrecover_cli = []
+        self.resume_phase_index = 0
+        self.resume_subphase_index = 0
+        self.resume_skip = 0
+        self.restored = False
+        self._pending_metadata = None
+        self._stored_signature = None
+
+    def _clean_cli(self, argv):
+        return list(argv) if argv else []
+
+    def configure(self, autosave_path, cli_args):
+        self.path = autosave_path
+        self.enabled = bool(autosave_path)
+        self.seedrecover_cli = self._clean_cli(cli_args)
+        if not self.enabled:
+            return
+
+        if os.path.isfile(self.path) and os.path.getsize(self.path) > 0:
+            with open(self.path, "r+b") as autosave_file:
+                btcrpass.autosave_file = autosave_file
+                btcrpass.load_savestate(autosave_file)
+                self.state = btcrpass.savestate
+                self.nextslot = btcrpass.autosave_nextslot
+            btcrpass.autosave_file = None
+
+            if self.state:
+                metadata = self.state.get("btcrseed_state", {})
+                stored_cli = metadata.get("seedrecover_args")
+                if stored_cli:
+                    stored_cli = self._clean_cli(stored_cli)
+                    current_cli = self._clean_cli(cli_args)
+                    if current_cli and stored_cli and current_cli != stored_cli:
+                        sys.exit(
+                            "ERROR: Autosave file was created with different seedrecover arguments."
+                        )
+                    self.seedrecover_cli = stored_cli
+                self.resume_phase_index = metadata.get("phase_index", 0)
+                self.resume_subphase_index = metadata.get("subphase_index", 0)
+                self.resume_skip = self.state.get("skip", 0)
+                self.restored = True
+                self._stored_signature = metadata.get("phase_signature")
+        else:
+            self.state = None
+            self.nextslot = 0
+            self.resume_phase_index = 0
+            self.resume_subphase_index = 0
+            self.resume_skip = 0
+            self.restored = False
+            self._stored_signature = None
+
+    def get_resume_info(self):
+        return dict(
+            phase_index=self.resume_phase_index,
+            subphase_index=self.resume_subphase_index,
+            skip=self.resume_skip,
+            signature=self._stored_signature,
+        )
+
+    def write(self):
+        if not self.enabled or self.state is None:
+            return
+        file_mode = "r+b" if os.path.exists(self.path) else "w+b"
+        with open(self.path, file_mode) as autosave_file:
+            btcrpass.autosave_file = autosave_file
+            btcrpass.savestate = self.state
+            btcrpass.autosave_nextslot = self.nextslot
+            btcrpass.do_autosave(self.state.get("skip", 0))
+            self.nextslot = btcrpass.autosave_nextslot
+        btcrpass.autosave_file = None
+
+    def prepare_for_subphase(
+        self,
+        phase_index,
+        total_phases,
+        subphase_index,
+        total_subphases,
+        effective_argv,
+        skip,
+        phase_signature,
+    ):
+        if not self.enabled:
+            self.resume_phase_index = phase_index
+            self.resume_subphase_index = subphase_index
+            self.resume_skip = skip
+            return
+
+        self.resume_phase_index = phase_index
+        self.resume_subphase_index = subphase_index
+        self.resume_skip = skip
+        metadata = dict(
+            phase_index=phase_index,
+            total_phases=total_phases,
+            subphase_index=subphase_index,
+            total_subphases=total_subphases,
+            phase_signature=copy.deepcopy(phase_signature),
+            seedrecover_args=self.seedrecover_cli,
+        )
+        self._stored_signature = metadata["phase_signature"]
+
+        if self.state is None:
+            self._pending_metadata = (metadata, list(effective_argv), skip)
+            return
+
+        self.state["argv"] = list(effective_argv)
+        self.state["skip"] = skip
+        self.state["btcrseed_state"] = metadata
+        self.write()
+
+    def attach_btcrpass_state(
+        self,
+        phase_index,
+        total_phases,
+        subphase_index,
+        total_subphases,
+        effective_argv,
+        skip,
+        phase_signature,
+    ):
+        if not self.enabled:
+            return
+        if btcrpass.savestate is None:
+            return
+
+        self.state = btcrpass.savestate
+        self.nextslot = btcrpass.autosave_nextslot
+
+        metadata = dict(
+            phase_index=phase_index,
+            total_phases=total_phases,
+            subphase_index=subphase_index,
+            total_subphases=total_subphases,
+            phase_signature=copy.deepcopy(phase_signature),
+            seedrecover_args=self.seedrecover_cli,
+        )
+        self._stored_signature = metadata["phase_signature"]
+
+        self.state["argv"] = list(effective_argv)
+        self.state["skip"] = skip
+        self.state["btcrseed_state"] = metadata
+
+        if self._pending_metadata:
+            self._pending_metadata = None
+
+    def refresh_after_run(self):
+        if not self.enabled:
+            return
+        if btcrpass.savestate is None:
+            return
+        self.state = btcrpass.savestate
+        self.nextslot = btcrpass.autosave_nextslot
+        self.resume_skip = self.state.get("skip", 0)
+        metadata = self.state.get("btcrseed_state", {})
+        self.resume_phase_index = metadata.get("phase_index", self.resume_phase_index)
+        self.resume_subphase_index = metadata.get("subphase_index", self.resume_subphase_index)
+        self._stored_signature = metadata.get("phase_signature", self._stored_signature)
+
+    def advance_subphase(self, total_subphases):
+        if not self.enabled or self.state is None:
+            return
+        metadata = self.state.setdefault("btcrseed_state", {})
+        next_index = metadata.get("subphase_index", 0) + 1
+        if next_index > total_subphases:
+            next_index = total_subphases
+        metadata["subphase_index"] = next_index
+        metadata["total_subphases"] = total_subphases
+        self.state["skip"] = 0
+        self.resume_subphase_index = next_index
+        self.resume_skip = 0
+        self.write()
+
+    def advance_phase(self, total_phases):
+        if not self.enabled or self.state is None:
+            return
+        metadata = self.state.setdefault("btcrseed_state", {})
+        next_phase = metadata.get("phase_index", 0) + 1
+        if next_phase > total_phases:
+            next_phase = total_phases
+        metadata["phase_index"] = next_phase
+        metadata["total_phases"] = total_phases
+        metadata["subphase_index"] = 0
+        metadata["total_subphases"] = 0
+        metadata["phase_signature"] = None
+        self.state["skip"] = 0
+        self.resume_phase_index = next_phase
+        self.resume_subphase_index = 0
+        self.resume_skip = 0
+        self._stored_signature = None
+        self.write()
+
+
+seed_autosave_ctx = SeedAutosaveContext()
+
 def full_version():
     return "seedrecover {}, {}".format(
         __version__,
@@ -4174,7 +4376,28 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, keep_tokens_order = False):
+def run_btcrecover(
+        typos,
+        big_typos=0,
+        min_typos=0,
+        is_performance=False,
+        extra_args=None,
+        tokenlist=None,
+        passwordlist=None,
+        listpass=None,
+        min_tokens=None,
+        max_tokens=None,
+        mnemonic_length=None,
+        seed_transform_wordswaps=None,
+        keep_tokens_order=False,
+        phase_index=0,
+        total_phases=1,
+        resume_subphase=0,
+        resume_skip=0,
+        autosave=None,
+        phase_signature=None,
+):
+    extra_args = extra_args or []
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -4231,8 +4454,7 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
     # First, check if there are any required typos (if there are missing or extra
     # words in the guess) and adjust the max number of other typos to later apply
 
-    any_typos  = typos  # the max number of typos left after removing required typos
-    #big_typos =        # the max number of "big" typos after removing required typos (an arg from above)
+    any_typos = typos  # the max number of typos left after removing required typos
 
     if l_num_deletes:  # if the guess is too long (extra words need to be deleted)
         any_typos -= l_num_deletes
@@ -4247,13 +4469,16 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         if num_wrong < typos:
             btcr_args += " --max-typos-replacewrongword " + str(num_wrong)
 
-    # For (only) Electrum2, num_inserts are not required, so we try several sub-phases with a
-    # different number of inserts each time; for all others the total num_inserts are required
     if isinstance(loaded_wallet, WalletElectrum2):
-        num_inserts_to_try = range(l_num_inserts + 1)  # try a range
+        num_inserts_to_try = tuple(range(l_num_inserts + 1))
     else:
-        num_inserts_to_try = l_num_inserts,             # only try the required max
-    for subphase_num, cur_num_inserts in enumerate(num_inserts_to_try, 1):
+        num_inserts_to_try = (l_num_inserts,)
+
+    total_subphases = len(num_inserts_to_try)
+    resume_index = resume_subphase
+    resume_value = resume_skip
+
+    for subphase_index, cur_num_inserts in enumerate(num_inserts_to_try):
 
         # Create local copies of these which are reset at the beginning of each loop
         l_any_typos = any_typos
@@ -4264,18 +4489,19 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         if cur_num_inserts:  # if the guess is too short (words need to be inserted)
             l_any_typos -= cur_num_inserts
             l_big_typos -= cur_num_inserts
-            # (instead of --typos-insert we'll set inserted_items=ids_to_try_inserting below)
             ids_to_try_inserting = ((id,) for id in loaded_wallet.word_ids)
             l_btcr_args += " --max-adjacent-inserts " + str(cur_num_inserts)
             if cur_num_inserts < typos:
                 l_btcr_args += " --max-typos-insert " + str(cur_num_inserts)
 
-        # For >1 subphases, print this out now or just after the skip-this-phase check below
-        if len(num_inserts_to_try) > 1:
+        if total_subphases > 1:
             subphase_msg = "  - subphase {}/{}: with {} inserted seed word{}".format(
-                subphase_num, len(num_inserts_to_try),
-                cur_num_inserts, "" if cur_num_inserts == 1 else "s")
-        if subphase_num > 1:
+                subphase_index + 1,
+                total_subphases,
+                cur_num_inserts,
+                "" if cur_num_inserts == 1 else "s",
+            )
+        if subphase_index > 0:
             print(subphase_msg)
             maybe_skipping = "the remainder of this phase."
         else:
@@ -4289,18 +4515,12 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
             return False
         assert typos >= cur_num_inserts + l_num_deletes + num_wrong
 
-        if subphase_num == 1 and len(num_inserts_to_try) > 1:
+        if subphase_index == 0 and total_subphases > 1:
             print(subphase_msg)
 
-        # Because btcrecover doesn't support --min-typos-* on a per-typo basis, it ends
-        # up generating some invalid guesses. We can use --min-typos to filter out some
-        # of them (the remainder is later filtered out by verify_mnemonic_syntax()).
-        min_typos = max(min_typos, cur_num_inserts + l_num_deletes + num_wrong)
-        if min_typos:
-            l_btcr_args += " --min-typos " + str(min_typos)
-
-        # Next, if the required typos above haven't consumed all available typos
-        # (as specified by the function's args), add some "optional" typos
+        min_typos_local = max(min_typos, cur_num_inserts + l_num_deletes + num_wrong)
+        if min_typos_local:
+            l_btcr_args += " --min-typos " + str(min_typos_local)
 
         if l_any_typos:
             l_btcr_args += " --typos-swap"
@@ -4312,29 +4532,59 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
                 if l_big_typos < typos:
                     l_btcr_args += " --max-typos-replaceword " + str(l_big_typos)
 
-            # only add replacecloseword typos if they're not already covered by the
-            # replaceword typos added above and there exists at least one close word
             num_replacecloseword = l_any_typos - l_big_typos
             if num_replacecloseword > 0 and any(len(ids) > 0 for ids in close_mnemonic_ids.values()):
                 l_btcr_args += " --typos-replacecloseword"
                 if num_replacecloseword < typos:
                     l_btcr_args += " --max-typos-replacecloseword " + str(num_replacecloseword)
 
+        effective_argv = l_btcr_args.split() + extra_args
+        if autosave:
+            skip_value = resume_value if resume_index == subphase_index else 0
+            autosave.prepare_for_subphase(
+                phase_index,
+                total_phases,
+                subphase_index,
+                total_subphases,
+                effective_argv,
+                skip_value,
+                phase_signature or {},
+            )
+        else:
+            skip_value = resume_value if resume_index == subphase_index else 0
+
         btcrpass.parse_arguments(
-            l_btcr_args.split() + extra_args,
-            inserted_items= ids_to_try_inserting,
-            wallet=         loaded_wallet,
-            base_iterator=  (mnemonic_ids_guess,) if not is_performance else None, # the one guess to modify
-            perf_iterator=  lambda: loaded_wallet.performance_iterator(),
-            check_only=     loaded_wallet.verify_mnemonic_syntax,
-            disable_security_warning_param=True
+            effective_argv,
+            inserted_items=ids_to_try_inserting,
+            wallet=loaded_wallet,
+            base_iterator=(mnemonic_ids_guess,) if not is_performance else None,
+            perf_iterator=lambda: loaded_wallet.performance_iterator(),
+            check_only=loaded_wallet.verify_mnemonic_syntax,
+            disable_security_warning_param=True,
         )
+        if autosave:
+            autosave.attach_btcrpass_state(
+                phase_index,
+                total_phases,
+                subphase_index,
+                total_subphases,
+                effective_argv,
+                skip_value,
+                phase_signature or {},
+            )
         (mnemonic_found, not_found_msg) = btcrpass.main()
+        if autosave:
+            autosave.refresh_after_run()
 
         if mnemonic_found:
             return mnemonic_found
         elif not_found_msg is None:
             return None  # An error occurred or Ctrl-C was pressed inside btcrpass.main()
+        else:
+            resume_index = subphase_index + 1
+            resume_value = 0
+            if autosave:
+                autosave.advance_subphase(total_subphases)
 
     return False  # No error occurred; the mnemonic wasn't found
 
@@ -4396,6 +4646,8 @@ def main(argv):
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
         parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
         parser.add_argument("--skip",        type=int, metavar="COUNT", help="skip this many initial passwords for continuing an interrupted search")
+        parser.add_argument("--autosave",    metavar="FILE",        help="autosave (5 min) progress to or restore it from a file")
+        parser.add_argument("--restore",     metavar="FILE",        help="restore progress and options from an autosave file (must be the only option on the command line)")
         parser.add_argument("--threads", type=int, metavar="COUNT", help="number of worker threads (default: For CPU Processing, logical CPU cores, for GPU, physical CPU cores)")
         parser.add_argument("--worker",      metavar="ID#(ID#2, ID#3)/TOTAL#",   help="divide the workload between TOTAL# servers, where each has a different ID# between 1 and TOTAL# (You can optionally assign between 1 and TOTAL IDs of work to a server (eg: 1,2/3 will assign both slices 1 and 2 of the 3 to the server...)")
         parser.add_argument("--max-eta",     type=int,              help="max estimated runtime before refusing to even start (default: 168 hours, i.e. 1 week)")
@@ -4452,10 +4704,44 @@ def main(argv):
         assert argv
 
         # Parse the args; unknown args will be passed to btcrpass.parse_arguments() iff --btcr-args is specified
-        args, extra_args = parser.parse_known_args(argv)
+        parsed_argv = list(argv)
+        args, extra_args = parser.parse_known_args(parsed_argv)
         if extra_args and not args.btcr_args:
-            parser.parse_args(argv)  # re-parse them just to generate an error for the unknown args
+            parser.parse_args(parsed_argv)  # re-parse them just to generate an error for the unknown args
             assert False
+
+        if args.restore:
+            if len(parsed_argv) == 1 and parsed_argv[0].startswith("--restore="):
+                restore_path = parsed_argv[0].split("=", 1)[1]
+            elif len(parsed_argv) == 2 and parsed_argv[0] == "--restore":
+                restore_path = parsed_argv[1]
+            else:
+                sys.exit("Error: the --restore option must be the only option when used")
+            if not restore_path:
+                sys.exit("Error: --restore requires a filename")
+            seed_autosave_ctx.configure(restore_path, None)
+            if not seed_autosave_ctx.restored or not seed_autosave_ctx.seedrecover_cli:
+                sys.exit("Error: autosave file does not contain seedrecover arguments")
+            restored_cli = seed_autosave_ctx.seedrecover_cli
+            print("Restoring session:", " ".join(restored_cli))
+            resume_info = seed_autosave_ctx.get_resume_info()
+            print(
+                "Last session ended at phase",
+                resume_info.get("phase_index", 0) + 1,
+                "subphase",
+                resume_info.get("subphase_index", 0) + 1,
+                "after finishing seed candidate #",
+                resume_info.get("skip", 0),
+            )
+            parsed_argv = restored_cli
+            args, extra_args = parser.parse_known_args(parsed_argv)
+            if extra_args and not args.btcr_args:
+                parser.parse_args(parsed_argv)
+                assert False
+            args.autosave = restore_path
+            args.restore = restore_path
+
+        seed_autosave_ctx.configure(args.autosave, parsed_argv)
 
         # Assign the no-gui to a global variable...
         global no_gui
@@ -4464,6 +4750,8 @@ def main(argv):
 
         # Pass an argument so that btcrpass knows that we are running a seed recovery
         extra_args.append("--btcrseed")
+        if args.autosave:
+            extra_args.extend(["--autosave", args.autosave])
 
         #Disable Security Warnings if parameter set...
         global disable_security_warnings
@@ -4983,12 +5271,31 @@ def main(argv):
         # Add a final more thorough phase (This one will take a few hours)
         phases.append(dict(typos=2, big_typos=2, min_typos=2, extra_args=["--no-dupchecks"]))
 
+    total_phases = len(phases)
     for phase_num, phase_params in enumerate(phases, 1):
+        phase_index = phase_num - 1
+        if seed_autosave_ctx.enabled:
+            resume_info = seed_autosave_ctx.get_resume_info()
+            if phase_index < resume_info.get("phase_index", 0):
+                continue
+            if phase_index == resume_info.get("phase_index", 0):
+                resume_subphase = resume_info.get("subphase_index", 0)
+                resume_skip = resume_info.get("skip", 0)
+                stored_signature = resume_info.get("signature")
+            else:
+                resume_subphase = 0
+                resume_skip = 0
+                stored_signature = None
+        else:
+            resume_subphase = 0
+            resume_skip = 0
+            stored_signature = None
+
         # Print Timestamp that this step occured
         print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ": ", end="")
 
         # Print a friendly message describing this phase's search settings
-        print("Phase {}/{}: ".format(phase_num, len(phases)), end="")
+        print("Phase {}/{}: ".format(phase_num, total_phases), end="")
         if phase_params["typos"] == 1:
             print("1 mistake", end="")
         else:
@@ -5001,10 +5308,46 @@ def main(argv):
         else:
             print(", excluding entirely different seed words.")
 
-        # Perform this phase's search
         phase_params.setdefault("extra_args", []).extend(extra_args)
 
-        mnemonic_found = run_btcrecover(**phase_params)
+        phase_signature = {
+            "typos": phase_params["typos"],
+            "big_typos": phase_params.get("big_typos", 0),
+            "min_typos": phase_params.get("min_typos", 0),
+            "is_performance": phase_params.get("is_performance", False),
+            "tokenlist": phase_params.get("tokenlist"),
+            "passwordlist": phase_params.get("passwordlist"),
+            "listpass": phase_params.get("listpass"),
+            "min_tokens": phase_params.get("min_tokens"),
+            "max_tokens": phase_params.get("max_tokens"),
+            "mnemonic_length": phase_params.get("mnemonic_length"),
+            "seed_transform_wordswaps": phase_params.get("seed_transform_wordswaps"),
+            "keep_tokens_order": phase_params.get("keep_tokens_order", False),
+        }
+        if seed_autosave_ctx.enabled and stored_signature and stored_signature != phase_signature:
+            sys.exit("Error: autosave was created with different phase parameters")
+
+        mnemonic_found = run_btcrecover(
+            phase_params["typos"],
+            big_typos=phase_params.get("big_typos", 0),
+            min_typos=phase_params.get("min_typos", 0),
+            is_performance=phase_params.get("is_performance", False),
+            extra_args=phase_params.get("extra_args"),
+            tokenlist=phase_params.get("tokenlist"),
+            passwordlist=phase_params.get("passwordlist"),
+            listpass=phase_params.get("listpass"),
+            min_tokens=phase_params.get("min_tokens"),
+            max_tokens=phase_params.get("max_tokens"),
+            mnemonic_length=phase_params.get("mnemonic_length"),
+            seed_transform_wordswaps=phase_params.get("seed_transform_wordswaps"),
+            keep_tokens_order=phase_params.get("keep_tokens_order", False),
+            phase_index=phase_index,
+            total_phases=total_phases,
+            resume_subphase=resume_subphase,
+            resume_skip=resume_skip,
+            autosave=seed_autosave_ctx if seed_autosave_ctx.enabled else None,
+            phase_signature=phase_signature,
+        )
 
         if not listseeds:
             # Print Timestamp that this step occured
@@ -5018,6 +5361,9 @@ def main(argv):
                 pass
             else:
                 print(" Seed not found" + ( ", sorry..." if phase_num==len(phases) else "" ))
+
+        if seed_autosave_ctx.enabled and mnemonic_found is False:
+            seed_autosave_ctx.advance_phase(total_phases)
 
     return False, None  # No error occurred; the mnemonic wasn't found
 
