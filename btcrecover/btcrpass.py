@@ -26,6 +26,8 @@ __version__          =  "1.13.0-Cryptoguide"
 __ordering_version__ = b"0.6.4"  # must be updated whenever password ordering changes
 disable_security_warnings = True
 
+BIP39_OPENCL_MEMORY_PER_THREAD_BYTES = 2 * 1024 ** 3  # ~2 GiB per worker
+
 # Import modules included in standard libraries
 import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle, gc, \
        time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip
@@ -6627,6 +6629,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         print("Warning: --skip must be >= 0, assuming 0", file=sys.stderr)
         args.skip = 0
 
+    threads_specified_by_user = args.threads is not None
+
     if args.threads:
         if args.threads < 1:
             print("Warning: --threads must be >= 1, assuming 1", file=sys.stderr)
@@ -7021,6 +7025,65 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
 
         print("OpenCL: Using Work Group Size: ", loaded_wallet.chunksize)
+
+        if (
+            not threads_specified_by_user
+            and (args.btcrseed or args.bip39)
+        ):
+            try:
+                platform_devices = pyopencl.get_platforms()[
+                    loaded_wallet.opencl_platform
+                ].get_devices()
+            except Exception:
+                platform_devices = []
+
+            if platform_devices:
+                device_indices = getattr(loaded_wallet, "opencl_devices", None)
+                if device_indices:
+                    unique_indices = []
+                    for index in device_indices:
+                        if (
+                            isinstance(index, int)
+                            and 0 <= index < len(platform_devices)
+                            and index not in unique_indices
+                        ):
+                            unique_indices.append(index)
+                else:
+                    unique_indices = list(range(len(platform_devices)))
+
+                total_vram_bytes = 0
+                for index in unique_indices:
+                    device = platform_devices[index]
+                    if device.type & (
+                        pyopencl.device_type.GPU
+                        | pyopencl.device_type.ACCELERATOR
+                    ):
+                        total_vram_bytes += device.global_mem_size
+
+                if total_vram_bytes:
+                    threads_by_vram = total_vram_bytes // BIP39_OPENCL_MEMORY_PER_THREAD_BYTES
+                    if threads_by_vram == 0:
+                        threads_by_vram = 1
+                    recommended_threads = min(logical_cpu_cores, threads_by_vram)
+                    if recommended_threads < 1:
+                        recommended_threads = 1
+
+                    if recommended_threads < args.threads:
+                        total_vram_gb = total_vram_bytes / (1024 ** 3)
+                        per_thread_gb = (
+                            BIP39_OPENCL_MEMORY_PER_THREAD_BYTES / (1024 ** 3)
+                        )
+                        print(
+                            "OpenCL: Defaulting to {} worker {} based on {:.2f} GB of GPU memory (~{:.1f} GB per thread)".format(
+                                recommended_threads,
+                                "threads"
+                                if recommended_threads != 1
+                                else "thread",
+                                total_vram_gb,
+                                per_thread_gb,
+                            )
+                        )
+                        args.threads = recommended_threads
         print()
 
     # Parse and syntax check all of the GPU related options
