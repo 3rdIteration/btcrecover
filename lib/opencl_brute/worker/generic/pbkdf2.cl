@@ -6,7 +6,8 @@
 /*
     REQ: outBuf.buffer must have space for ceil(dkLen / PRF_output_bytes) * PRF_output_bytes
     REQ: PRF implementation MUST allow that output may be the salt (m in hmac)
-    inBuffer / pwdBuffer / the like are not const to allow for padding
+    inBuffer / pwdBuffer / the like are defined non-const to allow for padding,
+      but password data is treated as read-only within these kernels
 */
 
 // Determine (statically) the actual required buffer size
@@ -27,7 +28,7 @@ __constant const word xoredPad = opad ^ ipad;
 // Slightly ugly: large enough for hmac_main usage, and tight for pbkdf2
 #define m_buffer_size (saltBufferSize + 1)
 
-static void hmac(__global word *K, const word K_len_bytes,
+static void hmac(__global const word *K, const word K_len_bytes,
     const word *m, const word m_len_bytes, word *output)
 {
     // REQ: If K_len_bytes isn't divisible by 4/8, final word should be clean (0s to the end)
@@ -101,7 +102,7 @@ static void hmac(__global word *K, const word K_len_bytes,
     hmac(pwd, pwdLen_bytes, salt, saltLen_bytes, output)
 
 
-static void F(__global word *pwd, const word pwdLen_bytes,
+static void F(__global const word *pwd, const word pwdLen_bytes,
     word *salt, const word saltLen_bytes,
     const unsigned int iters, unsigned int callI,
     __global word *output)
@@ -157,7 +158,7 @@ __kernel void pbkdf2(__global inbuf *inbuffer, __global const saltbuf *saltbuffe
 
     unsigned int idx = get_global_id(0);
     word pwdLen_bytes = inbuffer[idx].length;
-    __global word *pwdBuffer = inbuffer[idx].buffer;
+    __global const word *pwdBuffer = inbuffer[idx].buffer;
     __global word *currOutBuffer = outbuffer[idx].buffer;
 
     // Copy salt so that we can write our integer into the last 4 bytes
@@ -184,7 +185,7 @@ __kernel void hmac_main(__global inbuf *inbuffer, __global const saltbuf *saltbu
 {
     unsigned int idx = get_global_id(0);
     word pwdLen_bytes = inbuffer[idx].length;
-    __global word *pwdBuffer = inbuffer[idx].buffer;
+    __global const word *pwdBuffer = inbuffer[idx].buffer;
 
     // Copy salt just to cheer the compiler up
     int saltLen_bytes = (int)saltbuffer[0].length;
@@ -217,7 +218,7 @@ __kernel void pbkdf2_saltlist(__global const pwdbuf *pwdbuffer_arg, __global inb
 
 	unsigned int idx = get_global_id(0);
     word pwdLen_bytes = pwdbuffer_arg[0].length;
-    __global word *pwdBuffer = pwdbuffer_arg[0].buffer;
+    __global const word *pwdBuffer = pwdbuffer_arg[0].buffer;
     __global word *currOutBuffer = outbuffer[idx].buffer;
 
     // Copy salt so that we can write our integer into the last 4 bytes

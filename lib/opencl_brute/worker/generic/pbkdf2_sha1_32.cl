@@ -571,7 +571,7 @@ __kernel void pbkdf2(__global inbuf *inbuffer, __global const saltbuf *saltbuffe
 
     unsigned int idx = get_global_id(0);
     word pwdLen_bytes = inbuffer[idx].length;
-    __global word *pwdBuffer = inbuffer[idx].buffer;
+    __global const word *pwdBuffer = inbuffer[idx].buffer;
     __global word *currOutBuffer = outbuffer[idx].buffer;
 
     // Copy salt so that we can write our integer into the last 4 bytes
