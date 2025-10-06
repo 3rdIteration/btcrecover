@@ -1586,11 +1586,17 @@ class TestBIP39ChecksumVerification(unittest.TestCase):
         )
         self.assertFalse(self.wallet._verify_checksum(invalid_encoded_words))
 
-    def test_verify_checksum_accepts_27_word_mnemonic(self):
-        self._assert_checksum_for_length(27)
+    def test_verify_checksum_accepts_standard_word_counts(self):
+        """BIP39 specifies checksums up to eight bits (24 words)."""
+        for word_count in (12, 15, 18, 21, 24):
+            with self.subTest(word_count=word_count):
+                self._assert_checksum_for_length(word_count)
 
-    def test_verify_checksum_accepts_30_word_mnemonic(self):
-        self._assert_checksum_for_length(30)
+    def test_verify_checksum_accepts_extended_word_counts(self):
+        """Non-standard mnemonics may exceed the BIP39 maximum checksum length."""
+        for word_count in (27, 30):
+            with self.subTest(word_count=word_count):
+                self._assert_checksum_for_length(word_count)
 
 
 class OpenCL_Tests(unittest.TestSuite):
