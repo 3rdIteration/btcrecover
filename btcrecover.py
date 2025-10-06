@@ -42,9 +42,11 @@ _SCAN_OPTION_MODES = {
     "--performance-scan-threads": "greedy",
     "--performance-scan-global-ws": "greedy",
     "--performance-scan-local-ws": "greedy",
+    "--performance-scan-opencl-ws": "greedy",
     "--threads": "single",
     "--global-ws": "greedy",
     "--local-ws": "greedy",
+    "--opencl-workgroup-size": "greedy",
     "--performance-runtime": "single",
 }
 
@@ -78,6 +80,10 @@ def _format_local_ws(value):
     return "auto" if value is None else str(value)
 
 
+def _format_opencl_workgroup(value):
+    return "auto" if value is None else str(value)
+
+
 def _derive_performance_scan_sets():
     runtime_limit = btcrpass.args.performance_runtime or 10.0
     if btcrpass.args.performance_runtime <= 0:
@@ -85,6 +91,7 @@ def _derive_performance_scan_sets():
             "No --performance-runtime specified; defaulting to 10 seconds per benchmark.",
             file=sys.stderr,
         )
+
     threads_candidates = (
         sorted(
             {
@@ -97,61 +104,156 @@ def _derive_performance_scan_sets():
         else sorted(set(btcrpass.args.performance_scan_threads))
     )
 
-    base_global_ws = btcrpass.args.global_ws[0] if btcrpass.args.global_ws else 4096
-    if btcrpass.args.performance_scan_global_ws:
-        global_ws_candidates = sorted({value for value in btcrpass.args.performance_scan_global_ws})
-    else:
-        defaults = {
-            base_global_ws,
-            max(32, base_global_ws // 2) if base_global_ws // 2 else base_global_ws,
-            base_global_ws * 2,
-        }
-        global_ws_candidates = sorted(value for value in defaults if value and value > 0)
+    using_gpu = btcrpass.args.enable_gpu
+    using_opencl = getattr(btcrpass.args, "enable_opencl", False)
 
-    base_local_ws = btcrpass.args.local_ws[0] if btcrpass.args.local_ws else None
-    if btcrpass.args.performance_scan_local_ws:
-        local_ws_candidates = btcrpass.args.performance_scan_local_ws
-    else:
-        local_defaults = [None]
-        if base_local_ws:
-            local_defaults.extend([max(1, base_local_ws // 2), base_local_ws, base_local_ws * 2])
+    if using_gpu and using_opencl:
+        return runtime_limit, {"mode": "conflict"}
+
+    if using_gpu:
+        base_global_ws = btcrpass.args.global_ws[0] if btcrpass.args.global_ws else 4096
+        if btcrpass.args.performance_scan_global_ws:
+            global_ws_candidates = sorted({value for value in btcrpass.args.performance_scan_global_ws})
         else:
-            local_defaults.extend([32, 64, 128])
-        local_ws_candidates = []
-        for value in local_defaults:
-            if value is None or value > 0:
-                if value not in local_ws_candidates:
-                    local_ws_candidates.append(value)
+            defaults = {
+                base_global_ws,
+                max(32, base_global_ws // 2) if base_global_ws // 2 else base_global_ws,
+                base_global_ws * 2,
+            }
+            global_ws_candidates = sorted(value for value in defaults if value and value > 0)
 
-    return runtime_limit, threads_candidates, global_ws_candidates, local_ws_candidates
+        base_local_ws = btcrpass.args.local_ws[0] if btcrpass.args.local_ws else None
+        if btcrpass.args.performance_scan_local_ws:
+            local_ws_candidates = btcrpass.args.performance_scan_local_ws
+        else:
+            local_defaults = [None]
+            if base_local_ws:
+                local_defaults.extend(
+                    [max(1, base_local_ws // 2), base_local_ws, base_local_ws * 2]
+                )
+            else:
+                local_defaults.extend([32, 64, 128])
+            local_ws_candidates = []
+            for value in local_defaults:
+                if value is None or value > 0:
+                    if value not in local_ws_candidates:
+                        local_ws_candidates.append(value)
+
+        return (
+            runtime_limit,
+            {
+                "mode": "gpu",
+                "threads": threads_candidates,
+                "global_ws": global_ws_candidates,
+                "local_ws": local_ws_candidates,
+            },
+        )
+
+    if using_opencl:
+        if btcrpass.args.performance_scan_opencl_ws:
+            workgroup_candidates = sorted(
+                {value for value in btcrpass.args.performance_scan_opencl_ws if value > 0}
+            )
+        else:
+            wallet = getattr(btcrpass, "loaded_wallet", None)
+            base_workgroup = None
+            if btcrpass.args.opencl_workgroup_size:
+                base_workgroup = btcrpass.args.opencl_workgroup_size[0]
+            elif wallet is not None:
+                base_workgroup = getattr(wallet, "opencl_device_worksize", None)
+            defaults = set()
+            if base_workgroup:
+                defaults.add(base_workgroup)
+                defaults.add(max(1, base_workgroup // 2))
+                defaults.add(base_workgroup * 2)
+            else:
+                defaults.update({4096, 8192, 16384})
+            workgroup_candidates = sorted(value for value in defaults if value and value > 0)
+
+        final_workgroups = []
+        seen_workgroups = set()
+        final_workgroups.append(None)
+        seen_workgroups.add(None)
+        for value in workgroup_candidates:
+            if value not in seen_workgroups and value > 0:
+                final_workgroups.append(value)
+                seen_workgroups.add(value)
+
+        return (
+            runtime_limit,
+            {
+                "mode": "opencl",
+                "threads": threads_candidates,
+                "workgroups": final_workgroups,
+            },
+        )
+
+    return runtime_limit, {"mode": None}
 
 
 def _run_performance_scan():
-    if not btcrpass.args.enable_gpu:
-        print("Error: --performance-scan requires --enable-gpu.", file=sys.stderr)
-        return 1
+    runtime_limit, scan_config = _derive_performance_scan_sets()
 
-    if len(btcrpass.args.global_ws) > 1 or len(btcrpass.args.local_ws) > 1:
+    mode = scan_config.get("mode") if scan_config else None
+
+    if mode == "conflict":
         print(
-            "Error: --performance-scan currently supports benchmarking a single GPU configuration at a time.",
+            "Error: --performance-scan currently supports benchmarking a single accelerator configuration at a time.",
             file=sys.stderr,
         )
         return 1
 
-    runtime_limit, threads_candidates, global_ws_candidates, local_ws_candidates = _derive_performance_scan_sets()
+    if mode == "gpu":
+        if len(btcrpass.args.global_ws) > 1 or len(btcrpass.args.local_ws) > 1:
+            print(
+                "Error: --performance-scan currently supports benchmarking a single GPU configuration at a time.",
+                file=sys.stderr,
+            )
+            return 1
+    elif mode == "opencl":
+        opencl_sizes = btcrpass.args.opencl_workgroup_size or []
+        if len(opencl_sizes) > 1:
+            print(
+                "Error: --performance-scan currently supports benchmarking a single OpenCL configuration at a time.",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        print(
+            "Error: --performance-scan requires either --enable-gpu or --enable-opencl.",
+            file=sys.stderr,
+        )
+        return 1
 
     combos = []
     seen = set()
-    for threads, global_ws, local_ws in itertools.product(
-        threads_candidates, global_ws_candidates, local_ws_candidates
-    ):
-        if local_ws and (global_ws % local_ws != 0 or local_ws > global_ws):
-            continue
-        key = (threads, global_ws, local_ws)
-        if key in seen:
-            continue
-        combos.append(key)
-        seen.add(key)
+    if mode == "gpu":
+        for threads, global_ws, local_ws in itertools.product(
+            scan_config["threads"],
+            scan_config["global_ws"],
+            scan_config["local_ws"],
+        ):
+            if local_ws and (global_ws % local_ws != 0 or local_ws > global_ws):
+                continue
+            key = (threads, global_ws, local_ws)
+            if key in seen:
+                continue
+            combos.append({
+                "threads": threads,
+                "global_ws": global_ws,
+                "local_ws": local_ws,
+            })
+            seen.add(key)
+    else:  # mode == "opencl"
+        for threads, workgroup in itertools.product(
+            scan_config["threads"],
+            scan_config["workgroups"],
+        ):
+            key = (threads, workgroup)
+            if key in seen:
+                continue
+            combos.append({"threads": threads, "workgroup": workgroup})
+            seen.add(key)
 
     if not combos:
         print("No valid performance scan combinations to test.", file=sys.stderr)
@@ -169,16 +271,27 @@ def _run_performance_scan():
 
     print(f"Running performance scan across {total} configuration(s)...")
 
-    for index, (threads, global_ws, local_ws) in enumerate(combos, start=1):
-        descriptor = (
-            f"threads={threads}, global-ws={global_ws}, local-ws={_format_local_ws(local_ws)}"
-        )
+    for index, combo in enumerate(combos, start=1):
+        if mode == "gpu":
+            descriptor = (
+                f"threads={combo['threads']}, global-ws={combo['global_ws']}, "
+                f"local-ws={_format_local_ws(combo['local_ws'])}"
+            )
+        else:
+            descriptor = (
+                f"threads={combo['threads']}, "
+                f"opencl-workgroup={_format_opencl_workgroup(combo['workgroup'])}"
+            )
         print(f"[{index}/{total}] {descriptor}")
         cmd = [sys.executable, script_path] + base_args + runtime_arg
-        cmd.extend(["--threads", str(threads)])
-        cmd.extend(["--global-ws", str(global_ws)])
-        if local_ws is not None:
-            cmd.extend(["--local-ws", str(local_ws)])
+        cmd.extend(["--threads", str(combo["threads"])])
+        if mode == "gpu":
+            cmd.extend(["--global-ws", str(combo["global_ws"])])
+            if combo["local_ws"] is not None:
+                cmd.extend(["--local-ws", str(combo["local_ws"])])
+        else:
+            if combo["workgroup"] is not None:
+                cmd.extend(["--opencl-workgroup-size", str(combo["workgroup"])])
         result = subprocess.run(cmd, capture_output=True, text=True)
         stdout = result.stdout.strip()
         stderr = result.stderr.strip()
@@ -196,19 +309,25 @@ def _run_performance_scan():
             elapsed = float(match.group(2))
             passwords = int(match.group(3).replace(",", ""))
             note = match.group(4).strip()
-            results.append(
-                {
-                    "threads": threads,
-                    "global_ws": global_ws,
-                    "local_ws": local_ws,
-                    "rate": rate,
-                    "elapsed": elapsed,
-                    "passwords": passwords,
-                    "note": note,
-                    "summary": summary_line,
-                    "exit_code": result.returncode,
-                }
-            )
+            entry = {
+                "threads": combo["threads"],
+                "rate": rate,
+                "elapsed": elapsed,
+                "passwords": passwords,
+                "note": note,
+                "summary": summary_line,
+                "exit_code": result.returncode,
+            }
+            if mode == "gpu":
+                entry.update(
+                    {
+                        "global_ws": combo["global_ws"],
+                        "local_ws": combo["local_ws"],
+                    }
+                )
+            else:
+                entry["workgroup"] = combo["workgroup"]
+            results.append(entry)
             print(f"    {summary_line}")
         else:
             failure_info = {
@@ -227,9 +346,15 @@ def _run_performance_scan():
     if results:
         sorted_results = sorted(results, key=lambda item: item["rate"], reverse=True)
         best_result = sorted_results[0]
-        best_label = (
-            f"threads={best_result['threads']}, global-ws={best_result['global_ws']}, local-ws={_format_local_ws(best_result['local_ws'])}"
-        )
+        if mode == "gpu":
+            best_label = (
+                f"threads={best_result['threads']}, global-ws={best_result['global_ws']}, "
+                f"local-ws={_format_local_ws(best_result['local_ws'])}"
+            )
+        else:
+            best_label = (
+                f"threads={best_result['threads']}, opencl-workgroup={_format_opencl_workgroup(best_result['workgroup'])}"
+            )
         print("\nBest configuration by throughput:")
         print(
             f"  {best_label}: {best_result['rate']:,.2f} kP/s over {best_result['elapsed']:.2f} seconds"
@@ -242,18 +367,29 @@ def _run_performance_scan():
         if runtime_limit:
             recommended_cmd.extend(["--performance-runtime", f"{runtime_limit}"])
         recommended_cmd.extend(["--threads", str(best_result["threads"])])
-        recommended_cmd.extend(["--global-ws", str(best_result["global_ws"])])
-        if best_result["local_ws"] is not None:
-            recommended_cmd.extend(["--local-ws", str(best_result["local_ws"])])
+        if mode == "gpu":
+            recommended_cmd.extend(["--global-ws", str(best_result["global_ws"])])
+            if best_result["local_ws"] is not None:
+                recommended_cmd.extend(["--local-ws", str(best_result["local_ws"])])
+        else:
+            if best_result["workgroup"] is not None:
+                recommended_cmd.extend(["--opencl-workgroup-size", str(best_result["workgroup"])])
         print("  Recommended command:")
         print(f"    {' '.join(shlex.quote(arg) for arg in recommended_cmd)}")
 
         print("\nFull performance scan summary (sorted by throughput):")
         for entry in sorted_results:
             note_suffix = f" {entry['note']}" if entry["note"] else ""
-            label = (
-                f"threads={entry['threads']}, global-ws={entry['global_ws']}, local-ws={_format_local_ws(entry['local_ws'])}"
-            )
+            if mode == "gpu":
+                label = (
+                    f"threads={entry['threads']}, global-ws={entry['global_ws']}, "
+                    f"local-ws={_format_local_ws(entry['local_ws'])}"
+                )
+            else:
+                label = (
+                    f"threads={entry['threads']}, "
+                    f"opencl-workgroup={_format_opencl_workgroup(entry['workgroup'])}"
+                )
             print(
                 f"  {label}: {entry['rate']:,.2f} kP/s over {entry['elapsed']:.2f} seconds"
                 f" ({entry['passwords']:,} passwords tried){note_suffix}"
@@ -262,9 +398,16 @@ def _run_performance_scan():
     if failures:
         print("\nThe following configurations did not complete successfully:")
         for entry in failures:
-            label = (
-                f"threads={entry['threads']}, global-ws={entry['global_ws']}, local-ws={_format_local_ws(entry['local_ws'])}"
-            )
+            if mode == "gpu":
+                label = (
+                    f"threads={entry['threads']}, global-ws={entry['global_ws']}, "
+                    f"local-ws={_format_local_ws(entry['local_ws'])}"
+                )
+            else:
+                label = (
+                    f"threads={entry['threads']}, "
+                    f"opencl-workgroup={_format_opencl_workgroup(entry['workgroup'])}"
+                )
             print(f"  {label}: exit code {entry['exit_code']}")
 
     return 0 if results else 1

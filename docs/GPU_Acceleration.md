@@ -120,6 +120,8 @@ For automated benchmarking you can add `--performance-runtime SECONDS` to stop t
 
 If you want to explore a range of GPU settings automatically, add `--performance-scan` alongside `--performance`. By default this benchmarks several thread counts, global work sizes, and local work sizes (including the automatic `--local-ws` selection). You can further customize the scan with `--performance-scan-threads`, `--performance-scan-global-ws`, and `--performance-scan-local-ws` to explicitly control which values are tested. Each combination is executed as an individual performance run and summarized at the end so you can quickly spot the most efficient configuration for your hardware. The summary now highlights the fastest combination and prints a ready-to-run command line so you can immediately re-test or adopt the optimal values for longer recovery jobs.
 
+The same automation works when you are using OpenCL acceleration. Pair `--performance-scan` with `--enable-opencl` on either *btcrecover* or *seedrecover* to sweep thread counts and OpenCL workgroup sizes and receive the same ranked summary and recommended command line for the best-performing configuration on your system.
+
 Finding the right values for `--global-ws` and `--local-ws` can make a 10x improvement, so it's usually worth the effort.
 
 Generally when testing, you should increase or decrease these two values by powers of 2, for example you should increase or decrease them by 128 or 256 at a time. It's important to note that `--global-ws` must always be evenly divisible by `--local-ws`, otherwise *btcrecover* will exit with an error message.

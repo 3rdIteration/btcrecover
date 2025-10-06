@@ -25,7 +25,7 @@ disable_security_warnings = True
 
 # Import modules included in standard libraries
 import sys, os, io, base64, hashlib, hmac, difflib, itertools, \
-       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime
+       unicodedata, collections, struct, glob, atexit, re, random, multiprocessing, binascii, copy, datetime, subprocess, shlex
 import bisect
 from typing import AnyStr, List, Optional, Sequence, Tuple, TypeVar, Union
 
@@ -82,6 +82,308 @@ try:
     module_opencl_available = True
 except:
     pass
+
+_SCAN_OPTION_MODES = {
+    "--performance-scan": "flag",
+    "--performance-scan-threads": "greedy",
+    "--performance-scan-opencl-ws": "greedy",
+    "--threads": "single",
+    "--opencl-workgroup-size": "greedy",
+    "--performance-runtime": "single",
+}
+
+
+def _strip_scan_related_args(argv):
+    filtered = []
+    i = 0
+    length = len(argv)
+    while i < length:
+        token = argv[i]
+        mode = _SCAN_OPTION_MODES.get(token)
+        if not mode:
+            filtered.append(token)
+            i += 1
+            continue
+        i += 1
+        if mode == "flag":
+            continue
+        if mode == "single":
+            if i < length:
+                i += 1
+            continue
+        if mode == "greedy":
+            while i < length and not argv[i].startswith("--"):
+                i += 1
+            continue
+    return filtered
+
+
+def _format_opencl_workgroup(value):
+    return "auto" if value is None else str(value)
+
+
+def _detect_default_opencl_workgroup(args):
+    if not module_opencl_available:
+        return None
+    try:
+        platforms = pyopencl.get_platforms()
+    except Exception:
+        return None
+
+    if not platforms:
+        return None
+
+    def _device_score(device):
+        score = 0
+        if device.type & pyopencl.device_type.ACCELERATOR:
+            if "oclgrind" not in device.name.lower():
+                score += 8
+        elif device.type & pyopencl.device_type.GPU:
+            score += 4
+        vendor = device.vendor.lower()
+        if "nvidia" in vendor:
+            score += 2
+        elif "amd" in vendor:
+            score += 1
+        return score
+
+    platform_index = None
+    if args.opencl_platform:
+        try:
+            requested = args.opencl_platform[0]
+            if 0 <= requested < len(platforms):
+                platform_index = requested
+        except Exception:
+            platform_index = None
+
+    if platform_index is None:
+        best_index = 0
+        best_score = -1
+        best_workgroup = 0
+        for idx, platform in enumerate(platforms):
+            for device in platform.get_devices():
+                score = _device_score(device)
+                if score > best_score or (
+                    score == best_score and device.max_work_group_size > best_workgroup
+                ):
+                    best_score = score
+                    best_workgroup = device.max_work_group_size
+                    best_index = idx
+        platform_index = best_index
+
+    devices = platforms[platform_index].get_devices()
+    if not devices:
+        return None
+
+    selected_indices = []
+    if args.opencl_devices:
+        for token in args.opencl_devices:
+            try:
+                selected_indices.append(int(token))
+            except (TypeError, ValueError):
+                continue
+
+    if selected_indices:
+        max_ws = 0
+        for idx in selected_indices:
+            if 0 <= idx < len(devices):
+                max_ws = max(max_ws, devices[idx].max_work_group_size)
+        if max_ws:
+            return max_ws
+
+    return max(device.max_work_group_size for device in devices) if devices else None
+
+
+def _derive_opencl_scan_sets(args):
+    runtime_limit = args.performance_runtime or 10.0
+    if args.performance_runtime <= 0:
+        print(
+            "No --performance-runtime specified; defaulting to 10 seconds per benchmark.",
+            file=sys.stderr,
+        )
+
+    threads_candidates = (
+        sorted(
+            {
+                max(1, (args.threads or multiprocessing.cpu_count()) // 2),
+                max(1, args.threads or multiprocessing.cpu_count()),
+                min(64, (args.threads or multiprocessing.cpu_count()) * 2),
+            }
+        )
+        if not args.performance_scan_threads
+        else sorted(set(args.performance_scan_threads))
+    )
+
+    if args.performance_scan_opencl_ws:
+        workgroup_candidates = sorted(
+            {value for value in args.performance_scan_opencl_ws if value > 0}
+        )
+    else:
+        base_workgroup = None
+        if args.opencl_workgroup_size:
+            base_workgroup = args.opencl_workgroup_size[0]
+        if not base_workgroup:
+            base_workgroup = _detect_default_opencl_workgroup(args)
+        defaults = set()
+        if base_workgroup:
+            defaults.add(base_workgroup)
+            defaults.add(max(1, base_workgroup // 2))
+            defaults.add(base_workgroup * 2)
+        else:
+            defaults.update({4096, 8192, 16384})
+        workgroup_candidates = sorted(value for value in defaults if value and value > 0)
+
+    final_workgroups = []
+    seen = set()
+    final_workgroups.append(None)
+    seen.add(None)
+    for value in workgroup_candidates:
+        if value not in seen and value > 0:
+            final_workgroups.append(value)
+            seen.add(value)
+
+    return runtime_limit, threads_candidates, final_workgroups
+
+
+def _run_seed_performance_scan(args, argv):
+    if not args.enable_opencl:
+        print("Error: --performance-scan requires --enable-opencl.", file=sys.stderr)
+        return 1
+
+    if args.opencl_workgroup_size and len(args.opencl_workgroup_size) > 1:
+        print(
+            "Error: --performance-scan currently supports benchmarking a single OpenCL configuration at a time.",
+            file=sys.stderr,
+        )
+        return 1
+
+    runtime_limit, threads_candidates, workgroup_candidates = _derive_opencl_scan_sets(args)
+
+    combos = []
+    seen = set()
+    for threads, workgroup in itertools.product(threads_candidates, workgroup_candidates):
+        key = (threads, workgroup)
+        if key in seen:
+            continue
+        combos.append({"threads": threads, "workgroup": workgroup})
+        seen.add(key)
+
+    if not combos:
+        print("No valid performance scan combinations to test.", file=sys.stderr)
+        return 1
+
+    script_path = os.path.abspath(sys.argv[0])
+    base_args = _strip_scan_related_args(argv)
+    runtime_arg = ["--performance-runtime", f"{runtime_limit}"]
+    total = len(combos)
+    results = []
+    failures = []
+    summary_pattern = re.compile(
+        r"Performance summary:\s*([0-9][0-9,\.]*?)\s*kP/s over ([0-9]*\.?[0-9]+) seconds \(([0-9][0-9,]*) passwords tried\)(.*)"
+    )
+
+    print(f"Running performance scan across {total} configuration(s)...")
+
+    for index, combo in enumerate(combos, start=1):
+        descriptor = (
+            f"threads={combo['threads']}, "
+            f"opencl-workgroup={_format_opencl_workgroup(combo['workgroup'])}"
+        )
+        print(f"[{index}/{total}] {descriptor}")
+        cmd = [sys.executable, script_path] + base_args + runtime_arg
+        cmd.extend(["--threads", str(combo["threads"])])
+        if combo["workgroup"] is not None:
+            cmd.extend(["--opencl-workgroup-size", str(combo["workgroup"])])
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        summary_line = None
+        for line in stdout.splitlines():
+            if line.startswith("Performance summary:"):
+                summary_line = line.strip()
+        if summary_line:
+            match = summary_pattern.search(summary_line)
+        else:
+            match = None
+
+        if match:
+            rate = float(match.group(1).replace(",", ""))
+            elapsed = float(match.group(2))
+            passwords = int(match.group(3).replace(",", ""))
+            note = match.group(4).strip()
+            results.append(
+                {
+                    "threads": combo["threads"],
+                    "workgroup": combo["workgroup"],
+                    "rate": rate,
+                    "elapsed": elapsed,
+                    "passwords": passwords,
+                    "note": note,
+                    "summary": summary_line,
+                    "exit_code": result.returncode,
+                }
+            )
+            print(f"    {summary_line}")
+        else:
+            failures.append(
+                {
+                    "threads": combo["threads"],
+                    "workgroup": combo["workgroup"],
+                    "exit_code": result.returncode,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                }
+            )
+            print("    Benchmark failed to produce a performance summary.")
+            if stderr:
+                print(f"    stderr: {stderr}")
+
+    if results:
+        sorted_results = sorted(results, key=lambda item: item["rate"], reverse=True)
+        best_result = sorted_results[0]
+        best_label = (
+            f"threads={best_result['threads']}, "
+            f"opencl-workgroup={_format_opencl_workgroup(best_result['workgroup'])}"
+        )
+        print("\nBest configuration by throughput:")
+        print(
+            f"  {best_label}: {best_result['rate']:,.2f} kP/s over {best_result['elapsed']:.2f} seconds"
+            f" ({best_result['passwords']:,} passwords tried)"
+        )
+        if best_result["note"]:
+            print(f"    {best_result['note']}")
+
+        recommended_cmd = [sys.executable, script_path] + base_args
+        if runtime_limit:
+            recommended_cmd.extend(["--performance-runtime", f"{runtime_limit}"])
+        recommended_cmd.extend(["--threads", str(best_result["threads"])])
+        if best_result["workgroup"] is not None:
+            recommended_cmd.extend(["--opencl-workgroup-size", str(best_result["workgroup"])])
+        print("  Recommended command:")
+        print(f"    {' '.join(shlex.quote(arg) for arg in recommended_cmd)}")
+
+        print("\nFull performance scan summary (sorted by throughput):")
+        for entry in sorted_results:
+            note_suffix = f" {entry['note']}" if entry["note"] else ""
+            label = (
+                f"threads={entry['threads']}, "
+                f"opencl-workgroup={_format_opencl_workgroup(entry['workgroup'])}"
+            )
+            print(
+                f"  {label}: {entry['rate']:,.2f} kP/s over {entry['elapsed']:.2f} seconds"
+                f" ({entry['passwords']:,} passwords tried){note_suffix}"
+            )
+
+    if failures:
+        print("\nThe following configurations did not complete successfully:")
+        for entry in failures:
+            label = (
+                f"threads={entry['threads']}, "
+                f"opencl-workgroup={_format_opencl_workgroup(entry['workgroup'])}"
+            )
+            print(f"  {label}: exit code {entry['exit_code']}")
+
+    return 0 if results else 1
 
 py_crypto_hd_wallet_available = False
 try:
@@ -4415,6 +4717,32 @@ def main(argv):
             help="force the alert to use the internal PC speaker when a seed is found",
         )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
+        parser.add_argument(
+            "--performance-runtime",
+            type=float,
+            default=0.0,
+            metavar="SECONDS",
+            help="stop a performance test automatically after SECONDS and report the average speed",
+        )
+        parser.add_argument(
+            "--performance-scan",
+            action="store_true",
+            help="automatically benchmark multiple thread counts and OpenCL workgroup sizes when used with --performance",
+        )
+        parser.add_argument(
+            "--performance-scan-threads",
+            type=int,
+            nargs="+",
+            metavar="COUNT",
+            help="explicit thread counts to benchmark during --performance-scan (default: derived from detected CPU cores)",
+        )
+        parser.add_argument(
+            "--performance-scan-opencl-ws",
+            type=int,
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help="OpenCL workgroup sizes to benchmark during --performance-scan (default: around the configured --opencl-workgroup-size)",
+        )
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
         parser.add_argument("--disablesecuritywarnings", "--dsw", action="store_true", help="Disable Security Warning Messages")
@@ -4457,6 +4785,21 @@ def main(argv):
             parser.parse_args(argv)  # re-parse them just to generate an error for the unknown args
             assert False
 
+        if args.performance_runtime < 0:
+            sys.exit("--performance-runtime must be greater than or equal to zero")
+        if args.performance_runtime and not args.performance:
+            sys.exit("--performance-runtime can only be used together with --performance")
+        if args.performance_scan and not args.performance:
+            sys.exit("--performance-scan can only be used together with --performance")
+        if args.performance_scan_threads:
+            for value in args.performance_scan_threads:
+                if value <= 0:
+                    sys.exit("--performance-scan-threads values must be positive integers")
+        if args.performance_scan_opencl_ws:
+            for value in args.performance_scan_opencl_ws:
+                if value <= 0:
+                    sys.exit("--performance-scan-opencl-ws values must be positive integers")
+
         # Assign the no-gui to a global variable...
         global no_gui
         if args.no_gui:
@@ -4479,6 +4822,10 @@ def main(argv):
             extra_args.append("--beep-on-find")
         if args.beep_on_find_pcspeaker:
             extra_args.append("--beep-on-find-pcspeaker")
+
+        if args.performance and args.performance_scan:
+            exit_code = _run_seed_performance_scan(args, argv)
+            sys.exit(exit_code)
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)
@@ -4700,6 +5047,9 @@ def main(argv):
         for argkey in "skip", "threads", "worker", "max_eta":
             if args.__dict__[argkey] is not None:
                 extra_args.extend(("--"+argkey.replace("_", "-"), str(args.__dict__[argkey])))
+
+        if args.performance_runtime:
+            extra_args.extend(["--performance-runtime", str(args.performance_runtime)])
 
 
         # These arguments (which have no values) are passed on to btcrpass.parse_arguments()

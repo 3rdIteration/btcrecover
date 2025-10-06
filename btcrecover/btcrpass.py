@@ -6046,6 +6046,16 @@ def init_parser_common():
             metavar="PASSWORD-COUNT",
             help="local work sizes to benchmark during --performance-scan; include 'auto' to test the automatic selection",
         )
+        parser_common.add_argument(
+            "--performance-scan-opencl-ws",
+            type=int,
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help=(
+                "OpenCL workgroup sizes to benchmark during --performance-scan "
+                "(default: around the configured --opencl-workgroup-size)"
+            ),
+        )
         parser_common.add_argument("--pause",       action="store_true", help="pause before exiting")
         parser_common.add_argument(
             "--beep-on-find",
@@ -6288,6 +6298,10 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                 error_exit("--performance-scan-local-ws values must be positive integers")
             normalized_local_ws.append(int_value)
         args.performance_scan_local_ws = normalized_local_ws
+    if args.performance_scan_opencl_ws:
+        for value in args.performance_scan_opencl_ws:
+            if value <= 0:
+                error_exit("--performance-scan-opencl-ws values must be positive integers")
     _apply_beep_configuration(args)
 
     # Do this as early as possible so user doesn't miss any error messages
