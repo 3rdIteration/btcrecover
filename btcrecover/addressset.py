@@ -21,7 +21,7 @@
 __version__ =  "1.13.0-CryptoGuide"
 
 import binascii
-import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math
+import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math, errno
 from os import path
 
 from datetime import datetime
@@ -305,12 +305,22 @@ class AddressSet(object):
 
     def close(self, flush = True):
         if self._dbfile:                 # if present, self._data is an mmap
-            if not self._dbfile.closed:  # if not closed, the mmap was opened in write/update mode
-                self._dbfile.write(self._header())  # update the header
-                self._dbfile.close()
-                if flush:
-                    self._data.flush()
-            self._data.close()
+            data = self._data
+            dbfile = self._dbfile
+            try:
+                if not dbfile.closed:    # if not closed, the mmap was opened in write/update mode
+                    dbfile.write(self._header())  # update the header
+                    if flush and hasattr(data, "flush"):
+                        data.flush()
+            finally:
+                if hasattr(data, "close"):
+                    data.close()
+                if not dbfile.closed:
+                    try:
+                        dbfile.close()
+                    except OSError as exc:
+                        if exc.errno not in (errno.EINVAL, errno.EBADF):
+                            raise
             self._dbfile = None
         elif isinstance(self._data, bytearray) and self._data:
             self._data = bytearray()
