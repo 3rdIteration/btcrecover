@@ -305,12 +305,15 @@ class AddressSet(object):
 
     def close(self, flush = True):
         if self._dbfile:                 # if present, self._data is an mmap
+            data = self._data
             if not self._dbfile.closed:  # if not closed, the mmap was opened in write/update mode
                 self._dbfile.write(self._header())  # update the header
+                if flush and hasattr(data, "flush"):
+                    data.flush()
+            if hasattr(data, "close"):
+                data.close()
+            if not self._dbfile.closed:
                 self._dbfile.close()
-                if flush:
-                    self._data.flush()
-            self._data.close()
             self._dbfile = None
         elif isinstance(self._data, bytearray) and self._data:
             self._data = bytearray()
