@@ -484,16 +484,21 @@ class TestRecoveryFromAddress(unittest.TestCase):
         if pathlist_file:
             test_path = btcrseed.load_pathlist("./derivationpath-lists/" + pathlist_file)
 
+        if isinstance(the_address, (list, tuple, set)):
+            address_list = list(the_address)
+        else:
+            address_list = [the_address]
+
         # Don't call the wallet create with a path parameter if we don't have to. (for the same of compatibility across wallet types)
         if test_path == None:
-            wallet = wallet_type.create_from_params(addresses=[the_address],
+            wallet = wallet_type.create_from_params(addresses=address_list,
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
                                                     force_p2sh=force_p2sh,
                                                     checksinglexpubaddress=checksinglexpubaddress,
                                                     force_p2tr=force_p2tr)
         else:
-            wallet = wallet_type.create_from_params(addresses=[the_address],
+            wallet = wallet_type.create_from_params(addresses=address_list,
                                                     address_limit=the_address_limit,
                                                     address_start_index=addr_start_index,
                                                     force_p2sh=force_p2sh,
@@ -888,7 +893,10 @@ class TestRecoveryFromAddress(unittest.TestCase):
     def test_hedera_ed25519_evm_address(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
-            "0x000000000000000000000000000000000098d10f",
+            [
+                "0x000000000000000000000000000000000098d10f",
+                "f5b22efd7869364a2b4af38c91324427ef1d291a",
+            ],
             1,
             "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
             addr_start_index=10014991,
@@ -898,7 +906,10 @@ class TestRecoveryFromAddress(unittest.TestCase):
     def test_hedera_ed25519_account_id(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
-            "0.0.10014991",
+            [
+                "0.0.10014991",
+                "f5b22efd7869364a2b4af38c91324427ef1d291a",
+            ],
             1,
             "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
             addr_start_index=10014991,
@@ -908,7 +919,10 @@ class TestRecoveryFromAddress(unittest.TestCase):
     def test_hedera_ed25519_account_id_with_checksum(self):
         self.address_tester(
             btcrseed.WalletHederaEd25519,
-            "0.0.10014991-coiln",
+            [
+                "0.0.10014991-coiln",
+                "f5b22efd7869364a2b4af38c91324427ef1d291a",
+            ],
             1,
             "edit bean area disagree subway group reunion garage egg pave endless outdoor now egg alien victory metal staff ship surprise winter birth source cup",
             addr_start_index=10014991,

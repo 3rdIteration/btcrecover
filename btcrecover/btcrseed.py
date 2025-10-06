@@ -2614,6 +2614,9 @@ class WalletHederaEd25519(WalletBIP39):
         inferred_index = None
         detected_shard = None
         detected_realm = None
+        deterministic_addr_hexes = set()
+        deterministic_account_strings = set()
+        key_bound_target_present = False
         for address in addresses:
             if isinstance(address, bytes):
                 address = address.decode()
@@ -2629,9 +2632,11 @@ class WalletHederaEd25519(WalletBIP39):
                     raise ValueError("invalid hex characters in Hedera identifier")
                 if len(hex_part) == 40:
                     hash160s.add(("addr", hex_part))
+                    key_bound_target_present = True
                 elif len(hex_part) == 64:
                     hash160s.add(("priv", hex_part))
                     hash160s.add(("pub", hex_part))
+                    key_bound_target_present = True
                 else:
                     raise ValueError("hex-encoded Hedera identifiers must be 20 or 32 bytes long")
                 continue
@@ -2653,6 +2658,7 @@ class WalletHederaEd25519(WalletBIP39):
                     hash160s.add(("acc", alias_string))
                     if checksum:
                         hash160s.add(("acc", f"{alias_string}-{checksum}"))
+                    key_bound_target_present = True
                     continue
 
                 num = int(payload)
@@ -2669,6 +2675,9 @@ class WalletHederaEd25519(WalletBIP39):
                 hash160s.add(("acc", base_account))
                 checksum = checksum or WalletHederaEd25519._hedera_checksum(shard, realm, num)
                 hash160s.add(("acc", f"{base_account}-{checksum}"))
+                deterministic_addr_hexes.add(alias_bytes.hex())
+                deterministic_account_strings.add(base_account)
+                deterministic_account_strings.add(f"{base_account}-{checksum}")
                 if inferred_index is None or num < inferred_index:
                     inferred_index = num
                 continue
@@ -2678,9 +2687,11 @@ class WalletHederaEd25519(WalletBIP39):
 
             if len(lowered) == 40:
                 hash160s.add(("addr", lowered))
+                key_bound_target_present = True
             elif len(lowered) == 64:
                 hash160s.add(("priv", lowered))
                 hash160s.add(("pub", lowered))
+                key_bound_target_present = True
             else:
                 raise ValueError("hex-encoded Hedera identifiers must be 20 or 32 bytes long")
 
@@ -2688,6 +2699,9 @@ class WalletHederaEd25519(WalletBIP39):
             self._hedera_shard = detected_shard
             self._hedera_realm = detected_realm
         self._inferred_address_start_index = inferred_index
+        self._hedera_deterministic_addr_hexes = deterministic_addr_hexes
+        self._hedera_deterministic_account_strings = deterministic_account_strings
+        self._hedera_require_key_bound_match = not key_bound_target_present
         return hash160s
 
     @classmethod
@@ -2726,6 +2740,10 @@ class WalletHederaEd25519(WalletBIP39):
         return False, count
 
     def _verify_seed(self, seed_bytes, salt=None):
+        deterministic_addr_hexes = getattr(self, "_hedera_deterministic_addr_hexes", set())
+        deterministic_account_strings = getattr(self, "_hedera_deterministic_account_strings", set())
+        require_key_bound = getattr(self, "_hedera_require_key_bound_match", False)
+
         for path_str in getattr(self, "_path_strings", ["m"]):
             base_ctx = Bip32Slip10Ed25519.FromSeedAndPath(seed_bytes, path_str)
 
@@ -2755,8 +2773,11 @@ class WalletHederaEd25519(WalletBIP39):
                 proto_key = bytes.fromhex("1220") + pub_key_bytes
                 alias_bytes = keccak(proto_key)[-20:]
                 alias_hex = alias_bytes.hex()
+                alias_match = False
                 if ("addr", alias_hex) in self._known_hash160s:
-                    return True
+                    if alias_hex not in deterministic_addr_hexes:
+                        return True
+                    alias_match = True
 
                 shard = getattr(self, "_hedera_shard", 0)
                 realm = getattr(self, "_hedera_realm", 0)
@@ -2766,19 +2787,30 @@ class WalletHederaEd25519(WalletBIP39):
                     + account_index.to_bytes(8, "big")
                 )
                 solidity_hex = solidity_bytes.hex()
-                if ("addr", solidity_hex) in self._known_hash160s:
-                    return True
+                solidity_match = ("addr", solidity_hex) in self._known_hash160s
 
                 base_account = f"{shard}.{realm}.{account_index}"
-                if ("acc", base_account) in self._known_hash160s:
-                    return True
+                base_account_match = ("acc", base_account) in self._known_hash160s
 
                 checksum = WalletHederaEd25519._hedera_checksum(shard, realm, account_index)
-                if ("acc", f"{base_account}-{checksum}") in self._known_hash160s:
-                    return True
+                base_account_checksum = f"{base_account}-{checksum}"
+                checksum_match = ("acc", base_account_checksum) in self._known_hash160s
 
                 alias_account_string = f"{shard}.{realm}.{alias_der_hex}"
                 if ("acc", alias_account_string) in self._known_hash160s:
+                    return True
+
+                weak_match_found = False
+                if alias_match:
+                    weak_match_found = True
+                if solidity_match and solidity_hex in deterministic_addr_hexes:
+                    weak_match_found = True
+                if base_account_match and base_account in deterministic_account_strings:
+                    weak_match_found = True
+                if checksum_match and base_account_checksum in deterministic_account_strings:
+                    weak_match_found = True
+
+                if weak_match_found and not require_key_bound:
                     return True
 
         return False
