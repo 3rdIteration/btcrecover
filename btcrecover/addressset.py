@@ -22,6 +22,7 @@ __version__ =  "1.13.0-CryptoGuide"
 
 import binascii
 import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math
+from typing import Optional
 from os import path
 
 from datetime import datetime
@@ -337,7 +338,7 @@ def varint(data, offset):
     assert False
 
 #De-XOR the bytes based on their position with a repeating 8-byte key
-def xor_at(data: bytes, key: bytes | None, offset: int) -> bytes:
+def xor_at(data: bytes, key: Optional[bytes], offset: int) -> bytes:
     if not key or not data:
         return data
     m = len(key)
