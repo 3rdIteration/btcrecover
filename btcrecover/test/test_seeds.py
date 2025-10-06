@@ -1599,32 +1599,38 @@ class TestAddressSet(unittest.TestCase):
         aset = AddressSet(self.TABLE_LEN)
         addr = "".join(chr(b) for b in range(20))
         aset.add(addr)
-        dbfile = tempfile.TemporaryFile()
-        aset.tofile(dbfile)
-        dbfile.seek(0)
-        aset = AddressSet.fromfile(dbfile)
-        self.assertTrue(dbfile.closed)  # should be closed by AddressSet in read-only mode
-        self.assertIn(addr, aset)
-        self.assertEqual(len(aset), 1)
+        dbfile = tempfile.NamedTemporaryFile(delete=False)
+        dbfile.close()
+        try:
+            with open(dbfile.name, "w+b") as writable:
+                aset.tofile(writable)
+            with open(dbfile.name, "rb") as readable:
+                aset = AddressSet.fromfile(readable)
+                self.assertTrue(readable.closed)  # should be closed by AddressSet in read-only mode
+                self.assertIn(addr, aset)
+                self.assertEqual(len(aset), 1)
+        finally:
+            aset.close()
+            os.remove(dbfile.name)
 
     def test_file_update(self):
         aset = AddressSet(self.TABLE_LEN)
         dbfile = tempfile.NamedTemporaryFile(delete=False)
+        dbfile.close()
         try:
-            aset.tofile(dbfile)
-            dbfile.seek(0)
-            aset = AddressSet.fromfile(dbfile, mmap_access=mmap.ACCESS_WRITE)
-            addr = "".join(chr(b) for b in range(20))
-            aset.add(addr)
-            aset.close()
-            self.assertTrue(dbfile.closed)
-            dbfile = open(dbfile.name, "rb")
-            aset = AddressSet.fromfile(dbfile)
-            self.assertIn(addr, aset)
-            self.assertEqual(len(aset), 1)
+            with open(dbfile.name, "w+b") as writable:
+                aset.tofile(writable)
+            with open(dbfile.name, "r+b") as writable:
+                aset = AddressSet.fromfile(writable, mmap_access=mmap.ACCESS_WRITE)
+                addr = "".join(chr(b) for b in range(20))
+                aset.add(addr)
+                aset.close()
+            with open(dbfile.name, "rb") as readable:
+                aset = AddressSet.fromfile(readable)
+                self.assertIn(addr, aset)
+                self.assertEqual(len(aset), 1)
         finally:
             aset.close()
-            dbfile.close()
             os.remove(dbfile.name)
 
     def test_pickle_mmap(self):
@@ -1632,18 +1638,19 @@ class TestAddressSet(unittest.TestCase):
         addr = "".join(chr(b) for b in range(20))
         aset.add(addr)
         dbfile = tempfile.NamedTemporaryFile(delete=False)
+        dbfile.close()
         try:
-            aset.tofile(dbfile)
-            dbfile.seek(0)
-            aset = AddressSet.fromfile(dbfile)  # now it's an mmap
-            pickled = pickle.dumps(aset, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(dbfile.name, "w+b") as writable:
+                aset.tofile(writable)
+            with open(dbfile.name, "rb") as readable:
+                aset = AddressSet.fromfile(readable)  # now it's an mmap
+                pickled = pickle.dumps(aset, protocol=pickle.HIGHEST_PROTOCOL)
             aset.close()  # also closes the file
             aset = pickle.loads(pickled)
             self.assertIn(addr, aset)
             self.assertEqual(len(aset), 1)
         finally:
             aset.close()
-            dbfile.close()
             os.remove(dbfile.name)
 
 
