@@ -1617,20 +1617,26 @@ class TestAddressSet(unittest.TestCase):
         aset = AddressSet(self.TABLE_LEN)
         dbfile = tempfile.NamedTemporaryFile(delete=False)
         dbfile.close()
+        addr = "".join(chr(b) for b in range(20))
+        writable = None
         try:
-            with open(dbfile.name, "w+b") as writable:
-                aset.tofile(writable)
-            with open(dbfile.name, "r+b") as writable:
-                aset = AddressSet.fromfile(writable, mmap_access=mmap.ACCESS_WRITE)
-                addr = "".join(chr(b) for b in range(20))
-                aset.add(addr)
-                aset.close()
+            with open(dbfile.name, "w+b") as writable_tmp:
+                aset.tofile(writable_tmp)
+
+            writable = open(dbfile.name, "r+b")
+            aset = AddressSet.fromfile(writable, mmap_access=mmap.ACCESS_WRITE)
+            aset.add(addr)
+            aset.close()
+            writable = None  # owned by AddressSet; already closed
+
             with open(dbfile.name, "rb") as readable:
                 aset = AddressSet.fromfile(readable)
                 self.assertIn(addr, aset)
                 self.assertEqual(len(aset), 1)
         finally:
             aset.close()
+            if writable is not None and not writable.closed:
+                writable.close()
             os.remove(dbfile.name)
 
     def test_pickle_mmap(self):
