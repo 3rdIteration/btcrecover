@@ -61,7 +61,7 @@ python seedrecover.py --wallet-type bip39 --addrs 3NiRFNztVLMZF21gx6eE1nL3Q57GMG
 ### Basic LND aezeed Recoveries
 One missing word, address generation limit of 5. (Leaves out the final word from the original 24 word seed.) If your seed uses a custom passphrase, add `--passphrase-arg "YOUR PASSPHRASE"` as well.
 ```
-python seedrecover.py --wallet-type aezeed --addrs 17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8 --mnemonic "absorb original enlist once climb erode kid thrive kitchen giant define tube orange leader harbor comfort olive fatal success suggest drink penalty chimney" --addr-limit 5
+python seedrecover.py --wallet-type aezeed --addrs 1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ --mnemonic "absorb original enlist once climb erode kid thrive kitchen giant define tube orange leader harbor comfort olive fatal success suggest drink penalty chimney" --addr-limit 5
 ```
 
 If you no longer have an address or xpub to test against, omit `--addrs` to run in checksum-only mode. BTCRecover will still try candidate seeds that satisfy the aezeed checksum and will warn that the result must be manually verified to avoid false positives.

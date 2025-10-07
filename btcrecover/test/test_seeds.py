@@ -242,7 +242,7 @@ class TestAezeedModule(unittest.TestCase):
 
     def test_wallet_derivation(self):
         wallet = btcrseed.WalletAezeed.create_from_params(
-            addresses=["17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8"],
+            addresses=["1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ"],
             address_limit=1,
         )
         wallet.config_mnemonic(_AEZEED_DEFAULT_MNEMONIC, passphrases=[u""])

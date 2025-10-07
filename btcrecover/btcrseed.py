@@ -588,7 +588,7 @@ class WalletElectrum1(WalletBase):
                     addresses = tk.simpledialog.askstring("Addresses",
                         "Please enter at least one address from your wallet, "
                         "preferably some created early in your wallet's lifetime:",
-                        initialvalue="17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8" if is_performance else None)
+                        initialvalue="1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ" if is_performance else None)
                     if not addresses: break
                     addresses.replace(",", " ")
                     addresses.replace(";", " ")
@@ -1547,7 +1547,7 @@ class WalletBIP32(WalletBase):
                     addresses = tk.simpledialog.askstring("Addresses",
                         "Please enter at least one address from the first account in your wallet, "
                         "preferably some created early in the account's lifetime:",
-                        initialvalue="17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8" if is_performance else None)
+                        initialvalue="1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ" if is_performance else None)
                     if not addresses: break
                     addresses.replace(",", " ")
                     addresses.replace(";", " ")
