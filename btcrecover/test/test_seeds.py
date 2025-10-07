@@ -251,6 +251,15 @@ class TestAezeedModule(unittest.TestCase):
         self.assertEqual(len(derived), 1)
         self.assertEqual(derived[0][0], _AEZEED_ENTROPY)
 
+    def test_wallet_checksum_only_mode(self):
+        wallet = btcrseed.WalletAezeed.create_from_params()
+        self.assertTrue(wallet._checksum_only_mode)
+        wallet.config_mnemonic(_AEZEED_DEFAULT_MNEMONIC, passphrases=[u""])
+        mnemonic_ids = btcrseed.mnemonic_ids_guess
+        result, count = wallet.return_verified_password_or_false((mnemonic_ids,))
+        self.assertEqual(result, mnemonic_ids)
+        self.assertEqual(count, 1)
+
 
 class TestRecoveryFromWallet(unittest.TestCase):
 

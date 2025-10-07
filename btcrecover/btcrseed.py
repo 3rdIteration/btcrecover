@@ -2146,6 +2146,92 @@ class WalletAezeed(WalletBIP39):
         }
         self._passphrases = []
         self._last_cipherseed = None  # type: Optional[aezeed.DecipheredCipherSeed]
+        self._checksum_only_mode = False
+
+    @classmethod
+    def create_from_params(
+        cls,
+        mpk=None,
+        addresses=None,
+        address_limit=None,
+        hash160s=None,
+        path=None,
+        is_performance=False,
+        address_start_index=None,
+        force_p2sh=False,
+        checksinglexpubaddress=False,
+        force_p2tr=False,
+        force_bip44=False,
+        force_bip84=False,
+        disable_p2sh=False,
+        disable_p2tr=False,
+        disable_bip44=False,
+        disable_bip84=False,
+    ):
+        if mpk or addresses or hash160s:
+            wallet = super(WalletAezeed, cls).create_from_params(
+                mpk=mpk,
+                addresses=addresses,
+                address_limit=address_limit,
+                hash160s=hash160s,
+                path=path,
+                is_performance=is_performance,
+                address_start_index=address_start_index,
+                force_p2sh=force_p2sh,
+                checksinglexpubaddress=checksinglexpubaddress,
+                force_p2tr=force_p2tr,
+                force_bip44=force_bip44,
+                force_bip84=force_bip84,
+                disable_p2sh=disable_p2sh,
+                disable_p2tr=disable_p2tr,
+                disable_bip44=disable_bip44,
+                disable_bip84=disable_bip84,
+            )
+            wallet._checksum_only_mode = False
+            return wallet
+
+        wallet = cls(path, loading=True)
+
+        if wallet._append_last_index:
+            for current_path_indexes in wallet._path_indexes:
+                current_path_indexes += 0,
+
+        wallet._addrs_to_generate = 0
+        wallet._address_start_index = 0
+        wallet._known_hash160s = set()
+
+        wallet.force_p2sh = force_p2sh
+        wallet.checksinglexpubaddress = checksinglexpubaddress
+        wallet.force_p2tr = force_p2tr
+        wallet.force_bip44 = force_bip44
+        wallet.force_bip84 = force_bip84
+        wallet.disable_p2sh = disable_p2sh
+        wallet.disable_p2tr = disable_p2tr
+        wallet.disable_bip44 = disable_bip44
+        wallet.disable_bip84 = disable_bip84
+        wallet._auto_detected_script_types = None
+        wallet._apply_script_type_filters()
+
+        if address_limit:
+            print(
+                "warning: address limit is ignored when no addresses are supplied; "
+                "running in checksum-only mode",
+                file=sys.stderr,
+            )
+
+        if address_start_index not in (None, 0):
+            print(
+                "warning: address start index is ignored when running in checksum-only mode",
+                file=sys.stderr,
+            )
+
+        wallet._checksum_only_mode = True
+        print(
+            "WARNING: No addresses or xpub supplied for aezeed recovery. "
+            "Only checksum validation will be performed; manually verify any "
+            "recovered seed before use.",
+        )
+        return wallet
 
     def config_mnemonic(
         self,
@@ -2202,6 +2288,11 @@ class WalletAezeed(WalletBIP39):
             )
             seeds.append((cipherseed.entropy, salt_bytes))
         return seeds
+
+    def _verify_seed(self, arg_seed_bytes, salt=None):
+        if self._checksum_only_mode:
+            return self._last_cipherseed is not None
+        return super(WalletAezeed, self)._verify_seed(arg_seed_bytes, salt)
 
 
 ############### bitcoinj ###############
@@ -5148,6 +5239,16 @@ def show_mnemonic_gui(mnemonic_sentence, path_coin):
     if isinstance(loaded_wallet, WalletSLIP39Seed):
         tk.Label(
             text="NOTE: SLIP39 seed recovery matches checksums, so needs to be manually verified",
+            fg="red",
+        ).pack(padx=padding, pady=padding)
+    elif isinstance(loaded_wallet, WalletAezeed) and getattr(
+        loaded_wallet, "_checksum_only_mode", False
+    ):
+        tk.Label(
+            text=(
+                "NOTE: aezeed recovery ran without address checks; verify the "
+                "seed on your wallet before use."
+            ),
             fg="red",
         ).pack(padx=padding, pady=padding)
 
