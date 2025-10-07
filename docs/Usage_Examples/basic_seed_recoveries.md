@@ -57,6 +57,13 @@ With a P2SH Segwit Address - One missing word, address generation limit of 5. (S
 ```
 python seedrecover.py --wallet-type bip39 --addrs 3NiRFNztVLMZF21gx6eE1nL3Q57GMGuunG --mnemonic "element entire sniff tired miracle solve shadow scatter hello never tank side sight isolate sister uniform advice pen praise soap lizard festival connect" --addr-limit 5
 ```
+
+### Basic LND aezeed Recoveries
+Two missing words, address generation limit of 5. (Leaves out the final two words from the original 24 word seed.) If your seed uses a custom passphrase, add `--passphrase-arg "YOUR PASSPHRASE"` as well.
+```
+python seedrecover.py --wallet-type aezeed --addrs 17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8 --mnemonic "absorb original enlist once climb erode kid thrive kitchen giant define tube orange leader harbor comfort olive fatal success suggest drink penalty" --addr-limit 5
+```
+
 ### Basic Cardano Recoveries
 For Cardano recovers, [see the notes here as well.](bip39-accounts-and-altcoins.md) You can use any Shelley-Era base or stake addresses. (Byron-Era not supported)
 

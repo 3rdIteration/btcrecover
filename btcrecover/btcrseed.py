@@ -30,7 +30,7 @@ import bisect
 from typing import AnyStr, List, Optional, Sequence, Tuple, TypeVar, Union
 
 # Import modules bundled with BTCRecover
-from . import btcrpass
+from . import aezeed, btcrpass
 from . import success_alert
 from .addressset import AddressSet
 from lib.bitcoinlib import encoding
@@ -2135,6 +2135,73 @@ class WalletBIP39(WalletBIP32):
     def init_opencl_kernel(self):
         # keep btcrseed checks happy
         pass
+
+
+@register_selectable_wallet_class("LND aezeed (CipherSeed)")
+class WalletAezeed(WalletBIP39):
+    def __init__(self, path=None, loading=False):
+        super(WalletAezeed, self).__init__(path, loading)
+        self._word_to_index = {
+            word: idx for idx, word in enumerate(self._language_words["en"])
+        }
+        self._passphrases = []
+        self._last_cipherseed = None  # type: Optional[aezeed.DecipheredCipherSeed]
+
+    def config_mnemonic(
+        self,
+        mnemonic_guess=None,
+        lang=None,
+        passphrases=[u""],
+        expected_len=None,
+        closematch_cutoff=0.65,
+    ):
+        if lang is None:
+            lang = "en"
+        elif lang != "en":
+            raise ValueError("aezeed mnemonics are only defined for the English wordlist")
+        if expected_len is None:
+            expected_len = 24
+        if expected_len != 24:
+            raise ValueError("aezeed mnemonics must be exactly 24 words long")
+
+        selected_passphrases = super(WalletAezeed, self).config_mnemonic(
+            mnemonic_guess=mnemonic_guess,
+            lang=lang,
+            passphrases=passphrases,
+            expected_len=expected_len,
+            closematch_cutoff=closematch_cutoff,
+        )
+        if selected_passphrases is None:
+            selected_passphrases = passphrases
+        self._passphrases = [str(p) for p in selected_passphrases]
+        self._derivation_salts = [
+            (p.encode("utf-8") if p else aezeed.DEFAULT_PASSPHRASE.encode("utf-8"))
+            for p in self._passphrases
+        ]
+        self._checksum_ratio = 1.0 / (2 ** 32)
+        return selected_passphrases
+
+    def _verify_checksum(self, mnemonic_words):
+        return aezeed.validate_mnemonic(mnemonic_words, self._word_to_index)
+
+    def _derive_seed(self, mnemonic_words):
+        seeds = []
+        self._last_cipherseed = None
+        for passphrase in self._passphrases:
+            try:
+                cipherseed = aezeed.decode_mnemonic(
+                    mnemonic_words, passphrase, self._word_to_index
+                )
+            except aezeed.InvalidPassphraseError:
+                continue
+            self._last_cipherseed = cipherseed
+            salt_bytes = (
+                passphrase.encode("utf-8")
+                if passphrase
+                else aezeed.DEFAULT_PASSPHRASE.encode("utf-8")
+            )
+            seeds.append((cipherseed.entropy, salt_bytes))
+        return seeds
 
 
 ############### bitcoinj ###############

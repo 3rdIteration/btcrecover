@@ -25,7 +25,7 @@ import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, 
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from btcrecover import btcrseed, btcrpass
+from btcrecover import aezeed, btcrpass, btcrseed
 from btcrecover.addressset import AddressSet
 import btcrecover.opencl_helpers
 
@@ -188,6 +188,68 @@ def skipUnless(condition_func, reason):
         return skip_or_test
 
     return decorator
+
+
+_AEZEED_DEFAULT_MNEMONIC = (
+    "absorb original enlist once climb erode kid thrive kitchen giant define tube "
+    "orange leader harbor comfort olive fatal success suggest drink penalty chimney ritual"
+)
+_AEZEED_CUSTOM_MNEMONIC = (
+    "absorb century submit father path glove gloom super divert garden ice mirror "
+    "wisdom grass dice kit ugly castle success suggest drink monster congress flight"
+)
+_AEZEED_ENTROPY = bytes.fromhex("81b637d86359e6960de795e41e0b4cfd")
+_AEZEED_SALT = b"salt1"
+_AEZEED_BIRTHDAY = 3365
+
+
+class TestAezeedModule(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        wordlist = btcrseed.load_wordlist("bip39", "en")
+        cls.word_to_index = {word: idx for idx, word in enumerate(wordlist)}
+
+    def test_validate_mnemonic(self):
+        words = _AEZEED_DEFAULT_MNEMONIC.split()
+        self.assertTrue(aezeed.validate_mnemonic(words, self.word_to_index))
+        tampered = list(words)
+        tampered[-1] = "foobar"
+        self.assertFalse(aezeed.validate_mnemonic(tampered, self.word_to_index))
+
+    def test_decode_default_passphrase(self):
+        seed = aezeed.decode_mnemonic(
+            _AEZEED_DEFAULT_MNEMONIC.split(), "", self.word_to_index
+        )
+        self.assertEqual(seed.entropy, _AEZEED_ENTROPY)
+        self.assertEqual(seed.salt, _AEZEED_SALT)
+        self.assertEqual(seed.internal_version, 0)
+        self.assertEqual(seed.birthday, _AEZEED_BIRTHDAY)
+
+    def test_decode_custom_passphrase(self):
+        seed = aezeed.decode_mnemonic(
+            _AEZEED_CUSTOM_MNEMONIC.split(), "!very_safe_55345_password*", self.word_to_index
+        )
+        self.assertEqual(seed.entropy, _AEZEED_ENTROPY)
+        self.assertEqual(seed.salt, _AEZEED_SALT)
+        self.assertEqual(seed.birthday, _AEZEED_BIRTHDAY)
+
+    def test_decode_with_incorrect_passphrase(self):
+        with self.assertRaises(aezeed.InvalidPassphraseError):
+            aezeed.decode_mnemonic(
+                _AEZEED_CUSTOM_MNEMONIC.split(), "wrong", self.word_to_index
+            )
+
+    def test_wallet_derivation(self):
+        wallet = btcrseed.WalletAezeed.create_from_params(
+            addresses=["17LGpN2z62zp7RS825jXwYtE7zZ19Mxxu8"],
+            address_limit=1,
+        )
+        wallet.config_mnemonic(_AEZEED_DEFAULT_MNEMONIC, passphrases=[u""])
+        mnemonic_ids = btcrseed.mnemonic_ids_guess
+        derived = wallet._derive_seed(mnemonic_ids)
+        self.assertEqual(len(derived), 1)
+        self.assertEqual(derived[0][0], _AEZEED_ENTROPY)
 
 
 class TestRecoveryFromWallet(unittest.TestCase):
