@@ -832,7 +832,10 @@ def decode_mnemonic(
         raise InvalidMnemonicError("checksum mismatch")
     salt = cipher_bytes[EncipheredCipherSeedSize - 4 - SaltSize : EncipheredCipherSeedSize - 4]
     ciphertext = cipher_bytes[1 : EncipheredCipherSeedSize - 4 - SaltSize]
-    pass_bytes = passphrase.encode("utf-8") if passphrase else DEFAULT_PASSPHRASE.encode("utf-8")
+    # LND always prefixes the default passphrase to user-supplied strings before
+    # running scrypt.  Append the provided passphrase to the base constant so
+    # recovery works for mnemonics created with custom passphrases.
+    pass_bytes = (DEFAULT_PASSPHRASE + (passphrase or "")).encode("utf-8")
     key = hashlib.scrypt(pass_bytes, salt=salt, n=32768, r=8, p=1, dklen=32, maxmem=2_000_000_000)
     ad = _encode_ad(version, salt)
     plaintext = _aez_decrypt(key, [ad], CipherTextExpansion, ciphertext)

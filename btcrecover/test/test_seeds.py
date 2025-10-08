@@ -195,8 +195,8 @@ _AEZEED_DEFAULT_MNEMONIC = (
     "orange leader harbor comfort olive fatal success suggest drink penalty chimney ritual"
 )
 _AEZEED_CUSTOM_MNEMONIC = (
-    "absorb century submit father path glove gloom super divert garden ice mirror "
-    "wisdom grass dice kit ugly castle success suggest drink monster congress flight"
+    "above gap bronze point damp name group actress idea festival cream during "
+    "bid blanket dumb wage foster merit success suggest drink protect autumn box"
 )
 _AEZEED_ENTROPY = bytes.fromhex("81b637d86359e6960de795e41e0b4cfd")
 _AEZEED_SALT = b"salt1"
