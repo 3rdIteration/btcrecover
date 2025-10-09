@@ -1,7 +1,8 @@
 mkdocs-autolinks-plugin==0.7.1 \
     --hash=sha256:5c6c17f6649b68e79a9ef0b2648d59f3072e18002b90ee1586a64c505f11ab12
-mkdocs-include-markdown-plugin==5.1.0 \
-    --hash=sha256:e9ca188ab1d86f5fc4a6b96ce8c85acf6e25f114897868041056ec7945f29f65
+mkdocs-include-markdown-plugin==7.1.8 \
+    --hash=sha256:9cc79f60c452e4db885c32b4cd63feea1f96012b6720be49a2ce6a1fbad77458 \
+    --hash=sha256:eed91cdb22c9035c8d8421523c97bee3796e2df626afefae11e97dd0c6854573
 mkdocs-material==9.6.15 \
     --hash=sha256:ac969c94d4fe5eb7c924b6d2f43d7db41159ea91553d18a9afc4780c34f2717a
 pygments==2.19.2 \
