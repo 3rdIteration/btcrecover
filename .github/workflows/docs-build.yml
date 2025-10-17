@@ -1,0 +1,26 @@
+name: Documentation Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r docs/requirements.txt
+      - name: Build documentation
+        env:
+          MKDOCS_GIT_COMMITTERS_APIKEY: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdocs build --strict
