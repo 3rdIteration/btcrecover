@@ -93,7 +93,7 @@ If you have found a bug, please open an issue on Github here: [https://github.co
      * [mSIGNA (CoinVault)](https://ciphrex.com/products/)
      * [Blockchain.com](https://blockchain.com/wallet)
      * [block.io](https://block.io/) (Recovery of wallet "Secret PIN")
-     * [btc.com (aka blocktrail)](btc.com) (Recovery of wallet password, needed to decrypt the PDF backup sheets)
+    * [btc.com (aka blocktrail)](https://btc.com) (Recovery of wallet password, needed to decrypt the PDF backup sheets)
      * [pywallet --dumpwallet](https://github.com/jackjack-jj/pywallet) o*f Bitcoin Unlimited/Classic/XT/Core wallets
      * [Bitcoin Wallet for Android/BlackBerry](https://play.google.com/store/apps/details?id=de.schil*dbach.wallet) spending PINs and encrypted backups
      * [KnC Wallet for Android](https://github.com/kncgroup/bitcoin-wallet) encrypted backups

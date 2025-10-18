@@ -164,7 +164,7 @@ YmM65iRhIMReOQ2qaldHbn++T1fYP3nXX5tMHbaA/lqEbLhFk6/1Y5F5x0QJAQBI/maR
 **The tokenlist used in this example is tokenListTest.txt**
 
 ``` linenums="1"
-{% include "tokenListTest.txt" %}
+{% include "./tokenListTest.txt" %}
 ```
 
 We will run this command locally to work out the number of possibilities, fix any errors in or Tokenlist and see if it's worth running on a cloud system... (Though you can just do all this on a vast.ai instance if you like)

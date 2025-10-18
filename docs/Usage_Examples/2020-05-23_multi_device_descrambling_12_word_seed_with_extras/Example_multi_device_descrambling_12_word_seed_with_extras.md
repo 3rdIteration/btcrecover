@@ -7,7 +7,7 @@ In addition to being able to simply descramble a BIP39 seed using a tokenlist of
 
 **Example tokenlist in use: tokenlist.txt**
 ``` linenums="1"
-{% include "tokenlist.txt" %}
+{% include "./tokenlist.txt" %}
 ```
 
 For larger recovery jobs, BTCRecover also allows you to spread the workload over multiple devices. It's important to understand that the process that BTCRecover uses is **deterministic** what this means in simple terms is that every time you run BTCRecover, it will search through potential passwords/passphrases in exactly the same order, every single time. The implication of this is that simply running it on two devices at the same time, without using the --workers command, will simply be doing the identical work twice... 

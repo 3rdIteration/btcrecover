@@ -12,9 +12,9 @@ contributors: gurnec
 This tutorial is pretty long... you don't have to read the whole thing. Here are some places to start.
 
  1. If you already have a `btcrecover-tokens-auto.txt` file, skip straight to step 6.  If not, and you need help creating passwords from different combinations of smaller pieces you remember, start with step 4. If you you think there's a typo in your password, or if you mostly know what your whole password is and only need to try different variations of it, read step 5.
- 2. Read [The Token File](#token-Lists-and-password-or-seed-lists) section (at least the beginning), which describes how *btcrecover* builds up a whole password you don't remember from smaller pieces you do remember. Once you're done, you'll know how to create a `tokens.txt` file you'll need later.
+ 2. Read [The Token File](#token-lists-and-password-or-seed-lists) section (at least the beginning), which describes how *btcrecover* builds up a whole password you don't remember from smaller pieces you do remember. Once you're done, you'll know how to create a `tokens.txt` file you'll need later.
  3. Read the [Typos](#typos) section, which describes how *btcrecover* can make variations to a whole password to create different password guesses. Once you're done, you'll have a list of command-line options which will create the variations you want to test.
-     * If you skipped step 4 above, read the simple [Passwordlist](#token-Lists-and-password-or-seed-lists) section instead.
+    * If you skipped step 4 above, read the simple [Passwordlist](#token-lists-and-password-or-seed-lists) section instead.
  4. Read the [Running *btcrecover*](#running-btcrecover) section to see how to put these pieces together and how to run *btcrecover* in a Command Prompt window.
      * (optional) Read the [Testing your config](#testing-your-config) section to view the passwords that will be tested.
      * (optional) If you're testing a lot of combinations that will take a long time, use the [Autosave](#autosave) feature to safeguard against losing your progress.
@@ -56,7 +56,7 @@ Here are some additional types of typos that require a bit more explanation:
 
  * `--typos-closecase` - Like `--typos-case`, but it only tries changing the case of a letter if that letter is next to another letter with a different case, or if it's at the beginning or the end. This produces fewer combinations to try so it will run faster, and it will still catch the more likely instances of someone holding down shift for too long or for not long enough.
 
- * `--typos-replace s` - This tries replacing each single character with the specified string (in the example, an `s`). The string can be a single character, or some longer string (in which case each single character is replaced by the entire string), or even a string with one or more [expanding wildcards](#expanding-wildcards) in it. For example, `--typos 1 --typos-replace %a` would try replacing each character (one at a time) with a lower-case letter, working through all possible combinations. Using wildcards can drastically increase the total number of combinations.
+ * `--typos-replace s` - This tries replacing each single character with the specified string (in the example, an `s`). The string can be a single character, or some longer string (in which case each single character is replaced by the entire string), or even a string with one or more [expanding wildcards](tokenlist_file.md#expanding-wildcards) in it. For example, `--typos 1 --typos-replace %a` would try replacing each character (one at a time) with a lower-case letter, working through all possible combinations. Using wildcards can drastically increase the total number of combinations.
 
  * `--typos-insert s`  - Just like `--typos-replace`, but instead of replacing a character, this tries inserting a single copy of the string (or the wildcard substitutions) in between each pair of characters, as well as at the beginning and the end.
 
@@ -80,7 +80,7 @@ Here are some additional types of typos that require a bit more explanation:
 
     This would try replacing instances of `a` or `A` with `@`, instances of `s` or `S` with either a `$` or a `5`, etc., up to the maximum number of typos specified with the `--typos #` option. For example, if the token file contained the token `Passwords`, and if you specified `--typos 3`, `P@55words` and `Pa$sword5` would both be tried because they each have three or fewer typos/replacements, but `P@$$w0rd5` with its 5 typos would not be tried.
 
-    The *btcrecover* package includes a few typos-map example files in the `typos` directory. You can read more about them in the [Typos Quick Start Guide](docs/Typos_Quick_Start_Guide.md#typos-maps).
+    The *btcrecover* package includes a few typos-map example files in the `typos` directory. You can read more about them in the [Typos Quick Start Guide](Typos_Quick_Start_Guide.md#typos-maps).
 
 ### Max Typos by Type ###
 
@@ -148,11 +148,11 @@ As you can see, the Windows command prompt was incapable of rendering some of th
 
 ## Running *btcrecover* ##
 
-(Also see the [Quick Start](#quick-start) section.) After you've installed all of the requirements (above) and have downloaded the latest version:
+(Also see the [Seed Recovery Quick Start Guide](Seedrecover_Quick_Start_Guide.md).) After you've installed all of the requirements (above) and have downloaded the latest version:
 
  1. Unzip the `btcrecover-master.zip` file, it contains a single directory named "btcrecover-master". Inside the btcrecover-master directory is the Python script (program) file `btcrecover.py`.
  2. **Make a copy of your wallet file** into the directory which contains `btcrecover.py`. On Windows, you can usually find your wallet file by clicking on the Start Menu, then “Run...” (or for Windows 8+ by holding down the *Windows* key and pressing `r`), and then typing in one of the following paths and clicking OK. Some wallet software allows you to create multiple wallets. Of course, you need to be sure to copy the correct wallet file.
-     * BIP-39 passphrases - Please see the [BIP-39 Passphrases](#bip-39-passphrases) section below.     
+     * BIP-39 passphrases - Please see the [BIP-39 Passphrases](#bip-39-passphrases-electrum-extra-words) section below.
      * Bitcoin Core - `%appdata%\Bitcoin` (it's named `wallet.dat`)
      * Bitcoin Wallet for Android/BlackBerry, lost spending PINs - Please see the [Bitcoin Wallet for Android/BlackBerry Spending PINs](#bitcoin-wallet-for-androidblackberry-spending-pins) section below.
      * Bither - `%appdata%\Bither` (it's named `address.db`)
@@ -168,7 +168,7 @@ As you can see, the Windows command prompt was incapable of rendering some of th
 
  3. If you have a `btcrecover-tokens-auto.txt` file, you're almost done. Copy it into the directory which contains `btcrecover.py`, and then simply double-click the `btcrecover.py` file, and *btcrecover* should begin testing passwords. (You may need to rename your wallet file if it doesn't match the file name listed insided the `btcrecover-tokens-auto.txt` file.) If you don't have a `btcrecover-tokens-auto.txt` file, continue reading below.
  4. Copy your `tokens.txt` file, or your passwordlist file if you're using one, into the directory which contains `btcrecover.py`.
- 5. You will need to run `btcrecover.py` with at least two command-line options, `--wallet FILE` to identify the wallet file name and either `--tokenlist FILE` or `--passwordlist FILE` (the FILE is optional for `--passwordlist`), depending on whether you're using a [Token File](#the-token-file) or [Passwordlist](#the-passwordlist). If you're using [Typos](#typos) or [Autosave](#autosave), please refer the sections above for additional options you'll want to add.
+ 5. You will need to run `btcrecover.py` with at least two command-line options, `--wallet FILE` to identify the wallet file name and either `--tokenlist FILE` or `--passwordlist FILE` (the FILE is optional for `--passwordlist`), depending on whether you're using a [Token File](tokenlist_file.md) or [Passwordlist](passwordlist_file.md). If you're using [Typos](#typos) or [Autosave](#autosave), please refer the sections above for additional options you'll want to add.
  6. Here's an example for both Windows and OS X. The details for your system will be different, for example the download location may be different, or the wallet file name may differ, so you'll need to make some changes. Any additional options are all placed at the end of the *btcrecover* line.
     * *Windows*: Open a Command Prompt window (click the Start Menu and type "command"), and type in the two lines below. 
 
@@ -180,7 +180,7 @@ As you can see, the Windows command prompt was incapable of rendering some of th
             cd Downloads/btcrecover-master
             python btcrecover.py --wallet wallet.dat --tokenlist tokens.txt [other-options...]
 
-After a short delay, *btcrecover* should begin testing passwords and will display a progress bar and an ETA as shown below. If it appears to be stuck just counting upwards with the message `Counting passwords ...` and no progress bar, please read the [Memory limitations](Limitations_and_Caveats.md#memory) section. If that doesn't help, then you've probably chosen too many tokens or typos to test resulting in more combinations than your system can handle (although the [`--max-tokens`](#token-counts) option may be able to help).
+After a short delay, *btcrecover* should begin testing passwords and will display a progress bar and an ETA as shown below. If it appears to be stuck just counting upwards with the message `Counting passwords ...` and no progress bar, please read the [Memory limitations](Limitations_and_Caveats.md#memory) section. If that doesn't help, then you've probably chosen too many tokens or typos to test resulting in more combinations than your system can handle (although the [`--max-tokens`](tokenlist_file.md#token-counts) option may be able to help).
 
     Counting passwords ...
     Done
@@ -357,7 +357,7 @@ Bitcoin Wallet for Android/BlackBerry has a *spending PIN* feature which can opt
 
 This wallet backup file, once saved to your PC, can be used just like any other wallet file in *btcrecover* with one important exception: when you run *btcrecover*, you **must** add the `--android-pin` option. When you do, *btcrecover* will ask you for your backup password (from step 3), and then it will try to recover the spending PIN.
 
-Because PINs usually just contain digits, your token file will usually just contain something like this (for PINs of up to 6 digits for example): `%1,6d`. (See the section on [Wildcards](#expanding-wildcards) for more details.)
+Because PINs usually just contain digits, your token file will usually just contain something like this (for PINs of up to 6 digits for example): `%1,6d`. (See the section on [Wildcards](tokenlist_file.md#expanding-wildcards) for more details.)
 
 Note that if you don't include the `--android-pin` option, *btcrecover* will try to recover the backup password instead.
 

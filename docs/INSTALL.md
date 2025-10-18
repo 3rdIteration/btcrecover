@@ -178,11 +178,11 @@ Locate your wallet type in the list below, and follow the instructions for only 
  * Electrum 2.8+ fully encrypted wallets - [coincurve](Seedrecover_Quick_Start_Guide.md#installation), optional: [PyCryptoDome](#pycryptodome)
  * BIP-39 Bitcoin passphrases (e.g. TREZOR) - [coincurve](Seedrecover_Quick_Start_Guide.md#installation)
  * BIP-39 Ethereum passphrases (e.g. TREZOR) - [PyCryptoDome](#pycryptodome) [coincurve](Seedrecover_Quick_Start_Guide.md#installation)
- * Hive for OS X - [Google protobuf](#google-protocol-buffers), optional: [PyCryptoDome](#pycryptodome)
+ * Hive for OS X - [Google protobuf](https://pypi.org/project/protobuf/), optional: [PyCryptoDome](#pycryptodome)
  * mSIGNA (CoinVault) - recommended: [PyCryptoDome](#pycryptodome)
  * Blockchain.info - recommended: [PyCryptoDome](#pycryptodome)
  * Bitcoin Wallet for Android/BlackBerry backup - recommended: [PyCryptoDome](#pycryptodome)
- * Bitcoin Wallet for Android/BlackBerry spending PIN - [scrypt](#scrypt), [Google protobuf](#google-protocol-buffers), optional: [PyCryptoDome](#pycryptodome)
+ * Bitcoin Wallet for Android/BlackBerry spending PIN - [scrypt](#scrypt), [Google protobuf](https://pypi.org/project/protobuf/), optional: [PyCryptoDome](#pycryptodome)
  * KnC Wallet for Android backup - recommended: [PyCryptoDome](#pycryptodome)
  * Bither - [coincurve](Seedrecover_Quick_Start_Guide.md#installation), optional: [PyCryptoDome](#pycryptodome)
  * Litecoin-Qt -  optional: [PyCryptoDome](#pycryptodome)
@@ -191,8 +191,8 @@ Locate your wallet type in the list below, and follow the instructions for only 
  * Dogecoin Core -  optional: [PyCryptoDome](#pycryptodome)
  * MultiDoge - recommended: [PyCryptoDome](#pycryptodome)
  * Dogecoin Wallet for Android - recommended: [PyCryptoDome](#pycryptodome)
- * SLIP39 Wallets: [shamir-mnemonic](#shamir-mnemonic)
- * Py_Crypto_HD_Wallet Based BIP39 Wallets: [py_crypto_hd_wallet](#py_crypto_hd_wallet)
+ * SLIP39 Wallets: [shamir-mnemonic](https://pypi.org/project/shamir-mnemonic/)
+ * Py_Crypto_HD_Wallet Based BIP39 Wallets: [py_crypto_hd_wallet](https://pypi.org/project/py-crypto-hd-wallet/)
     * Avalanche
     * Cosmos (Atom)
     * Polkadot
@@ -203,7 +203,7 @@ Locate your wallet type in the list below, and follow the instructions for only 
     * Tron
  * Helium BIP39 Wallets: [pynacl](https://pypi.org/project/PyNaCl/) and [bitstring](https://pypi.org/project/bitstring/)
  * Eth Keystore Files: [eth-keyfile](https://pypi.org/project/eth-keyfile/)
- * Eth2 Validator Seed Recovery: [staking-deposit](#staking-deposit)
+ * Eth2 Validator Seed Recovery: [staking-deposit](https://github.com/ethereum/staking-deposit-cli/)
  * Groestlecoin BIP39 Wallets: [groestlcoin_hash](https://pypi.org/project/groestlcoin-hash/)
 
 * BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)

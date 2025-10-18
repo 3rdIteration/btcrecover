@@ -5,7 +5,7 @@
 **Note:** The YouTube video and examples were made before OpenCL acceleration was added to Blockchain.com wallets and can give at least a 10x performance improvement. (See [GPU Accleration](../../GPU_Acceleration.md) for more info) 
 
 ## Overview
-[Firstly you download the wallet file as per the process here:](./../../../TUTORIAL/#downloading-blockchaincom-wallet-files)
+[Firstly you download the wallet file as per the process here:](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
 
 Once you have that file, there are three ways that blockchain.com wallets can be recovered.
 
@@ -17,7 +17,7 @@ Running BTCRecover with a wallet.aes.json file downloaded from blockchain.com. T
 
 Extracting a small amount of data from the wallet file and running BTCRecover with that... What this means is that you can either give this portion of data to someone else to recover for you, or run it on some cloud based machine, without having to worry about it leaking info that would allow someone to steal your crypto. (You therefore don't need to worry as much about the security of the environmen in which you run BTCRecover) 
 
-Using a wallet extract requires a few extra steps... [See here for more info about Extract Scripts...](./../../../Extract_Scripts/)
+Using a wallet extract requires a few extra steps... [See here for more info about Extract Scripts...](../../Extract_Scripts.md)
 
 **3) Recover the wallet password from legacy wallet recovery mnemonic**
 
@@ -31,14 +31,14 @@ Once you recover your seed phrase it will reveal your password, the password can
 
 ### Download the wallet file...
 
-[Download the wallet file as per the process here:](./../../../TUTORIAL/#downloading-blockchaincom-wallet-files)
+[Download the wallet file as per the process here:](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
 
 After doing the process above, we will save the wallet data in a file called wallet.aes.json (Which can just be left in your BTCRecover folder be used instead of the wallet file in any of the examples below)
 
 ### Create the TokenList File 
 **Example Tokenlist - tokenListTest.txt**
 ``` linenums="1"
-{% include "tokenListTest.txt" %}
+{% include "./tokenListTest.txt" %}
 ```
 
 This file contains some basic tokens that make up the password. (Useful if you re-use sentences, words or phrases in passwords) It has one anchored token (eg: We know which token we started with) as well as some examples of OR type tokens where it will only select one per row. (In this case, let's say you used one of these characters - _ ! = @ in between words and also tended to add the year in there somewhere)
@@ -66,7 +66,7 @@ Using the password that we found from the previous step... _btcr-test-password_
 **Example Passwordlist: passwordListTest_1.txt**
 
 ``` linenums="1"
-{% include "passwordListTest_1.txt" %}
+{% include "./passwordListTest_1.txt" %}
 ```
 This file contains the correct password with 4 typos in it + the first twenty options off the RockYou password list...
 

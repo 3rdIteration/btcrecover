@@ -21,7 +21,7 @@ _You can expect things to take about 5 times this long on a current (mid 2020), 
 ### Legacy Wallet (Last Result)
 **Using Tokenlist lastcombination_electrum.txt**
 ``` linenums="1"
-{% include "lastcombination_electrum.txt" %}
+{% include "./lastcombination_electrum.txt" %}
 ```
 
 **Command**
@@ -32,7 +32,7 @@ python seedrecover.py --no-dupchecks --mnemonic-length 12 --language EN --dsw --
 ### Segwit Wallet
 **Using Tokenlist randomcombination_electrum.txt**
 ``` linenums="1"
-{% include "randomcombination_electrum.txt" %}
+{% include "./randomcombination_electrum.txt" %}
 ```
 
 **Command**
@@ -44,7 +44,7 @@ python seedrecover.py --no-dupchecks --mnemonic-length 12 --language EN --dsw --
 ### Ethereum Address (Default derivation path for Trezor, MEW)
 **Using Tokenlist randomcombination_bip39.txt**
 ``` linenums="1"
-{% include "randomcombination_bip39.txt" %}
+{% include "./randomcombination_bip39.txt" %}
 ```
 
 **Command**
@@ -55,7 +55,7 @@ python seedrecover.py --no-dupchecks --mnemonic-length 12 --language EN --dsw --
 ### Legacy BTC Address (First Result)
 **Using Tokenlist firstcombination_bip39.txt**
 ``` linenums="1"
-{% include "firstcombination_bip39.txt" %}
+{% include "./firstcombination_bip39.txt" %}
 ```
 
 **Command**
@@ -66,7 +66,7 @@ python seedrecover.py --no-dupchecks --mnemonic-length 12 --language EN --dsw --
 ### Legacy BTC Address (Last Result)
 **Using Tokenlist lastcombination_bip39.txt**
 ``` linenums="1"
-{% include "lastcombination_bip39.txt" %}
+{% include "./lastcombination_bip39.txt" %}
 ```
 **Command**
 ```
@@ -76,7 +76,7 @@ python seedrecover.py --no-dupchecks --mnemonic-length 12 --language EN --dsw --
 ### Litecoin Native Segwit Address (Seed with Positional Anchors for known words, last word as any valid BIP39 word starting with 'B')
 **Using Tokenlist fixedwords_bip39.txt**
 ``` linenums="1"
-{% include "fixedwords_bip39.txt" %}
+{% include "./fixedwords_bip39.txt" %}
 ```
 
 **Command**

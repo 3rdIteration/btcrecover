@@ -8,7 +8,7 @@ They will all find a result almost straight away.
 
 **Basic Passwordlist used in basic examples below**
 ``` linenums="1"
-{% include "common_passwordlist.txt" %}
+{% include "./common_passwordlist.txt" %}
 ```
 
 ## BIP38 Encrypted Paper Wallet Recovery.
@@ -377,7 +377,7 @@ You will also notice that the leading "0x" needs to be removed from the private 
 
 **Example tokenlist**
 ``` linenums="1"
-{% include "eth_privkey_tokenlist.txt" %}
+{% include "./eth_privkey_tokenlist.txt" %}
 ```
 
 The tokenlist above is an example is a standard Eth private key (with the leading 0x removed) where there are three damanged parts. One single character (%H), one two-character (%2H) and one three-character (%3H) It will take about 20 mintes to run...
@@ -393,7 +393,7 @@ If you are using a tokenlist (as in the examples below) with multiple private ke
 
 **Example tokenlist**
 ``` linenums="1"
-{% include "eth_privkey_tokenlist.txt" %}
+{% include "./eth_privkey_tokenlist.txt" %}
 ```
 
 The command below will attempt a recovery for an old-style, uncompressed private key with one missing character, using a tokenlist containing three possible private keys.

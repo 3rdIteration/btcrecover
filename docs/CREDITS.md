@@ -4,22 +4,22 @@ respective authors, and the libraries themselves may only be distributed
 under the terms of their respective licenses. In alphabetical order, this
 includes but is not limited to:
 
- * aespython, please see [aespython/README.txt](aespython/README.txt) for
+ * aespython, please see [aespython/README.txt](https://github.com/3rdIteration/btcrecover/blob/master/lib/aespython/README.txt) for
  more information
 
-* BitcoinLib, please see [bitcoinlib/README.rst](bitcoinlib/Readme.rst) for more information
+* BitcoinLib, please see [bitcoinlib/README.rst](https://github.com/3rdIteration/btcrecover/blob/master/lib/bitcoinlib/README.rst) for more information
 
-* Cashaddress, please see [cashaddress/README.md](cashaddress/READNE.md) for more information
+* Cashaddress, please see [cashaddress/README.md](https://github.com/3rdIteration/btcrecover/blob/master/lib/cashaddress/README.md) for more information
 
- * Passlib, please see [passlib/README.txt](passlib/README.txt) for more information
+ * Passlib, please see [passlib/README](https://github.com/3rdIteration/btcrecover/blob/master/lib/passlib/README) for more information
 
- * progressbar, please see [progressbar/README.txt](progressbar/README.txt)
+ * progressbar, please see [progressbar/README.txt](https://github.com/3rdIteration/btcrecover/blob/master/lib/progressbar/README.txt)
  for more information
 
- * bitcoinj wallet protobuf, please see [wallet.proto](wallet.proto)
+ * bitcoinj wallet protobuf, please see [wallet.proto.bitcoinj](https://github.com/3rdIteration/btcrecover/blob/master/btcrecover/wallet.proto.bitcoinj)
  for more information
 
- * sha512-kernel.cl, please see [sha512-bc-kernel.cl](sha512-bc-kernel.cl)
+ * sha512-kernel.cl, please see [sha512-bc-kernel.cl](https://github.com/3rdIteration/btcrecover/blob/master/btcrecover/opencl/sha512-bc-kernel.cl)
  for more information
 
 

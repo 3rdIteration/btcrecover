@@ -41,7 +41,7 @@ You might create a seedlist like the one below:
 
 The following example uses the following seedlist:
 ``` linenums="1"
-{% include "seed_swaps_example_seedlist.txt" %}
+{% include "./seed_swaps_example_seedlist.txt" %}
 ```
 
 You would then run seedrecover using this seedlist using the command below:

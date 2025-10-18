@@ -15,7 +15,7 @@ Like with seed descrambling, the ceiliing for this sort of recovery is based off
 
 The following example uses the following tokenlist:
 ``` linenums="1"
-{% include "tokengroups_tokenlist.txt" %}
+{% include "./tokengroups_tokenlist.txt" %}
 ```
 
 You can see in this tokenlist that there are a few blocks of tokens that we are sure are in the correct order, (Including a positional anchor for one of the groups of seed words) as well as a few extra/single words. 

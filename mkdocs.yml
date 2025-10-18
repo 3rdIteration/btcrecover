@@ -38,6 +38,7 @@ nav:
         - Basic Seed Recovery Examples: Usage_Examples/basic_seed_recoveries.md
     - Password/Passphrase Recovery:
         - Password Recovery Quickstart: TUTORIAL.md
+        - Typos Quick Start Guide: Typos_Quick_Start_Guide.md
         - Tokenlist Files: tokenlist_file.md
         - Custom String and Repeating Wildcards: custom-wildcard-lists/custom_wildcards.md
         - Passwordlist Files: passwordlist_file.md
@@ -64,6 +65,7 @@ plugins:
     - autolinks
     - include-markdown
     - git-committers:
+        enabled: !!python/object/apply:bool [!!python/object/apply:os.getenv ["MKDOCS_GIT_COMMITTERS_APIKEY"]]
         repository: 3rdIteration/btcrecover
         branch: master
         token: !!python/object/apply:os.getenv ["MKDOCS_GIT_COMMITTERS_APIKEY"]

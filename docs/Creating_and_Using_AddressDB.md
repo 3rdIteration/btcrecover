@@ -95,7 +95,7 @@ You can find more examples of tests that use the small AddressDBs in the unit te
 
  5. (On OS X, rename the `create-address-db.py` script file to `create-address-db.command`.) Double-click on the `create-address-db.py` script (in the same folder as `seedrecover.py`) to build the address database using the fully-synced blockchain (it will be saved into the same directory as `create-address-db.py` with the name `addresses.db`) . This process will take about one hour, and use about 4 GB of both RAM and drive space.
 
- 6. Follow the steps listed in the [Running *seedrecover.py*](#running-seedrecoverpy) section, except that when you get to the address entry window in step 4, click `Cancel`.
+ 6. Follow the steps listed in the [Running *seedrecover.py*](Seedrecover_Quick_Start_Guide.md#running-seedrecoverpy) section, except that when you get to the address entry window in step 4, click `Cancel`.
 
  7. For the next step, you still need to choose an address generation limit. This should be the number of unused addresses you suspect you have at the beginning of your wallet before the first one you ever used. If you're sure you used the very first address in your wallet, you can use `1` here, but if you're not so sure, you should choose a higher estimate (although it may take longer for *seedrecover.py* to run).
 

@@ -3,7 +3,7 @@ contributors: gurnec
 
 *btcrecover* can accept as input a text file which has a list of what are called password “tokens”. A token is simply a portion of a password which you do remember, even if you don't remember where that portion appears in the actual password. It will combine these tokens in different ways to create different whole password guesses to try.
 
-This file, typically named `tokens.txt`, can be created in any basic text editor, such as Notepad on Windows or TextEdit on OS X, and should probably be saved into the same folder as the `btcrecover.py` script (just to keep things simple). Note that if your password contains any non-[ASCII](https://en.wikipedia.org/wiki/ASCII) (non-English) characters, you should read the section on [Unicode Support](#unicode-support) before continuing.
+This file, typically named `tokens.txt`, can be created in any basic text editor, such as Notepad on Windows or TextEdit on OS X, and should probably be saved into the same folder as the `btcrecover.py` script (just to keep things simple). Note that if your password contains any non-[ASCII](https://en.wikipedia.org/wiki/ASCII) (non-English) characters, you should read the section on [Unicode Support](TUTORIAL.md#unicode-support) before continuing.
 
 ## Basics ##
 
@@ -297,11 +297,11 @@ One way around this that only works for the tokenlist file is to use the `%s` wi
 
 Additionally, *btcrecover* considers the following symbols special under certain specific circumstances in the tokenlist file (and for the `#` symbol, also in the typos-map file). A special symbol is part of the syntax, and not part of a password.
 
- * `%` - always considered special (except when *inside* a `%[...]`-style wildcard, see the [Wildcards](TUTORIAL.md#expanding-wildcards) section); `%%` in a token will be replaced by `%` during searches
+ * `%` - always considered special (except when *inside* a `%[...]`-style wildcard, see the [Wildcards](#expanding-wildcards) section); `%%` in a token will be replaced by `%` during searches
  * `^` - only special if it's the first character of a token; `%^` will be replaced by `^` during searches
  * `$` - only special if it's the last character of a token; `%S` (note the capital `S`) will be replaced by `$` during searches
- * `#` - only special if it's the *very first* character on a line, see the [note about comments here](TUTORIAL.md#basics)
- * `+` - only special if it's the first (not including any spaces) character on a line, immediately followed by a space (or delimiter) and then some tokens (see the [Mutual Exclusion](TUTORIAL.md#mutual-exclusion) section); if you need  a single `+` character as a token, make sure it's not the first token on the line, or it's on a line all by itself
+ * `#` - only special if it's the *very first* character on a line, see the [note about comments here](#basics)
+ * `+` - only special if it's the first (not including any spaces) character on a line, immediately followed by a space (or delimiter) and then some tokens (see the [Mutual Exclusion](#mutual-exclusion) section); if you need  a single `+` character as a token, make sure it's not the first token on the line, or it's on a line all by itself
  * `]` - only special when it follows `%[` in a token to mark the end of a `%[...]`-style wildcard. If it appears *immediately after* the `%[`, it is part of the replacement set and the *next* `]` actually ends the wildcard, e.g. the wildcard `%[]x]` contains two replacement characters, `]` and `x`. 
 
 None of this applies to passwordlist files, which always treat spaces and symbols (except for carriage-returns and line-feeds) verbatim, treating them as parts of a password.
