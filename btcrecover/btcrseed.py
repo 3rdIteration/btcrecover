@@ -1861,11 +1861,17 @@ class WalletBIP39(WalletBIP32):
             self._load_wordlists()
         pbkdf2_library_name = btcrpass.load_pbkdf2_library().__name__  # btcrpass's pbkdf2 library is used in _derive_seed()
         self._kdf_overhead = 0.0026 if pbkdf2_library_name == "hashlib" else 0.013
+        self._last_word_replacement_candidates = None
+        self._last_word_insert_candidates = None
 
     def __setstate__(self, state):
         # (Re)load the pbkdf2 library if necessary
         btcrpass.load_pbkdf2_library()
         self.__dict__ = state
+        if not hasattr(self, "_last_word_replacement_candidates"):
+            self._last_word_replacement_candidates = None
+        if not hasattr(self, "_last_word_insert_candidates"):
+            self._last_word_insert_candidates = None
 
     # Converts a mnemonic word from a Python unicode (as produced by load_wordlist())
     # into a bytestring (of type str) in the format required by BIP39
@@ -1873,6 +1879,42 @@ class WalletBIP39(WalletBIP32):
     def _unicode_to_bytes(word):
         assert isinstance(word, str)
         return sys.intern(unicodedata.normalize("NFKD", word))
+
+    def _calculate_last_word_candidates(self, known_words, total_length):
+        """Return possible final words consistent with the checksum for known_words."""
+        if not known_words:
+            return ()
+
+        checksum_bits = total_length // 3
+        concat_bits = total_length * 11
+        entropy_bits = concat_bits - checksum_bits
+        known_bits = "".join(self._word_to_binary[w] for w in known_words)
+        missing_entropy_bits = entropy_bits - len(known_bits)
+
+        if missing_entropy_bits <= 0 or missing_entropy_bits >= 11:
+            return ()
+
+        entropy_prefix = int(known_bits, 2) if known_bits else 0
+        entropy_byte_len = (entropy_bits + 7) // 8
+        format_width = missing_entropy_bits
+        candidates = []
+        for suffix in range(1 << missing_entropy_bits):
+            entropy_int = (entropy_prefix << missing_entropy_bits) | suffix
+            entropy_bytes = entropy_int.to_bytes(entropy_byte_len, "big")
+            checksum_source = hashlib.sha256(entropy_bytes).digest()
+            checksum_bits_str = "".join(
+                f"{byte:08b}" for byte in checksum_source
+            )[:checksum_bits]
+            last_word_bits = f"{suffix:0{format_width}b}" + checksum_bits_str
+            candidates.append(self._words[int(last_word_bits, 2)])
+
+        # Remove duplicates while preserving order
+        seen = []
+        for word in candidates:
+            if word not in seen:
+                seen.append(word)
+
+        return tuple(seen)
 
     # Configures the values of four globals used later in config_btcrecover():
     # mnemonic_ids_guess, close_mnemonic_ids, num_inserts, and num_deletes;
@@ -1938,6 +1980,22 @@ class WalletBIP39(WalletBIP32):
 
         # Calculate each word's index in binary (needed by _verify_checksum())
         self._word_to_binary = { word : "{:011b}".format(i) for i,word in enumerate(self._words) }
+
+        self._last_word_replacement_candidates = None
+        self._last_word_insert_candidates = None
+
+        final_length = len(mnemonic_ids_guess) + num_inserts - num_deletes
+        if final_length % 3 == 0 and final_length > 0:
+            if mnemonic_ids_guess and mnemonic_ids_guess[-1] is None and mnemonic_ids_guess.count(None) == 1 and not num_inserts:
+                known_words = mnemonic_ids_guess[:-1]
+                candidates = self._calculate_last_word_candidates(known_words, final_length)
+                if candidates:
+                    self._last_word_replacement_candidates = candidates
+
+            if num_inserts == 1 and num_deletes == 0 and mnemonic_ids_guess.count(None) == 0:
+                candidates = self._calculate_last_word_candidates(mnemonic_ids_guess, final_length)
+                if candidates:
+                    self._last_word_insert_candidates = candidates
 
         # Chances a checksum is valid, e.g. 1/16 for 12 words, 1/256 for 24 words
         self._checksum_ratio = 2.0**( -( len(mnemonic_ids_guess) + num_inserts - num_deletes )//3 )
@@ -4139,6 +4197,11 @@ def replace_close_word(mnemonic_ids, i):
 @btcrpass.register_simple_typo("replacewrongword")
 def replace_wrong_word(mnemonic_ids, i):
     if mnemonic_ids[i] is not None: return (),  # only replace invalid words
+    candidates = getattr(
+        loaded_wallet, "_last_word_replacement_candidates", None
+    )
+    if candidates and i == len(mnemonic_ids) - 1:
+        return ((new_id,) for new_id in candidates)
     return ((new_id,) for new_id in loaded_wallet.word_ids)
 
 
@@ -4235,15 +4298,30 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         l_big_typos = big_typos
         l_btcr_args = btcr_args
 
-        ids_to_try_inserting = None
+        insert_sequences = [None]
         if cur_num_inserts:  # if the guess is too short (words need to be inserted)
             l_any_typos -= cur_num_inserts
             l_big_typos -= cur_num_inserts
-            # (instead of --typos-insert we'll set inserted_items=ids_to_try_inserting below)
-            ids_to_try_inserting = ((id,) for id in loaded_wallet.word_ids)
             l_btcr_args += " --max-adjacent-inserts " + str(cur_num_inserts)
             if cur_num_inserts < typos:
                 l_btcr_args += " --max-typos-insert " + str(cur_num_inserts)
+
+            insert_sequences = []
+            if cur_num_inserts == 1:
+                restricted_candidates = getattr(
+                    loaded_wallet, "_last_word_insert_candidates", None
+                )
+                if (
+                    restricted_candidates
+                    and len(restricted_candidates) < len(loaded_wallet.word_ids)
+                ):
+                    insert_sequences.append(
+                        tuple((word,) for word in restricted_candidates)
+                    )
+
+            insert_sequences.append(
+                tuple((word,) for word in loaded_wallet.word_ids)
+            )
 
         # For >1 subphases, print this out now or just after the skip-this-phase check below
         if len(num_inserts_to_try) > 1:
@@ -4295,21 +4373,22 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
                 if num_replacecloseword < typos:
                     l_btcr_args += " --max-typos-replacecloseword " + str(num_replacecloseword)
 
-        btcrpass.parse_arguments(
-            l_btcr_args.split() + extra_args,
-            inserted_items= ids_to_try_inserting,
-            wallet=         loaded_wallet,
-            base_iterator=  (mnemonic_ids_guess,) if not is_performance else None, # the one guess to modify
-            perf_iterator=  lambda: loaded_wallet.performance_iterator(),
-            check_only=     loaded_wallet.verify_mnemonic_syntax,
-            disable_security_warning_param=True
-        )
-        (mnemonic_found, not_found_msg) = btcrpass.main()
+        for insert_items in insert_sequences:
+            btcrpass.parse_arguments(
+                l_btcr_args.split() + extra_args,
+                inserted_items= insert_items,
+                wallet=         loaded_wallet,
+                base_iterator=  (mnemonic_ids_guess,) if not is_performance else None, # the one guess to modify
+                perf_iterator=  lambda: loaded_wallet.performance_iterator(),
+                check_only=     loaded_wallet.verify_mnemonic_syntax,
+                disable_security_warning_param=True
+            )
+            (mnemonic_found, not_found_msg) = btcrpass.main()
 
-        if mnemonic_found:
-            return mnemonic_found
-        elif not_found_msg is None:
-            return None  # An error occurred or Ctrl-C was pressed inside btcrpass.main()
+            if mnemonic_found:
+                return mnemonic_found
+            elif not_found_msg is None:
+                return None  # An error occurred or Ctrl-C was pressed inside btcrpass.main()
 
     return False  # No error occurred; the mnemonic wasn't found
 
