@@ -4002,8 +4002,27 @@ class WalletBIP38(object):
 class WalletBIP39(object):
     opencl_algo = -1
 
-    def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False):
+    def __init__(
+        self,
+        mpk=None,
+        addresses=None,
+        address_limit=None,
+        addressdb_filename=None,
+        mnemonic=None,
+        lang=None,
+        path=None,
+        wallet_type="bip39",
+        is_performance=False,
+        force_p2sh=False,
+        checksinglexpubaddress=False,
+        force_p2tr=False,
+        force_bip44=False,
+        force_bip84=False,
+        disable_p2sh=False,
+        disable_p2tr=False,
+        disable_bip44=False,
+        disable_bip84=False,
+    ):
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
@@ -4041,7 +4060,22 @@ class WalletBIP39(object):
             hash160s = None
 
         self.btcrseed_wallet = btcrseed_cls.create_from_params(
-            mpk, addresses, address_limit, hash160s, path, is_performance, force_p2sh = force_p2sh, checksinglexpubaddress = checksinglexpubaddress, force_p2tr = force_p2tr)
+            mpk,
+            addresses,
+            address_limit,
+            hash160s,
+            path,
+            is_performance,
+            force_p2sh=force_p2sh,
+            checksinglexpubaddress=checksinglexpubaddress,
+            force_p2tr=force_p2tr,
+            force_bip44=force_bip44,
+            force_bip84=force_bip84,
+            disable_p2sh=disable_p2sh,
+            disable_p2tr=disable_p2tr,
+            disable_bip44=disable_bip44,
+            disable_bip84=disable_bip84,
+        )
 
         if is_performance and not mnemonic:
             mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
