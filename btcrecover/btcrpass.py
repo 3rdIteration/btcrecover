@@ -4001,12 +4001,27 @@ class WalletBIP38(object):
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
 class WalletBIP39(object):
     opencl_algo = -1
-
-    def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False,
-                 force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False,
-                 force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False,
-                 disable_bip84 = False):
+    def __init__(
+        self,
+        mpk=None,
+        addresses=None,
+        address_limit=None,
+        addressdb_filename=None,
+        mnemonic=None,
+        lang=None,
+        path=None,
+        wallet_type="bip39",
+        is_performance=False,
+        force_p2sh=False,
+        checksinglexpubaddress=False,
+        force_p2tr=False,
+        force_bip44=False,
+        force_bip84=False,
+        disable_p2sh=False,
+        disable_p2tr=False,
+        disable_bip44=False,
+        disable_bip84=False,
+    ):
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
