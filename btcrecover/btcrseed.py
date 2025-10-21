@@ -4541,6 +4541,34 @@ def register_autodetecting_wallets():
         if hasattr(wallet_cls, "is_wallet_file"):
             btcrpass.register_wallet_class(wallet_cls)
 
+def build_search_phases(wallet, phase, phase_transform):
+    """Return the run_btcrecover() phase configuration for the current invocation."""
+
+    if phase:
+        phases = [phase]
+    else:
+        passwords_per_seconds = wallet.passwords_per_seconds(1)
+        if passwords_per_seconds < 25:
+            phases = [dict(typos=1), dict(typos=2, min_typos=2)]
+        else:
+            phases = [dict(typos=2)]
+        phases.extend(
+            (
+                dict(typos=1, big_typos=1),
+                dict(typos=2, big_typos=1, min_typos=2),
+            )
+        )
+        phases.append(
+            dict(typos=2, big_typos=2, min_typos=2, extra_args=["--no-dupchecks"])
+        )
+
+    if phase_transform:
+        for phase_params in phases:
+            phase_params.update(phase_transform)
+
+    return phases
+
+
 def main(argv):
     global loaded_wallet
     loaded_wallet = wallet_type = None
@@ -5189,26 +5217,7 @@ def main(argv):
             del sys.frozen
         except AttributeError: pass
 
-    if phase:
-        phases = (phase,)
-    # Set reasonable defaults for the search phases
-    else:
-        # If each guess is very slow, separate out the first two phases
-        passwords_per_seconds = loaded_wallet.passwords_per_seconds(1)
-        if passwords_per_seconds < 25:
-            phases = [ dict(typos=1), dict(typos=2, min_typos=2) ]
-        else:
-            phases = [ dict(typos=2) ]
-        #
-        # These two phases are added to all searches
-        phases.extend(( dict(typos=1, big_typos=1), dict(typos=2, big_typos=1, min_typos=2) ))
-        #
-        # Add a final more thorough phase (This one will take a few hours)
-        phases.append(dict(typos=2, big_typos=2, min_typos=2, extra_args=["--no-dupchecks"]))
-
-    if phase_transform:
-        for phase_params in phases:
-            phase_params.update(phase_transform)
+    phases = build_search_phases(loaded_wallet, phase, phase_transform)
 
     for phase_num, phase_params in enumerate(phases, 1):
         # Print Timestamp that this step occured

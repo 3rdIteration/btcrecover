@@ -2102,6 +2102,55 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
         generated_passwords = list(tok_it)
         self.assertEqual(generated_passwords, correct_seedlist)
 
+class TestPhaseTransforms(unittest.TestCase):
+    class DummyWallet:
+        def __init__(self, speed):
+            self._speed = speed
+
+        def passwords_per_seconds(self, _):
+            return self._speed
+
+    def test_wordswap_transform_preserves_default_typos(self):
+        wallet = self.DummyWallet(100)
+        phases = btcrseed.build_search_phases(
+            wallet, {}, {"seed_transform_wordswaps": 2}
+        )
+
+        self.assertEqual(len(phases), 4)
+        self.assertTrue(all("typos" in phase for phase in phases))
+        self.assertTrue(
+            all(phase["seed_transform_wordswaps"] == 2 for phase in phases)
+        )
+
+    def test_trezor_transform_preserves_default_typos(self):
+        wallet = self.DummyWallet(1)
+        phases = btcrseed.build_search_phases(
+            wallet, {}, {"seed_transform_trezor_common_mistakes": 3}
+        )
+
+        self.assertEqual(len(phases), 5)
+        self.assertEqual(phases[0]["typos"], 1)
+        self.assertEqual(phases[1]["typos"], 2)
+        self.assertTrue(all("typos" in phase for phase in phases))
+        self.assertTrue(
+            all(
+                phase["seed_transform_trezor_common_mistakes"] == 3
+                for phase in phases
+            )
+        )
+
+    def test_custom_phase_keeps_typos_with_transform(self):
+        wallet = self.DummyWallet(50)
+        phase = {"typos": 3}
+        phases = btcrseed.build_search_phases(
+            wallet, phase, {"seed_transform_wordswaps": 1}
+        )
+
+        self.assertEqual(len(phases), 1)
+        self.assertIs(phases[0], phase)
+        self.assertEqual(phase["typos"], 3)
+        self.assertEqual(phase["seed_transform_wordswaps"], 1)
+
 # All seed tests except TestAddressSet.test_false_positives are quick
 class QuickTests(unittest.TestSuite):
     def __init__(self):
