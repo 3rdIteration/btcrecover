@@ -4547,6 +4547,7 @@ def main(argv):
     create_from_params     = {}  # additional args to pass to wallet_type.create_from_params()
     config_mnemonic_params = {}  # additional args to pass to wallet.config_mnemonic()
     phase                  = {}  # if only one phase is requested, the args to pass to run_btcrecover()
+    phase_transform        = {}  # args applied to all run_btcrecover() phases without overriding defaults
     extra_args             = []  # additional args to pass to btcrpass.parse_arguments() (in run_btcrecover())
     listseeds = False
 
@@ -4904,14 +4905,14 @@ def main(argv):
 
         if args.transform_wordswaps:
             print("SEED-TRANSFORM: Checking", args.transform_wordswaps, "pairs of swapped words for each possible mnemonic")
-            phase["seed_transform_wordswaps"] = args.transform_wordswaps
+            phase_transform["seed_transform_wordswaps"] = args.transform_wordswaps
         if args.transform_trezor_common_mistakes:
             print(
                 "SEED-TRANSFORM: Checking up to",
                 args.transform_trezor_common_mistakes,
                 "Trezor common-mistake substitutions for each possible mnemonic",
             )
-            phase["seed_transform_trezor_common_mistakes"] = (
+            phase_transform["seed_transform_trezor_common_mistakes"] = (
                 args.transform_trezor_common_mistakes
             )
             
@@ -5204,6 +5205,10 @@ def main(argv):
         #
         # Add a final more thorough phase (This one will take a few hours)
         phases.append(dict(typos=2, big_typos=2, min_typos=2, extra_args=["--no-dupchecks"]))
+
+    if phase_transform:
+        for phase_params in phases:
+            phase_params.update(phase_transform)
 
     for phase_num, phase_params in enumerate(phases, 1):
         # Print Timestamp that this step occured
