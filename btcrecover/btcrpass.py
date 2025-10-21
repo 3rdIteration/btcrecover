@@ -35,6 +35,7 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
 from . import success_alert
+from .trezor_common_mistakes import TREZOR_COMMON_MISTAKES
 import lib.cardano.cardano_utils as cardano
 from lib.eth_hash.auto import keccak
 from lib.mnemonic_btc_com_tweaked import Mnemonic
@@ -6258,6 +6259,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
     parser.add_argument("--seed-transform-wordswaps", type=int,
                                help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we want to also try swapped words for seed generation
+    parser.add_argument("--seed-transform-trezor-common-mistakes", type=int,
+                               help=argparse.SUPPRESS)  # Flag to try Trezor common mistake substitutions during seed generation
     parser.add_argument("--max-tokens",   type=int, default=sys.maxsize, metavar="COUNT", help="enforce a max # of tokens included per guess")
     parser.add_argument("--min-tokens",   type=int, default=1,          metavar="COUNT", help="enforce a min # of tokens included per guess")
     parser._add_container_actions(parser_common)
@@ -6319,6 +6322,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                             help=argparse.SUPPRESS)  # Argument used for generators in seed generation, not password generation
         parser.add_argument("--seed-transform-wordswaps", type=int,
                             help=argparse.SUPPRESS)  # Flag to be able to indicate to generators that we want to also try swapped words for seed generation
+        parser.add_argument("--seed-transform-trezor-common-mistakes", type=int,
+                            help=argparse.SUPPRESS)  # Flag to try Trezor common mistake substitutions during seed generation
         parser.add_argument("--wildcard-custom-list-e", metavar="FILE",
                             help="Path to a custom list file which will be used fr the %%e expanding wildcard")
         parser.add_argument("--wildcard-custom-list-f", metavar="FILE",
@@ -7957,6 +7962,11 @@ def password_generator(chunksize = 1, only_yield_count = False):
     if args.seed_transform_wordswaps:
         modification_generators.append(swap_tokens_generator)
         modification_generators[-1].__defaults__ = (args.seed_transform_wordswaps,)
+    if args.seed_transform_trezor_common_mistakes:
+        modification_generators.append(trezor_common_mistakes_generator)
+        modification_generators[-1].__defaults__ = (
+            args.seed_transform_trezor_common_mistakes,
+        )
 
     modification_generators_len = len(modification_generators)
 
@@ -8097,6 +8107,43 @@ def swap_tokens_generator(password_base, numSwaps = 0):
         for i, j in itertools.combinations(range(len(password_base)), 2):
             swapped_seed = tuple(password_base[:i] + [password_base[j]] + password_base[i+1:j] + [password_base[i]] + password_base[j+1:])
             yield from swap_tokens_generator(swapped_seed, numSwaps - 1)
+
+
+def trezor_common_mistakes_generator(password_base, max_mistakes = 0):
+    base_seed = tuple(password_base)
+    yield base_seed
+
+    if max_mistakes <= 0:
+        return
+
+    def recurse(current_seed, start_index, replacements_remaining):
+        if replacements_remaining == 0:
+            return
+
+        for index in range(start_index, len(current_seed)):
+            word = current_seed[index]
+            lookup_word = word.lower() if isinstance(word, str) else word
+            alternatives = TREZOR_COMMON_MISTAKES.get(lookup_word, ())
+            if not alternatives:
+                continue
+
+            for alternative in alternatives:
+                if alternative == lookup_word:
+                    continue
+
+                updated_seed = list(current_seed)
+                updated_seed[index] = alternative
+                updated_tuple = tuple(updated_seed)
+                yield updated_tuple
+
+                if replacements_remaining > 1:
+                    yield from recurse(
+                        updated_seed,
+                        index + 1,
+                        replacements_remaining - 1,
+                    )
+
+    yield from recurse(list(base_seed), 0, max_mistakes)
 
 # The tokenlist generator function produces all possible password permutations from the
 # token_lists global as constructed by parse_tokenlist(). These passwords are then used

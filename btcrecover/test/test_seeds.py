@@ -2028,17 +2028,74 @@ class TestRecoverySeedListsGenerators(unittest.TestCase):
                                      ('2', '3', '1'),
                                      ('1', '2', '3')]],
                               transformArgument = "--seed-transform-wordswaps 2")
-    def seed_transform_tester(self, correct_seedlist=None, transformArgument = None):
+
+    def test_seed_transforms_trezor_common_mistakes_1(self):
+        self.seed_transform_tester(
+            correct_seedlist=[
+                [
+                    ('able', 'across', 'age'),
+                    ('cable', 'across', 'age'),
+                    ('table', 'across', 'age'),
+                    ('able', 'cross', 'age'),
+                    ('able', 'across', 'cage'),
+                    ('able', 'across', 'page'),
+                    ('able', 'across', 'wage'),
+                ]
+            ],
+            transformArgument="--seed-transform-trezor-common-mistakes 1",
+            tokenlist_filename="Seed-Transform-Trezor.txt",
+        )
+
+    def test_seed_transforms_trezor_common_mistakes_2(self):
+        self.seed_transform_tester(
+            correct_seedlist=[
+                [
+                    ('able', 'across', 'age'),
+                    ('cable', 'across', 'age'),
+                    ('cable', 'cross', 'age'),
+                    ('cable', 'across', 'cage'),
+                    ('cable', 'across', 'page'),
+                    ('cable', 'across', 'wage'),
+                    ('table', 'across', 'age'),
+                    ('table', 'cross', 'age'),
+                    ('table', 'across', 'cage'),
+                    ('table', 'across', 'page'),
+                    ('table', 'across', 'wage'),
+                    ('able', 'cross', 'age'),
+                    ('able', 'cross', 'cage'),
+                    ('able', 'cross', 'page'),
+                    ('able', 'cross', 'wage'),
+                    ('able', 'across', 'cage'),
+                    ('able', 'across', 'page'),
+                    ('able', 'across', 'wage'),
+                ]
+            ],
+            transformArgument="--seed-transform-trezor-common-mistakes 2",
+            tokenlist_filename="Seed-Transform-Trezor.txt",
+        )
+    def seed_transform_tester(
+        self,
+        correct_seedlist=None,
+        transformArgument=None,
+        tokenlist_filename="Seed-Transform-Base.txt",
+    ):
         if correct_seedlist is None:
             correct_seedlist = self.expected_passwordlist
 
         # Check to see if the Token List file exists (and if not, skip)
-        if not os.path.isfile("./btcrecover/test/test-listfiles/Seed-Transform-Base.txt"):
-            raise unittest.SkipTest("requires ./btcrecover/test/test-listfiles/Seed-Transform-Base.txt")
+        tokenlist_path = "./btcrecover/test/test-listfiles/" + tokenlist_filename
+        if not os.path.isfile(tokenlist_path):
+            raise unittest.SkipTest("requires " + tokenlist_path)
 
-        args = (" --listpass --seedgenerator --max-tokens 1 --min-tokens 1 " + transformArgument).split()
+        if transformArgument is None:
+            transformArgument = ""
 
-        btcrpass.parse_arguments(["--tokenlist"] + ["./btcrecover/test/test-listfiles/Seed-Transform-Base.txt"] + args,
+        args = (
+            " --listpass --seedgenerator --max-tokens 1 --min-tokens 1 "
+            + transformArgument
+        ).split()
+
+        btcrpass.parse_arguments(["--tokenlist", tokenlist_path] + args,
                                  disable_security_warning_param=True)
 
         tok_it, skipped = btcrpass.password_generator_factory(sys.maxsize)
