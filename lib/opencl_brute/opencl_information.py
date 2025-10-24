@@ -10,17 +10,31 @@
     Refactored out of 'opencl.py'
 '''
 
-import pyopencl as cl
+try:
+    import pyopencl as cl
+except ImportError as _pyopencl_import_error:  # pragma: no cover - exercised when PyOpenCL missing
+    cl = None
+else:
+    _pyopencl_import_error = None
+
+
+def _require_pyopencl():
+    if cl is None:
+        raise ImportError(
+            "pyopencl is required for querying OpenCL information but is not installed"
+        ) from _pyopencl_import_error
 
 class opencl_information:
     def __init__(self):
         pass
 
     def printplatforms(self):
+        _require_pyopencl()
         for i,platformNum in enumerate(cl.get_platforms()):
             print('Platform %d - Name %s, Vendor %s' %(i,platformNum.name,platformNum.vendor))
 
     def printfullinfo(self):
+        _require_pyopencl()
         print('\n' + '=' * 60 + '\nOpenCL Platforms and Devices')
         for i,platformNum in enumerate(cl.get_platforms()):
             print('=' * 60)

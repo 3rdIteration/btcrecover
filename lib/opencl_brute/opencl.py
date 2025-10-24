@@ -8,7 +8,13 @@ from binascii import unhexlify
 from collections import deque
 from itertools import chain, repeat, zip_longest
 import numpy as np
-import pyopencl as cl
+
+try:
+    import pyopencl as cl
+except ImportError as _pyopencl_import_error:  # pragma: no cover - exercised in environments without PyOpenCL
+    cl = None
+else:
+    _pyopencl_import_error = None
 
 # Minimum number of items to execute in a single OpenCL batch.  Some
 # OpenCL runtimes (such as PoCL) crash when a kernel is launched with a
@@ -16,6 +22,15 @@ import pyopencl as cl
 MIN_BATCH_SIZE = 8
 from lib.opencl_brute.buffer_structs import buffer_structs
 import os, sys, inspect
+
+
+def _require_pyopencl():
+    """Ensure PyOpenCL is available before executing OpenCL operations."""
+
+    if cl is None:
+        raise ImportError(
+            "pyopencl is required for OpenCL acceleration but is not installed"
+        ) from _pyopencl_import_error
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
@@ -67,6 +82,7 @@ class opencl_interface:
         N_value=15,
         openclDevice=0,
     ):
+        _require_pyopencl()
         self.workgroupsize = 0
         self.computeunits = 0
         self.wordSize = None
@@ -921,30 +937,70 @@ class opencl_algos:
             result = [hexRes[:dklen] for hexRes in result]
         return result
 
-    def cl_pbkdf2_init(self, rtype, saltlen, dklen):
+    def cl_pbkdf2_init(self, rtype, saltlen, dklen, max_password_bytes=256):
         bufStructs = buffer_structs()
+        if max_password_bytes is None:
+            max_password_bytes = 256
+        assert max_password_bytes > 0, "max_password_bytes must be positive"
         if rtype == "md5":
-            self.max_out_bytes = bufStructs.specifyMD5(128, saltlen, dklen)
+            max_in_bytes = max(128, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifyMD5(
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
             # hmac is defined in with pbkdf2, as a kernel function
             prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif rtype == "sha1":
-            if saltlen < 32 and dklen < 32:
+            use_fast_kernel = (
+                saltlen < 32 and dklen < 32 and max_password_bytes <= 32
+            )
+            if use_fast_kernel:
                 dklen = 32
-                self.max_out_bytes = bufStructs.specifySHA1(32, saltlen, dklen)
+                self.max_out_bytes = bufStructs.specifySHA1(
+                    32,
+                    saltlen,
+                    dklen,
+                    max_password_bytes=32,
+                )
                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha1_32.cl", None)
             else:
-                self.max_out_bytes = bufStructs.specifySHA1(128, saltlen, dklen)
+                max_in_bytes = max(128, max_password_bytes)
+                self.max_out_bytes = bufStructs.specifySHA1(
+                    max_in_bytes,
+                    saltlen,
+                    dklen,
+                    max_password_bytes=max_password_bytes,
+                )
                 prg = self.opencl_ctx.compile(bufStructs, "sha1.cl", "pbkdf2.cl")
         elif rtype == "sha256":
-            if saltlen <= 64 and dklen <= 64:
+            use_fast_kernel = (
+                saltlen <= 64 and dklen <= 64 and max_password_bytes <= 32
+            )
+            if use_fast_kernel:
                 dklen = 64
-            self.max_out_bytes = bufStructs.specifySHA2(256, 128, saltlen, dklen)
-            if saltlen <= 64 and dklen <= 64:
+            max_in_bytes = max(128, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifySHA2(
+                256,
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
+            if use_fast_kernel:
                 prg = self.opencl_ctx.compile(bufStructs, "pbkdf2_sha256_32.cl", None)
             else:
                 prg = self.opencl_ctx.compile(bufStructs, "sha256.cl", "pbkdf2.cl")
         elif rtype == "sha512":
-            self.max_out_bytes = bufStructs.specifySHA2(512, 256, saltlen, dklen)
+            max_in_bytes = max(256, max_password_bytes)
+            self.max_out_bytes = bufStructs.specifySHA2(
+                512,
+                max_in_bytes,
+                saltlen,
+                dklen,
+                max_password_bytes=max_password_bytes,
+            )
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
             assert "Error on hash type, unknown !!!"
@@ -985,7 +1041,7 @@ class opencl_algos:
         bufStructs = buffer_structs()
         if type == "md5":
             self.max_out_bytes = bufStructs.specifyMD5(
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -994,7 +1050,7 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "md5.cl", "pbkdf2.cl")
         elif type == "sha1":
             self.max_out_bytes = bufStructs.specifySHA1(
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -1004,7 +1060,7 @@ class opencl_algos:
         elif type == "sha256":
             self.max_out_bytes = bufStructs.specifySHA2(
                 hashDigestSize_bits=256,
-                max_in_bytes=128,
+                max_in_bytes=max(128, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
@@ -1013,7 +1069,7 @@ class opencl_algos:
         elif type == "sha512":
             self.max_out_bytes = bufStructs.specifySHA2(
                 hashDigestSize_bits=512,
-                max_in_bytes=256,
+                max_in_bytes=max(256, pwdlen),
                 max_salt_bytes=128,
                 dklen=dklen,
                 max_password_bytes=pwdlen,
