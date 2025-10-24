@@ -21,7 +21,7 @@
 __version__ =  "1.13.0-CryptoGuide"
 
 import binascii
-import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math
+import struct, base64, io, mmap, ast, itertools, sys, gc, glob, math, os
 from typing import Optional
 from os import path
 
@@ -281,18 +281,33 @@ class AddressSet(object):
         self._mmap_access = mmap_access
 
         #Try to create the AddressDB. If the addresset is sufficiently large (eg: BTC) then this requires 64 bit python and will crash if attempted with 32 bit Python...
+        mmap_fileno = dbfile.fileno()
+        dup_fileno = None
+        close_original = mmap_access != mmap.ACCESS_WRITE
+        if close_original:
+            try:
+                dup_fileno = os.dup(mmap_fileno)
+                mmap_fileno = dup_fileno
+            except OSError:
+                dup_fileno = None
+                close_original = False
         try:
             #
             # The hash table is memory-mapped directly from the file instead of being loaded
-            self._data = mmap.mmap(dbfile.fileno(), self._table_bytes, access=mmap_access,
+            self._data = mmap.mmap(mmap_fileno, self._table_bytes, access=mmap_access,
                                     offset= header_pos + cls.HEADER_LEN)
         except OverflowError:
             print()
             exit("AddressDB too large for use with 32 bit Python. You will need to install a 64 bit (x64) version of Python 3 from python.org and try again")
+        except Exception:
+            if dup_fileno is not None:
+                os.close(dup_fileno)
+            raise
         if mmap_access == mmap.ACCESS_WRITE:
             dbfile.seek(header_pos)  # prepare for writing an updated header in close()
         else:
-            dbfile.close()
+            if close_original:
+                dbfile.close()
         self._dbfile = dbfile
         #
         # Most of the time it makes sense to load the file serially instead of letting
