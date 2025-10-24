@@ -303,6 +303,8 @@ class AddressSet(object):
             if dup_fileno is not None:
                 os.close(dup_fileno)
             raise
+        if dup_fileno is not None:
+            os.close(dup_fileno)
         if mmap_access == mmap.ACCESS_WRITE:
             dbfile.seek(header_pos)  # prepare for writing an updated header in close()
         else:
