@@ -64,7 +64,12 @@ def main() -> None:
             return
 
     matches = find_matching_words(prefix, wordlist)
-    print(" ".join(matches))
+    joined_matches = " ".join(matches)
+
+    if joined_matches:
+        print(f"{len(matches)} {joined_matches}")
+    else:
+        print(len(matches))
 
 
 if __name__ == "__main__":
