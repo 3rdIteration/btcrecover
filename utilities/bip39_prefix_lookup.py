@@ -45,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=validate_prefix,
         help="Prefix to match (1-3 characters). If omitted you will be prompted.",
     )
+    parser.add_argument(
+        "--count",
+        action="store_true",
+        help="Display the number of matched words on a second line.",
+    )
     return parser
 
 
@@ -64,11 +69,9 @@ def main() -> None:
             return
 
     matches = find_matching_words(prefix, wordlist)
-    joined_matches = " ".join(matches)
+    print(" ".join(matches))
 
-    if joined_matches:
-        print(f"{len(matches)} {joined_matches}")
-    else:
+    if args.count:
         print(len(matches))
 
 
