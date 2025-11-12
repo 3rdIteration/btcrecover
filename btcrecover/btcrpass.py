@@ -30,7 +30,7 @@ BIP39_OPENCL_MEMORY_PER_THREAD_BYTES = 2 * 1024 ** 3  # ~2 GiB per worker
 
 # Import modules included in standard libraries
 import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle, gc, \
-       time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip, inspect
+       time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip
 
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
@@ -6867,42 +6867,17 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
                                     args.language, args.bip32_path, args.wallet_type, args.performance)
         else:
-            wallet_kwargs = {
-                "force_p2sh": args.force_p2sh,
-                "checksinglexpubaddress": args.checksinglexpubaddress,
-                "force_p2tr": args.force_p2tr,
-                "force_bip44": args.force_bip44,
-                "force_bip84": args.force_bip84,
-                "disable_p2sh": args.disable_p2sh,
-                "disable_p2tr": args.disable_p2tr,
-                "disable_bip44": args.disable_bip44,
-                "disable_bip84": args.disable_bip84,
-            }
-            init_params = inspect.signature(WalletBIP39.__init__).parameters
-            unsupported_flags = []
-            for key, value in list(wallet_kwargs.items()):
-                if key not in init_params:
-                    if value:
-                        unsupported_flags.append("--" + key.replace("_", "-"))
-                    wallet_kwargs.pop(key)
-            if unsupported_flags:
-                print(
-                    "Warning: ignoring unsupported options for this wallet type: {}".format(
-                        ", ".join(unsupported_flags)
-                    )
-                )
-            loaded_wallet = WalletBIP39(
-                args.mpk,
-                args.addrs,
-                args.addr_limit,
-                args.addressdb,
-                mnemonic,
-                args.language,
-                args.bip32_path,
-                args.wallet_type,
-                args.performance,
-                **wallet_kwargs
-            )
+            loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
+                                    args.language, args.bip32_path, args.wallet_type, args.performance,
+                                    force_p2sh = args.force_p2sh,
+                                    checksinglexpubaddress =  args.checksinglexpubaddress,
+                                    force_p2tr = args.force_p2tr,
+                                    force_bip44 = args.force_bip44,
+                                    force_bip84 = args.force_bip84,
+                                    disable_p2sh = args.disable_p2sh,
+                                    disable_p2tr = args.disable_p2tr,
+                                    disable_bip44 = args.disable_bip44,
+                                    disable_bip84 = args.disable_bip84)
 
 
     if args.yoroi_master_password:
