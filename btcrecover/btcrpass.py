@@ -156,6 +156,9 @@ passwordlist_embedded_arguments = False
 
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
+performance_run_completed = False
+performance_summary_message = None
+
 def load_customTokenWildcard(customTokenWildcardFile):
     customTokenWildcards = ['']
     if customTokenWildcardFile:
@@ -6065,6 +6068,48 @@ def init_parser_common():
         parser_common.add_argument("--exclude-passwordlist", metavar="FILE", nargs="?", const="-", help="never try passwords read (exactly one per line) from this file or from stdin")
         parser_common.add_argument("--listpass",    action="store_true", help="just list all password combinations to test and exit")
         parser_common.add_argument("--performance", action="store_true", help="run a continuous performance test (Ctrl-C to exit)")
+        parser_common.add_argument(
+            "--performance-runtime",
+            type=float,
+            default=0.0,
+            metavar="SECONDS",
+            help="stop a performance test automatically after SECONDS and report the average speed",
+        )
+        parser_common.add_argument(
+            "--performance-scan",
+            action="store_true",
+            help="automatically benchmark multiple thread counts and GPU workgroup sizes when used with --performance",
+        )
+        parser_common.add_argument(
+            "--performance-scan-threads",
+            type=int,
+            nargs="+",
+            metavar="COUNT",
+            help="explicit thread counts to benchmark during --performance-scan (default: derived from detected CPU cores)",
+        )
+        parser_common.add_argument(
+            "--performance-scan-global-ws",
+            type=int,
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help="global work sizes to benchmark during --performance-scan (default: around the configured --global-ws)",
+        )
+        parser_common.add_argument(
+            "--performance-scan-local-ws",
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help="local work sizes to benchmark during --performance-scan; include 'auto' to test the automatic selection",
+        )
+        parser_common.add_argument(
+            "--performance-scan-opencl-ws",
+            type=int,
+            nargs="+",
+            metavar="PASSWORD-COUNT",
+            help=(
+                "OpenCL workgroup sizes to benchmark during --performance-scan "
+                "(default: around the configured --opencl-workgroup-size)"
+            ),
+        )
         parser_common.add_argument("--pause",       action="store_true", help="pause before exiting")
         parser_common.add_argument(
             "--beep-on-find",
@@ -6283,6 +6328,39 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         pass
     #
     args = parser.parse_args(effective_argv)
+
+    if args.performance_runtime < 0:
+        error_exit("--performance-runtime must be greater than or equal to zero")
+    if args.performance_runtime and not args.performance:
+        error_exit("--performance-runtime can only be used together with --performance")
+    if args.performance_scan and not args.performance:
+        error_exit("--performance-scan can only be used together with --performance")
+    if args.performance_scan_threads:
+        for value in args.performance_scan_threads:
+            if value <= 0:
+                error_exit("--performance-scan-threads values must be positive integers")
+    if args.performance_scan_global_ws:
+        for value in args.performance_scan_global_ws:
+            if value <= 0:
+                error_exit("--performance-scan-global-ws values must be positive integers")
+    if args.performance_scan_local_ws:
+        normalized_local_ws = []
+        for value in args.performance_scan_local_ws:
+            if isinstance(value, str) and value.lower() in {"auto", "none", "null", "default"}:
+                normalized_local_ws.append(None)
+                continue
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError):
+                error_exit("--performance-scan-local-ws values must be integers or 'auto'")
+            if int_value <= 0:
+                error_exit("--performance-scan-local-ws values must be positive integers")
+            normalized_local_ws.append(int_value)
+        args.performance_scan_local_ws = normalized_local_ws
+    if args.performance_scan_opencl_ws:
+        for value in args.performance_scan_opencl_ws:
+            if value <= 0:
+                error_exit("--performance-scan-opencl-ws values must be positive integers")
     _apply_beep_configuration(args)
 
     # Do this as early as possible so user doesn't miss any error messages
@@ -9381,6 +9459,10 @@ def write_checked_seeds(worker_out_queue,loaded_wallet):
 #   returns (None, None) for abnormal but not fatal errors (e.g. Ctrl-C)
 def main():
 
+    global performance_run_completed, performance_summary_message
+    performance_run_completed = False
+    performance_summary_message = None
+
     # Once installed, performs cleanup prior to a requested process shutdown on Windows
     # (this is defined inside main so it can access the passwords_tried local)
     def windows_ctrl_handler(signal):
@@ -9693,6 +9775,9 @@ def main():
     # Iterate through password_found_iterator looking for a successful guess
     password_found  = False
     passwords_tried = 0
+    performance_start_time = time.perf_counter() if args.performance else None
+    performance_limit_reached = False
+    progress_finished = False
     if progress: progress.start()
     try:
         for password_found, passwords_tried_last in password_found_iterator:
@@ -9718,6 +9803,10 @@ def main():
                     if passwords_counting_result.ready() and not passwords_counting_result.successful():
                         passwords_counting_result.get()
                 progress.update(passwords_tried)
+            if args.performance and args.performance_runtime:
+                if time.perf_counter() - performance_start_time >= args.performance_runtime:
+                    performance_limit_reached = True
+                    break
             if l_savestate and passwords_tried % est_passwords_per_5min == 0:
                 do_autosave(args.skip + passwords_tried)
         else:  # if the for loop exits normally (without breaking)
@@ -9728,7 +9817,17 @@ def main():
                 else:
                     progress.widgets.pop()  # remove the ETA
                 progress.finish()
+                progress_finished = True
             if pool: pool.join()  # if not found, waiting for processes to exit gracefully isn't a problem
+
+        if performance_limit_reached:
+            if pool:
+                pool.terminate()
+                pool.join()
+            if progress and not progress_finished:
+                progress.maxval = passwords_tried
+                progress.finish()
+                progress_finished = True
 
     # Gracefully handle any exceptions, printing the count completed so far so that it can be
     # skipped if the user restarts the same run. If the exception was expected (Ctrl-C or some
@@ -9757,5 +9856,21 @@ def main():
 
     worker_out_queue.close()
 
+    if args.performance:
+        performance_end_time = time.perf_counter()
+        elapsed = performance_end_time - (performance_start_time or performance_end_time)
+        elapsed = elapsed if elapsed > 0 else 0.0
+        rate = (passwords_tried / elapsed / 1000.0) if elapsed > 0 else 0.0
+        performance_summary_message = (
+            f"Performance summary: {rate:,.2f} kP/s over {elapsed:.2f} seconds ({passwords_tried:,} passwords tried)"
+        )
+        if args.performance_runtime and performance_limit_reached:
+            performance_summary_message += " (time limit reached)"
+        print(performance_summary_message)
+        performance_run_completed = True
+
     global searchfailedtext
-    return (password_found, searchfailedtext if password_found is False else None)
+    not_found_message = None
+    if password_found is False and not args.performance:
+        not_found_message = searchfailedtext
+    return (password_found, not_found_message)
