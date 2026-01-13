@@ -1925,6 +1925,13 @@ class Test08BIP39Passwords(unittest.TestCase):
         )
         btcrpass.args = argparse.Namespace()
 
+    @skipUnless(can_load_coincurve, "requires coincurve")
+    def test_bip39_fingerprint_only(self):
+        self.bip39_tester(
+            fingerprint="0xF9D16AAE",
+            mnemonic="certain come keen collect slab gauge photo inside mechanic deny leader drop",
+        )
+
     def cardano_tester_opencl(self, *args, **kwargs):
 
         wallet = btcrpass.WalletCardano(*args, **kwargs)

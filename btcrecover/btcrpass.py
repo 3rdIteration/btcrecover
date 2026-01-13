@@ -4022,6 +4022,7 @@ class WalletBIP39(object):
         disable_p2tr=False,
         disable_bip44=False,
         disable_bip84=False,
+        fingerprint=None,
     ):
         from . import btcrseed
 
@@ -4075,6 +4076,7 @@ class WalletBIP39(object):
             disable_p2tr=disable_p2tr,
             disable_bip44=disable_bip44,
             disable_bip84=disable_bip84,
+            fingerprint=fingerprint,
         )
 
         if is_performance and not mnemonic:
@@ -4174,7 +4176,8 @@ class WalletSLIP39(object):
     opencl_algo = -1
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 slip39_shares = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
+                 slip39_shares = None, lang = None, path = None, wallet_type = "bip39", is_performance = False,
+                 fingerprint = None):
 
         if not shamir_mnemonic_available:
             print()
@@ -4216,7 +4219,8 @@ class WalletSLIP39(object):
             hash160s = None
 
         self.btcrseed_wallet = btcrseed_cls.create_from_params(
-            mpk, addresses, address_limit, hash160s, path, is_performance)
+            mpk, addresses, address_limit, hash160s, path, is_performance,
+            fingerprint=fingerprint)
 
         self.btcrseed_wallet._derivation_salts = [""]
 
@@ -4352,7 +4356,8 @@ class WalletCardano(WalletBIP39):
     opencl_algo = -1
 
     def __init__(self, addresses=None, addressdb_filename=None,
-                 mnemonic=None, lang=None, path=None, is_performance=False):
+                 mnemonic=None, lang=None, path=None, is_performance=False,
+                 fingerprint=None):
         from . import btcrseed
 
         btcrseed_cls = btcrecover.btcrseed.WalletCardano
@@ -4373,7 +4378,8 @@ class WalletCardano(WalletBIP39):
         else:
             hash160s = None
 
-        self.btcrseed_wallet = btcrseed_cls.create_from_params(addresses=addresses)
+        self.btcrseed_wallet = btcrseed_cls.create_from_params(
+            addresses=addresses, fingerprint=fingerprint)
             #addresses, hash160s, path, is_performance)
 
         if is_performance and not mnemonic:
@@ -4499,7 +4505,8 @@ class WalletCardano(WalletBIP39):
 ############### Py_Crypto_HD_Wallet Based Wallets ####################
 class WalletPyCryptoHDWallet(WalletBIP39):
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
+                 mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False,
+                 fingerprint = None):
         from . import btcrseed
 
         wallet_type = wallet_type.lower()
@@ -4531,7 +4538,8 @@ class WalletPyCryptoHDWallet(WalletBIP39):
             hash160s = None
 
         self.btcrseed_wallet = btcrseed_cls.create_from_params(
-            mpk, addresses, address_limit, hash160s, path, is_performance)
+            mpk, addresses, address_limit, hash160s, path, is_performance,
+            fingerprint=fingerprint)
 
         if is_performance and not mnemonic:
             mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
@@ -4570,7 +4578,8 @@ class WalletPyCryptoHDWallet(WalletBIP39):
 class WalletEthereumValidator(WalletBIP39):
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
-                 mnemonic = None, lang = None, path = None, wallet_type = "EthereumValidator", is_performance = False):
+                 mnemonic = None, lang = None, path = None, wallet_type = "EthereumValidator", is_performance = False,
+                 fingerprint = None):
         from . import btcrseed
 
         btcrseed_cls = btcrseed.WalletEthereumValidator
@@ -4591,7 +4600,8 @@ class WalletEthereumValidator(WalletBIP39):
             hash160s = None
 
         self.btcrseed_wallet = btcrseed_cls.create_from_params(
-            mpk, addresses, address_limit, hash160s, path, is_performance)
+            mpk, addresses, address_limit, hash160s, path, is_performance,
+            fingerprint=fingerprint)
 
         if is_performance and not mnemonic:
             mnemonic = "certain come keen collect slab gauge photo inside mechanic deny leader drop"
@@ -6106,6 +6116,7 @@ def init_parser_common():
         bip39_group.add_argument("--slip39",      action="store_true",   help="search for a SLIP-39 passphrase instead of from a wallet")
         bip39_group.add_argument("--slip39-shares",  metavar="SLIP39-MNEMONIC", nargs="+",   help="SLIP39 Share Mnemonics")
         bip39_group.add_argument("--mpk",        metavar="XPUB",        help="the master public key")
+        bip39_group.add_argument("--fingerprint", metavar="HEX",        help="wallet master fingerprint (4-byte hex) instead of an xpub or addresses")
         bip39_group.add_argument("--addr-limit", type=int, metavar="COUNT",    help="if using addrs or addressdb, the generation limit")
         bip39_group.add_argument("--language",   metavar="LANG-CODE",   help="the wordlist language to use (see wordlists/README.md, default: auto)")
         bip39_group.add_argument("--bip32-path", metavar="PATH",        nargs="+",           help="path (e.g. m/0'/0/) excluding the final index. You can specify multiple derivation paths seperated by a space Eg: m/84'/0'/0'/0 m/84'/0'/1'/0 (default: BIP44,BIP49 & BIP84 account 0)")
@@ -6853,19 +6864,24 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
         if args.wallet_type == "cardano":
             loaded_wallet = WalletCardano(args.addrs, args.addressdb, mnemonic,
-                                        args.language, args.bip32_path, args.performance)
+                                        args.language, args.bip32_path, args.performance,
+                                        fingerprint=args.fingerprint)
         elif args.wallet_type in ['avalanche', 'tron', 'solana', 'cosmos', 'tezos','stellar','multiversx']:
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
+                                    args.language, args.bip32_path, args.wallet_type, args.performance,
+                                    fingerprint=args.fingerprint)
         elif args.wallet_type in ['polkadotsubstrate']:
             loaded_wallet = WalletPyCryptoHDWallet(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.substrate_path, args.wallet_type, args.performance)
+                                    args.language, args.substrate_path, args.wallet_type, args.performance,
+                                    fingerprint=args.fingerprint)
         elif args.wallet_type == "ethereumvalidator":
             loaded_wallet = WalletEthereumValidator(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
+                                    args.language, args.bip32_path, args.wallet_type, args.performance,
+                                    fingerprint=args.fingerprint)
         elif args.slip39:
             loaded_wallet = WalletSLIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, args.slip39_shares,
-                                    args.language, args.bip32_path, args.wallet_type, args.performance)
+                                    args.language, args.bip32_path, args.wallet_type, args.performance,
+                                    fingerprint=args.fingerprint)
         else:
             loaded_wallet = WalletBIP39(args.mpk, args.addrs, args.addr_limit, args.addressdb, mnemonic,
                                     args.language, args.bip32_path, args.wallet_type, args.performance,
@@ -6877,7 +6893,8 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                                     disable_p2sh = args.disable_p2sh,
                                     disable_p2tr = args.disable_p2tr,
                                     disable_bip44 = args.disable_bip44,
-                                    disable_bip84 = args.disable_bip84)
+                                    disable_bip84 = args.disable_bip84,
+                                    fingerprint=args.fingerprint)
 
 
     if args.yoroi_master_password:

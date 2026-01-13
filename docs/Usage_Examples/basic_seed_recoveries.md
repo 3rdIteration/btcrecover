@@ -66,6 +66,8 @@ python seedrecover.py --wallet-type aezeed --addrs 1Hp6UXuJjzt9eSBa9LhtW97KPb44b
 
 If you no longer have an address or xpub to test against, omit `--addrs` to run in checksum-only mode. BTCRecover will still try candidate seeds that satisfy the aezeed checksum and will warn that the result must be manually verified to avoid false positives.
 
+When you only have the wallet's master fingerprint (for example, from a hardware wallet export), you can pass it with `--fingerprint DEADBEAF` to validate seeds without needing an xpub, address, or address database. The fingerprint should be provided as an 8-character hex string.
+
 ### Basic Cardano Recoveries
 For Cardano recovers, [see the notes here as well.](bip39-accounts-and-altcoins.md) You can use any Shelley-Era base or stake addresses. (Byron-Era not supported)
 

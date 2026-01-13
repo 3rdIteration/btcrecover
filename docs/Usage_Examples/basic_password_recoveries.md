@@ -49,6 +49,8 @@ The most common symptom of you having an error in your BIP39 passphrase is that 
 
 While BIP39 seed recovery can benefit from GPU acceleration, this is currently not the case for recovering a BIP39 passphrase.
 
+If you know the wallet's master fingerprint, you can supply it with `--fingerprint` instead of providing addresses or an xpub. This is useful when you only have access to the hardware wallet but not to any derived addresses.
+
 All of the example commands below have the address generation limit set to 10, so the address they are searching for needs to be within the first 10 addresses in the wallet.
 
 **Supported wallets**

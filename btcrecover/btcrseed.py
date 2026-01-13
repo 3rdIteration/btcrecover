@@ -1120,6 +1120,8 @@ class WalletBIP32(WalletBase):
         super(WalletBIP32, self).__init__(loading)
         self._chaincode            = None
         self._passwords_per_second = None
+        self._fingerprint          = None
+        self._addrs_to_generate    = 0
 
         derivation_paths = []
         self._append_last_index = False
@@ -1401,10 +1403,23 @@ class WalletBIP32(WalletBase):
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     # (the BIP32 key derivation path is by default BIP44's account 0)
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False, fingerprint = None):
         self = cls(path, loading=True)
 
         auto_detected_types = None
+        self._known_hash160s = None
+
+        if fingerprint:
+            normalized = fingerprint.strip()
+            if normalized.startswith("0x"):
+                normalized = normalized[2:]
+            try:
+                fingerprint_bytes = binascii.unhexlify(normalized)
+            except (binascii.Error, TypeError):
+                raise ValueError("the wallet fingerprint must be a hex value")
+            if len(fingerprint_bytes) != 4:
+                raise ValueError("the wallet fingerprint must be exactly 4 bytes (8 hex characters)")
+            self._fingerprint = fingerprint_bytes
 
         # Process the mpk (master public key) argument
         if mpk:
@@ -1469,7 +1484,7 @@ class WalletBIP32(WalletBase):
         self._apply_script_type_filters()
 
         # If mpk, addresses, and hash160s arguments were all not provided, prompt the user for an mpk first
-        if not mpk and not addresses and not hash160s:
+        if not mpk and not addresses and not hash160s and not self._fingerprint:
             init_gui()
             while True:
                 if tk_root:  # Skip if TK is not available...
@@ -1540,7 +1555,7 @@ class WalletBIP32(WalletBase):
 
             # If an mpk Testing Mnemonic:'t provided (at all), and addresses and hash160s arguments also
             # weren't provided (in the original function call), prompt the user for addresses.
-            if not addresses and not hash160s:
+            if not addresses and not hash160s and not self._fingerprint:
                 # init_gui() was already called above
                 self._known_hash160s = None
                 while True:
@@ -1572,34 +1587,37 @@ class WalletBIP32(WalletBase):
             if type(self) in [btcrecover.btcrseed.WalletPolkadotSubstrate]:
                 address_limit = 1
 
-            if not address_limit:
-                init_gui()  # might not have been called yet
-                before_the = "one(s) you just entered" if addresses else "first one in actual use"
-
-                suggested_addr_limit = 10
-                # There are some wallets where account Generation limit isn't generally relevant, so suggest to set it as 1
-                if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana,
-                                  btcrecover.btcrseed.WalletCosmos, btcrecover.btcrseed.WalletStellar]:
-                    suggested_addr_limit = 1
-
-                if tk_root:  # Skip if TK is not available...
-                    address_limit = tk.simpledialog.askinteger("Address limit",
-                        "Please enter the address generation limit. Smaller will\n"
-                        "be faster, but it must be equal to at least the number\n"
-                        "of addresses created before the "+before_the+":\n"
-                        "(If unsure, the number below is a sensible default...)", minvalue=1, initialvalue=suggested_addr_limit)
-                else:
-                    print("No address generation limit specified... Exiting...")
-                    exit()
-
+            if not self._fingerprint or self._known_hash160s:
                 if not address_limit:
-                    sys.exit("canceled")
-            self._addrs_to_generate = address_limit
+                    init_gui()  # might not have been called yet
+                    before_the = "one(s) you just entered" if addresses else "first one in actual use"
 
-            if not self._known_hash160s:
-                print("Loading address database ...")
-                self._known_hash160s = AddressSet.fromfile(open(ADDRESSDB_DEF_FILENAME, "rb"))
-                print("Loaded", len(self._known_hash160s), "addresses from database ...")
+                    suggested_addr_limit = 10
+                    # There are some wallets where account Generation limit isn't generally relevant, so suggest to set it as 1
+                    if type(self) in [btcrecover.btcrseed.WalletTron, btcrecover.btcrseed.WalletEthereum, btcrecover.btcrseed.WalletSolana,
+                                      btcrecover.btcrseed.WalletCosmos, btcrecover.btcrseed.WalletStellar]:
+                        suggested_addr_limit = 1
+
+                    if tk_root:  # Skip if TK is not available...
+                        address_limit = tk.simpledialog.askinteger("Address limit",
+                            "Please enter the address generation limit. Smaller will\n"
+                            "be faster, but it must be equal to at least the number\n"
+                            "of addresses created before the "+before_the+":\n"
+                            "(If unsure, the number below is a sensible default...)", minvalue=1, initialvalue=suggested_addr_limit)
+                    else:
+                        print("No address generation limit specified... Exiting...")
+                        exit()
+
+                    if not address_limit:
+                        sys.exit("canceled")
+                self._addrs_to_generate = address_limit
+
+                if not self._known_hash160s and not self._fingerprint:
+                    print("Loading address database ...")
+                    self._known_hash160s = AddressSet.fromfile(open(ADDRESSDB_DEF_FILENAME, "rb"))
+                    print("Loaded", len(self._known_hash160s), "addresses from database ...")
+            else:
+                self._addrs_to_generate = address_limit if address_limit else 0
 
         return self
 
@@ -1692,6 +1710,18 @@ class WalletBIP32(WalletBase):
         if salt is None:
             salt = self._derivation_salts[0]
         # Derive the chain of private keys for the specified path as per BIP32
+
+        if self._fingerprint is not None:
+            privkey_bytes = arg_seed_bytes[:32]
+            try:
+                master_pubkey = coincurve.PublicKey.from_valid_secret(privkey_bytes).format()
+            except ValueError:
+                return False
+            master_fingerprint = ripemd160(hashlib.sha256(master_pubkey).digest())[:4]
+            if master_fingerprint != self._fingerprint:
+                return False
+            if not self._chaincode and not self._known_hash160s:
+                return True
         
         if self.checksinglexpubaddress: #Atomic (Eth), MyBitcoinWallet, PT.BTC Wallet Single Address (Does things in a very non-standard way)
             seed_bytes = arg_seed_bytes
@@ -2167,6 +2197,7 @@ class WalletAezeed(WalletBIP39):
         disable_p2tr=False,
         disable_bip44=False,
         disable_bip84=False,
+        fingerprint=None,
     ):
         if mpk or addresses or hash160s:
             wallet = super(WalletAezeed, cls).create_from_params(
@@ -2174,6 +2205,7 @@ class WalletAezeed(WalletBIP39):
                 addresses=addresses,
                 address_limit=address_limit,
                 hash160s=hash160s,
+                fingerprint=fingerprint,
                 path=path,
                 is_performance=is_performance,
                 address_start_index=address_start_index,
@@ -4585,6 +4617,7 @@ def main(argv):
         parser.add_argument("--wallet",      metavar="FILE",        help="the wallet file")
         parser.add_argument("--wallet-type", metavar="TYPE",        help="if not using a wallet file, the wallet type")
         parser.add_argument("--mpk",         metavar="XPUB-OR-HEX", help="if not using a wallet file, the master public key (xpub, ypub or zpub)")
+        parser.add_argument("--fingerprint", metavar="HEX",         help="wallet master fingerprint (4-byte hex) instead of an xpub or addresses")
         parser.add_argument("--addrs",       metavar="ADDRESS",     nargs="+", help="if not using an mpk, address(es) in the wallet")
         parser.add_argument("--addressdb",   metavar="FILE", nargs="?", help="if not using addrs, use a full address database (default: %(const)s)", const=ADDRESSDB_DEF_FILENAME)
         parser.add_argument("--addr-limit",  type=int, metavar="COUNT", help="if using addrs or addressdb, the address generation limit")
@@ -4767,6 +4800,12 @@ def main(argv):
                 print("warning: --mpk is ignored when a wallet is provided", file=sys.stderr)
             else:
                 create_from_params["mpk"] = args.mpk
+
+        if args.fingerprint:
+            if args.wallet:
+                print("warning: --fingerprint is ignored when a wallet is provided", file=sys.stderr)
+            else:
+                create_from_params["fingerprint"] = args.fingerprint
 
         if args.addrs:
             if args.wallet:

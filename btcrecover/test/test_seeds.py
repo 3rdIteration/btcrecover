@@ -445,6 +445,23 @@ class TestRecoveryFromMPK(unittest.TestCase):
                         "ice stool great wine enough odor vocal crane owner magnet absent scare",
                         "m/84'/0'/0'/0")
 
+    def test_bip39_fingerprint_only(self):
+        wallet = btcrseed.WalletBIP39.create_from_params(fingerprint="0xEF453251")
+        wallet.config_mnemonic(
+            "certain come keen collect slab gauge photo inside mechanic deny leader drop",
+            expected_len=12,
+        )
+        correct_mnemonic = btcrseed.mnemonic_ids_guess
+        wrong_mnemonic_iter = wallet.performance_iterator()
+        guesses = (
+            next(wrong_mnemonic_iter),
+            correct_mnemonic,
+        )
+        self.assertEqual(
+            wallet.return_verified_password_or_false(guesses),
+            (correct_mnemonic, 2),
+        )
+
     def test_bip44_firstfour(self):
         # an xpub at path m/44'/0'/0', as Mycelium for Android would export
         self.mpk_tester(btcrseed.WalletBIP39,
