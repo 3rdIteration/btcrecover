@@ -137,6 +137,9 @@ My suggestion is that you find a scenario that is most-like your situation and t
 
 If you don't know an address in the wallet that you are searching for, you can create and use an [Address Database (click here for guide)](docs/Creating_and_Using_AddressDB.md) _There is no real performance penalty for doing this, it just takes a bit more work to set up_.
 
+For more details on the differences between basic and full requirements, see the [Basic v.s. Full installation mode](docs/Basic_vs_Full_mode.md).
+
+
 ## Quick Start ##
 
 To try recovering your password or a BIP39 passphrase, please start with the **[Password Recovery Quick Start](docs/TUTORIAL.md#btcrecover-tutorial)**.
