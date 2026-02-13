@@ -4864,6 +4864,25 @@ def main(argv):
             if args.language is None:
                 if args.wallet_type != 'electrum1':
                     exit("Error: Language needs to be specificed if using tokenlist or passwordlist")
+            # Check for conflicting typo arguments
+            conflicting_args = []
+            if args.typos is not None:
+                conflicting_args.append("--typos")
+            if args.big_typos is not None:
+                conflicting_args.append("--big-typos")
+            if args.min_typos is not None:
+                conflicting_args.append("--min-typos")
+            if args.transform_wordswaps is not None:
+                conflicting_args.append("--transform-wordswaps")
+            if args.transform_trezor_common_mistakes is not None:
+                conflicting_args.append("--transform-trezor-common-mistakes")
+            if conflicting_args:
+                list_type = "--seedlist" if args.seedlist else "--tokenlist"
+                sys.exit("Error: {} cannot be used together with {}: {}".format(
+                    list_type,
+                    "typo-related arguments" if len(conflicting_args) > 1 else "typo-related argument",
+                    ", ".join(conflicting_args)
+                ))
             config_mnemonic_params["mnemonic_guess"] = ("seed_token_placeholder " * args.mnemonic_length)[:-1]
             phase["big_typos"] = args.mnemonic_length
             phase["typos"] = args.mnemonic_length
