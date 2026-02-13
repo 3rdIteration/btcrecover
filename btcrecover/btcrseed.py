@@ -4878,7 +4878,7 @@ def main(argv):
                 conflicting_args.append("--transform-trezor-common-mistakes")
             if conflicting_args:
                 list_type = "--seedlist" if args.seedlist else "--tokenlist"
-                sys.exit("Error: {} cannot be used together with {}: {}".format(
+                exit("Error: {} cannot be used together with {}: {}".format(
                     list_type,
                     "typo-related arguments" if len(conflicting_args) > 1 else "typo-related argument",
                     ", ".join(conflicting_args)
