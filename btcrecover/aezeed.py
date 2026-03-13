@@ -85,8 +85,8 @@ ZERO_BLOCK = _mk_block()
 
 def _xor_bytes1x16(a: Sequence[int], b: Sequence[int], dst: bytearray) -> None:
     # Use integer XOR to process all 16 bytes at once instead of a Python loop
-    int_a = int.from_bytes(a[:BLOCK_SIZE], 'big')
-    int_b = int.from_bytes(b[:BLOCK_SIZE], 'big')
+    int_a = int.from_bytes(a, 'big')
+    int_b = int.from_bytes(b, 'big')
     dst[:] = (int_a ^ int_b).to_bytes(BLOCK_SIZE, 'big')
 
 
@@ -94,10 +94,10 @@ def _xor_bytes4x16(
     a: Sequence[int], b: Sequence[int], c: Sequence[int], d: Sequence[int], dst: bytearray
 ) -> None:
     # Use integer XOR to process all 16 bytes at once instead of a Python loop
-    int_a = int.from_bytes(a[:BLOCK_SIZE], 'big')
-    int_b = int.from_bytes(b[:BLOCK_SIZE], 'big')
-    int_c = int.from_bytes(c[:BLOCK_SIZE], 'big')
-    int_d = int.from_bytes(d[:BLOCK_SIZE], 'big')
+    int_a = int.from_bytes(a, 'big')
+    int_b = int.from_bytes(b, 'big')
+    int_c = int.from_bytes(c, 'big')
+    int_d = int.from_bytes(d, 'big')
     dst[:] = (int_a ^ int_b ^ int_c ^ int_d).to_bytes(BLOCK_SIZE, 'big')
 
 
@@ -777,8 +777,8 @@ def _aez_decrypt(key: bytes, ad_list: Iterable[bytes], tau: int, ciphertext: byt
             return None
         return bytes()
     state.decipher(delta, ciphertext, x)
-    # Check if trailing tau bytes are all zero using any()
-    if any(x[len(ciphertext) - tau + i] for i in range(tau)):
+    # Check if trailing tau bytes are all zero
+    if any(x[-tau:]):
         return None
     return bytes(x[: len(ciphertext) - tau])
 

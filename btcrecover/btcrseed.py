@@ -926,9 +926,9 @@ class BlockChainPassword(WalletBase):
     
     @staticmethod
     def words_to_bytes(words):
-        byte_array = bytearray()
-        for word in words:
-            byte_array.extend(word.to_bytes(4, byteorder='big', signed=False))
+        byte_array = bytearray(len(words) * 4)
+        for i, word in enumerate(words):
+            byte_array[i*4:(i+1)*4] = word.to_bytes(4, byteorder='big', signed=False)
         return byte_array
     
     @staticmethod
