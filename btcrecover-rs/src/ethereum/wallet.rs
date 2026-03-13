@@ -85,12 +85,10 @@ impl MetaMaskParams {
                 5000
             }) as u32;
 
-        // For desktop, extract GCM auth tag from data if present
-        let auth_tag = if wallet_type == MetaMaskType::Desktop && data.len() > 16 {
-            Some(data[data.len() - 16..].to_vec())
-        } else {
-            None
-        };
+        // Note: For AES-GCM (desktop), the authentication tag is typically appended
+        // to the ciphertext. The aes-gcm crate expects the tag to be part of the
+        // ciphertext buffer and handles separation internally during decryption.
+        let auth_tag = None;
 
         Ok(Self {
             wallet_type,

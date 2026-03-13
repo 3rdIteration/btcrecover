@@ -61,7 +61,7 @@ pub struct SeedRecoveryResult {
 /// Check if a mnemonic matches any known address
 pub fn check_mnemonic(mnemonic: &str, config: &SeedRecoveryConfig) -> Option<(String, String)> {
     // Verify BIP39 checksum first (fast rejection)
-    if bip39::verify_checksum(mnemonic).unwrap_or(false) == false {
+    if !bip39::verify_checksum(mnemonic).unwrap_or(false) {
         return None;
     }
 
