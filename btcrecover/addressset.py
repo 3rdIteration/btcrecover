@@ -361,6 +361,13 @@ def xor_at(data: bytes, key: Optional[bytes], offset: int) -> bytes:
     m = len(key)
     return bytes(b ^ key[(offset + i) % m] for i, b in enumerate(data))
 
+# Cached script pattern constants for block parsing performance
+_P2PKH_PREFIX = b"\x76\xa9\x14"
+_P2PKH_SUFFIX = b"\x88\xac"
+_P2SH_PREFIX = b"\xa9\x14"
+_P2WPKH_PREFIX = b"\x00\x14"
+_P2TR_PREFIX = b"\x51\x20"
+
 def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-01", endBlockDate="3000-12-31", startBlockFile = 0, addressDB_yolo = False, outputToText = False, update = False, progress_bar = True, addresslistfile = None, multiFile = False, forcegzip = False):
     """Creates an AddressSet database and saves it to a file
 
@@ -616,13 +623,13 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
                                 pkscript_len, offset = varint(block, offset + 8)        # skips 8-byte satoshi count
 
                                 # If this is a P2PKH script (OP_DUP OP_HASH160 PUSH(20) <20 address bytes> OP_EQUALVERIFY OP_CHECKSIG)
-                                if pkscript_len == 25 and block[offset:offset+3] == b"\x76\xa9\x14" and block[offset+23:offset+25] == b"\x88\xac":
+                                if pkscript_len == 25 and block[offset:offset+3] == _P2PKH_PREFIX and block[offset+23:offset+25] == _P2PKH_SUFFIX:
                                     address_set.add(block[offset+3:offset+23],outputToText,'P2PKH')
-                                elif block[offset:offset+2] == b"\xa9\x14": #Check for Segwit Address
+                                elif block[offset:offset+2] == _P2SH_PREFIX: #Check for Segwit Address
                                     address_set.add(block[offset+2:offset+22],outputToText,'P2SH')
-                                elif block[offset:offset+2] == b"\x00\x14": #Check for Native Segwit Address
+                                elif block[offset:offset+2] == _P2WPKH_PREFIX: #Check for Native Segwit Address
                                     address_set.add(block[offset+2:offset+22],outputToText,'Bech32')
-                                elif block[offset:offset+2] == b"\x51\x20": #Check for Taproot Address
+                                elif block[offset:offset+2] == _P2TR_PREFIX: #Check for Taproot Address
                                     address_set.add(block[offset + 2:offset + 34], outputToText, 'Bech32m')
 
                                 offset += pkscript_len                                  # advances past the pubkey script

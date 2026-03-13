@@ -84,20 +84,28 @@ ZERO_BLOCK = _mk_block()
 
 
 def _xor_bytes1x16(a: Sequence[int], b: Sequence[int], dst: bytearray) -> None:
-    for i in range(BLOCK_SIZE):
-        dst[i] = a[i] ^ b[i]
+    # Use integer XOR to process all 16 bytes at once instead of a Python loop
+    int_a = int.from_bytes(a[:BLOCK_SIZE], 'big')
+    int_b = int.from_bytes(b[:BLOCK_SIZE], 'big')
+    dst[:] = (int_a ^ int_b).to_bytes(BLOCK_SIZE, 'big')
 
 
 def _xor_bytes4x16(
     a: Sequence[int], b: Sequence[int], c: Sequence[int], d: Sequence[int], dst: bytearray
 ) -> None:
-    for i in range(BLOCK_SIZE):
-        dst[i] = a[i] ^ b[i] ^ c[i] ^ d[i]
+    # Use integer XOR to process all 16 bytes at once instead of a Python loop
+    int_a = int.from_bytes(a[:BLOCK_SIZE], 'big')
+    int_b = int.from_bytes(b[:BLOCK_SIZE], 'big')
+    int_c = int.from_bytes(c[:BLOCK_SIZE], 'big')
+    int_d = int.from_bytes(d[:BLOCK_SIZE], 'big')
+    dst[:] = (int_a ^ int_b ^ int_c ^ int_d).to_bytes(BLOCK_SIZE, 'big')
 
 
 def _xor_bytes(a: Sequence[int], b: Sequence[int], dst: bytearray) -> None:
-    for i in range(len(dst)):
-        dst[i] = a[i] ^ b[i]
+    n = len(dst)
+    int_a = int.from_bytes(a[:n], 'big')
+    int_b = int.from_bytes(b[:n], 'big')
+    dst[:] = (int_a ^ int_b).to_bytes(n, 'big')
 
 
 def _uint32(i: int) -> int:
@@ -764,17 +772,13 @@ def _aez_decrypt(key: bytes, ad_list: Iterable[bytes], tau: int, ciphertext: byt
     x = bytearray(len(ciphertext))
     if len(ciphertext) == tau:
         state.aez_prf(delta, tau, x)
-        mismatch = 0
-        for i in range(tau):
-            mismatch |= x[i] ^ ciphertext[i]
-        if mismatch != 0:
+        # Use bytes comparison instead of byte-by-byte XOR loop
+        if x[:tau] != ciphertext[:tau]:
             return None
         return bytes()
     state.decipher(delta, ciphertext, x)
-    mismatch = 0
-    for i in range(tau):
-        mismatch |= x[len(ciphertext) - tau + i]
-    if mismatch != 0:
+    # Check if trailing tau bytes are all zero using any()
+    if any(x[len(ciphertext) - tau + i] for i in range(tau)):
         return None
     return bytes(x[: len(ciphertext) - tau])
 
