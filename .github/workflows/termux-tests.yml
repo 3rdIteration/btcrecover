@@ -33,6 +33,7 @@ jobs:
       TMPDIR: /data/data/com.termux/files/usr/tmp
       LANG: en_US.UTF-8
       TZ: UTC
+      ANDROID_API_LEVEL: "24"
     steps:
       - name: set pkg mirror
         run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
@@ -62,7 +63,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     container:
       image: termux/termux-docker:${{ matrix.architecture }}
       volumes:
@@ -77,6 +78,7 @@ jobs:
       TMPDIR: /data/data/com.termux/files/usr/tmp
       LANG: en_US.UTF-8
       TZ: UTC
+      ANDROID_API_LEVEL: "24"
     steps:
       - name: set pkg mirror
         run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
@@ -94,6 +96,12 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust swig
+          # Build maturin from source so it detects the native aarch64-linux-android
+          # host triple correctly, preventing false cross-compilation detection that
+          # causes build failures for py-sr25519-bindings and cryptography.
+          /entrypoint.sh pip install --no-binary maturin maturin
+          # Pre-install maturin-based packages using the natively-built maturin
+          /entrypoint.sh pip install --no-build-isolation py-sr25519-bindings==0.2.2 cryptography==45.0.5
           /entrypoint.sh pip install -r requirements-full.txt
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
