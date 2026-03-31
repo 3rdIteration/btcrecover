@@ -64,6 +64,7 @@ BASE_URLS = [
 ]
 
 # Browser-like headers to avoid Cloudflare blocks
+# Note: Update the Chrome version periodically to match current browser releases
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -149,7 +150,7 @@ def try_download_wallet(base_url, session, wallet_id):
                 error_text = str(e)
             print(error_text + "\n", file=sys.stderr)
 
-    return wallet_data
+    return wallet_data if isinstance(wallet_data, bytes) else wallet_data.encode("utf-8")
 
 
 # Try each base URL
@@ -179,9 +180,6 @@ for i, base_url in enumerate(BASE_URLS):
 
 # Save the wallet
 with open(filename, "wb") as wallet_file:
-    if isinstance(wallet_data, str):
-        wallet_file.write(wallet_data.encode())
-    else:
-        wallet_file.write(wallet_data)
+    wallet_file.write(wallet_data)
 
 print("Wallet file saved as " + filename)
