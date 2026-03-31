@@ -156,7 +156,7 @@ As you can see, the Windows command prompt was incapable of rendering some of th
      * Bitcoin Core - `%appdata%\Bitcoin` (it's named `wallet.dat`)
      * Bitcoin Wallet for Android/BlackBerry, lost spending PINs - Please see the [Bitcoin Wallet for Android/BlackBerry Spending PINs](#bitcoin-wallet-for-androidblackberry-spending-pins) section below.
      * Bither - `%appdata%\Bither` (it's named `address.db`)
-     * Blockchain.com - it's usually named `wallet.aes.json`; if you don't have a backup of your wallet file, you can download one by running the `download-blockchain-wallet.py` tool in the `extract-scripts` directory if you know your wallet ID (and 2FA if enabled)
+     * Blockchain.com - it's usually named `wallet.aes.json`; if you don't have a backup of your wallet file, you can download one by running the `download-blockchain-wallet.py` tool in the `extract-scripts` directory if you know your wallet ID (and 2FA if enabled). See [Downloading Blockchain.com wallet files](#downloading-blockchaincom-wallet-files) for details.
      * Coinomi - Please see the [Finding Coinomi Wallet Files](#finding-coinomi-wallet-files) section below. 
      * Electrum - `%appdata%\Electrum\wallets`
      * imToken - Please see the [Finding imToken Wallet Files](#finding-imtoken-wallet-files) section below.
@@ -285,7 +285,18 @@ How to get root access on your particular phone is beyond the scope of this docu
 For iOS users, the file that you are looking for should have the same name and be in a similar location, but you will need a Jailbroken device to be able to access it.
 
 ### Downloading Blockchain.com wallet files ###
-Downloading these kinds of wallet files id done via your browser, through the "Developer Tools" feature.
+
+**Option 1: Using the download script (Recommended)**
+
+You can download your wallet file by running the `download-blockchain-wallet.py` tool in the `extract-scripts` directory:
+
+    python3 download-blockchain-wallet.py
+
+You will be prompted for your wallet ID, will need to confirm the request via email and enter any required 2FA code. Once the login is approved, your `wallet.aes.json` file will be saved to your PC.
+
+**Option 2: Using browser Developer Tools**
+
+Alternatively, you can download the wallet file manually via your browser, through the "Developer Tools" feature.
 
 Basically you need to attempt to log in to your wallet (even with the wrong password) and save the wallet file that is downloaded as part of this process.
 
