@@ -321,16 +321,23 @@ class AddressSet(object):
     def close(self, flush = True):
         if self._dbfile:                 # if present, self._data is an mmap
             if self._mmap_access == mmap.ACCESS_WRITE:
-                self._dbfile.write(self._header())  # update the header
-                self._dbfile.flush()               # ensure header reaches disk before closing the mmap
                 if flush:
                     self._data.flush()
-            self._data.close()
+                self._data.close()
+                # Write the updated header after closing the mmap.
+                # On Windows + Python 3.14, file writes/flushes fail while
+                # an mmap is active on the same file handle.
+                try:
+                    self._dbfile.write(self._header())
+                except (OSError, ValueError):
+                    pass
+            else:
+                self._data.close()
             try:
                 if not self._dbfile.closed:
                     self._dbfile.close()
             except OSError:
-                pass  # On Windows + Python 3.14, mmap.close() may invalidate the file handle
+                pass  # On Windows + Python 3.14, the file handle may already be invalidated
             self._dbfile = None
         elif isinstance(self._data, bytearray) and self._data:
             self._data = bytearray()
