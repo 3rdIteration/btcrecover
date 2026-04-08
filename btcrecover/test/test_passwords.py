@@ -3044,6 +3044,20 @@ class Test12BrainwalletDecryption(unittest.TestCase):
                                     password="btcr-test-password:p2pkh",
                                     check_uncompressed=False)
 
+    # Tests for addresses with multiple leading 1s (hash160 with leading zero bytes)
+    # Addresses: 111aFYrUz9kZH2CKqGTTtfDTgDgUvvZSf (uncompressed, brainwallet '71916')
+    #            111dDtjPjTPuSbyTjY7i2JfHkoTNoBn7J (compressed, brainwallet '38251')
+    # See https://github.com/3rdIteration/btcrecover/issues/448
+    def test_brainwallet_bitcoin_p2pkh_uncompressed_leading_zeros_cpu(self):
+        self.brainwallet_tester_cpu(addresses="111aFYrUz9kZH2CKqGTTtfDTgDgUvvZSf",
+                                    password="71916",
+                                    check_compressed=False)
+
+    def test_brainwallet_bitcoin_p2pkh_compressed_leading_zeros_cpu(self):
+        self.brainwallet_tester_cpu(addresses="111dDtjPjTPuSbyTjY7i2JfHkoTNoBn7J",
+                                    password="38251",
+                                    check_uncompressed=False)
+
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_brainwallet_bitcoin_p2pkh_compressed_opencl(self):
         self.brainwallet_tester_opencl(addresses = "1BBRWFHjFhEQc1iS6WTQCtPu2GtZvrRcwy",
