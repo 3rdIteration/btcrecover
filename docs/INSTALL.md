@@ -35,7 +35,7 @@ You can also use Git (If you have it installed) to do this with the command `git
 
 ## 2) Install Python ##
 
-**Note:** Only Python 3.9 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.9, 3.10, 3.11, 3.12, 3.13) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
+**Note:** Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
@@ -254,4 +254,4 @@ This module also requires the `py_ecc` module which can be installed with the co
 
 [More information can be found at its repository](https://github.com/ethereum/staking-deposit-cli/)
 
-Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.9)
+Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.10)

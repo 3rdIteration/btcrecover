@@ -95,6 +95,6 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig
-          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.2 --no-build-isolation && pip install -r requirements-full.txt"
+          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.2 --no-build-isolation && pip install -r requirements-full.txt"
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
