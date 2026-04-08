@@ -4677,13 +4677,14 @@ def main(argv):
 
         parser.add_argument("--skip-worker-checksum", action="store_true",
                             help="Skip the checksum test for BIP39/Electrum seeds (This will force test all seeds, as opposed to 1/10, and will slow things down a lot)")
+        parser.add_argument("--force-checksum-in-generator",  action="store_true",     help="Perform seed checksum validation in the generator step, filtering out invalid seeds before they reach the worker. This reduces the password count to only include valid-checksum seeds.")
+
         opencl_group = parser.add_argument_group("OpenCL acceleration")
         opencl_group.add_argument("--enable-opencl", action="store_true",     help="enable experimental OpenCL-based (GPU) acceleration (only supports BIP39 (for supported coin) and Electrum wallets)")
         opencl_group.add_argument("--opencl-workgroup-size",  type=int, nargs="+", metavar="PASSWORD-COUNT", help="OpenCL global work size (Seeds are tested in batches, this impacts that batch size)")
         opencl_group.add_argument("--opencl-platform",  type=int, nargs="+", metavar="ID", help="Choose the OpenCL platform (GPU) to use (default: auto)")
         opencl_group.add_argument("--opencl-devices", metavar="ID1 ID2 ID3", nargs="+", help="Choose which OpenCL devices for a given to use as a space seperated list eg: 1 2 4 (default: all)")
         opencl_group.add_argument("--opencl-info",  action="store_true",     help="list available GPU names and IDs, then exit")
-        opencl_group.add_argument("--force-checksum-in-generator",  action="store_true",     help="GPU processing currently performs seed checksums in the main thread, which works well for 12 word BIP39 seeds, but hurts performance in 12 and 24 word seeds")
 
         # Optional bash tab completion support
         try:
@@ -5115,6 +5116,14 @@ def main(argv):
         loaded_wallet.opencl = False
         loaded_wallet.opencl_algo = -1
         loaded_wallet.opencl_context_pbkdf2_sha512 = -1
+
+        # Handle --force-checksum-in-generator (works with or without OpenCL)
+        if args.force_checksum_in_generator:
+            print()
+            print("Note: Performing Seed Checksum in the Generator Step will result in inaccurate speed and password count numbers (Only seeds with valid checksum are included in the count)")
+            print()
+            loaded_wallet._checksum_in_generator = True
+
         # Parse and syntax check all of the GPU related options
         if args.enable_opencl:
             if not module_opencl_available:
@@ -5126,12 +5135,6 @@ def main(argv):
             loaded_wallet.opencl = True
             # Append GPU related arguments to be sent to BTCrpass
             extra_args.append("--enable-opencl")
-
-            if args.force_checksum_in_generator:
-                print()
-                print("Note: Performing Seed Checksum in the Generator Step will result in inaccurate speed and password count numbers (Only seeds with valid checksum are included in the count)")
-                print()
-                loaded_wallet._checksum_in_generator = True
 
             #
             if args.opencl_platform:
