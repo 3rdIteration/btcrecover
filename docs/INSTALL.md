@@ -87,6 +87,13 @@ You will then need to install Python as well as some other packages (Mostly the 
 
 Once this is done, you can install the base requirements for BTCRecover that allow recovery of common wallet types. (The full requirements have a lot of packages and will take a long time to build, like 15-20 minutes or more...)
 
+If you want to install the full requirements (requirements-full.txt), some packages like `py-sr25519-bindings` and `cryptography` use maturin as their build backend. The pre-built maturin wheel does not work correctly on Termux, so you need to build maturin from source first and install the affected packages without build isolation:
+
+    export ANDROID_API_LEVEL=24
+    pip install maturin --no-binary maturin
+    pip install py-sr25519-bindings==0.2.2 --no-build-isolation
+    pip install -r requirements-full.txt
+
 #### Enabling Native RIPEMD160 Support
 As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.
 
