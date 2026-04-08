@@ -80,7 +80,7 @@ Some warnings and notes...
 
 You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)
 
-    pkg install python-pip git autoconf automake build-essential libtool pkg-config binutils-is-llvm rust
+    pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust
 
   The `python-pip` package already includes PIP. Attempting to upgrade it with
   `pip install --upgrade pip` will fail and is unnecessary.
