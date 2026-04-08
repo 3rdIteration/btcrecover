@@ -307,6 +307,7 @@ class AddressSet(object):
             os.close(dup_fileno)
         if mmap_access == mmap.ACCESS_WRITE:
             dbfile.seek(header_pos)  # prepare for writing an updated header in close()
+            self._header_pos = header_pos
         self._dbfile = dbfile
         #
         # Most of the time it makes sense to load the file serially instead of letting
@@ -321,23 +322,38 @@ class AddressSet(object):
     def close(self, flush = True):
         if self._dbfile:                 # if present, self._data is an mmap
             if self._mmap_access == mmap.ACCESS_WRITE:
+                header_data = self._header()
+                header_pos  = getattr(self, '_header_pos', 0)
+                dbfile_name = getattr(self._dbfile, 'name', None)
                 if flush:
                     self._data.flush()
                 self._data.close()
-                # Write the updated header after closing the mmap.
-                # On Windows + Python 3.14, file writes/flushes fail while
-                # an mmap is active on the same file handle.
+                # Write the updated header to disk after closing the mmap.
+                # On some platforms (Windows + Python 3.14), the original
+                # file handle is invalidated by mmap.close(), so fall back
+                # to reopening the file by name.
+                header_written = False
                 try:
-                    self._dbfile.write(self._header())
+                    self._dbfile.seek(header_pos)
+                    self._dbfile.write(header_data)
+                    self._dbfile.flush()
+                    header_written = True
                 except (OSError, ValueError):
                     pass
+                if not header_written and dbfile_name:
+                    try:
+                        with open(dbfile_name, "r+b") as f:
+                            f.seek(header_pos)
+                            f.write(header_data)
+                    except (OSError, ValueError):
+                        pass
             else:
                 self._data.close()
             try:
                 if not self._dbfile.closed:
                     self._dbfile.close()
             except OSError:
-                pass  # On Windows + Python 3.14, the file handle may already be invalidated
+                pass
             self._dbfile = None
         elif isinstance(self._data, bytearray) and self._data:
             self._data = bytearray()
