@@ -1688,9 +1688,10 @@ class TestAddressSet(unittest.TestCase):
         aset.tofile(dbfile)
         dbfile.seek(0)
         aset = AddressSet.fromfile(dbfile)
-        self.assertTrue(dbfile.closed)  # should be closed by AddressSet in read-only mode
         self.assertIn(addr, aset)
         self.assertEqual(len(aset), 1)
+        aset.close()
+        self.assertTrue(dbfile.closed)  # should be closed by AddressSet.close()
 
     def test_file_update(self):
         aset = AddressSet(self.TABLE_LEN)
