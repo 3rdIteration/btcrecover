@@ -14,7 +14,6 @@ jobs:
   build:
     timeout-minutes: 20 # allow extra time for occasional slow tests
     runs-on: ${{matrix.os}}
-    continue-on-error: ${{ matrix.python-version == '3.14' }}
     strategy:
       fail-fast: false
       matrix:
