@@ -44,6 +44,8 @@ def auto_select_opencl_platform(loaded_wallet):
                 cur_score += 2
             elif "amd" in device.vendor.lower():  # sometimes an IGP: good
                 cur_score += 1
+            elif "apple" in device.vendor.lower():  # Apple Silicon GPU: good
+                cur_score += 2
             if cur_score >= best_score_sofar:  # (intel is always an IGP)
                 if cur_score > best_score_sofar:
                     best_score_sofar = cur_score

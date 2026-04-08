@@ -74,7 +74,12 @@ typedef ulong uint64_t;
 //       lacked proper support.  We now enable the optimized path for
 //       NVIDIA GPUs with compute capability (SM) >= 5 and reasonably
 //       recent drivers, while keeping the fallback for other devices.
-#if gpu_nvidia(DEVICE_INFO)
+// Apple Silicon GPUs (Metal-based OpenCL) have a known bug where
+// bitselect() and rotate() produce incorrect results for 64-bit types.
+// Force the shift-based fallback when APPLE_GPU is defined.
+#ifdef APPLE_GPU
+# define USE_BITSELECT 0
+#elif gpu_nvidia(DEVICE_INFO)
 # if SM_MAJOR >= 5
 #  define USE_BITSELECT 1
 # endif
@@ -143,7 +148,9 @@ inline uint lut3(uint a, uint b, uint c, uint imm)
 // From opencl_sha512.h
 
 //Macros.
-#if (cpu(DEVICE_INFO))
+// Apple Silicon GPUs have broken 64-bit rotate() in their Metal-based
+// OpenCL driver, so always use the portable shift-based version.
+#if defined(APPLE_GPU) || cpu(DEVICE_INFO)
 #define ror(x, n)             ((x >> n) | (x << (64UL-n)))
 #else
 #define ror(x, n)             (rotate(x, (64UL-n)))

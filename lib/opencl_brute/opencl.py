@@ -72,6 +72,7 @@ class opencl_interface:
         self.wordSize = None
         self.N = None
         self.wordType = None
+        self.is_apple_gpu = False
         printif(debug, "Using Platform %d:" % platformNum)
         devices = cl.get_platforms()[platformNum].get_devices()
         self.platform_number = platformNum
@@ -117,6 +118,13 @@ class opencl_interface:
             assert (
                 device.endian_little == 1
             ), "DEVICE is not little endian : pretty sure we rely on this!"
+
+            # Detect Apple GPU (Apple Silicon uses a Metal-based OpenCL
+            # translation layer that has known bugs with 64-bit rotate()
+            # and bitselect() built-ins).
+            if "apple" in device.vendor.lower():
+                self.is_apple_gpu = True
+
             if self.workgroupsize == 0:
                 self.workgroupsize = maxWorkgroupSize
                 self.workgroupsize = min(self.workgroupsize, device.max_work_group_size)
@@ -203,7 +211,16 @@ class opencl_interface:
             src = defines + src
 
         # Kernel function instantiation. Build returns self.
-        prg = cl.Program(self.ctx, src).build()
+        # Pass -DAPPLE_GPU when compiling on Apple Silicon to enable
+        # portable workarounds for broken 64-bit rotate()/bitselect().
+        build_options = ""
+        if self.is_apple_gpu:
+            build_options = "-DAPPLE_GPU"
+        try:
+            prg = cl.Program(self.ctx, src).build(options=build_options)
+        except cl.RuntimeError as e:
+            print("OpenCL kernel compilation failed: {}".format(e))
+            raise
         return prg
 
     # Forms the input buffer of derived keys
