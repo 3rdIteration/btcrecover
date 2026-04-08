@@ -4677,7 +4677,8 @@ def main(argv):
 
         parser.add_argument("--skip-worker-checksum", action="store_true",
                             help="Skip the checksum test for BIP39/Electrum seeds (This will force test all seeds, as opposed to 1/10, and will slow things down a lot)")
-        parser.add_argument("--force-checksum-in-generator",  action="store_true",     help="Perform seed checksum validation in the generator step, filtering out invalid seeds before they reach the worker. This reduces the password count to only include valid-checksum seeds.")
+        parser.add_argument("--force-checksum-in-generator", action="store_true",
+                            help="Perform seed checksum validation in the generator step, filtering out invalid seeds before they reach the worker. This reduces the password count to only include valid-checksum seeds.")
 
         opencl_group = parser.add_argument_group("OpenCL acceleration")
         opencl_group.add_argument("--enable-opencl", action="store_true",     help="enable experimental OpenCL-based (GPU) acceleration (only supports BIP39 (for supported coin) and Electrum wallets)")
