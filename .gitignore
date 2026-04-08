@@ -17,3 +17,4 @@ possible_passwords.log
 passwordlist.txt
 batch_seeds.txt.progress
 batch_seeds.txt
+.cache/
