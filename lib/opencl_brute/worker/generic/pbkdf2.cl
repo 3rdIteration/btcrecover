@@ -116,6 +116,11 @@ static void F(__global const word *pwd, const word pwdLen_bytes,
     overhang *= 8; // convert to bits
     word saltLastI = saltLen_bytes / wordSize;
 
+    // Save the original salt word before modification so we can restore it
+    // after the PRF call. This prevents the |= from accumulating counter bits
+    // across multiple calls to F() when dkLen requires multiple blocks.
+    word salt_save = salt[saltLastI];
+
     // ! Crucial line: BE, moved as if it's a u32 but still within the word
     word be_callI = SWAP((word)callI) >> (8*(wordSize-4));
     if (overhang>0)
@@ -150,6 +155,10 @@ static void F(__global const word *pwd, const word pwdLen_bytes,
         PRF(pwd, pwdLen_bytes, u, PRF_output_bytes, u);
         xor(u,output);
     }
+
+    // Restore the original salt word to prevent corruption on the next call
+    // to F() when multiple blocks are needed (dkLen > PRF_output_bytes).
+    salt[saltLastI] = salt_save;
 }
 
 __kernel void pbkdf2(__global inbuf *inbuffer, __global const saltbuf *saltbuffer, __global outbuf *outbuffer,
