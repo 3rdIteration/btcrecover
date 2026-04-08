@@ -44,7 +44,10 @@ def auto_select_opencl_platform(loaded_wallet):
                 cur_score += 2
             elif "amd" in device.vendor.lower():  # sometimes an IGP: good
                 cur_score += 1
-            if cur_score >= best_score_sofar:  # (intel is always an IGP)
+            elif "intel" in device.vendor.lower():  # Intel discrete GPUs (e.g. Arc) or IGPs
+                if "arc" in device.name.lower():  # discrete GPU: good
+                    cur_score += 1
+            if cur_score >= best_score_sofar:
                 if cur_score > best_score_sofar:
                     best_score_sofar = cur_score
                     best_device = device.name

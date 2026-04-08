@@ -110,7 +110,7 @@ typedef struct {
             /* Prints little endian, since that's what we use */   \
             v = (v >> r) & 0xFF;                \
             if (hex) {                          \
-                printf("%02x", v);              \
+                printf("%02x", (unsigned int)v); \
             } else {                            \
                 printf("%c", (char)v);          \
             }                                   \
