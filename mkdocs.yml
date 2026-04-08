@@ -67,6 +67,7 @@ plugins:
     - git-committers:
         repository: 3rdIteration/btcrecover
         branch: master
+        # Plugin gracefully handles missing/invalid tokens (logs warning, continues build)
         token: !ENV [MKDOCS_GIT_COMMITTERS_APIKEY, '']
 
 extra:
