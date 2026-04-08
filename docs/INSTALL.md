@@ -38,11 +38,20 @@ You can also use Git (If you have it installed) to do this with the command `git
 **Note:** Only Python 3.9 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.9, 3.10, 3.11, 3.12, 3.13) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
-Video Demo of Installing BTCRecover in Windows: <https://youtu.be/JveLyJqEgLk>
+Video Demo of Installing BTCRecover in Windows 11: <https://youtu.be/JveLyJqEgLk>
 
 Visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.12** release (Python 3.13, etc, will work, but Python 3.12 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
 
 _**When installing Python in Windows, be sure to select to "Add Python to PATH" on the first screen of the installer...**_
+
+Once installed, you can verify Python is working by opening a Command Prompt and running `python --version`.
+
+**Opening a Command Prompt in the BTCRecover folder:** After extracting BTCRecover, you need to open a Command Prompt (or Windows Terminal) in the btcrecover folder. There are a few ways to do this in Windows 10/11:
+
+* **Address Bar Method:** Open the btcrecover folder in File Explorer, click on the address bar, type `cmd`, and press Enter.
+* **Right-Click Method (Windows 11):** Right-click inside the btcrecover folder and select "Open in Terminal".
+* **Right-Click Method (Windows 10):** Hold Shift, right-click inside the btcrecover folder, and select "Open PowerShell window here" or "Open command window here".
+* **Navigate Manually:** Open a Command Prompt and use `cd` to change to the btcrecover directory, e.g., `cd C:\Users\YourUserName\Downloads\btcrecover-master`
 
 **Note for Large Multi-CPU Systems:** Windows limits the number of possible threads to 64. If your system has more logical/physical cores than this, your best bet is to run the tool in Linux. (Ubuntu is an easy place to start)
 
@@ -133,7 +142,11 @@ You will first want to install the basic packages required for BTCRecover with t
 
 `pip3 install -r requirements.txt`
 
-This will give you the functionality needed recovery of Bitcoin/Ethereum wallets (And clones of these chains)
+**Windows users:** On Windows, you will typically use `pip` rather than `pip3`. The command will be:
+
+`pip install -r requirements.txt`
+
+This will give you the functionality needed for recovery of Bitcoin/Ethereum wallets (And clones of these chains)
 
 If when run this command, you get an error message similar to **error: externally-managed-environment** then you need to add an additional argument `--break-system-packages` to the above command. (So the command will be `pip3 install -r requirements.txt --break-system-packages`) 
 
