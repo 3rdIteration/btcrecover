@@ -154,6 +154,10 @@ passwordlist_allcached = False
 passwordlist_first_line_num = 1
 passwordlist_embedded_arguments = False
 
+# Pre-built set of valid base58 byte values for fast character validation
+# Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+_base58_bytes = frozenset(b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
 searchfailedtext = "\nAll possible passwords (as specified in your tokenlist or passwordlist) have been checked and none are correct for this wallet. You could consider trying again with a different password list or expanded tokenlist..."
 
 def load_customTokenWildcard(customTokenWildcardFile):
@@ -980,20 +984,11 @@ class WalletMultiBit(object):
                 #
                 # Does it look like a base58 private key (MultiBit, MultiDoge, or oldest-format Android key backup)?
                 if b58_privkey[0] in "LK5Q".encode():  # private keys always start with L, K, or 5, or for MultiDoge Q
-                    for c in b58_privkey[1:]:
-                        # If it's outside of the base58 set [1-9A-HJ-NP-Za-km-z], break
-                        if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
-                            break
-                    # If the loop above doesn't break, it's base58-looking so far
-                    else:
+                    if all(c in _base58_bytes for c in b58_privkey[1:]):
                         # If another AES block is available, decrypt and check it as well to avoid false positives
                         if len(encrypted_block) >= 32:
                             b58_privkey = l_aes256_cbc_decrypt(key1 + key2, encrypted_block[:16], encrypted_block[16:32])
-                            for c in b58_privkey:
-                                if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
-                                    break  # not base58
-                            # If the loop above doesn't break, it's base58; we've found it
-                            else:
+                            if all(c in _base58_bytes for c in b58_privkey):
                                 if self._dump_privkeys_file:
                                     self.dump_privkeys_keybackup(key1, key2, iv)
                                 return orig_passwords[count-1], count
@@ -1063,20 +1058,11 @@ class WalletMultiBit(object):
                 #
                 # Does it look like a base58 private key (MultiBit, MultiDoge, or oldest-format Android key backup)?
                 if b58_privkey[0] in "LK5Q".encode():  # private keys always start with L, K, or 5, or for MultiDoge Q
-                    for c in b58_privkey[1:]:
-                        # If it's outside of the base58 set [1-9A-HJ-NP-Za-km-z], break
-                        if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
-                            break
-                    # If the loop above doesn't break, it's base58-looking so far
-                    else:
+                    if all(c in _base58_bytes for c in b58_privkey[1:]):
                         # If another AES block is available, decrypt and check it as well to avoid false positives
                         if len(encrypted_block) >= 32:
                             b58_privkey = l_aes256_cbc_decrypt(key1 + key2, encrypted_block[:16], encrypted_block[16:32])
-                            for c in b58_privkey:
-                                if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl":
-                                    break  # not base58
-                            # If the loop above doesn't break, it's base58; we've found it
-                            else:
+                            if all(c in _base58_bytes for c in b58_privkey):
                                 if self._dump_privkeys_file:
                                     self.dump_privkeys_keybackup(key1, key2, iv)
                                 return arg_passwords[count - 1], count
@@ -1946,10 +1932,7 @@ class WalletElectrum2(WalletElectrum):
             xprv = l_aes256_cbc_decrypt(key, iv, part_encrypted_xprv)
 
             if xprv.startswith(b"xprv") or xprv.startswith(b"zprv"):  # BIP32 extended private key version bytes
-                for c in xprv[4:]:
-                    # If it's outside of the base58 set [1-9A-HJ-NP-Za-km-z]
-                    if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl": break  # not base58
-                else:  # if the loop above doesn't break, it's base58
+                if all(c in _base58_bytes for c in xprv[4:]):
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -1982,11 +1965,8 @@ class WalletElectrumLooseKey(WalletElectrum):
             padding_len = privkey_end[-1]
             # Check for valid PKCS7 padding for a 52 or 51 byte "WIF" private key
             # (4*16-byte-blocks == 64, 64 - 52 or 51 == 12 or 13
-            if (padding_len == 12 or padding_len == 13) and privkey_end.endswith((chr(padding_len) * padding_len).encode()):
-                for c in privkey_end[:-padding_len]:
-                    # If it's outside of the base58 set [1-9A-HJ-NP-Za-km-z]
-                    if c > ord("z") or c < ord("1") or ord("9") < c < ord("A") or ord("Z") < c < ord("a") or chr(c) in "IOl": break  # not base58
-                else:  # if the loop above doesn't break, it's base58
+            if (padding_len == 12 or padding_len == 13) and privkey_end.endswith(bytes([padding_len]) * padding_len):
+                if all(c in _base58_bytes for c in privkey_end[:-padding_len]):
                     return password.decode("utf_8", "replace"), count
 
         return False, count

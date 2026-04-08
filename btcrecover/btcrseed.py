@@ -257,21 +257,13 @@ def compress_pubkey(uncompressed_pubkey):
 
 
 def load_pathlist(pathlistFile):
-    pathlist_file = open(pathlistFile, "r")
-    pathlist_lines = pathlist_file.readlines()
-    pathlist = []
-    for path in pathlist_lines:
-        if path[0] == '#' or len(path.strip()) == 0:
-            continue
-        pathlist.append(path.split("#")[0].strip())
-    pathlist_file.close()
-    return pathlist
+    with open(pathlistFile, "r") as pathlist_file:
+        return [line.split("#")[0].strip() for line in pathlist_file
+                if line.strip() and line[0] != '#']
 
 def load_passphraselist(passphraselistFile):
-    passphraselist_file = open(passphraselistFile, "r")
-    passphraselist = passphraselist_file.read().splitlines()
-    passphraselist_file.close()
-    return passphraselist
+    with open(passphraselistFile, "r") as passphraselist_file:
+        return passphraselist_file.read().splitlines()
 
 import hmac
 import hashlib
@@ -650,10 +642,7 @@ class WalletElectrum1(WalletBase):
         for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
             # In the event that a tokenlist based recovery is happening, convert the list from string sback to ints
             if (type(mnemonic_ids[0]) == str):
-                new_mnemonic_ids = []
-                for word in mnemonic_ids:
-                    new_mnemonic_ids.append(self._words.index(word))
-                mnemonic_ids = new_mnemonic_ids
+                mnemonic_ids = [self._words.index(word) for word in mnemonic_ids]
 
             # Compute the binary seed from the word list the Electrum1 way
             seed = ""
@@ -663,15 +652,11 @@ class WalletElectrum1(WalletBase):
                      + num_words2 * (   (mnemonic_ids[i + 2] - mnemonic_ids[i + 1]) % num_words ))
             #
 
+            # Convert to bytes once before the stretching loop to avoid
+            # repeated type checks across 100,000 iterations
+            seed = seed.encode()
             unstretched_seed = seed
             for i in range(100000):  # Electrum1's seed stretching
-
-                #Check the types of the seed and stretched_seed variables and force back to bytes (Allows most code to stay as-is for Py3)
-                if type(seed) is str:
-                    seed = seed.encode()
-                if type(unstretched_seed) is str:
-                    unstretched_seed = unstretched_seed.encode()
-
                 seed = l_sha256(seed + unstretched_seed).digest()
 
             # If a master public key was provided, check the pubkey derived from the seed against it
@@ -688,7 +673,12 @@ class WalletElectrum1(WalletBase):
                 try: master_pubkey_bytes = coincurve.PublicKey.from_valid_secret(seed).format(compressed=False)[1:]
                 except ValueError: continue
 
-                for seq_num in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
+                # Cache instance attributes as locals for the inner loop
+                l_known_hash160s = self._known_hash160s
+                l_address_start_index = self._address_start_index
+                l_addrs_to_generate = self._addrs_to_generate
+
+                for seq_num in range(l_address_start_index, l_address_start_index + l_addrs_to_generate):
                     # Compute the next deterministic private/public key pair the Electrum1 way.
                     # FYI we derive a privkey first, and then a pubkey from that because it's
                     # likely faster than deriving a pubkey directly from the base point and
@@ -704,7 +694,7 @@ class WalletElectrum1(WalletBase):
 
                     # Compute the hash160 of the *uncompressed* public key, and check for a match
 
-                    if ripemd160(l_sha256(d_pubkey).digest()) in self._known_hash160s:
+                    if ripemd160(l_sha256(d_pubkey).digest()) in l_known_hash160s:
                         return mnemonic_ids, count  # found it
 
         return False, count
@@ -936,18 +926,15 @@ class BlockChainPassword(WalletBase):
     
     @staticmethod
     def words_to_bytes(words):
-        byte_array = []
-        for word in words:
-            byte_array.extend(word.to_bytes(4, byteorder='big', signed=False))
+        byte_array = bytearray(len(words) * 4)
+        for i, word in enumerate(words):
+            byte_array[i*4:(i+1)*4] = word.to_bytes(4, byteorder='big', signed=False)
         return byte_array
     
     @staticmethod
     def bytes_to_words(byte_array):
-        words = []
-        for i in range(0, len(byte_array), 4):
-            word = int.from_bytes(byte_array[i:i+4], byteorder='big', signed=False)
-            words.append(word)
-        return words
+        return [int.from_bytes(byte_array[i:i+4], byteorder='big', signed=False)
+                for i in range(0, len(byte_array), 4)]
 
     @staticmethod
     def bytes_to_string(byte_array):
@@ -1619,6 +1606,12 @@ class WalletBIP32(WalletBase):
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a mnemonic
     # is correct return it, else return False for item 0; return a count of mnemonics checked for item 1
     def _return_verified_password_or_false_cpu(self, mnemonic_ids_list):
+        # Cache the hmac key and type check outside the loop
+        l_hmac_new = hmac.new
+        l_hashlib_sha512 = hashlib.sha512
+        bitcoin_seed_key = b"Bitcoin seed"
+        is_xlm = type(self) is WalletXLM
+
         for count, mnemonic_ids in enumerate(mnemonic_ids_list, 1):
 
             if self.pre_start_benchmark or (not self._checksum_in_generator and not self._skip_worker_checksum):
@@ -1635,8 +1628,8 @@ class WalletBIP32(WalletBase):
             _derive_seed_list = self._derive_seed(mnemonic_ids)
 
             for derived_seed, salt in _derive_seed_list:
-                if type(self) is not WalletXLM:
-                    seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed, hashlib.sha512).digest()
+                if not is_xlm:
+                    seed_bytes = l_hmac_new(bitcoin_seed_key, derived_seed, l_hashlib_sha512).digest()
                 else:
                     seed_bytes = derived_seed
 
@@ -1647,26 +1640,29 @@ class WalletBIP32(WalletBase):
 
     def _return_verified_password_or_false_opencl(self, mnemonic_ids_list):
         cleaned_mnemonic_ids_list = []
+        is_electrum2 = type(self) is WalletElectrum2
+        is_xlm = type(self) is WalletXLM
+        l_hmac_new = hmac.new
+        l_hashlib_sha512 = hashlib.sha512
+        bitcoin_seed_key = b"Bitcoin seed"
 
         for mnemonic in mnemonic_ids_list:
             if not self._checksum_in_generator and not self._skip_worker_checksum:
                 if self._verify_checksum(mnemonic):
-                    if (type(self) is WalletElectrum2):
+                    if is_electrum2:
                         cleaned_mnemonic_ids_list.append(self._space.join(mnemonic).encode())
                     else:
                         cleaned_mnemonic_ids_list.append(" ".join(mnemonic).encode())
 
             else:
-                if type(self) is WalletElectrum2:
+                if is_electrum2:
                     cleaned_mnemonic_ids_list.append(self._space.join(mnemonic).encode())
                 else:
                     cleaned_mnemonic_ids_list.append(" ".join(mnemonic).encode())
 
+        salt_prefix = b"electrum" if is_electrum2 else b"mnemonic"
         for i, salt in enumerate(self._derivation_salts,0):
-            if type(self) is WalletElectrum2:
-                salt = b"electrum" + salt
-            else:
-                salt = b"mnemonic" + salt
+            salt = salt_prefix + salt
 
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512[i], cleaned_mnemonic_ids_list,
                                                       salt, 2048, 64)
@@ -1674,8 +1670,8 @@ class WalletBIP32(WalletBase):
             results = zip(cleaned_mnemonic_ids_list,clResult)
 
             for cleaned_mnemonic, derived_seed in results:
-                if type(self) is not WalletXLM:
-                    seed_bytes = hmac.new("Bitcoin seed".encode('utf-8'), derived_seed, hashlib.sha512).digest()
+                if not is_xlm:
+                    seed_bytes = l_hmac_new(bitcoin_seed_key, derived_seed, l_hashlib_sha512).digest()
                 else:
                     seed_bytes = derived_seed
 
