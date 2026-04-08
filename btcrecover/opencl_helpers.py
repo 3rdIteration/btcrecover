@@ -45,6 +45,9 @@ def auto_select_opencl_platform(loaded_wallet):
             elif "amd" in device.vendor.lower():  # sometimes an IGP: good
                 cur_score += 1
             elif "intel" in device.vendor.lower():  # Intel discrete GPUs (e.g. Arc) or IGPs
+                # Intel IGPs (e.g. HD Graphics, UHD Graphics, Iris) are typically too weak
+                # for meaningful GPU acceleration and score 0.  Intel Arc discrete GPUs
+                # are comparable to AMD discrete GPUs and score +1.
                 if "arc" in device.name.lower():  # discrete GPU: good
                     cur_score += 1
             if cur_score >= best_score_sofar:
