@@ -50,9 +50,27 @@
     #define hashBlockSize_long64 hashBlockSize
     #define hashDigestSize_long64 hashDigestSize
     #define word unsigned long
-    #define rotl64(a,n) (rotate ((a), (n)))
-    #define rotr64(a,n) (rotate ((a), (64ul-n)))
 
+    // Apple Silicon GPUs (Metal-based OpenCL) have a known bug where the
+    // rotate() built-in produces incorrect results for 64-bit types.
+    // Use portable shift-based implementations when APPLE_GPU is defined.
+    #ifdef APPLE_GPU
+        #define rotl64(a,n) (((a) << (n)) | ((a) >> (64ul - (n))))
+        #define rotr64(a,n) (((a) >> (n)) | ((a) << (64ul - (n))))
+    #else
+        #define rotl64(a,n) (rotate ((a), (n)))
+        #define rotr64(a,n) (rotate ((a), (64ul-n)))
+    #endif
+
+    #ifdef APPLE_GPU
+    unsigned long SWAP (const unsigned long val)
+    {
+        return (((val)             << 56)   | (((val) & 0xff00UL)     << 40) |
+                (((val) & 0xff0000UL) << 24)   | (((val) & 0xff000000UL) << 8)  |
+                (((val) >> 8)  & 0xff000000UL) | (((val) >> 24) & 0xff0000UL)   |
+                (((val) >> 40) & 0xff00UL)     | ((val)  >> 56));
+    }
+    #else
     unsigned long SWAP (const unsigned long val)
     {
         // ab cd ef gh -> gh ef cd ab using the 32 bit trick
@@ -62,6 +80,7 @@
         // gh ef cd ab -> hg fe dc ba
         return (rotr64(tmp & 0xFF00FF00FF00FF00UL, 8UL) | rotl64(tmp & 0x00FF00FF00FF00FFUL, 8UL));
     }
+    #endif
 #endif
 
 

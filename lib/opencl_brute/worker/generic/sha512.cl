@@ -12,11 +12,19 @@
 
 // bitselect is "if c then b else a" for each bit
 // so equivalent to (c & b) | ((~c) & a)
+// Apple Silicon GPUs have a known bug where bitselect() produces
+// incorrect results for 64-bit types.  Use portable equivalents.
+#ifdef APPLE_GPU
+#define choose(x,y,z)   ((x & y) ^ (~x & z))
+#define bit_maj(x,y,z)  ((x & y) | (z & (x | y)))
+#else
 #define choose(x,y,z)   (bitselect(z,y,x))
 // Cleverly determines majority vote, conditioning on x=z
 #define bit_maj(x,y,z)   (bitselect (x, y, ((x) ^ (z))))
+#endif
 
-// Hopefully rotate works for long too?
+// On Apple Silicon, rotate() for 64-bit types is broken;
+// rotr64/rotl64 are already handled in buffer_structs_template.cl
 
 
 
