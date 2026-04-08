@@ -18,7 +18,7 @@ These steps are also covered in Videos below for each supported Operating System
 
 **Video Tutorials**
 
-Windows: <https://youtu.be/8q65eqpf4gE>
+Windows: <https://youtu.be/JveLyJqEgLk>
 
 Ubuntu Linux: <https://youtu.be/Met3NbxcZTU>
 
@@ -38,11 +38,9 @@ You can also use Git (If you have it installed) to do this with the command `git
 **Note:** Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
-Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
+Video Demo of Installing BTCRecover in Windows: <https://youtu.be/JveLyJqEgLk>
 
-Visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.12** release (Python 3.13, etc, will work, but Python 3.12 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
-
-_**When installing Python in Windows, be sure to select to "Add Python to PATH" on the first screen of the installer...**_
+Install Python via the Windows Store.
 
 **Note for Large Multi-CPU Systems:** Windows limits the number of possible threads to 64. If your system has more logical/physical cores than this, your best bet is to run the tool in Linux. (Ubuntu is an easy place to start)
 
@@ -123,13 +121,17 @@ _Be sure to follow the instructions and add brew to your path..._
    
 The Install command is:
 
-    brew install autoconf automake libffi libtool pkg-config python python-tk
+    brew install autoconf automake libffi libtool pkg-config python python-tk swig gsed
 
-**Once you have installed Python via Brew, you will need to run both Python and PIP with commands that include the full version numnber. (eg: python3.12 and pip3.12)**
+You will also need to export the python path for some of the modules in requirements-full.txt
+
+    export PYTHON=/opt/homebrew/bin/python3
 
 3) Install Rust (Optional, but needed for requirements-full modules)
 
-   curl https://sh.rustup.rs -sSf | sh
+The Install command is:
+
+    curl https://sh.rustup.rs -sSf | sh
 
 ## 3) Install requirements via Python Pip ##
 
