@@ -40,7 +40,11 @@ You can also use Git (If you have it installed) to do this with the command `git
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows 11: <https://youtu.be/JveLyJqEgLk>
 
-Visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.12** release (Python 3.13, etc, will work, but Python 3.12 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
+**Note about Windows S-Mode:** If your Windows installation is in S-Mode, you will need to switch out of it before you can install BTCRecover and its dependencies. S-Mode restricts app installations to the Microsoft Store and blocks the Command Prompt. You can switch out of S-Mode for free via the Microsoft Store — search for "Switch out of S mode" in the Store and follow the prompts.
+
+**Installing Python:** The simplest way to install Python on Windows is via the Microsoft Store — just search for "Python 3.12" in the Microsoft Store and click Install. This automatically adds Python to your PATH.
+
+Alternatively, you can visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.12** release (Python 3.13, etc, will work, but Python 3.12 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
 
 _**When installing Python in Windows, be sure to select to "Add Python to PATH" on the first screen of the installer...**_
 
@@ -154,12 +158,27 @@ Note: If you use Python for other things beyond BTCRecover, then the `--break-sy
 
 If you are running Python 3.13 and get a build error you may also need to set the following environment variable.
 
-   export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+On Linux/macOS:
+
+    export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
+On Windows:
+
+    set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
 
 `pip3 install -r requirements-full.txt`
+
+**Windows users:** Some packages in the full requirements need to be compiled from source, which requires additional build tools. If you encounter build errors, you may need to install one or both of the following:
+
+* **Microsoft Visual C++ Build Tools:** Some Python packages require the Microsoft Visual C++ 14.0 (or greater) build tools. You can download and install them from <https://visualstudio.microsoft.com/visual-cpp-build-tools/>. During installation, select the "Desktop development with C++" workload.
+* **Rust:** Some Python packages require Rust to compile. You can install Rust from <https://rustup.rs/>. After installation, restart your Command Prompt so the `cargo` command is available.
+
+If you are running Python 3.13 and get a build error relating to pyo3, you may also need to set the following environment variable before running pip:
+
+    set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 ### Installing individual packages
 If you are an advanced user, you may choose to install only those additional packages that are required for the specific recovery you are attempting. More information about which wallets require which packages is at the bottom of this guide.*
