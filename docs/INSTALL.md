@@ -91,7 +91,7 @@ If you want to install the full requirements (requirements-full.txt), some packa
 
     export ANDROID_API_LEVEL=24
     pip install maturin --no-binary maturin
-    pip install py-sr25519-bindings==0.2.2 --no-build-isolation
+    pip install py-sr25519-bindings==0.2.3 --no-build-isolation
     pip install -r requirements-full.txt
 
 #### Enabling Native RIPEMD160 Support
@@ -145,10 +145,6 @@ This will give you the functionality needed recovery of Bitcoin/Ethereum wallets
 If when run this command, you get an error message similar to **error: externally-managed-environment** then you need to add an additional argument `--break-system-packages` to the above command. (So the command will be `pip3 install -r requirements.txt --break-system-packages`) 
 
 Note: If you use Python for other things beyond BTCRecover, then the `--break-system-packages` could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.
-
-If you are running Python 3.13 and get a build error you may also need to set the following environment variable.
-
-   export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
