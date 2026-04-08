@@ -18,7 +18,7 @@ These steps are also covered in Videos below for each supported Operating System
 
 **Video Tutorials**
 
-Windows: <https://youtu.be/8q65eqpf4gE>
+Windows: <https://youtu.be/JveLyJqEgLk>
 
 Ubuntu Linux: <https://youtu.be/Met3NbxcZTU>
 
@@ -38,7 +38,7 @@ You can also use Git (If you have it installed) to do this with the command `git
 **Note:** Only Python 3.9 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.9, 3.10, 3.11, 3.12, 3.13) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
-Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
+Video Demo of Installing BTCRecover in Windows: <https://youtu.be/JveLyJqEgLk>
 
 Visit the Python download page here: <https://www.python.org/downloads/windows/>, and click the link for the latest **Python 3.12** release (Python 3.13, etc, will work, but Python 3.12 has simpler installation of required modules) release near the top of the page under the heading *Python Releases for Windows*. Download and run either the `Windows x86 MSI installer` for the 32-bit version of Python, or the `Windows x86-64 MSI installer` for the 64-bit one. Modern PCs should use the 64-bit version, however if you're unsure which one is compatible with your PC, choose the 32-bit one.
 
