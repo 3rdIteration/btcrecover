@@ -11,7 +11,13 @@
     - Encrypted block: 16 bytes, passed as __global uchar*
 */
 
+// cl_khr_byte_addressable_store is a core feature since OpenCL 1.1.
+// Enabling the pragma on platforms that already support it natively
+// (such as Apple Silicon's Metal-based OpenCL) can cause warnings
+// or compilation failures.
+#ifndef APPLE_GPU
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
+#endif
 
 __kernel void multibit_md5_main(__global inbuf* inbuffer,
                                 __global saltbuf* saltbuffer,

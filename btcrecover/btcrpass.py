@@ -675,8 +675,17 @@ class WalletBitcoinCore(object):
         cl_context = pyopencl.Context(devices)
         #
         # Load and compile the OpenCL program
+        # Detect Apple Silicon GPU and pass appropriate build flags.
+        # Apple's Metal-based OpenCL translation layer has bugs with 64-bit
+        # rotate() and bitselect() built-ins, so the kernel must use
+        # portable shift-based fallbacks.
+        build_options = "-w"
+        for device in devices:
+            if "apple" in device.vendor.lower():
+                build_options += " -DAPPLE_GPU"
+                break
         kernel_file = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "opencl","sha512-bc-kernel.cl"), encoding="ascii", errors="ignore")
-        cl_program = pyopencl.Program(cl_context, kernel_file.read()).build("-w")
+        cl_program = pyopencl.Program(cl_context, kernel_file.read()).build(build_options)
         kernel_file.close()
 
         #
