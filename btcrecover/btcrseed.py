@@ -2855,7 +2855,7 @@ class WalletHederaEd25519(WalletBIP39):
         self._inferred_address_start_index = inferred_index
         self._hedera_deterministic_addr_hexes = deterministic_addr_hexes
         self._hedera_deterministic_account_strings = deterministic_account_strings
-        self._hedera_require_key_bound_match = not key_bound_target_present
+        self._hedera_require_key_bound_match = key_bound_target_present
         return hash160s
 
     @classmethod

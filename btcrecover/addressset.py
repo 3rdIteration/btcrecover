@@ -307,9 +307,7 @@ class AddressSet(object):
             os.close(dup_fileno)
         if mmap_access == mmap.ACCESS_WRITE:
             dbfile.seek(header_pos)  # prepare for writing an updated header in close()
-        else:
-            if close_original:
-                dbfile.close()
+            self._header_pos = header_pos
         self._dbfile = dbfile
         #
         # Most of the time it makes sense to load the file serially instead of letting
@@ -323,12 +321,39 @@ class AddressSet(object):
 
     def close(self, flush = True):
         if self._dbfile:                 # if present, self._data is an mmap
-            if not self._dbfile.closed:  # if not closed, the mmap was opened in write/update mode
-                self._dbfile.write(self._header())  # update the header
-                self._dbfile.close()
+            if self._mmap_access == mmap.ACCESS_WRITE:
+                header_data = self._header()
+                header_pos  = getattr(self, '_header_pos', 0)
+                dbfile_name = getattr(self._dbfile, 'name', None)
                 if flush:
                     self._data.flush()
-            self._data.close()
+                self._data.close()
+                # Write the updated header to disk after closing the mmap.
+                # On some platforms (Windows + Python 3.14), the original
+                # file handle is invalidated by mmap.close(), so fall back
+                # to reopening the file by name.
+                header_written = False
+                try:
+                    self._dbfile.seek(header_pos)
+                    self._dbfile.write(header_data)
+                    self._dbfile.flush()
+                    header_written = True
+                except (OSError, ValueError):
+                    pass
+                if not header_written and dbfile_name:
+                    try:
+                        with open(dbfile_name, "r+b") as f:
+                            f.seek(header_pos)
+                            f.write(header_data)
+                    except (OSError, ValueError):
+                        pass
+            else:
+                self._data.close()
+            try:
+                if not self._dbfile.closed:
+                    self._dbfile.close()
+            except OSError:
+                pass
             self._dbfile = None
         elif isinstance(self._data, bytearray) and self._data:
             self._data = bytearray()

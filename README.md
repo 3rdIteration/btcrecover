@@ -127,7 +127,7 @@ If you need help, [your best bet is to look at my BTCRecover playlist on YouTube
  * “Offline” mode for nearly all supported wallets - use one of the [extract scripts (click for more information)](docs/Extract_Scripts.md) to extract just enough information to attempt password recovery, without giving *btcrecover* or whoever runs it access to *any* of the addresses or private keys in your Bitcoin wallet.
 
 ## Setup and Usage Tutorials ##
-BTCRecover is a Python (3.9, 3.10, 3.11, 3.12 and 3.13) script so will run on Windows, Linux, Mac and even Android environments. [See the installation guide for more info](docs/INSTALL.md)
+BTCRecover is a Python (3.10, 3.11, 3.12, 3.13 and 3.14) script so will run on Windows, Linux, Mac and even Android environments. [See the installation guide for more info](docs/INSTALL.md)
 
 [I have created a growing playlist](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) that covers a number of usage examples for using this tool to recover seed phrases, BIP39 passphrases, etc.
 
