@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -20,7 +22,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install --require-hashes -r docs/requirements.txt
       - name: Build documentation
-        env:
-          MKDOCS_GIT_COMMITTERS_APIKEY: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdocs build --strict

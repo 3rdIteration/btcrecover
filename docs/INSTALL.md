@@ -35,7 +35,7 @@ You can also use Git (If you have it installed) to do this with the command `git
 
 ## 2) Install Python ##
 
-**Note:** Only Python 3.9 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.9, 3.10, 3.11, 3.12, 3.13) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
+**Note:** Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/8q65eqpf4gE>
@@ -91,7 +91,7 @@ If you want to install the full requirements (requirements-full.txt), some packa
 
     export ANDROID_API_LEVEL=24
     pip install maturin --no-binary maturin
-    pip install py-sr25519-bindings==0.2.2 --no-build-isolation
+    pip install py-sr25519-bindings==0.2.3 --no-build-isolation
     pip install -r requirements-full.txt
 
 #### Enabling Native RIPEMD160 Support
@@ -145,10 +145,6 @@ This will give you the functionality needed recovery of Bitcoin/Ethereum wallets
 If when run this command, you get an error message similar to **error: externally-managed-environment** then you need to add an additional argument `--break-system-packages` to the above command. (So the command will be `pip3 install -r requirements.txt --break-system-packages`) 
 
 Note: If you use Python for other things beyond BTCRecover, then the `--break-system-packages` could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.
-
-If you are running Python 3.13 and get a build error you may also need to set the following environment variable.
-
-   export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
@@ -254,4 +250,4 @@ This module also requires the `py_ecc` module which can be installed with the co
 
 [More information can be found at its repository](https://github.com/ethereum/staking-deposit-cli/)
 
-Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.9)
+Note: Some dependencies for this module won't always build if you are running the latest version of Python, if you run into build errors, you should try the previous major Python Versions until you find one that works on your system (eg: Something like 3.10)
