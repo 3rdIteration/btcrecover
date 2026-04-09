@@ -117,12 +117,7 @@ The Install command is:
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-Then after that has completed, follow the "next steps" and run:
-
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-
-then finally:
+**Then after that has completed, follow the "next steps" instructions too.**
 
     source ~/.zshrc
    
@@ -141,6 +136,8 @@ You will also need to export the python path for some of the modules in requirem
 The Install command is:
 
     curl https://sh.rustup.rs -sSf | sh
+
+**If you install rust, close the current terminal window and open a new one before continuing with the process.**
 
 ## 3) Install requirements via Python Pip ##
 
