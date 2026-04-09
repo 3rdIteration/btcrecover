@@ -127,10 +127,6 @@ The Install command is:
 
     brew install autoconf automake libffi libtool pkg-config python python-tk swig gsed
 
-You will also need to export the python path for some of the modules in requirements-full.txt
-
-    export PYTHON=/opt/homebrew/bin/python3
-
 3) Install Rust (Optional, but needed for requirements-full modules)
 
 The Install command is:
@@ -158,6 +154,10 @@ Note: If you use Python for other things beyond BTCRecover, then the `--break-sy
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
 
 `pip3 install -r requirements-full.txt`
+
+Note, if you are on MacOS, if this installation fails, you will also need to export the python path.
+
+    export PYTHON=/opt/homebrew/bin/python3
 
 ### Installing individual packages
 If you are an advanced user, you may choose to install only those additional packages that are required for the specific recovery you are attempting. More information about which wallets require which packages is at the bottom of this guide.*
