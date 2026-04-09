@@ -109,15 +109,24 @@ For more information, see the relevant issue on the OpenSSL Github repository: <
 
 Video Demo of Installing BTCRecover in MacOS: <https://youtu.be/Qzc3oHzbcAo>
 
+MacOS doesn't ship with Python3 and if you run Python3 on a stock install, will install the dev tools and a very old version of Python3... Rather than use that, we will use a current version of Python installed via Brew.
+
 1) [Install brew via instructions at brew.sh](https://brew.sh)
    
 The Install command is:  
 
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-_Be sure to follow the instructions and add brew to your path..._
+Then after that has completed, follow the "next steps" and run:
+
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+
+then finally:
+
+    source ~/.zshrc
    
-2) [Install coincurve build requirements](https://ofek.dev/coincurve/install/) 
+2) [Install Coincurve and Wallycore build requirements](https://ofek.dev/coincurve/install/) 
    
 The Install command is:
 
