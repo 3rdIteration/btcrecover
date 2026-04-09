@@ -36,8 +36,6 @@ GPU/OpenCL acceleration depends on your having a working install of PyOpenCL for
 
 In order to use this feature, you must have a card and drivers which support OpenCL (most AMD and NVIDIA cards and drivers already support OpenCL on Windows), and you must install the required Python libraries as described below. 
 
-GPU acceleration should also work on MacOS, however instructions for installing the required Python libraries are not currently included in this tutorial.
-
 ## PyOpenCL Installation for Windows or MacOS
 As of June 2023, PyOpenCL can now be simply installed via PIP and will work fine as long as you have the required GPU drivers installed on your system.
 
