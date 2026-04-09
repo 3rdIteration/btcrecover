@@ -844,6 +844,32 @@ class Test05CommandLine(GeneratorTester):
         self.do_generator_test(["exc1 exc2 inc exc1 exc2"], ["inc"], "--exclude-passwordlist __funccall --no-eta -dd",
                                exclude_passwordlist=StringIO(tstr("exc1\nexc2")))
 
+    # Test that DuplicateChecker automatically disables tracking on MemoryError
+    def test_dupchecker_auto_disable_on_oom(self):
+        dc = btcrpass.DuplicateChecker()
+        # First time seeing "a" - not a duplicate
+        self.assertFalse(dc.is_duplicate("a"))
+        # Second time seeing "a" - it IS a duplicate
+        self.assertTrue(dc.is_duplicate("a"))
+        self.assertTrue(dc._tracking)
+
+        # Simulate MemoryError by replacing _seen_once with a dict that raises on __setitem__
+        class OOMDict(dict):
+            def __setitem__(self, key, value):
+                raise MemoryError("simulated OOM")
+        dc._seen_once = OOMDict(dc._seen_once)
+
+        # Adding a new item should trigger the MemoryError handler, not crash
+        self.assertFalse(dc.is_duplicate("new_item"))
+        # Tracking should now be disabled
+        self.assertFalse(dc._tracking)
+        # Both dicts should be cleared
+        self.assertEqual(len(dc._duplicates), 0)
+
+        # Subsequent calls should work fine (always return False for new items)
+        self.assertFalse(dc.is_duplicate("another_item"))
+        self.assertFalse(dc.is_duplicate("yet_another"))
+
 
 SAVESLOT_SIZE = 4096
 class Test06AutosaveRestore(unittest.TestCase):

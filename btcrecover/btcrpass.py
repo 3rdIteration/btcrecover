@@ -7830,11 +7830,17 @@ class DuplicateChecker(object):
             if x in self._duplicates:  # If it's the third+ time we've seen it (or 2nd+ & excluded):
                 return True
             if x in self._seen_once:   # If it's the second time we've seen it, or it's excluded:
-                self._duplicates[x] = self._seen_once.pop(x)  # move it to list of known duplicates
+                try:
+                    self._duplicates[x] = self._seen_once.pop(x)  # move it to list of known duplicates
+                except MemoryError:
+                    self._handle_oom()
                 return True
             # Otherwise it's the first time we've seen it
             if self._tracking:
-                self._seen_once[x] = 1
+                try:
+                    self._seen_once[x] = 1
+                except MemoryError:
+                    self._handle_oom()
             return False
 
         # The duplicates cache is available for lookup on second+ runs
@@ -7855,6 +7861,19 @@ class DuplicateChecker(object):
     # is_duplicate() will still return True for duplicates and exclusions seen/added so far
     def disable_duplicate_tracking(self):
         self._tracking = False
+
+    # Called when a MemoryError occurs during duplicate tracking to automatically free
+    # memory and disable further tracking, allowing the search to continue
+    def _handle_oom(self):
+        if hasattr(self, '_seen_once'):
+            self._seen_once.clear()
+        self._duplicates.clear()
+        gc.collect()
+        self._tracking = False
+        print("\nWarning: out of memory, duplicate checking has been automatically disabled to free memory and allow the search to continue...",
+              file=sys.stderr)
+        print("Notice: you can use the --no-dupchecks option from the start to avoid this in the future",
+              file=sys.stderr)
 
     # Must be called before the same list of items is revisited
     def run_finished(self):
