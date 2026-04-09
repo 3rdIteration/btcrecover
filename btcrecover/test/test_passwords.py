@@ -864,6 +864,7 @@ class Test05CommandLine(GeneratorTester):
         # Tracking should now be disabled
         self.assertFalse(dc._tracking)
         # Both dicts should be cleared
+        self.assertEqual(len(dc._seen_once), 0)
         self.assertEqual(len(dc._duplicates), 0)
 
         # Subsequent calls should work fine (always return False for new items)

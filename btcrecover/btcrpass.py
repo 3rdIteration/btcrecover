@@ -7865,8 +7865,7 @@ class DuplicateChecker(object):
     # Called when a MemoryError occurs during duplicate tracking to automatically free
     # memory and disable further tracking, allowing the search to continue
     def _handle_oom(self):
-        if hasattr(self, '_seen_once'):
-            self._seen_once.clear()
+        self._seen_once.clear()
         self._duplicates.clear()
         gc.collect()
         self._tracking = False
