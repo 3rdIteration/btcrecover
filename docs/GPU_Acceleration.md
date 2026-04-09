@@ -38,10 +38,10 @@ In order to use this feature, you must have a card and drivers which support Ope
 
 GPU acceleration should also work on MacOS, however instructions for installing the required Python libraries are not currently included in this tutorial.
 
-## PyOpenCL Installation for Windows
+## PyOpenCL Installation for Windows or MacOS
 As of June 2023, PyOpenCL can now be simply installed via PIP and will work fine as long as you have the required GPU drivers installed on your system.
 
- 1. Install the driver package for your GPU... Nothing else will work without this... 
+ 1. Install the driver package for your GPU... Nothing else will work without this... (MacOS already ships with drivers installed)
  2. Open a command prompt window, and type this to install PyOpenCL and its dependencies: 
 
         pip3 install pyopencl
