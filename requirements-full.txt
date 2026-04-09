@@ -1,7 +1,5 @@
 bip-utils==2.9.3
 bitcoin-utils==0.5.9
-bitstring==3.1.9
-click==8.2.1
 coincurve==19.0.1
 cryptography==45.0.5
 ecdsa==0.17.0
@@ -14,7 +12,6 @@ py_ecc==6.0.0
 pycryptodome==3.19.1
 pylibscrypt==2.0.0
 pynacl==1.5.0
-requests==2.32.3
 shamir-mnemonic[cli]==0.3.0
 https://github.com/ethereum/staking-deposit-cli/archive/refs/tags/v2.5.0.tar.gz#egg=staking-deposit
 https://github.com/3rdIteration/sjcl/archive/3e06cc6240b5bd75f640c126d638b0aabbc626a3.tar.gz#egg=sjcl
