@@ -901,7 +901,7 @@ class WalletMultiBit(object):
             # Attempt to dump the menemonic from the wallet (standard BitcoinJ file)
             pbdata = wallet_data[:-pad_len]
             pb_wallet = bitcoinj_pb2.Wallet()
-            pb_wallet.ParseFromString(pbdata)
+            pb_wallet.ParseFromString(bytes(pbdata))
             mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet)
             logfile.write("Android Wallet Mnemonic: '" + mnemonic.decode() + "' derivation path: m/0'")
 
@@ -1206,7 +1206,7 @@ class WalletBitcoinj(object):
                   "... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         pb_wallet = bitcoinj_pb2.Wallet()
-        pb_wallet.ParseFromString(filedata)
+        pb_wallet.ParseFromString(bytes(filedata))
 
         if pb_wallet.encryption_type == bitcoinj_pb2.Wallet.UNENCRYPTED:
             print("\nWallet Not Encrypted, Contains the following Private Keys")
@@ -1255,7 +1255,7 @@ class WalletBitcoinj(object):
     def dump_privkeys(self, derived_key):
         from . import bitcoinj_pb2
         pb_wallet = bitcoinj_pb2.Wallet()
-        pb_wallet.ParseFromString(self.pb_wallet_filedata)
+        pb_wallet.ParseFromString(bytes(self.pb_wallet_filedata))
         
         from lib.cashaddress import base58
         with open(self._dump_privkeys_file, 'a') as logfile:
@@ -1343,7 +1343,7 @@ class WalletCoinomi(WalletBitcoinj):
                 try:
                     wallet_file.seek(0)
                     pb_wallet = coinomi_pb2.Wallet()
-                    pb_wallet.ParseFromString(wallet_file.read())
+                    pb_wallet.ParseFromString(bytes(wallet_file.read()))
                     pockets = pb_wallet.pockets  # Pockets is a fairly unique coinomi key... #This will certainly fail on non-coinomi protobuf wallets in Python 3.9+
                     return True
                 except:
@@ -1360,7 +1360,7 @@ class WalletCoinomi(WalletBitcoinj):
                 "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         pb_wallet = coinomi_pb2.Wallet()
-        pb_wallet.ParseFromString(filedata)
+        pb_wallet.ParseFromString(bytes(filedata))
         if pb_wallet.encryption_type == coinomi_pb2.Wallet.UNENCRYPTED:
             raise ValueError("Coinomi wallet is not encrypted")
         if pb_wallet.encryption_type != coinomi_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
@@ -1447,7 +1447,7 @@ class WalletMultiBitHD(WalletBitcoinj):
 
             from . import bitcoinj_pb2
             pb_wallet = bitcoinj_pb2.Wallet()
-            pb_wallet.ParseFromString(decrypted_data[:-padding_len])
+            pb_wallet.ParseFromString(bytes(decrypted_data[:-padding_len]))
             mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet, password)
             logfile.write("BIP39 Seed: " + mnemonic)
 

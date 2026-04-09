@@ -6,7 +6,7 @@ ecdsa==0.19.2
 eth-hash==0.8.0
 eth-keyfile==0.9.1
 groestlcoin-hash==1.0.3
-protobuf==3.20.3
+protobuf==4.25.8
 py_crypto_hd_wallet==1.3.3
 py_ecc==8.0.0
 pycryptodome==3.23.0
