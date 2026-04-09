@@ -4,7 +4,7 @@ coincurve==19.0.1
 cryptography==45.0.5
 ecdsa==0.17.0
 eth-hash==0.7.1
-eth-keyfile==0.6.1
+eth-keyfile==0.9.1
 groestlcoin-hash==1.0.3
 protobuf==3.19.6
 py_crypto_hd_wallet==1.3.3
