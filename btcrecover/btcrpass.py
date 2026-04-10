@@ -9628,11 +9628,17 @@ def main():
     # (the initial counting process can be memory intensive)
     gc.collect()
 
-    worker_out_queue = multiprocessing.Queue()
+    # Try to create a multiprocessing Queue for inter-process communication.
+    # On platforms where _multiprocessing is unavailable (e.g. Termux), fall back to None
+    # and operate in single-threaded mode only.
+    try:
+        worker_out_queue = multiprocessing.Queue()
+    except ImportError:
+        worker_out_queue = None
 
     # Create an iterator which actually checks the (remaining) passwords produced by the password_iterator
     # by executing the return_verified_password_or_false worker function in possibly multiple threads
-    if spawned_threads == 0:
+    if spawned_threads == 0 or worker_out_queue is None:
         pool = None
         if loaded_wallet.opencl_algo == 0:
             btcrecover.opencl_helpers.init_opencl_contexts(loaded_wallet)
@@ -9648,7 +9654,7 @@ def main():
 
     # If we are writing out the checksummed seed files, spawn a process that will handle taking the seeds produced by the workers and writing them out to a file
     try:
-        if loaded_wallet._savevalidseeds:
+        if loaded_wallet._savevalidseeds and worker_out_queue is not None:
             write_checked_seeds_worker = multiprocessing.Process(target = write_checked_seeds, args = (worker_out_queue,loaded_wallet))
             write_checked_seeds_worker.start()
     except AttributeError: # Not all loaded wallets will have this attribute
@@ -9744,7 +9750,8 @@ def main():
         do_autosave(args.skip + passwords_tried)
         autosave_file.close()
 
-    worker_out_queue.close()
+    if worker_out_queue is not None:
+        worker_out_queue.close()
 
     global searchfailedtext
     return (password_found, searchfailedtext if password_found is False else None)
