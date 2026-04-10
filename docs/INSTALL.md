@@ -22,7 +22,7 @@ Windows: <https://youtu.be/JveLyJqEgLk>
 
 Ubuntu Linux: <https://youtu.be/Met3NbxcZTU>
 
-MacOS: <https://youtu.be/Qzc3oHzbcAo>
+MacOS: <https://youtu.be/PMxkf4VYnkk>
 
 Android via Termux: <https://youtu.be/QrCWigmJFjA>
 
@@ -107,7 +107,7 @@ For more information, see the relevant issue on the OpenSSL Github repository: <
 
 ### MacOS ###
 
-Video Demo of Installing BTCRecover in MacOS: <https://youtu.be/Qzc3oHzbcAo>
+Video Demo of Installing BTCRecover in MacOS: <https://youtu.be/PMxkf4VYnkk>
 
 MacOS doesn't ship with Python3 and if you run Python3 on a stock install, will install the dev tools and a very old version of Python3... Rather than use that, we will use a current version of Python installed via Brew.
 
