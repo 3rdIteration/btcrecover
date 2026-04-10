@@ -41,7 +41,7 @@ with open(privkey_filename, "rb") as privkey_file:
             "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
     pb_wallet = coinomi_pb2.Wallet()
-    pb_wallet.ParseFromString(filedata)
+    pb_wallet.ParseFromString(bytes(filedata))
     # print(pb_wallet)
     if pb_wallet.encryption_type == coinomi_pb2.Wallet.UNENCRYPTED:
         raise ValueError("Coinomi wallet is not encrypted")
