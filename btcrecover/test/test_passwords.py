@@ -29,6 +29,14 @@ from btcrecover import btcrpass
 
 import btcrecover.opencl_helpers
 
+# Check if multiprocessing Pool/Queue are fully functional (they require the _multiprocessing
+# C extension which is unavailable on some platforms like Termux)
+try:
+    multiprocessing.Queue()
+    has_multiprocessing = True
+except ImportError:
+    has_multiprocessing = False
+
 class NonClosingBase(object):
     pass
 
@@ -1217,17 +1225,19 @@ class Test07WalletDecryption(unittest.TestCase):
                 (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
             # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-            parent_process = False
-            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, force_kdf_purepython))
-            parent_process = True
-            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-                ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-                  ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-            self.assertEqual(password_found_iterator.__next__(), (False, 2))
-            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-            self.assertRaises(StopIteration, password_found_iterator.next)
-            pool.close()
-            pool.join()
+            # (skipped on platforms like Termux where _multiprocessing is unavailable)
+            if has_multiprocessing:
+                parent_process = False
+                pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, force_kdf_purepython))
+                parent_process = True
+                password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                    ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+                      ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+                self.assertEqual(password_found_iterator.__next__(), (False, 2))
+                self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+                self.assertRaises(StopIteration, password_found_iterator.next)
+                pool.close()
+                pool.join()
 
             del wallet
             gc.collect()
@@ -1800,16 +1810,18 @@ class Test08BIP39Passwords(unittest.TestCase):
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = False
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
+        # (skipped on platforms like Termux where _multiprocessing is unavailable)
+        if has_multiprocessing:
+            wallet.opencl = False
+            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, force_purepython, False))
+            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+                  ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+            self.assertEqual(password_found_iterator.__next__(), (False, 2))
+            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+            self.assertRaises(StopIteration, password_found_iterator.next)
+            pool.close()
+            pool.join()
 
     def cardano_tester(self, *args, **kwargs):
 
@@ -1823,16 +1835,18 @@ class Test08BIP39Passwords(unittest.TestCase):
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = False
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
+        # (skipped on platforms like Termux where _multiprocessing is unavailable)
+        if has_multiprocessing:
+            wallet.opencl = False
+            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+                  ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+            self.assertEqual(password_found_iterator.__next__(), (False, 2))
+            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+            self.assertRaises(StopIteration, password_found_iterator.next)
+            pool.close()
+            pool.join()
 
     @unittest.skipUnless(can_load_staking_deposit(), "requires staking-deposit and py_ecc")
     def ethvalidator_tester(self, *args, **kwargs):
@@ -1847,17 +1861,19 @@ class Test08BIP39Passwords(unittest.TestCase):
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = False
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-                                            ((tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2")),
-                                             (tstr("btcr-wrong-password-3"), correct_pass,
-                                              tstr("btcr-wrong-password-4"))))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
+        # (skipped on platforms like Termux where _multiprocessing is unavailable)
+        if has_multiprocessing:
+            wallet.opencl = False
+            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                                                ((tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2")),
+                                                 (tstr("btcr-wrong-password-3"), correct_pass,
+                                                  tstr("btcr-wrong-password-4"))))
+            self.assertEqual(password_found_iterator.__next__(), (False, 2))
+            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+            self.assertRaises(StopIteration, password_found_iterator.next)
+            pool.close()
+            pool.join()
 
     def WalletPyCryptoHDWallet_tester(self, correct_pass = "btcr-test-password", *args, **kwargs):
 
@@ -1870,16 +1886,18 @@ class Test08BIP39Passwords(unittest.TestCase):
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = False
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
+        # (skipped on platforms like Termux where _multiprocessing is unavailable)
+        if has_multiprocessing:
+            wallet.opencl = False
+            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+                  ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+            self.assertEqual(password_found_iterator.__next__(), (False, 2))
+            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+            self.assertRaises(StopIteration, password_found_iterator.next)
+            pool.close()
+            pool.join()
 
     def WalletSLIP39_tester(self, correct_pass = "btcr-test-password", *args, **kwargs):
 
@@ -1892,16 +1910,18 @@ class Test08BIP39Passwords(unittest.TestCase):
             (tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4"))), (correct_pass, 2))
 
         # Perform the tests in a child process to ensure the wallet can be pickled and all libraries reloaded
-        wallet.opencl = False
-        pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
-        password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
-            ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
-              ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
-        self.assertEqual(password_found_iterator.__next__(), (False, 2))
-        self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
-        self.assertRaises(StopIteration, password_found_iterator.next)
-        pool.close()
-        pool.join()
+        # (skipped on platforms like Termux where _multiprocessing is unavailable)
+        if has_multiprocessing:
+            wallet.opencl = False
+            pool = multiprocessing.Pool(1, init_worker, (wallet, tstr, False, False))
+            password_found_iterator = pool.imap(btcrpass.return_verified_password_or_false,
+                ( ( tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2") ),
+                  ( tstr("btcr-wrong-password-3"), correct_pass, tstr("btcr-wrong-password-4") ) ))
+            self.assertEqual(password_found_iterator.__next__(), (False, 2))
+            self.assertEqual(password_found_iterator.__next__(), (correct_pass, 2))
+            self.assertRaises(StopIteration, password_found_iterator.next)
+            pool.close()
+            pool.join()
 
     @skipUnless(can_load_coincurve, "requires coincurve")
     def test_skip_mnemonic_checksum(self):
