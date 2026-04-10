@@ -1,6 +1,6 @@
 bip-utils==2.12.1
 bitcoin-utils==0.8.1
-coincurve==21.0.0
+coincurve==20.0.0
 cryptography==46.0.7
 ecdsa==0.19.2
 eth-hash==0.8.0
