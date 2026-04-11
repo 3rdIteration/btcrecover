@@ -38,10 +38,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install eth-keyfile==0.9.1
 
       - name: Run benchmark
         run: |
-          mkdir -p benchmark-results
+          python -c "import os; os.makedirs('benchmark-results', exist_ok=True)"
           python benchmark.py --duration 5 --comment "GitHub actions benchmark run on ${{ matrix.os }} (run ${{ github.run_id }})" --output "benchmark-results/benchmark_${{ matrix.os }}_${{ github.run_id }}.json"
 
       - name: Upload benchmark artifact
