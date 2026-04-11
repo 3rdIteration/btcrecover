@@ -175,10 +175,6 @@ def _generate_table(lines, category_data, all_results):
     header = "| Test | Mode |"
     separator = "|------|------|"
     for i in range(num_systems):
-        sys_info = all_results[i].get("system_info", {})
-        cpu = sys_info.get("cpu_model", "Unknown")
-        # Use a short label
-        short_cpu = cpu[:30] + "..." if len(cpu) > 30 else cpu
         header += f" System {i + 1} |"
         separator += "--------|"
 

@@ -122,15 +122,15 @@ def _get_physical_cores():
                 ["lscpu"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
+                cores_per_socket = None
+                sockets = None
                 for line in result.stdout.split("\n"):
                     if "Core(s) per socket" in line:
                         cores_per_socket = int(line.split(":")[1].strip())
                     if "Socket(s)" in line:
                         sockets = int(line.split(":")[1].strip())
-                try:
+                if cores_per_socket is not None and sockets is not None:
                     return cores_per_socket * sockets
-                except NameError:
-                    pass
         elif platform.system() == "Darwin":
             result = subprocess.run(
                 ["sysctl", "-n", "hw.physicalcpu"],
@@ -266,7 +266,9 @@ def run_benchmark(cmd, duration, label, cwd=None):
         output_lines = []
         search_started = False
         search_start_time = None
-        setup_deadline = time.monotonic() + 120  # generous deadline for setup
+        # Allow up to 120s for setup: some wallets (e.g. scrypt-based) have
+        # a slow pre-start benchmark phase before the search begins.
+        setup_deadline = time.monotonic() + 120
 
         import selectors
         sel = selectors.DefaultSelector()
@@ -572,9 +574,9 @@ def run_all_benchmarks(args):
 
             try:
                 cmd = bench["cmd_builder"]()
-            except TypeError:
-                # Some builders accept extra arguments
-                cmd = bench["cmd_builder"]()
+            except Exception:
+                print(f"  Skipping (failed to build command)")
+                continue
 
             # Modify command for GPU/OpenCL mode
             if mode == "gpu" and bench["category"] == "password":
