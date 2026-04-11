@@ -3,6 +3,9 @@ name: Benchmark Matrix
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   benchmark:
     name: Benchmark (${{ matrix.os }})
