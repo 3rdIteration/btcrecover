@@ -1,0 +1,5 @@
+# Benchmark results are intentionally tracked in git.
+# Users submit their results via PRs.
+# Only ignore temporary/incomplete files.
+*.tmp
+*.partial
