@@ -8,6 +8,9 @@ build:
   os: "ubuntu-24.04"
   tools:
     python: "3.13"
+  jobs:
+    pre_build:
+      - python generate_benchmark_docs.py
 
 mkdocs:
   configuration: mkdocs.yml
