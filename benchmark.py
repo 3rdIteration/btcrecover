@@ -641,6 +641,7 @@ def run_all_benchmarks(args):
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "duration_per_test_seconds": args.duration,
             "threads": threads,
+            "comment": args.comment,
             "gpu_args": gpu_args if gpu_args else None,
             "opencl_args": opencl_args if opencl_args else None,
         },
@@ -792,6 +793,7 @@ Examples:
   %(prog)s --threads 4             Use 4 worker threads
   %(prog)s --gpu --global-ws 8192  GPU benchmarks with custom work size
   %(prog)s --opencl --opencl-workgroup-size 1024  OpenCL with custom workgroup
+  %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
   %(prog)s --output results.json   Save results to a specific file
         """
     )
@@ -819,6 +821,10 @@ Examples:
     parser.add_argument(
         "--threads", type=int, default=None,
         help="Number of worker threads to use (default: number of CPU cores)"
+    )
+    parser.add_argument(
+        "--comment", type=str, default=None,
+        help="Optional free-form note to include in benchmark metadata"
     )
 
     # GPU acceleration arguments (password recovery)
@@ -864,6 +870,8 @@ Examples:
     print(f"Threads:           {args.threads if args.threads else 'auto (CPU cores)'}")
     print(f"GPU benchmarks:    {'Yes' if args.gpu else 'No'}")
     print(f"OpenCL benchmarks: {'Yes' if args.opencl else 'No'}")
+    if args.comment:
+        print(f"Comment:           {args.comment}")
     if args.gpu or args.opencl:
         if args.global_ws is not None:
             print(f"  Global work size:          {args.global_ws}")
