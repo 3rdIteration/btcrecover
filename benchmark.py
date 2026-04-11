@@ -404,6 +404,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
         # Parse the number of passwords tried
         passwords_tried = _parse_passwords_tried(output)
         pre_start_rate = _parse_pre_start_rate(output)
+        wallet_difficulty = _parse_wallet_difficulty(output)
 
         if passwords_tried and actual_search_duration > 0:
             actual_rate = passwords_tried / actual_search_duration
@@ -414,6 +415,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
                 "passwords_tried": passwords_tried,
                 "duration_seconds": round(actual_search_duration, 2),
                 "pre_start_rate": round(pre_start_rate, 2) if pre_start_rate else None,
+                "wallet_difficulty": wallet_difficulty,
                 "status": "ok",
             }
         elif pre_start_rate:
@@ -424,6 +426,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
                 "passwords_tried": None,
                 "duration_seconds": round(actual_search_duration, 2),
                 "pre_start_rate": round(pre_start_rate, 2),
+                "wallet_difficulty": wallet_difficulty,
                 "status": "pre_start_only",
             }
         else:
@@ -456,6 +459,14 @@ def _parse_pre_start_rate(output):
     match = re.search(r"Pre-start benchmark completed in [\d.]+s \(([\d.]+) passwords/s\)", output)
     if match:
         return float(match.group(1))
+    return None
+
+
+def _parse_wallet_difficulty(output):
+    """Extract wallet difficulty information from the output."""
+    match = re.search(r"Wallet difficulty:\s*(.+)", output)
+    if match:
+        return match.group(1).strip()
     return None
 
 
@@ -706,6 +717,8 @@ def run_all_benchmarks(args):
             if result:
                 result["mode"] = mode
                 result["category"] = bench["category"]
+                if not result.get("wallet_difficulty"):
+                    result["wallet_difficulty"] = "not reported"
                 results["benchmarks"].append(result)
 
     return results
@@ -770,12 +783,13 @@ def print_summary(results):
                   f"driver {dev.get('driver_version', '?')})")
     print(f"{'=' * 70}")
 
-    print(f"\n{'Test':<45} {'Mode':<8} {'Rate':<15}")
-    print(f"{'-' * 45} {'-' * 8} {'-' * 15}")
+    print(f"\n{'Test':<45} {'Mode':<8} {'Rate':<15} {'Difficulty'}")
+    print(f"{'-' * 45} {'-' * 8} {'-' * 15} {'-' * 30}")
 
     for bench in benchmarks:
         rate = bench.get("passwords_per_second", 0)
-        print(f"{bench['label']:<45} {bench.get('mode', 'cpu'):<8} {_format_rate(rate):<15}")
+        difficulty = bench.get("wallet_difficulty", "not reported")
+        print(f"{bench['label']:<45} {bench.get('mode', 'cpu'):<8} {_format_rate(rate):<15} {difficulty}")
 
 
 def main():
