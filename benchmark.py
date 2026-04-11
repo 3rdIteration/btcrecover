@@ -409,7 +409,7 @@ def _format_rate(rate):
 # Benchmark definitions
 # ──────────────────────────────────────────────────────────────────────
 
-def get_password_benchmarks(gpu_args=None):
+def get_password_benchmarks():
     """Define password-recovery benchmarks using test wallet files."""
     benchmarks = []
     wallet_dir = WALLET_DIR
@@ -439,13 +439,13 @@ def get_password_benchmarks(gpu_args=None):
             benchmarks.append({
                 "label": label,
                 "category": "password",
-                "cmd_builder": lambda wp=wallet_path, ea=extra_args: _build_password_cmd(wp, ea, gpu_args=gpu_args),
+                "cmd_builder": lambda wp=wallet_path, ea=extra_args: _build_password_cmd(wp, ea),
             })
 
     return benchmarks
 
 
-def _build_password_cmd(wallet_path, extra_args, gpu=False, gpu_args=None):
+def _build_password_cmd(wallet_path, extra_args):
     """Build the command for a password recovery benchmark."""
     threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
@@ -457,20 +457,11 @@ def _build_password_cmd(wallet_path, extra_args, gpu=False, gpu_args=None):
         "--dsw",
         "--threads", threads,
     ]
-    if gpu:
-        cmd.append("--enable-gpu")
-        if gpu_args:
-            if gpu_args.get("global_ws"):
-                cmd.extend(["--global-ws", str(gpu_args["global_ws"])])
-            if gpu_args.get("local_ws"):
-                cmd.extend(["--local-ws", str(gpu_args["local_ws"])])
-            if gpu_args.get("gpu_names"):
-                cmd.extend(["--gpu-names"] + gpu_args["gpu_names"])
     cmd.extend(extra_args)
     return cmd
 
 
-def get_seed_benchmarks(opencl_args=None):
+def get_seed_benchmarks():
     """Define seed-recovery benchmarks for BIP39 and Electrum."""
     benchmarks = []
 
@@ -483,7 +474,6 @@ def get_seed_benchmarks(opencl_args=None):
             mnemonic_length=12,
             bip32_path="m/44'/0'/0'",
             address="17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU",
-            opencl_args=opencl_args,
         ),
     })
 
@@ -496,7 +486,6 @@ def get_seed_benchmarks(opencl_args=None):
             mnemonic_length=24,
             bip32_path="m/44'/0'/0'",
             address="17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU",
-            opencl_args=opencl_args,
         ),
     })
 
@@ -509,15 +498,13 @@ def get_seed_benchmarks(opencl_args=None):
             mnemonic_length=12,
             bip32_path="m/0'",
             address="17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU",
-            opencl_args=opencl_args,
         ),
     })
 
     return benchmarks
 
 
-def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address,
-                    opencl=False, opencl_args=None):
+def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address):
     """Build the command for a seed recovery benchmark."""
     threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
@@ -534,16 +521,27 @@ def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address,
         "--addrs", address,
         "--threads", threads,
     ]
-    if opencl:
-        cmd.append("--enable-opencl")
-        if opencl_args:
-            if opencl_args.get("workgroup_size"):
-                cmd.extend(["--opencl-workgroup-size", str(opencl_args["workgroup_size"])])
-            if opencl_args.get("platform"):
-                cmd.extend(["--opencl-platform", str(opencl_args["platform"])])
-            if opencl_args.get("devices"):
-                cmd.extend(["--opencl-devices"] + [str(d) for d in opencl_args["devices"]])
     return cmd
+
+
+def _append_gpu_args(cmd, gpu_args):
+    """Append GPU acceleration arguments to a command list."""
+    if gpu_args.get("global_ws"):
+        cmd.extend(["--global-ws", str(gpu_args["global_ws"])])
+    if gpu_args.get("local_ws"):
+        cmd.extend(["--local-ws", str(gpu_args["local_ws"])])
+    if gpu_args.get("gpu_names"):
+        cmd.extend(["--gpu-names"] + gpu_args["gpu_names"])
+
+
+def _append_opencl_args(cmd, opencl_args):
+    """Append OpenCL acceleration arguments to a command list."""
+    if opencl_args.get("workgroup_size"):
+        cmd.extend(["--opencl-workgroup-size", str(opencl_args["workgroup_size"])])
+    if opencl_args.get("platform"):
+        cmd.extend(["--opencl-platform", str(opencl_args["platform"])])
+    if opencl_args.get("devices"):
+        cmd.extend(["--opencl-devices"] + [str(d) for d in opencl_args["devices"]])
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -589,9 +587,9 @@ def run_all_benchmarks(args):
     benchmarks = []
 
     if args.wallet_type in ("all", "password"):
-        benchmarks.extend(get_password_benchmarks(gpu_args=gpu_args or None))
+        benchmarks.extend(get_password_benchmarks())
     if args.wallet_type in ("all", "seed"):
-        benchmarks.extend(get_seed_benchmarks(opencl_args=opencl_args or None))
+        benchmarks.extend(get_seed_benchmarks())
 
     if not benchmarks:
         print("No benchmarks to run.")
@@ -623,37 +621,17 @@ def run_all_benchmarks(args):
             # Modify command for GPU/OpenCL mode
             if mode == "gpu" and bench["category"] == "password":
                 cmd.append("--enable-gpu")
-                if gpu_args.get("global_ws"):
-                    cmd.extend(["--global-ws", str(gpu_args["global_ws"])])
-                if gpu_args.get("local_ws"):
-                    cmd.extend(["--local-ws", str(gpu_args["local_ws"])])
-                if gpu_args.get("gpu_names"):
-                    cmd.extend(["--gpu-names"] + gpu_args["gpu_names"])
+                _append_gpu_args(cmd, gpu_args)
             elif mode == "opencl" and bench["category"] == "seed":
                 cmd.append("--enable-opencl")
-                if opencl_args.get("workgroup_size"):
-                    cmd.extend(["--opencl-workgroup-size", str(opencl_args["workgroup_size"])])
-                if opencl_args.get("platform"):
-                    cmd.extend(["--opencl-platform", str(opencl_args["platform"])])
-                if opencl_args.get("devices"):
-                    cmd.extend(["--opencl-devices"] + [str(d) for d in opencl_args["devices"]])
+                _append_opencl_args(cmd, opencl_args)
             elif mode == "gpu" and bench["category"] == "seed":
                 # Seeds use --enable-opencl, not --enable-gpu
                 cmd.append("--enable-opencl")
-                if opencl_args.get("workgroup_size"):
-                    cmd.extend(["--opencl-workgroup-size", str(opencl_args["workgroup_size"])])
-                if opencl_args.get("platform"):
-                    cmd.extend(["--opencl-platform", str(opencl_args["platform"])])
-                if opencl_args.get("devices"):
-                    cmd.extend(["--opencl-devices"] + [str(d) for d in opencl_args["devices"]])
+                _append_opencl_args(cmd, opencl_args)
             elif mode == "opencl" and bench["category"] == "password":
                 cmd.append("--enable-gpu")
-                if gpu_args.get("global_ws"):
-                    cmd.extend(["--global-ws", str(gpu_args["global_ws"])])
-                if gpu_args.get("local_ws"):
-                    cmd.extend(["--local-ws", str(gpu_args["local_ws"])])
-                if gpu_args.get("gpu_names"):
-                    cmd.extend(["--gpu-names"] + gpu_args["gpu_names"])
+                _append_gpu_args(cmd, gpu_args)
             elif mode != "cpu":
                 # Skip unsupported combinations
                 print(f"  Skipping (not applicable for {mode_label})")
