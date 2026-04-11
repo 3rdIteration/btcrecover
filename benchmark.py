@@ -754,11 +754,11 @@ Examples:
     gpu_group = parser.add_argument_group("GPU acceleration (password recovery)")
     gpu_group.add_argument(
         "--global-ws", type=int, default=None, metavar="SIZE",
-        help="OpenCL global work size for password recovery GPU mode (default: 4096)"
+        help="OpenCL global work size for password recovery GPU mode (btcrecover default: 4096)"
     )
     gpu_group.add_argument(
         "--local-ws", type=int, default=None, metavar="SIZE",
-        help="OpenCL local work size for password recovery GPU mode (default: auto)"
+        help="OpenCL local work size for password recovery GPU mode (btcrecover default: auto)"
     )
     gpu_group.add_argument(
         "--gpu-names", nargs="+", metavar="NAME",
@@ -773,11 +773,11 @@ Examples:
     )
     opencl_group.add_argument(
         "--opencl-platform", type=int, default=None, metavar="ID",
-        help="OpenCL platform ID to use (default: auto)"
+        help="OpenCL platform ID to use (btcrecover default: auto)"
     )
     opencl_group.add_argument(
         "--opencl-devices", type=int, nargs="+", metavar="ID",
-        help="OpenCL device IDs to use (default: all)"
+        help="OpenCL device IDs to use (btcrecover default: all)"
     )
 
     args = parser.parse_args()
