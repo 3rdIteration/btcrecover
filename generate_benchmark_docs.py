@@ -98,8 +98,8 @@ def generate_markdown(all_results):
 
     # ── System Overview ──
     lines.append("### Systems Tested\n")
-    lines.append("| # | CPU | Cores (Phys/Logical) | GPU | OS | Date |")
-    lines.append("|---|-----|----------------------|-----|----|----- |")
+    lines.append("| # | CPU | Cores (Phys/Logical) | GPU | OpenCL Device | OS | Date |")
+    lines.append("|---|-----|----------------------|-----|---------------|----|----- |")
 
     for i, result in enumerate(all_results, 1):
         sys_info = result.get("system_info", {})
@@ -108,10 +108,16 @@ def generate_markdown(all_results):
         logical = sys_info.get("cpu_cores_logical", "?")
         gpu_info = sys_info.get("gpu", [])
         gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
+        opencl_devs = sys_info.get("opencl_devices", [])
+        if isinstance(opencl_devs, list) and opencl_devs:
+            dev = opencl_devs[0]
+            opencl = f"{dev.get('name', '?')} ({dev.get('global_memory_mb', '?')} MB)"
+        else:
+            opencl = "None"
         os_name = f"{sys_info.get('os', '?')} {sys_info.get('os_release', '')}"
         timestamp = result.get("metadata", {}).get("timestamp", "?")
         date = timestamp[:10] if len(timestamp) >= 10 else timestamp
-        lines.append(f"| {i} | {cpu} | {phys}/{logical} | {gpu} | {os_name} | {date} |")
+        lines.append(f"| {i} | {cpu} | {phys}/{logical} | {gpu} | {opencl} | {os_name} | {date} |")
 
     lines.append("")
 

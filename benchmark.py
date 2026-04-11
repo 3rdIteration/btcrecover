@@ -754,6 +754,13 @@ def print_summary(results):
     if gpu_info:
         for gpu in gpu_info:
             print(f" GPU:    {gpu.get('name', 'Unknown')}")
+    opencl_devs = results['system_info'].get('opencl_devices')
+    if opencl_devs and isinstance(opencl_devs, list):
+        for dev in opencl_devs:
+            mem = dev.get("global_memory_mb", "?")
+            print(f" OpenCL: {dev.get('name', 'Unknown')} "
+                  f"({dev.get('type', '?')}, {mem} MB, "
+                  f"driver {dev.get('driver_version', '?')})")
     print(f"{'=' * 70}")
 
     print(f"\n{'Test':<45} {'Mode':<8} {'Rate':<15}")
@@ -875,7 +882,15 @@ Examples:
         for gpu in sys_info["gpu"]:
             print(f"  GPU:    {gpu.get('name', 'Unknown')}")
     if sys_info.get("opencl_devices"):
-        print(f"  OpenCL: {sys_info['opencl_devices'][:100]}")
+        opencl_devs = sys_info["opencl_devices"]
+        if isinstance(opencl_devs, list):
+            for dev in opencl_devs:
+                mem = dev.get("global_memory_mb", "?")
+                print(f"  OpenCL: {dev.get('name', 'Unknown')} "
+                      f"({dev.get('type', '?')}, {mem} MB, "
+                      f"driver {dev.get('driver_version', '?')})")
+        else:
+            print(f"  OpenCL: {str(opencl_devs)[:100]}")
 
     # Run benchmarks
     results = run_all_benchmarks(args)
