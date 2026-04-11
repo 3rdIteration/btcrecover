@@ -51,6 +51,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(SCRIPT_DIR, "btcrecover", "test", "test-wallets")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
 
+# Seconds to let the pre-start benchmark phase run before the actual search
+PRE_START_BENCHMARK_SECONDS = 5
+# Maximum seconds to wait for the search phase to begin (some wallets like
+# scrypt-based ones have slow pre-start benchmarks)
+SEARCH_PHASE_TIMEOUT = 120
+
 
 def _get_system_id():
     """Generate a privacy-preserving hashed system identifier.
@@ -306,9 +312,9 @@ def run_benchmark(cmd, duration, label, cwd=None):
 
     print(f"  Running: {label}...", end="", flush=True)
 
-    # Add --pre-start-seconds 5 to keep the pre-start phase short
+    # Add --pre-start-seconds to keep the pre-start phase short
     # (we measure our own stabilised rate from the actual search phase)
-    enhanced_cmd = list(cmd) + ["--pre-start-seconds", "5"]
+    enhanced_cmd = list(cmd) + ["--pre-start-seconds", str(PRE_START_BENCHMARK_SECONDS)]
 
     try:
         # Use unbuffered output via PYTHONUNBUFFERED env var
@@ -356,7 +362,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
         # Phase 1: Wait for setup to complete and search to start
         # Allow up to 120s for setup: some wallets (e.g. scrypt-based) have
         # a slow pre-start benchmark phase before the search begins.
-        if not search_event.wait(timeout=120):
+        if not search_event.wait(timeout=SEARCH_PHASE_TIMEOUT):
             # Search phase never started
             proc.kill()
             proc.wait()
