@@ -35,6 +35,7 @@ Usage:
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import platform
@@ -42,6 +43,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 
@@ -50,10 +52,57 @@ WALLET_DIR = os.path.join(SCRIPT_DIR, "btcrecover", "test", "test-wallets")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
 
 
+def _get_system_id():
+    """Generate a privacy-preserving hashed system identifier.
+
+    Combines several machine-specific values (hostname, CPU model, OS,
+    architecture) and returns a truncated SHA-256 hex digest.  The same
+    physical machine will always produce the same hash, making it possible
+    to link benchmark runs from the same system without revealing the
+    actual hostname or other identifiable information.
+    """
+    raw_parts = [
+        platform.node(),          # hostname
+        _get_cpu_model(),         # CPU brand string
+        platform.machine(),       # architecture
+        platform.system(),        # OS family
+    ]
+    # Try to include a hardware serial/UUID for even stronger uniqueness
+    try:
+        if platform.system() == "Linux":
+            with open("/etc/machine-id", "r") as f:
+                raw_parts.append(f.read().strip())
+        elif platform.system() == "Windows":
+            result = subprocess.run(
+                ["wmic", "csproduct", "get", "UUID"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                lines = [l.strip() for l in result.stdout.strip().split("\n")
+                         if l.strip() and l.strip() != "UUID"]
+                if lines:
+                    raw_parts.append(lines[0])
+        elif platform.system() == "Darwin":
+            result = subprocess.run(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                for line in result.stdout.split("\n"):
+                    if "IOPlatformUUID" in line:
+                        raw_parts.append(line.split("=", 1)[-1].strip().strip('"'))
+                        break
+    except Exception:
+        pass
+
+    raw = "|".join(raw_parts)
+    return hashlib.sha256(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
 def get_system_info():
     """Collect system information for the benchmark results."""
     info = {
-        "hostname": platform.node(),
+        "system_id": _get_system_id(),
         "os": platform.system(),
         "os_version": platform.version(),
         "os_release": platform.release(),
@@ -186,33 +235,42 @@ def _get_gpu_info():
 
 
 def _get_opencl_info():
-    """Try to detect OpenCL devices."""
-    try:
-        result = subprocess.run(
-            [sys.executable, "-c",
-             "from lib.opencl_brute.opencl_information import opencl_information; "
-             "info = opencl_information(); info.printfull()"],
-            capture_output=True, text=True, timeout=10,
-            cwd=SCRIPT_DIR
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except Exception:
-        pass
+    """Try to detect OpenCL devices and return structured info.
 
-    # Try pyopencl directly
+    Returns a list of dicts, one per device, with keys like name, type,
+    driver_version, global_memory_mb, max_clock_mhz, compute_units, and
+    max_work_group_size.  Falls back to a plain-text string if pyopencl
+    is not available.
+    """
+    # Try the repo's own opencl_information helper first (plain text fallback)
     try:
         result = subprocess.run(
             [sys.executable, "-c",
+             "import json, sys; "
              "import pyopencl as cl; "
-             "platforms = cl.get_platforms(); "
-             "[print(f'{d.name} ({cl.device_type.to_string(d.type)})') "
-             "for p in platforms for d in p.get_devices()]"],
+             "devices = []; "
+             "[devices.append({"
+             "'platform_name': p.name, "
+             "'platform_vendor': p.vendor, "
+             "'platform_version': p.version, "
+             "'name': d.name, "
+             "'type': cl.device_type.to_string(d.type), "
+             "'driver_version': d.driver_version, "
+             "'global_memory_mb': round(d.global_mem_size / 1048576), "
+             "'local_memory_kb': round(d.local_mem_size / 1024), "
+             "'max_clock_mhz': d.max_clock_frequency, "
+             "'compute_units': d.max_compute_units, "
+             "'max_work_group_size': d.max_work_group_size, "
+             "}) "
+             "for p in cl.get_platforms() for d in p.get_devices()]; "
+             "json.dump(devices, sys.stdout)"],
             capture_output=True, text=True, timeout=10,
             cwd=SCRIPT_DIR
         )
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+            devices = json.loads(result.stdout)
+            if devices:
+                return devices
     except Exception:
         pass
 
@@ -223,11 +281,16 @@ def run_benchmark(cmd, duration, label, cwd=None):
     """Run a single benchmark command and return the results.
 
     Runs the command as a subprocess for the specified duration, then sends
-    SIGINT to stop it gracefully. Parses the output to extract the speed.
+    SIGINT (or CTRL_C_EVENT on Windows) to stop it gracefully.  Parses the
+    output to extract the speed.
 
     To get a stabilised speed reading, we ignore the pre-start benchmark
     rate and instead compute the actual rate from the number of passwords
     tried and the wall-clock time spent in the search phase.
+
+    A background thread reads stdout line-by-line so that the approach
+    works on every platform (the previous ``selectors`` strategy fails on
+    Windows where pipes are not sockets).
 
     Args:
         cmd: Command to run as a list of strings.
@@ -252,6 +315,12 @@ def run_benchmark(cmd, duration, label, cwd=None):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
 
+        # On Windows, CREATE_NEW_PROCESS_GROUP is required so that we can
+        # later send CTRL_C_EVENT to the child without killing ourselves.
+        creation_flags = 0
+        if sys.platform == "win32":
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+
         proc = subprocess.Popen(
             enhanced_cmd,
             stdout=subprocess.PIPE,
@@ -259,83 +328,72 @@ def run_benchmark(cmd, duration, label, cwd=None):
             text=True,
             cwd=cwd,
             env=env,
+            creationflags=creation_flags,
         )
 
-        # Collect all output, watching for the "Searching for password" marker
-        # to know when the actual search phase begins
-        output_lines = []
-        search_started = False
-        search_start_time = None
+        # -- Reader thread: pumps stdout lines into a shared list ----------
+        output_lines = []      # protected by output_lock
+        output_lock = threading.Lock()
+        search_event = threading.Event()  # set when search phase starts
+        eof_event = threading.Event()     # set when stdout reaches EOF
+
+        def _reader():
+            try:
+                for line in proc.stdout:
+                    with output_lock:
+                        output_lines.append(line)
+                    if "Searching for password" in line:
+                        search_event.set()
+            except ValueError:
+                # stdout closed
+                pass
+            finally:
+                eof_event.set()
+
+        reader = threading.Thread(target=_reader, daemon=True)
+        reader.start()
+
+        # Phase 1: Wait for setup to complete and search to start
         # Allow up to 120s for setup: some wallets (e.g. scrypt-based) have
         # a slow pre-start benchmark phase before the search begins.
-        setup_deadline = time.monotonic() + 120
-
-        import selectors
-        sel = selectors.DefaultSelector()
-        sel.register(proc.stdout, selectors.EVENT_READ)
-
-        try:
-            # Phase 1: Wait for setup to complete and search to start
-            while time.monotonic() < setup_deadline:
-                events = sel.select(timeout=1.0)
-                if events:
-                    line = proc.stdout.readline()
-                    if not line:
-                        break
-                    output_lines.append(line)
-                    if "Searching for password" in line:
-                        search_started = True
-                        search_start_time = time.monotonic()
-                        break
-
-                # Check if process died
-                if proc.poll() is not None:
-                    break
-
-            if not search_started:
-                proc.kill()
-                proc.wait()
+        if not search_event.wait(timeout=120):
+            # Search phase never started
+            proc.kill()
+            proc.wait()
+            reader.join(timeout=5)
+            with output_lock:
                 output = "".join(output_lines)
-                print(f" FAILED (search phase never started)")
-                if output.strip():
-                    # Show last few meaningful lines
-                    meaningful = [l.strip() for l in output.split("\n") if l.strip()]
-                    for line in meaningful[-3:]:
-                        print(f"    {line}")
-                return None
+            print(f" FAILED (search phase never started)")
+            if output.strip():
+                meaningful = [l.strip() for l in output.split("\n") if l.strip()]
+                for line in meaningful[-3:]:
+                    print(f"    {line}")
+            return None
 
-            # Phase 2: Let the search run for the specified duration
-            end_time = search_start_time + duration
-            while time.monotonic() < end_time:
-                remaining = end_time - time.monotonic()
-                if remaining <= 0:
-                    break
-                events = sel.select(timeout=min(remaining, 1.0))
-                if events:
-                    line = proc.stdout.readline()
-                    if not line:
-                        break
-                    output_lines.append(line)
-                if proc.poll() is not None:
-                    break
+        search_start_time = time.monotonic()
 
-        finally:
-            sel.close()
+        # Phase 2: Let the search run for the specified duration
+        eof_event.wait(timeout=duration)
 
         actual_search_duration = time.monotonic() - search_start_time
 
-        # Send SIGINT to stop gracefully
+        # Send interrupt to stop gracefully
         if proc.poll() is None:
-            proc.send_signal(signal.SIGINT)
+            if sys.platform == "win32":
+                # On Windows, send CTRL_C_EVENT to the process group
+                os.kill(proc.pid, signal.CTRL_C_EVENT)
+            else:
+                proc.send_signal(signal.SIGINT)
             try:
-                remaining_output, _ = proc.communicate(timeout=30)
+                proc.wait(timeout=30)
             except subprocess.TimeoutExpired:
                 proc.kill()
-                remaining_output, _ = proc.communicate(timeout=10)
-        else:
-            remaining_output = proc.stdout.read()
+                proc.wait(timeout=10)
 
-        output = "".join(output_lines) + (remaining_output or "")
+        reader.join(timeout=10)
+
+        with output_lock:
+            output = "".join(output_lines)
 
         # Parse the number of passwords tried
         passwords_tried = _parse_passwords_tried(output)
@@ -667,10 +725,10 @@ def save_results(results, output_file=None):
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     if output_file is None:
-        # Generate filename from hostname and timestamp
-        hostname = platform.node().replace(" ", "_").replace("/", "_") or "unknown"
+        # Generate filename from hashed system ID and timestamp
+        system_id = results.get("system_info", {}).get("system_id", "unknown")
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = os.path.join(RESULTS_DIR, f"benchmark_{hostname}_{timestamp}.json")
+        output_file = os.path.join(RESULTS_DIR, f"benchmark_{system_id}_{timestamp}.json")
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
