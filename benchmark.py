@@ -717,8 +717,6 @@ def run_all_benchmarks(args):
             if result:
                 result["mode"] = mode
                 result["category"] = bench["category"]
-                if not result.get("wallet_difficulty"):
-                    result["wallet_difficulty"] = "not reported"
                 results["benchmarks"].append(result)
 
     return results
