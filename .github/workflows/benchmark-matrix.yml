@@ -1,6 +1,8 @@
 name: Benchmark Matrix
 
 on:
+  pull_request:
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       upload_to_repo:
@@ -53,7 +55,7 @@ jobs:
     name: Upload benchmark outputs to repo
     runs-on: ubuntu-latest
     needs: benchmark
-    if: ${{ inputs.upload_to_repo }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_to_repo }}
     permissions:
       contents: write
     steps:
