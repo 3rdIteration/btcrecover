@@ -1,0 +1,2556 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for BTCRecover">
+      
+      
+        <meta name="author" content="Stephen Rothery">
+      
+      
+        <link rel="canonical" href="https://btcrecover.readthedocs.io/Benchmarks/">
+      
+      
+        <link rel="prev" href="../Usage_Examples/2023-04-29_Checking_Swapped_Seed_Words/example_checking_swapped_seed_words/">
+      
+      
+        <link rel="next" href="../CREDITS/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Performance Benchmarks - BTCRecover</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-D6CP4Q1RW8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-D6CP4Q1RW8');
+</script>
+
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#performance-benchmarks" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="BTCRecover" class="md-header__button md-logo" aria-label="BTCRecover" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            BTCRecover
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Performance Benchmarks
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/3rdIteration/btcrecover" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../INSTALL/" class="md-tabs__link">
+          
+  
+  
+  Installation & Testing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Seedrecover_Quick_Start_Guide/" class="md-tabs__link">
+          
+  
+  
+  Seed Recovery
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../TUTORIAL/" class="md-tabs__link">
+          
+  
+  
+  Password/Passphrase Recovery
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Usage_Examples/UsageExamples/" class="md-tabs__link">
+          
+  
+  
+  Usage Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Benchmarks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CREDITS/" class="md-tabs__link">
+          
+  
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../donate/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Donate
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="BTCRecover" class="md-nav__button md-logo" aria-label="BTCRecover" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    BTCRecover
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/3rdIteration/btcrecover" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation & Testing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation & Testing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../INSTALL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installing BTCRecover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GPU_Acceleration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Acceleration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Limitations_and_Caveats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource Usage and Security Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local_mkdocs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Viewing this documentation offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Recovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Seed Recovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Seedrecover_Quick_Start_Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Recovery Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wordlist_notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Word Lists & Languages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bip39-accounts-and-altcoins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes on Accounts (Derivation paths) and Altcoins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BIP39_descrambling_seedlists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BIP39 Seed/Token Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Creating_and_Using_AddressDB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recovery without Addresses (Address Database)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_seed_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Seed Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Password/Passphrase Recovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Password/Passphrase Recovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TUTORIAL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Password Recovery Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Typos_Quick_Start_Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Typos Quick Start Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tokenlist_file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenlist Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-wildcard-lists/custom_wildcards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom String and Repeating Wildcards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passwordlist_file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passwordlist Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Extract_Scripts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trustless (or Cloud) Recovery - Creating Wallet Extracts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Decrypting_dumping_walletfiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extracting Private Keys from Wallet Files (Decrypt & Dump)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_password_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Password/Passphrase Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/UsageExamples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_seed_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Seed Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_password_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Password/Passphrase Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/Example_Descrambling_a_12_word_seed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Descrambling a 12 word seed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-08_Recovering_Blockchain_Wallet_Passwords/Example_Recovering_Blockchain_Wallet_Passwords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recovering Blockchain.com wallet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-23_multi_device_descrambling_12_word_seed_with_extras/Example_multi_device_descrambling_12_word_seed_with_extras/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Worker Descrambling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-10-06_Multi-GPU_with_vastai/Example_Multi-GPU_with_vastai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Cloud Based Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2022-04-02_Seed_Tokenlist_TokenBlocks/example_seed_tokenlist_tokenblocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grouping words together in tokenlist based seed recoveries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2023-04-29_Checking_Swapped_Seed_Words/example_checking_swapped_seed_words/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checking for Swapped Words in Seed Recoveries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Benchmarks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#contributing-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-the-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding the Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmark Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#systems-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Systems Tested
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#password-recovery-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password Recovery Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seed-recovery-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seed Recovery Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#individual-test-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Individual Test Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Individual Test Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#password-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seed-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seed Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CREDITS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Credits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../licence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../donate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Donate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="performance-benchmarks">Performance Benchmarks</h1>
+<p>This page collects performance benchmarks from various systems running BTCRecover.
+Benchmarks measure the password/seed recovery speed in passwords per second (p/s).</p>
+<h2 id="contributing-benchmarks">Contributing Benchmarks</h2>
+<p>You can contribute your own benchmarks by running the benchmarking tool and
+submitting a pull request:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)</span>
+python<span class="w"> </span>benchmark.py
+
+<span class="c1"># Skip GPU/OpenCL benchmarks (CPU only)</span>
+python<span class="w"> </span>benchmark.py<span class="w"> </span>--no-gpu<span class="w"> </span>--no-opencl
+
+<span class="c1"># Adjust test duration (default: 30 seconds)</span>
+python<span class="w"> </span>benchmark.py<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span>
+</code></pre></div>
+<p>Results are saved as JSON files in the <code>benchmark-results/</code> directory. Submit a
+PR adding your results file to share your benchmarks with the community.</p>
+<h2 id="understanding-the-results">Understanding the Results</h2>
+<ul>
+<li><strong>p/s</strong> = passwords per second (or seeds per second for seed recovery)</li>
+<li><strong>Kp/s</strong> = thousands of passwords per second</li>
+<li><strong>Mp/s</strong> = millions of passwords per second</li>
+<li><strong>CPU</strong> = using CPU only (multi-threaded)</li>
+<li><strong>GPU/OpenCL</strong> = using GPU acceleration via OpenCL</li>
+</ul>
+<p>Speed varies significantly based on:</p>
+<ul>
+<li><strong>CPU model and core count</strong> â€“ more cores = faster for CPU tests</li>
+<li><strong>GPU model and memory</strong> â€“ more powerful GPU = faster for GPU tests</li>
+<li><strong>Wallet type</strong> â€“ some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
+<li><strong>Seed length</strong> â€“ 24-word seeds are slower than 12-word seeds due to the additional PBKDF2 rounds</li>
+</ul>
+<h2 id="benchmark-results">Benchmark Results</h2>
+<!-- BENCHMARK_RESULTS_START -->
+
+<h3 id="systems-tested">Systems Tested</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>CPU</th>
+<th>Cores (Phys/Logical)</th>
+<th>GPU</th>
+<th>OpenCL Device</th>
+<th>OS</th>
+<th>Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>3</td>
+<td>AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>32/32</td>
+<td>NVIDIA GeForce RTX 5090</td>
+<td>NVIDIA GeForce RTX 5090 (32607 MB)</td>
+<td>Windows 11</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Apple M1 (Virtual)</td>
+<td>3/3</td>
+<td>None</td>
+<td>None</td>
+<td>Darwin 24.6.0</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>5</td>
+<td>AMD EPYC 7763 64-Core Processor</td>
+<td>2/4</td>
+<td>None</td>
+<td>None</td>
+<td>Linux 6.17.0-1010-azure</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>6</td>
+<td>AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>4/4</td>
+<td>None</td>
+<td>None</td>
+<td>Windows 2025Server</td>
+<td>2026-04-12</td>
+</tr>
+</tbody>
+</table>
+<h3 id="password-recovery-benchmarks">Password Recovery Benchmarks</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Mode</th>
+<th>Bitcoin Core (BDB)</th>
+<th>Bitcoin Core (SQLite)</th>
+<th>Electrum (Legacy)</th>
+<th>Electrum 2.8+</th>
+<th>Blockchain.com (v0)</th>
+<th>Blockchain.com (v2)</th>
+<th>Blockchain.com (v3)</th>
+<th>MultiBit Classic</th>
+<th>MultiBit HD</th>
+<th>MetaMask (Chrome)</th>
+<th>Ethereum Keystore (scrypt)</th>
+<th>Electrum 2.8+ Passphrase</th>
+<th>BIP39 Passphrase</th>
+<th>SLIP39 Passphrase</th>
+<th>BIP38 Encrypted Key</th>
+<th>Raw Private Key</th>
+<th>Coinomi (Android)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>CPU</td>
+<td>95.50 p/s</td>
+<td>23.30 p/s</td>
+<td>207.48 Kp/s</td>
+<td>4.41 Kp/s</td>
+<td>61.48 Kp/s</td>
+<td>431.42 p/s</td>
+<td>772.70 p/s</td>
+<td>191.41 Kp/s</td>
+<td>131.29 p/s</td>
+<td>674.77 p/s</td>
+<td>16.77 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>GPU</td>
+<td>6.97 Kp/s</td>
+<td>2.09 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 2: i7-10700K @ 3.80GHz</td>
+<td>CPU</td>
+<td>82.60 p/s</td>
+<td>22.87 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>62.35 Kp/s</td>
+<td>431.40 p/s</td>
+<td>697.93 p/s</td>
+<td>181.25 Kp/s</td>
+<td>134.84 p/s</td>
+<td>689.70 p/s</td>
+<td>16.37 p/s</td>
+<td>4.67 Kp/s</td>
+<td>2.40 Kp/s</td>
+<td>365.89 p/s</td>
+<td>15.00 p/s</td>
+<td>73.45 Kp/s</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 2: i7-10700K @ 3.80GHz</td>
+<td>GPU</td>
+<td>6.93 Kp/s</td>
+<td>2.09 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 2: i7-10700K @ 3.80GHz</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>10.80 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>CPU</td>
+<td>542.25 p/s</td>
+<td>137.85 p/s</td>
+<td>2.65 Mp/s</td>
+<td>33.74 Kp/s</td>
+<td>691.29 Kp/s</td>
+<td>3.25 Kp/s</td>
+<td>6.46 Kp/s</td>
+<td>2.00 Mp/s</td>
+<td>476.15 p/s</td>
+<td>6.33 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>GPU</td>
+<td>11.96 Kp/s</td>
+<td>3.21 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 4: Apple M1 (Virtual)</td>
+<td>CPU</td>
+<td>98.17 p/s</td>
+<td>28.78 p/s</td>
+<td>301.99 Kp/s</td>
+<td>6.44 Kp/s</td>
+<td>73.60 Kp/s</td>
+<td>520.64 p/s</td>
+<td>1.10 Kp/s</td>
+<td>261.71 Kp/s</td>
+<td>69.20 p/s</td>
+<td>1.08 Kp/s</td>
+<td>8.97 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>70.81 p/s</td>
+</tr>
+<tr>
+<td>System 5: EPYC 7763 64-Core</td>
+<td>CPU</td>
+<td>46.73 p/s</td>
+<td>11.40 p/s</td>
+<td>158.57 Kp/s</td>
+<td>2.67 Kp/s</td>
+<td>41.80 Kp/s</td>
+<td>394.67 p/s</td>
+<td>785.44 p/s</td>
+<td>140.33 Kp/s</td>
+<td>61.26 p/s</td>
+<td>700.40 p/s</td>
+<td>8.82 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>61.79 p/s</td>
+</tr>
+<tr>
+<td>System 6: AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>CPU</td>
+<td>29.00 p/s</td>
+<td>6.34 p/s</td>
+<td>158.42 Kp/s</td>
+<td>1.39 Kp/s</td>
+<td>33.26 Kp/s</td>
+<td>154.00 p/s</td>
+<td>146.36 p/s</td>
+<td>56.55 Kp/s</td>
+<td>21.00 p/s</td>
+<td>187.40 p/s</td>
+<td>5.46 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>26.35 p/s</td>
+</tr>
+</tbody>
+</table>
+<h3 id="seed-recovery-benchmarks">Seed Recovery Benchmarks</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Mode</th>
+<th>BIP39 12-word Seed</th>
+<th>BIP39 24-word Seed</th>
+<th>Electrum Seed</th>
+<th>Aezeed (LND) Seed</th>
+<th>SLIP39 Seed Share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>CPU</td>
+<td>36.68 Kp/s</td>
+<td>147.63 Kp/s</td>
+<td>154.77 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>OPENCL</td>
+<td>129.10 Kp/s</td>
+<td>276.60 Kp/s</td>
+<td>396.32 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 2: i7-10700K @ 3.80GHz</td>
+<td>CPU</td>
+<td>36.02 Kp/s</td>
+<td>155.32 Kp/s</td>
+<td>151.98 Kp/s</td>
+<td>284.50 Kp/s</td>
+<td>89.85 Kp/s</td>
+</tr>
+<tr>
+<td>System 2: i7-10700K @ 3.80GHz</td>
+<td>OPENCL</td>
+<td>127.20 Kp/s</td>
+<td>292.68 Kp/s</td>
+<td>390.90 Kp/s</td>
+<td>325.94 Kp/s</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>CPU</td>
+<td>254.06 Kp/s</td>
+<td>841.75 Kp/s</td>
+<td>818.92 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>OPENCL</td>
+<td>132.77 Kp/s</td>
+<td>601.64 Kp/s</td>
+<td>147.17 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 4: Apple M1 (Virtual)</td>
+<td>CPU</td>
+<td>40.45 Kp/s</td>
+<td>154.92 Kp/s</td>
+<td>211.87 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 5: EPYC 7763 64-Core</td>
+<td>CPU</td>
+<td>19.48 Kp/s</td>
+<td>106.14 Kp/s</td>
+<td>116.24 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>System 6: AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>CPU</td>
+<td>16.15 Kp/s</td>
+<td>80.29 Kp/s</td>
+<td>90.91 Kp/s</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<!-- BENCHMARK_RESULTS_END -->
+
+<p>To view results locally, run the benchmark tool and then serve the docs:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Generate benchmarks</span>
+python<span class="w"> </span>benchmark.py
+
+<span class="c1"># View results in docs (requires mkdocs and dependencies)</span>
+python<span class="w"> </span>generate_benchmark_docs.py
+mkdocs<span class="w"> </span>serve
+</code></pre></div>
+<h2 id="individual-test-commands">Individual Test Commands</h2>
+<p>If you want to benchmark a specific wallet type or seed recovery mode on your system, you can
+copy and paste any of the commands below. Each runs a <code>--performance</code> test that will execute
+for a short time and report your system's recovery speed.</p>
+<h3 id="password-recovery">Password Recovery</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Bitcoin Core (BDB)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Bitcoin Core (SQLite)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-0.21.1-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Bitcoin Core with GPU acceleration (the only wallet type that supports --enable-gpu)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-gpu
+
+<span class="c1"># Electrum 2.8+ Passphrase</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/electrum28-wallet<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v0)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v0.0-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v2)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v2.0-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v3)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v3.0-MAY2020-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MultiBit Classic</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/multibit-wallet.key<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MultiBit HD</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/mbhd.wallet.aes<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MetaMask (Chrome)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Coinomi (Android)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/coinomi.wallet.android<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Ethereum Keystore (scrypt)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/utc-keystore-v3-scrypt-myetherwallet.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP39 Passphrase (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip39<span class="w"> </span>--mpk<span class="w"> </span>xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY<span class="w"> </span>--mnemonic<span class="w"> </span><span class="s2">&quot;certain come keen collect slab gauge photo inside mechanic deny leader drop&quot;</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP39 Passphrase with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip39<span class="w"> </span>--mpk<span class="w"> </span>xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY<span class="w"> </span>--mnemonic<span class="w"> </span><span class="s2">&quot;certain come keen collect slab gauge photo inside mechanic deny leader drop&quot;</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># SLIP39 Passphrase (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--slip39<span class="w"> </span>--slip39-shares<span class="w"> </span><span class="s2">&quot;hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing&quot;</span><span class="w"> </span><span class="s2">&quot;hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">2</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># SLIP39 Passphrase with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--slip39<span class="w"> </span>--slip39-shares<span class="w"> </span><span class="s2">&quot;hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing&quot;</span><span class="w"> </span><span class="s2">&quot;hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">2</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># BIP38 Encrypted Key (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip38-enc-privkey<span class="w"> </span>6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP38 Encrypted Key with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip38-enc-privkey<span class="w"> </span>6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Raw Private Key</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--rawprivatekey<span class="w"> </span>--addrs<span class="w"> </span>1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+</code></pre></div>
+<h3 id="seed-recovery">Seed Recovery</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># BIP39 12-word Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># BIP39 24-word Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># BIP39 12-word Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># BIP39 24-word Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Electrum Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>electrum2<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># Electrum Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>electrum2<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Aezeed (LND) Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>aezeed<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--addrs<span class="w"> </span>1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ
+
+<span class="c1"># SLIP39 Seed Share (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>slip39seed<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">20</span><span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks
+</code></pre></div>
+
+
+
+
+
+
+
+
+  <aside class="md-source-file">
+    
+    
+    
+    
+      
+  <span class="md-source-file__fact">
+    
+      
+  <span class="md-icon" title="Contributors">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+  </span>
+  <span>GitHub</span>
+
+    
+    <nav>
+      
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
+          
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
+        </a>
+      
+        <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
+          
+          <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
+        </a>
+      
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+          
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rd Iteration">
+        </a>
+      
+      
+      
+    </nav>
+  </span>
+
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+<ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
+    Page Contributors
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">3rd Iteration - </a></li></ul>
+</ul>
+<footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      3rdIteration/btcrecover is licensed under the GNU General Public License v2.0 - 2021 Stephen Rothery
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.youtube.com/channel/UCEviBQwLv-yfv3BErm0ojHg/" target="_blank" rel="noopener" title="www.youtube.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M549.7 124.1c-6.2-23.7-24.8-42.3-48.3-48.6C458.9 64 288.1 64 288.1 64S117.3 64 74.7 75.5c-23.5 6.3-42 24.9-48.3 48.6C15 167 15 256.4 15 256.4s0 89.4 11.4 132.3c6.3 23.6 24.8 41.5 48.3 47.8C117.3 448 288.1 448 288.1 448s170.8 0 213.4-11.5c23.5-6.3 42-24.2 48.3-47.8 11.4-42.9 11.4-132.3 11.4-132.3s0-89.4-11.4-132.3zM232.2 337.6V175.2l142.7 81.2z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.facebook.com/ytcryptoguide" target="_blank" rel="noopener" title="www.facebook.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M512 256C512 114.6 397.4 0 256 0S0 114.6 0 256c0 120 82.7 220.8 194.2 248.5V334.2h-52.8V256h52.8v-33.7c0-87.1 39.4-127.5 125-127.5 16.2 0 44.2 3.2 55.7 6.4V172c-6-.6-16.5-1-29.6-1-42 0-58.2 15.9-58.2 57.2V256h83.6l-14.4 78.2H287v175.9C413.8 494.8 512 386.9 512 256"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/ytcryptoguide" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M459.4 151.7c.3 4.5.3 9.1.3 13.6 0 138.7-105.6 298.6-298.6 298.6-59.5 0-114.7-17.2-161.1-47.1 8.4 1 16.6 1.3 25.3 1.3 49.1 0 94.2-16.6 130.3-44.8-46.1-1-84.8-31.2-98.1-72.8 6.5 1 13 1.6 19.8 1.6 9.4 0 18.8-1.3 27.6-3.6-48.1-9.7-84.1-52-84.1-103v-1.3c14 7.8 30.2 12.7 47.4 13.3-28.3-18.8-46.8-51-46.8-87.4 0-19.5 5.2-37.4 14.3-53C87.4 130.8 165 172.4 252.1 176.9c-1.6-7.8-2.6-15.9-2.6-24C249.5 95.1 296.3 48 354.4 48c30.2 0 57.5 12.7 76.7 33.1 23.7-4.5 46.5-13.3 66.6-25.3-7.8 24.4-24.4 44.8-46.1 57.8 21.1-2.3 41.6-8.1 60.4-16.2-14.3 20.8-32.2 39.3-52.6 54.3"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://cryptoguide.tips" target="_blank" rel="noopener" title="cryptoguide.tips" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:steve@cryptoguide.tips" target="_blank" rel="noopener" title="" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4l208 156a48 48 0 0 0 57.6 0l208-156c12.1-9.1 19.2-23.3 19.2-38.4 0-26.5-21.5-48-48-48zM0 196v188c0 35.3 28.7 64 64 64h384c35.3 0 64-28.7 64-64V196L313.6 344.8c-34.1 25.6-81.1 25.6-115.2 0z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.reddit.com/user/Crypto-Guide" target="_blank" rel="noopener" title="www.reddit.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M0 256C0 114.6 114.6 0 256 0s256 114.6 256 256-114.6 256-256 256H37.1c-13.7 0-20.5-16.5-10.9-26.2L75 437C28.7 390.7 0 326.7 0 256m349.6-102.4c23.6 0 42.7-19.1 42.7-42.7s-19.1-42.7-42.7-42.7c-20.6 0-37.8 14.6-41.8 34-34.5 3.7-61.4 33-61.4 68.4v.2c-37.5 1.6-71.8 12.3-99 29.1-10.1-7.8-22.8-12.5-36.5-12.5-33 0-59.8 26.8-59.8 59.8 0 24 14.1 44.6 34.4 54.1 2 69.4 77.6 125.2 170.6 125.2s168.7-55.9 170.6-125.3c20.2-9.6 34.1-30.2 34.1-54 0-33-26.8-59.8-59.8-59.8-13.7 0-26.3 4.6-36.4 12.4-27.4-17-62.1-27.7-100-29.1v-.2c0-25.4 18.9-46.5 43.4-49.9 4.4 18.8 21.3 32.8 41.5 32.8zm-172.5 93.3c16.7 0 29.5 17.6 28.5 39.3s-13.5 29.6-30.3 29.6-31.4-8.8-30.4-30.5S160.3 247 177 247zm190.1 38.3c1 21.7-13.7 30.5-30.4 30.5s-29.3-7.9-30.3-29.6 11.8-39.3 28.5-39.3 31.2 16.6 32.1 38.3zm-48.1 56.7c-10.3 24.6-34.6 41.9-63 41.9s-52.7-17.3-63-41.9c-1.2-2.9.8-6.2 3.9-6.5 18.4-1.9 38.3-2.9 59.1-2.9s40.7 1 59.1 2.9c3.1.3 5.1 3.6 3.9 6.5"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://join.skype.com/invite/g3fn0EzshP69" target="_blank" rel="noopener" title="join.skype.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M424.7 299.8c2.9-14 4.7-28.9 4.7-43.8 0-113.5-91.9-205.3-205.3-205.3-14.9 0-29.7 1.7-43.8 4.7C161.3 40.7 137.7 32 112 32 50.2 32 0 82.2 0 144c0 25.7 8.7 49.3 23.3 68.2-2.9 14-4.7 28.9-4.7 43.8 0 113.5 91.9 205.3 205.3 205.3 14.9 0 29.7-1.7 43.8-4.7 19 14.6 42.6 23.3 68.2 23.3 61.8 0 112-50.2 112-112 .1-25.6-8.6-49.2-23.2-68.1m-194.6 91.5c-65.6 0-120.5-29.2-120.5-65 0-16 9-30.6 29.5-30.6 31.2 0 34.1 44.9 88.1 44.9 25.7 0 42.3-11.4 42.3-26.3 0-18.7-16-21.6-42-28-62.5-15.4-117.8-22-117.8-87.2 0-59.2 58.6-81.1 109.1-81.1 55.1 0 110.8 21.9 110.8 55.4 0 16.9-11.4 31.8-30.3 31.8-28.3 0-29.2-33.5-75-33.5-25.7 0-42 7-42 22.5 0 19.8 20.8 21.8 69.1 33 41.4 9.3 90.7 26.8 90.7 77.6 0 59.1-57.1 86.5-112 86.5"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
