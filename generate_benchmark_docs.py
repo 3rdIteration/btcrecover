@@ -35,6 +35,7 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
+TEMPLATE_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md.template")
 DOCS_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md")
 
 # Markers in the template where generated content is inserted
@@ -216,19 +217,19 @@ def _generate_system_rows_table(lines, all_results, test_labels,
 
 
 def update_docs_file(content):
-    """Update the Benchmarks.md file with generated content."""
-    if not os.path.exists(DOCS_FILE):
-        print(f"Error: {DOCS_FILE} not found", file=sys.stderr)
+    """Generate Benchmarks.md from the template file with benchmark content inserted."""
+    if not os.path.exists(TEMPLATE_FILE):
+        print(f"Error: {TEMPLATE_FILE} not found", file=sys.stderr)
         return False
 
-    with open(DOCS_FILE, "r") as f:
+    with open(TEMPLATE_FILE, "r", encoding="utf-8") as f:
         doc = f.read()
 
     start_idx = doc.find(START_MARKER)
     end_idx = doc.find(END_MARKER)
 
     if start_idx == -1 or end_idx == -1:
-        print(f"Error: Could not find markers in {DOCS_FILE}", file=sys.stderr)
+        print(f"Error: Could not find markers in {TEMPLATE_FILE}", file=sys.stderr)
         return False
 
     new_doc = (
@@ -239,10 +240,10 @@ def update_docs_file(content):
         + doc[end_idx:]
     )
 
-    with open(DOCS_FILE, "w") as f:
+    with open(DOCS_FILE, "w", encoding="utf-8") as f:
         f.write(new_doc)
 
-    print(f"Updated {DOCS_FILE}")
+    print(f"Generated {DOCS_FILE} from {TEMPLATE_FILE}")
     return True
 
 
