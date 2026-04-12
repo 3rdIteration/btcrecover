@@ -51,23 +51,23 @@ Speed varies significantly based on:
 
 ### Password Recovery Benchmarks
 
-| Test | Difficulty | Mode | System 1 | System 2 | System 3 |
-|------|------------|------|--------|--------|--------|
-| Bitcoin Core (BDB) | 67,908 SHA-512 iterations | CPU | 106.58 p/s | 39.20 p/s | 16.95 p/s |
-| Bitcoin Core (SQLite) | 267,488 SHA-512 iterations | CPU | 27.34 p/s | 9.59 p/s | 4.41 p/s |
-| Bither | scrypt N, r, p = 16384, 8, 1 | CPU | 75.28 p/s | 60.80 p/s | 15.81 p/s |
-| Blockchain.com (v0) | 10 PBKDF2-SHA1 iterations | CPU | 105.77 Kp/s | 41.45 Kp/s | 21.22 Kp/s |
-| Blockchain.com (v2) | 10,000 PBKDF2-SHA1 iterations | CPU | 573.48 p/s | 316.39 p/s | 98.36 p/s |
-| Blockchain.com (v3) | 5,000 PBKDF2-SHA1 iterations | CPU | 965.99 p/s | 634.39 p/s | 196.57 p/s |
-| Coinomi (Android) | scrypt N, r, p = 16384, 8, 1 | CPU | 70.19 p/s | 60.00 p/s | 15.79 p/s |
-| Dogechain | 5,000 PBKDF2-SHA256 iterations | CPU | 2.25 Kp/s | 1.16 Kp/s | 367.78 p/s |
-| Electrum (Legacy) | 2 SHA-256 iterations | CPU | 306.77 Kp/s | 157.13 Kp/s | 99.42 Kp/s |
-| Electrum 2 | 2 SHA-256 iterations | CPU | 295.38 Kp/s | 160.89 Kp/s | 97.86 Kp/s |
-| Electrum 2.8+ | 1024 PBKDF2-SHA512 iterations + ECC | CPU | 6.69 Kp/s | 2.21 Kp/s | 957.77 p/s |
-| Ethereum Keystore (scrypt) | Scrypt N=17 R=8 P=1 | CPU | 8.33 p/s | 8.80 p/s | 3.13 p/s |
-| MetaMask (Chrome) | 10000 PBKDF2-SHA256 iterations | CPU | 1.25 Kp/s | 578.39 p/s | 178.09 p/s |
-| MultiBit Classic | 3 MD5 iterations | CPU | 263.56 Kp/s | 138.59 Kp/s | 80.74 Kp/s |
-| MultiBit HD | scrypt N, r, p = 16384, 8, 1 | CPU | 77.74 p/s | 60.00 p/s | 15.58 p/s |
+| Test | Mode | System 1 | System 2 | System 3 |
+|------|------|--------|--------|--------|
+| Bitcoin Core (BDB) - 67,908 SHA-512 iterations | CPU | 106.58 p/s | 39.20 p/s | 16.95 p/s |
+| Bitcoin Core (SQLite) - 267,488 SHA-512 iterations | CPU | 27.34 p/s | 9.59 p/s | 4.41 p/s |
+| Bither - scrypt N, r, p = 16384, 8, 1 | CPU | 75.28 p/s | 60.80 p/s | 15.81 p/s |
+| Blockchain.com (v0) - 10 PBKDF2-SHA1 iterations | CPU | 105.77 Kp/s | 41.45 Kp/s | 21.22 Kp/s |
+| Blockchain.com (v2) - 10,000 PBKDF2-SHA1 iterations | CPU | 573.48 p/s | 316.39 p/s | 98.36 p/s |
+| Blockchain.com (v3) - 5,000 PBKDF2-SHA1 iterations | CPU | 965.99 p/s | 634.39 p/s | 196.57 p/s |
+| Coinomi (Android) - scrypt N, r, p = 16384, 8, 1 | CPU | 70.19 p/s | 60.00 p/s | 15.79 p/s |
+| Dogechain - 5,000 PBKDF2-SHA256 iterations | CPU | 2.25 Kp/s | 1.16 Kp/s | 367.78 p/s |
+| Electrum (Legacy) - 2 SHA-256 iterations | CPU | 306.77 Kp/s | 157.13 Kp/s | 99.42 Kp/s |
+| Electrum 2 - 2 SHA-256 iterations | CPU | 295.38 Kp/s | 160.89 Kp/s | 97.86 Kp/s |
+| Electrum 2.8+ - 1024 PBKDF2-SHA512 iterations + ECC | CPU | 6.69 Kp/s | 2.21 Kp/s | 957.77 p/s |
+| Ethereum Keystore (scrypt) - Scrypt N=17 R=8 P=1 | CPU | 8.33 p/s | 8.80 p/s | 3.13 p/s |
+| MetaMask (Chrome) - 10000 PBKDF2-SHA256 iterations | CPU | 1.25 Kp/s | 578.39 p/s | 178.09 p/s |
+| MultiBit Classic - 3 MD5 iterations | CPU | 263.56 Kp/s | 138.59 Kp/s | 80.74 Kp/s |
+| MultiBit HD - scrypt N, r, p = 16384, 8, 1 | CPU | 77.74 p/s | 60.00 p/s | 15.58 p/s |
 
 ### Seed Recovery Benchmarks
 

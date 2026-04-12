@@ -162,7 +162,7 @@ def generate_markdown(all_results):
             (label, mode): difficulties.get(("password", label, mode), "")
             for (label, mode) in categories["password"]
         }
-        _generate_table(lines, categories["password"], all_results, pw_difficulties)
+        _generate_table(lines, categories["password"], all_results, difficulties=pw_difficulties)
         lines.append("")
 
     # ── Seed Recovery Table ──
@@ -184,16 +184,10 @@ def generate_markdown(all_results):
 def _generate_table(lines, category_data, all_results, difficulties=None):
     """Generate a markdown table for a category of benchmarks."""
     num_systems = len(all_results)
-    show_difficulty = difficulties and any(difficulties.values())
 
     # Build header
-    header = "| Test |"
-    separator = "|------|"
-    if show_difficulty:
-        header += " Difficulty |"
-        separator += "------------|"
-    header += " Mode |"
-    separator += "------|"
+    header = "| Test | Mode |"
+    separator = "|------|------|"
     for i in range(num_systems):
         header += f" System {i + 1} |"
         separator += "--------|"
@@ -205,11 +199,12 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
     sorted_items = sorted(category_data.items(), key=lambda x: (x[0][0], x[0][1]))
 
     for (label, mode), system_rates in sorted_items:
-        row = f"| {label} |"
-        if show_difficulty:
+        display_label = label
+        if difficulties:
             diff = difficulties.get((label, mode), "")
-            row += f" {diff} |"
-        row += f" {mode.upper()} |"
+            if diff:
+                display_label = f"{label} - {diff}"
+        row = f"| {display_label} | {mode.upper()} |"
         for i in range(num_systems):
             rate = system_rates.get(i, None)
             row += f" {format_rate(rate)} |"
