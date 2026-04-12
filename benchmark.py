@@ -152,7 +152,15 @@ def get_system_info():
 
 
 def _get_cpu_model():
-    """Get the CPU model string."""
+    """Get the CPU model string.
+
+    On Windows the most reliable source is the registry key
+    ``HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\\ProcessorNameString``
+    which always contains the full human-readable brand string (e.g.
+    "AMD Ryzen 9 7950X 16-Core Processor").  The older ``wmic`` approach and
+    ``platform.processor()`` often return raw CPUID identifiers such as
+    "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD" on AMD systems.
+    """
     try:
         if platform.system() == "Linux":
             with open("/proc/cpuinfo", "r") as f:
@@ -167,14 +175,33 @@ def _get_cpu_model():
             if result.returncode == 0:
                 return result.stdout.strip()
         elif platform.system() == "Windows":
-            result = subprocess.run(
-                ["wmic", "cpu", "get", "name"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip() and l.strip() != "Name"]
-                if lines:
-                    return lines[0]
+            # Prefer the registry – it always has the full brand string and
+            # does not depend on deprecated tools like wmic.
+            try:
+                import winreg
+                key = winreg.OpenKey(
+                    winreg.HKEY_LOCAL_MACHINE,
+                    r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+                )
+                value, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                winreg.CloseKey(key)
+                if value and value.strip():
+                    return value.strip()
+            except Exception:
+                pass
+            # Fallback: wmic (deprecated but still present on many systems)
+            try:
+                result = subprocess.run(
+                    ["wmic", "cpu", "get", "name"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    lines = [l.strip() for l in result.stdout.strip().split("\n")
+                             if l.strip() and l.strip() != "Name"]
+                    if lines:
+                        return lines[0]
+            except Exception:
+                pass
     except Exception:
         pass
     return platform.processor() or "Unknown"
