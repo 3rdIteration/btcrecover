@@ -202,13 +202,23 @@ def _generate_system_rows_table(lines, all_results, test_labels,
         cpu = sys_info.get("cpu_model", "Unknown")
         cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
         cpu = cpu.replace(" Processor", "").replace(" CPU", "")
-        system_name = f"System {i + 1}: {cpu}"
+
+        gpu_info = sys_info.get("gpu", [])
+        gpu_name = gpu_info[0].get("name", "") if gpu_info else ""
+        opencl_devs = sys_info.get("opencl_devices", [])
+        opencl_name = opencl_devs[0].get("name", "") if isinstance(opencl_devs, list) and opencl_devs else ""
 
         modes = get_system_modes_fn(i, test_labels)
         if not modes:
             continue
 
         for mode in modes:
+            if mode == "gpu" and gpu_name:
+                system_name = f"System {i + 1}: {gpu_name}"
+            elif mode == "opencl" and opencl_name:
+                system_name = f"System {i + 1}: {opencl_name}"
+            else:
+                system_name = f"System {i + 1}: {cpu}"
             row = f"| {system_name} | {mode.upper()} |"
             for label in test_labels:
                 rate = rate_lookup.get((i, mode, label), None)
