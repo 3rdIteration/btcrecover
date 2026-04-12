@@ -1258,7 +1258,10 @@ class opencl_algos:
                 key2 = hashlib.md5(key1 + salted).digest()
                 iv = hashlib.md5(key2 + salted).digest()
                 # AES-256-CBC decrypt of first block
-                from Crypto.Cipher import AES
+                try:
+                    from Crypto.Cipher import AES
+                except ImportError:
+                    from Cryptodome.Cipher import AES
                 cipher = AES.new(key1 + key2, AES.MODE_CBC, iv)
                 decrypted = cipher.decrypt(encrypted_block_bytes)
                 # Check if decrypted first byte looks like a valid key
