@@ -3,6 +3,8 @@
 # (c) B. Kerler 2018-2021
 # MIT License
 import os
+import hashlib
+import hmac as hmac_module
 from hashlib import pbkdf2_hmac
 from binascii import unhexlify
 from collections import deque
@@ -283,6 +285,8 @@ class opencl_interface:
             # For each password in our chunk, process it into pwArray, with length first
             # Notice that this lines up with the struct declared in the .cl file!
             chunkSize = self.workgroupsize
+            skippedIndices = []
+            gpuIndex = 0
             for i in range(self.workgroupsize):
                 try:
                     pw = pwdIter.__next__()
@@ -296,19 +300,17 @@ class opencl_interface:
 
                 pwLen = len(pw)
                 # Now passing hash block size as a parameter.. could be None?
-                assert (
-                    paddedLenFunc(pwLen, hashBlockSize_bits // 8) <= inBufSize_bytes
-                ), (
-                    "password #"
-                    + str(i)
-                    + ", '"
-                    + pw.decode()
-                    + "' (length "
-                    + str(pwLen)
-                    + ") exceeds the input buffer (length "
-                    + str(inBufSize_bytes)
-                    + ") when padded"
-                )
+                if paddedLenFunc(pwLen, hashBlockSize_bits // 8) > inBufSize_bytes:
+                    # Password is too long for the OpenCL buffer; skip it
+                    # and record its position so callers can fall back to CPU.
+                    print(
+                        "Warning: skipping password #{} (length {}) "
+                        "which exceeds the OpenCL input buffer (length {}) "
+                        "when padded -- will fall back to CPU for this "
+                        "password".format(i, pwLen, inBufSize_bytes)
+                    )
+                    skippedIndices.append(i)
+                    continue
 
                 # Add the length to our pwArray, then pad with 0s to struct size
                 # prev code was np.array([pwLen], dtype=np.uint32), this ultimately is equivalent
@@ -317,21 +319,31 @@ class opencl_interface:
                     + pw
                     + (b"\x00" * (inBufSize_bytes - pwLen))
                 )
+                gpuIndex += 1
 
             if chunkSize == 0:
                 break
 
-            realChunk = chunkSize
-            if chunkSize < MIN_BATCH_SIZE:
-                pad = MIN_BATCH_SIZE - chunkSize
+            # Actual number of passwords sent to the GPU (excludes skipped)
+            gpuCount = chunkSize - len(skippedIndices)
+
+            if gpuCount == 0:
+                # All passwords in this chunk were skipped; yield None for each
+                yield [None] * chunkSize
+                continue
+
+            realChunk = gpuCount
+            gpuChunkSize = gpuCount
+            if gpuChunkSize < MIN_BATCH_SIZE:
+                pad = MIN_BATCH_SIZE - gpuChunkSize
                 pwArray.extend(b"\x00" * ((wordSize + inBufSize_bytes) * pad))
-                chunkSize = MIN_BATCH_SIZE
-            # print("Chunksize = {}".format(chunkSize))
+                gpuChunkSize = MIN_BATCH_SIZE
+            # print("Chunksize = {}".format(gpuChunkSize))
 
             # Convert the pwArray into a numpy array, just the once.
             # Declare the numpy array for the digest output
             pwArray = np.frombuffer(pwArray, dtype=wordType)
-            result = np.zeros(outBufferSize * chunkSize, dtype=wordType)
+            result = np.zeros(outBufferSize * gpuChunkSize, dtype=wordType)
 
             # Make the salty array, with length at the front
             saltLen = len(salt)
@@ -364,7 +376,7 @@ class opencl_interface:
             # print(" result_g.nbytes = {}".format(result.nbytes))
 
             # Call Kernel. Automatically takes care of block/grid distribution
-            pwdim = (chunkSize,)
+            pwdim = (gpuChunkSize,)
 
             # Main function callback : could adapt to pass further data
             func(self, pwdim, pass_g, salt_g, result_g)
@@ -376,12 +388,27 @@ class opencl_interface:
 
             # Chop up into the individual hash digests, then trim to necessary hash length.
 
-            # Yield this block of results
-            results = [
+            # Build this block of results, inserting None at skipped positions
+            gpuResults = [
                 bytes(result[i : i + outBufSize_bytes // wordSize])
                 for i in range(0, len(result), outBufSize_bytes // wordSize)
             ]
-            yield results[:realChunk]
+            gpuResults = gpuResults[:realChunk]
+
+            if skippedIndices:
+                # Re-insert None placeholders at the original positions
+                finalResults = []
+                gpuIdx = 0
+                skippedSet = set(skippedIndices)
+                for i in range(chunkSize):
+                    if i in skippedSet:
+                        finalResults.append(None)
+                    else:
+                        finalResults.append(gpuResults[gpuIdx])
+                        gpuIdx += 1
+                yield finalResults
+            else:
+                yield gpuResults
 
         # No main return
         return None
@@ -419,6 +446,7 @@ class opencl_interface:
             # For each password in our chunk, process it into pwArray, with length first
             # Notice that this lines up with the struct declared in the .cl file!
             chunkSize = self.workgroupsize
+            skippedIndices = []
             for i in range(self.workgroupsize):
                 try:
                     salt = saltIter.__next__()
@@ -432,19 +460,17 @@ class opencl_interface:
 
                 saltLen = len(salt)
                 # Now passing hash block size as a parameter.. could be None?
-                assert (
-                    paddedLenFunc(saltLen, hashBlockSize_bits // 8) <= inBufSize_bytes
-                ), (
-                    "salt #"
-                    + str(i)
-                    + ", '"
-                    + salt.decode()
-                    + "' (length "
-                    + str(saltLen)
-                    + ") exceeds the input buffer (length "
-                    + str(inBufSize_bytes)
-                    + ") when padded"
-                )
+                if paddedLenFunc(saltLen, hashBlockSize_bits // 8) > inBufSize_bytes:
+                    # Salt is too long for the OpenCL buffer; skip it
+                    # and record its position so callers can fall back to CPU.
+                    print(
+                        "Warning: skipping salt #{} (length {}) "
+                        "which exceeds the OpenCL input buffer (length {}) "
+                        "when padded -- will fall back to CPU for this "
+                        "salt".format(i, saltLen, inBufSize_bytes)
+                    )
+                    skippedIndices.append(i)
+                    continue
 
                 # Add the length to our saltLen, then pad with 0s to struct size
                 # prev code was np.array([saltLen], dtype=np.uint32), this ultimately is equivalent
@@ -455,17 +481,26 @@ class opencl_interface:
             if chunkSize == 0:
                 break
 
-            realChunk = chunkSize
-            if chunkSize < MIN_BATCH_SIZE:
-                pad = MIN_BATCH_SIZE - chunkSize
+            # Actual number of salts sent to the GPU (excludes skipped)
+            gpuCount = chunkSize - len(skippedIndices)
+
+            if gpuCount == 0:
+                # All salts in this chunk were skipped; yield None for each
+                yield [None] * chunkSize
+                continue
+
+            realChunk = gpuCount
+            gpuChunkSize = gpuCount
+            if gpuChunkSize < MIN_BATCH_SIZE:
+                pad = MIN_BATCH_SIZE - gpuChunkSize
                 saltArray.extend(b"\x00" * ((self.wordSize + inBufSize_bytes) * pad))
-                chunkSize = MIN_BATCH_SIZE
-            # print("Chunksize = {}".format(chunkSize))
+                gpuChunkSize = MIN_BATCH_SIZE
+            # print("Chunksize = {}".format(gpuChunkSize))
 
             # Convert the pwArray into a numpy array, just the once.
             # Declare the numpy array for the digest output
             saltArray = np.frombuffer(saltArray, dtype=self.wordType)
-            result = np.zeros(bufStructs.outBufferSize * chunkSize, dtype=self.wordType)
+            result = np.zeros(bufStructs.outBufferSize * gpuChunkSize, dtype=self.wordType)
 
             # Make the salty array, with length at the front
             pwLen = len(password)
@@ -497,7 +532,7 @@ class opencl_interface:
             # print(" result_g.nbytes = {}".format(result.nbytes))
 
             # Call Kernel. Automatically takes care of block/grid distribution
-            pwdim = (chunkSize,)
+            pwdim = (gpuChunkSize,)
 
             # Main function callback : could adapt to pass further data
             func(self, pwdim, pass_g, salt_g, result_g)
@@ -510,17 +545,32 @@ class opencl_interface:
             # hexvalue = hexlify(result)
 
             # Chop up into the individual hash digests, then trim to necessary hash length.
-            results = []
+            gpuResults = []
             # for i in range(0, len(hexvalue), outBufSize_hs):
             #    hexRes = hexvalue[i:i + outBufSize_hs].decode()
             #    results.append(hexRes)
 
             for i in range(0, len(result), outBufSize_bytes // bufStructs.wordSize):
                 v = bytes(result[i : i + outBufSize_bytes // bufStructs.wordSize])
-                results.append(v)
+                gpuResults.append(v)
 
-            # Yield this block of results
-            yield results[:realChunk]
+            gpuResults = gpuResults[:realChunk]
+
+            if skippedIndices:
+                # Re-insert None placeholders at the original positions
+                finalResults = []
+                gpuIdx = 0
+                skippedSet = set(skippedIndices)
+                for i in range(chunkSize):
+                    if i in skippedSet:
+                        finalResults.append(None)
+                    else:
+                        finalResults.append(gpuResults[gpuIdx])
+                        gpuIdx += 1
+                yield finalResults
+            else:
+                # Yield this block of results
+                yield gpuResults
 
         # No main return
         return None
@@ -807,11 +857,19 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(
+        passwordlist = list(passwordlist)
+        result = concat(
             self.opencl_ctx.run(
                 bufStructs, func, iter(passwordlist), b"", mdpad_128_func
             )
         )
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                result[i] = hashlib.sha512(passwordlist[i]).digest()
+
+        return result
 
     def cl_sha256_init(
         self, option="", max_in_bytes=128, max_salt_bytes=32, dklen=0, max_ct_bytes=0
@@ -830,11 +888,19 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(
+        passwordlist = list(passwordlist)
+        result = concat(
             self.opencl_ctx.run(
                 bufStructs, func, iter(passwordlist), b"", mdpad_64_func
             )
         )
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                result[i] = hashlib.sha256(passwordlist[i]).digest()
+
+        return result
 
     def cl_md5_init(self, option=""):
         bufStructs = buffer_structs()
@@ -851,11 +917,19 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(
+        passwordlist = list(passwordlist)
+        result = concat(
             self.opencl_ctx.run(
                 bufStructs, func, iter(passwordlist), b"", mdpad_64_func
             )
         )
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                result[i] = hashlib.md5(passwordlist[i]).digest()
+
+        return result
 
     def cl_sha1_init(self, option=""):
         bufStructs = buffer_structs()
@@ -872,11 +946,19 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_main(s.queue, pwdim, None, pass_g, result_g)
 
-        return concat(
+        passwordlist = list(passwordlist)
+        result = concat(
             self.opencl_ctx.run(
                 bufStructs, func, iter(passwordlist), b"", mdpad_64_func
             )
         )
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                result[i] = hashlib.sha1(passwordlist[i]).digest()
+
+        return result
 
     # ===========================================================================================
 
@@ -887,7 +969,22 @@ class opencl_algos:
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hmac_main(s.queue, pwdim, None, pass_g, salt_g, result_g)
 
-        return concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), salt))
+        passwordlist = list(passwordlist)
+        result = concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), salt))
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                # Determine the hash type from the bufStructs word size
+                if bufStructs.wordSize == 8:
+                    h = hmac_module.new(passwordlist[i], salt, hashlib.sha512)
+                elif bufStructs.hashBlockSize_bits == 512:
+                    h = hmac_module.new(passwordlist[i], salt, hashlib.sha256)
+                else:
+                    h = hmac_module.new(passwordlist[i], salt, hashlib.sha1)
+                result[i] = h.digest()
+
+        return result
 
     def cl_md5_hmac(self, ctx, passwordlist, salt):
         # self.cl_md5_init("pbkdf2.cl")
@@ -910,6 +1007,7 @@ class opencl_algos:
     def cl_pbkdf2(self, ctx, passwordlist, salt, iters, dklen):
         prg = ctx[0]
         bufStructs = ctx[1]
+        hash_type = ctx[2] if len(ctx) > 2 else None
 
         # `prg.pbkdf2` creates a new kernel instance every time it is accessed,
         # which is expensive and triggers pyopencl's RepeatedKernelRetrieval
@@ -932,10 +1030,20 @@ class opencl_algos:
                 dklen.to_bytes(4, "little"),
             )  # ! iters, dklen are always ints
 
+        # Materialize the password list so we can fall back to CPU for
+        # passwords that were too long for the OpenCL buffer.
+        passwordlist = list(passwordlist)
         result = concat(self.opencl_ctx.run(bufStructs, func, iter(passwordlist), salt))
         if dklen != self.max_out_bytes:
             # We may have made more space for a multiple of the digest size
-            result = [hexRes[:dklen] for hexRes in result]
+            result = [hexRes[:dklen] if hexRes is not None else None for hexRes in result]
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        if hash_type:
+            for i, res in enumerate(result):
+                if res is None:
+                    result[i] = pbkdf2_hmac(hash_type, passwordlist[i], salt, iters, dklen)
+
         return result
 
     def cl_pbkdf2_init(self, rtype, saltlen, dklen):
@@ -965,13 +1073,14 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
             assert "Error on hash type, unknown !!!"
-        return [prg, bufStructs]
+        return [prg, bufStructs, rtype]
 
     # ===========================================================================================
 
     def cl_pbkdf2_saltlist(self, ctx, password, saltlist, iters, dklen):
         prg = ctx[0]
         bufStructs = ctx[1]
+        hash_type = ctx[2] if len(ctx) > 2 else None
 
         pbkdf2_saltlist_kernel = getattr(prg, "_pbkdf2_saltlist_kernel", None)
         if pbkdf2_saltlist_kernel is None:
@@ -990,12 +1099,22 @@ class opencl_algos:
                 (dklen).to_bytes(4, "little"),
             )  # ! iters, dklen are always ints
 
+        # Materialize the salt list so we can fall back to CPU for
+        # salts that were too long for the OpenCL buffer.
+        saltlist = list(saltlist)
         result = concat(
             self.opencl_ctx.run_saltlist(bufStructs, func, iter(saltlist), password)
         )
         if dklen != self.max_out_bytes:
             # We may have made more space for a multiple of the digest size
-            result = [hexRes[:dklen] for hexRes in result]
+            result = [hexRes[:dklen] if hexRes is not None else None for hexRes in result]
+
+        # CPU fallback for any salts that were too long for OpenCL
+        if hash_type:
+            for i, res in enumerate(result):
+                if res is None:
+                    result[i] = pbkdf2_hmac(hash_type, password, saltlist[i], iters, dklen)
+
         return result
 
     def cl_pbkdf2_saltlist_init(self, type, pwdlen, dklen):
@@ -1038,13 +1157,14 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "pbkdf2.cl")
         else:
             assert "Error on hash type, unknown !!!"
-        return [prg, bufStructs]
+        return [prg, bufStructs, type]
 
     # ===========================================================================================
 
     def cl_hash_iterations(self, ctx, passwordlist, iters, hash_size):
         prg = ctx[0]
         bufStructs = ctx[1]
+        hash_type = ctx[2] if len(ctx) > 2 else None
 
         def func(s, pwdim, pass_g, salt_g, result_g):
             prg.hash_iterations(
@@ -1057,11 +1177,25 @@ class opencl_algos:
                 hash_size.to_bytes(4, "little"),
             )  # ! iters are always ints
 
-        return concat(
+        # Materialize the password list so we can fall back to CPU for
+        # passwords that were too long for the OpenCL buffer.
+        passwordlist = list(passwordlist)
+        result = concat(
             self.opencl_ctx.run(
                 bufStructs, func, iter(passwordlist), b"", mdpad_64_func
             )
         )
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        if hash_type:
+            for i, res in enumerate(result):
+                if res is None:
+                    cpu_result = passwordlist[i]
+                    for _ in range(iters):
+                        cpu_result = hashlib.new(hash_type, cpu_result).digest()
+                    result[i] = cpu_result
+
+        return result
 
     def cl_hash_iterations_init(self, type):
         bufStructs = buffer_structs()
@@ -1081,8 +1215,8 @@ class opencl_algos:
             prg = self.opencl_ctx.compile(bufStructs, "sha512.cl", "hash_iterations.cl")
         else:
             assert ("Error on hash type, unknown !!!")
-        return [prg, bufStructs]
-    
+        return [prg, bufStructs, type]
+
     def cl_multibit_md5_init(self, salt_len):
         """Initialize OpenCL context for MultiBit MD5 processing"""
         bufStructs = buffer_structs()
@@ -1093,11 +1227,11 @@ class opencl_algos:
     
     def cl_multibit_md5(self, ctx, passwords, salt, encrypted_block_bytes):
         """Execute MultiBit MD5 processing on GPU"""
-        prg, bufStructs = ctx
+        prg, bufStructs = ctx[0], ctx[1]
 
         # build a single Kernel instance
         knl = cl.Kernel(prg, "multibit_md5_main")
-        
+
         encrypted_buf = cl.Buffer(
             self.opencl_ctx.ctx,
             cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
@@ -1110,4 +1244,28 @@ class opencl_algos:
             knl.set_arg(2, result_g)
             knl.set_arg(3, encrypted_buf)
             cl.enqueue_nd_range_kernel(s.queue, knl, pwdim, None)
-        return concat(self.opencl_ctx.run(bufStructs,func,iter(passwords),salt,mdpad_64_func))
+
+        passwords = list(passwords)
+        result = concat(self.opencl_ctx.run(bufStructs, func, iter(passwords), salt, mdpad_64_func))
+
+        # CPU fallback for any passwords that were too long for OpenCL
+        for i, res in enumerate(result):
+            if res is None:
+                # Replicate the MD5+AES derivation that the OpenCL kernel performs
+                password = passwords[i]
+                salted = password + salt
+                key1 = hashlib.md5(salted).digest()
+                key2 = hashlib.md5(key1 + salted).digest()
+                iv = hashlib.md5(key2 + salted).digest()
+                # AES-256-CBC decrypt of first block
+                from Crypto.Cipher import AES
+                cipher = AES.new(key1 + key2, AES.MODE_CBC, iv)
+                decrypted = cipher.decrypt(encrypted_block_bytes)
+                # Check if decrypted first byte looks like a valid key
+                match_flag = 1 if chr(decrypted[0]) in "LK5Q\x0a#" else 0
+                # Pack result in same format as kernel:
+                # match_flag (4B) + decrypted (16B) + key1 (16B) + key2 (16B) + iv (16B)
+                result[i] = (match_flag.to_bytes(4, "little") +
+                             decrypted[:16] + key1 + key2 + iv)
+
+        return result
