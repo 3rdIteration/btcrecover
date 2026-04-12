@@ -102,13 +102,35 @@ def _get_system_id():
     return hashlib.sha256(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 
+def _get_windows_release():
+    """Get the correct Windows release string.
+
+    On systems upgraded from Windows 10 to Windows 11, platform.release()
+    may still return '10' because the registry value it reads is stale.
+    Use sys.getwindowsversion() to check the build number: builds >= 22000
+    are Windows 11.
+    """
+    release = platform.release()
+    try:
+        ver = sys.getwindowsversion()
+        if ver.build >= 22000 and release == "10":
+            return "11"
+    except Exception:
+        pass
+    return release
+
+
 def get_system_info():
     """Collect system information for the benchmark results."""
+    os_release = platform.release()
+    if platform.system() == "Windows":
+        os_release = _get_windows_release()
+
     info = {
         "system_id": _get_system_id(),
         "os": platform.system(),
         "os_version": platform.version(),
-        "os_release": platform.release(),
+        "os_release": os_release,
         "architecture": platform.machine(),
         "python_version": platform.python_version(),
         "cpu_model": _get_cpu_model(),
@@ -190,6 +212,22 @@ def _get_physical_cores():
             )
             if result.returncode == 0:
                 return int(result.stdout.strip())
+        elif platform.system() == "Windows":
+            result = subprocess.run(
+                ["wmic", "cpu", "get", "NumberOfCores"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                total = 0
+                for line in result.stdout.strip().split("\n"):
+                    line = line.strip()
+                    if line and line != "NumberOfCores":
+                        try:
+                            total += int(line)
+                        except ValueError:
+                            pass
+                if total > 0:
+                    return total
     except Exception:
         pass
     return os.cpu_count()
