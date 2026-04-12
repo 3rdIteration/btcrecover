@@ -85,7 +85,13 @@ def get_system_label(result):
 
 
 def generate_markdown(all_results):
-    """Generate the benchmark results markdown content."""
+    """Generate the benchmark results markdown content.
+
+    Layout: each system occupies one or more rows (one per mode: CPU, GPU,
+    OpenCL).  The wallet/seed test types form the columns so that readers
+    can easily compare speeds across different wallet types for the same
+    system.
+    """
     if not all_results:
         return (
             '!!! note "No benchmark results yet"\n'
@@ -121,81 +127,92 @@ def generate_markdown(all_results):
 
     lines.append("")
 
-    # ── Collect all test labels and organize by category ──
-    categories = {}
+    # ── Collect all test labels per category ──
+    password_labels = []
+    seed_labels = []
     for result in all_results:
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
             label = bench.get("label", "Unknown")
-            # Strip the mode suffix from label for grouping
             base_label = label
             for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
                 base_label = base_label.replace(suffix, "")
-            mode = bench.get("mode", "cpu")
-            key = (cat, base_label, mode)
-            if cat not in categories:
-                categories[cat] = {}
-            if (base_label, mode) not in categories[cat]:
-                categories[cat][(base_label, mode)] = {}
+            if cat == "password" and base_label not in password_labels:
+                password_labels.append(base_label)
+            elif cat == "seed" and base_label not in seed_labels:
+                seed_labels.append(base_label)
 
-    # ── Fill in rates per system ──
+    # ── Build lookup: (system_index, mode, base_label) -> rate ──
+    rate_lookup = {}
     for i, result in enumerate(all_results):
         for bench in result.get("benchmarks", []):
-            cat = bench.get("category", "other")
             label = bench.get("label", "Unknown")
             base_label = label
             for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
                 base_label = base_label.replace(suffix, "")
             mode = bench.get("mode", "cpu")
             rate = bench.get("passwords_per_second", 0)
-            if cat in categories and (base_label, mode) in categories[cat]:
-                categories[cat][(base_label, mode)][i] = rate
+            rate_lookup[(i, mode, base_label)] = rate
+
+    # ── Determine which modes each system has results for, per category ──
+    def _get_system_modes(system_idx, labels):
+        modes = set()
+        for label in labels:
+            for mode in ("cpu", "gpu", "opencl"):
+                if (system_idx, mode, label) in rate_lookup:
+                    modes.add(mode)
+        return sorted(modes, key=lambda m: ["cpu", "gpu", "opencl"].index(m))
 
     # ── Password Recovery Table ──
-    if "password" in categories:
+    if password_labels:
         lines.append("### Password Recovery Benchmarks\n")
-        _generate_table(lines, categories["password"], all_results)
+        _generate_system_rows_table(lines, all_results, password_labels,
+                                    rate_lookup, _get_system_modes)
         lines.append("")
 
     # ── Seed Recovery Table ──
-    if "seed" in categories:
+    if seed_labels:
         lines.append("### Seed Recovery Benchmarks\n")
-        _generate_table(lines, categories["seed"], all_results)
+        _generate_system_rows_table(lines, all_results, seed_labels,
+                                    rate_lookup, _get_system_modes)
         lines.append("")
-
-    # ── Other categories ──
-    for cat_name, cat_data in categories.items():
-        if cat_name not in ("password", "seed"):
-            lines.append(f"### {cat_name.title()} Benchmarks\n")
-            _generate_table(lines, cat_data, all_results)
-            lines.append("")
 
     return "\n".join(lines)
 
 
-def _generate_table(lines, category_data, all_results):
-    """Generate a markdown table for a category of benchmarks."""
-    num_systems = len(all_results)
+def _generate_system_rows_table(lines, all_results, test_labels,
+                                rate_lookup, get_system_modes_fn):
+    """Generate a table where systems are rows and test types are columns.
 
-    # Build header
-    header = "| Test | Mode |"
-    separator = "|------|------|"
-    for i in range(num_systems):
-        header += f" System {i + 1} |"
+    If a system has results for multiple modes (CPU, GPU, OpenCL) each mode
+    gets its own row.
+    """
+    # Header
+    header = "| System | Mode |"
+    separator = "|--------|------|"
+    for label in test_labels:
+        header += f" {label} |"
         separator += "--------|"
-
     lines.append(header)
     lines.append(separator)
 
-    # Sort by label then mode
-    sorted_items = sorted(category_data.items(), key=lambda x: (x[0][0], x[0][1]))
+    for i, result in enumerate(all_results):
+        sys_info = result.get("system_info", {})
+        cpu = sys_info.get("cpu_model", "Unknown")
+        cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
+        cpu = cpu.replace(" Processor", "").replace(" CPU", "")
+        system_name = f"System {i + 1}: {cpu}"
 
-    for (label, mode), system_rates in sorted_items:
-        row = f"| {label} | {mode.upper()} |"
-        for i in range(num_systems):
-            rate = system_rates.get(i, None)
-            row += f" {format_rate(rate)} |"
-        lines.append(row)
+        modes = get_system_modes_fn(i, test_labels)
+        if not modes:
+            continue
+
+        for mode in modes:
+            row = f"| {system_name} | {mode.upper()} |"
+            for label in test_labels:
+                rate = rate_lookup.get((i, mode, label), None)
+                row += f" {format_rate(rate)} |"
+            lines.append(row)
 
 
 def update_docs_file(content):

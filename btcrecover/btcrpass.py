@@ -6054,6 +6054,7 @@ def init_parser_common():
         parser_common.add_argument("--exclude-passwordlist", metavar="FILE", nargs="?", const="-", help="never try passwords read (exactly one per line) from this file or from stdin")
         parser_common.add_argument("--listpass",    action="store_true", help="just list all password combinations to test and exit")
         parser_common.add_argument("--performance", action="store_true", help="run a continuous performance test (Ctrl-C to exit)")
+        parser_common.add_argument("--performance-duration", type=int, default=None, metavar="SECONDS", help="automatically stop a --performance test after this many seconds and report results")
         parser_common.add_argument("--pause",       action="store_true", help="pause before exiting")
         parser_common.add_argument(
             "--beep-on-find",
@@ -9688,6 +9689,10 @@ def main():
     # Iterate through password_found_iterator looking for a successful guess
     password_found  = False
     passwords_tried = 0
+    performance_start_time = None
+    performance_duration = getattr(args, 'performance_duration', None)
+    if args.performance and performance_duration:
+        performance_start_time = time.monotonic()
     if progress: progress.start()
     try:
         for password_found, passwords_tried_last in password_found_iterator:
@@ -9715,6 +9720,21 @@ def main():
                 progress.update(passwords_tried)
             if l_savestate and passwords_tried % est_passwords_per_5min == 0:
                 do_autosave(args.skip + passwords_tried)
+            # Check if --performance-duration has elapsed
+            if performance_start_time is not None:
+                if time.monotonic() - performance_start_time >= performance_duration:
+                    if pool:
+                        pool.close()
+                        _pool = pool
+                    if progress:
+                        progress.maxval = passwords_tried
+                        progress.finish()
+                    elapsed = time.monotonic() - performance_start_time
+                    rate = passwords_tried / elapsed if elapsed > 0 else 0
+                    print("\nPerformance test completed: {:,} passwords in {:.1f}s ({:.2f} passwords/s)".format(
+                        passwords_tried, elapsed, rate))
+                    return (False, "Performance test completed: {:,} passwords in {:.1f}s ({:.2f} passwords/s)".format(
+                        passwords_tried, elapsed, rate))
         else:  # if the for loop exits normally (without breaking)
             if pool: pool.close()
             if progress:
