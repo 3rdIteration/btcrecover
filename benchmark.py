@@ -183,10 +183,12 @@ def _get_cpu_model():
                     winreg.HKEY_LOCAL_MACHINE,
                     r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
                 )
-                value, _ = winreg.QueryValueEx(key, "ProcessorNameString")
-                winreg.CloseKey(key)
-                if value and value.strip():
-                    return value.strip()
+                try:
+                    value, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                    if value and value.strip():
+                        return value.strip()
+                finally:
+                    winreg.CloseKey(key)
             except Exception:
                 pass
             # Fallback: wmic (deprecated but still present on many systems)
