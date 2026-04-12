@@ -40,6 +40,44 @@ Speed varies significantly based on:
 ## Benchmark Results
 
 <!-- BENCHMARK_RESULTS_START -->
+
+### Systems Tested
+
+| # | CPU | Cores (Phys/Logical) | GPU | OpenCL Device | OS | Date |
+|---|-----|----------------------|-----|---------------|----|----- |
+| 1 | Apple M1 (Virtual) | 3/3 | None | None | Darwin 24.6.0 | 2026-04-11 |
+| 2 | Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz | 2/4 | None | None | Linux 6.17.0-1010-azure | 2026-04-11 |
+| 3 | Intel64 Family 6 Model 106 Stepping 6, GenuineIntel | 4/4 | None | None | Windows 2025Server | 2026-04-11 |
+
+### Password Recovery Benchmarks
+
+| Test | Mode | System 1 | System 2 | System 3 |
+|------|------|--------|--------|--------|
+| Bitcoin Core (BDB) | CPU | 106.58 p/s | 39.20 p/s | 16.95 p/s |
+| Bitcoin Core (SQLite) | CPU | 27.34 p/s | 9.59 p/s | 4.41 p/s |
+| Bither | CPU | 75.28 p/s | 60.80 p/s | 15.81 p/s |
+| Blockchain.com (v0) | CPU | 105.77 Kp/s | 41.45 Kp/s | 21.22 Kp/s |
+| Blockchain.com (v2) | CPU | 573.48 p/s | 316.39 p/s | 98.36 p/s |
+| Blockchain.com (v3) | CPU | 965.99 p/s | 634.39 p/s | 196.57 p/s |
+| Coinomi (Android) | CPU | 70.19 p/s | 60.00 p/s | 15.79 p/s |
+| Dogechain | CPU | 2.25 Kp/s | 1.16 Kp/s | 367.78 p/s |
+| Electrum (Legacy) | CPU | 306.77 Kp/s | 157.13 Kp/s | 99.42 Kp/s |
+| Electrum 2 | CPU | 295.38 Kp/s | 160.89 Kp/s | 97.86 Kp/s |
+| Electrum 2.8+ | CPU | 6.69 Kp/s | 2.21 Kp/s | 957.77 p/s |
+| Ethereum Keystore (scrypt) | CPU | 8.33 p/s | 8.80 p/s | 3.13 p/s |
+| MetaMask (Chrome) | CPU | 1.25 Kp/s | 578.39 p/s | 178.09 p/s |
+| MultiBit Classic | CPU | 263.56 Kp/s | 138.59 Kp/s | 80.74 Kp/s |
+| MultiBit HD | CPU | 77.74 p/s | 60.00 p/s | 15.58 p/s |
+
+### Seed Recovery Benchmarks
+
+| Test | Mode | System 1 | System 2 | System 3 |
+|------|------|--------|--------|--------|
+| BIP39 12-word Seed | CPU | 50.45 Kp/s | 16.45 Kp/s | 7.34 Kp/s |
+| BIP39 24-word Seed | CPU | 169.73 Kp/s | 94.72 Kp/s | 51.86 Kp/s |
+| Electrum Seed | CPU | 220.82 Kp/s | 103.70 Kp/s | 44.65 Kp/s |
+
+
 <!-- BENCHMARK_RESULTS_END -->
 
 To view results locally, run the benchmark tool and then serve the docs:
