@@ -123,6 +123,7 @@ def generate_markdown(all_results):
 
     # ── Collect all test labels and organize by category ──
     categories = {}
+    difficulties = {}  # (cat, base_label, mode) -> wallet_difficulty string
     for result in all_results:
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
@@ -132,11 +133,14 @@ def generate_markdown(all_results):
             for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
                 base_label = base_label.replace(suffix, "")
             mode = bench.get("mode", "cpu")
-            key = (cat, base_label, mode)
             if cat not in categories:
                 categories[cat] = {}
             if (base_label, mode) not in categories[cat]:
                 categories[cat][(base_label, mode)] = {}
+            # Capture wallet difficulty (same for all systems)
+            difficulty = bench.get("wallet_difficulty", "")
+            if difficulty and (cat, base_label, mode) not in difficulties:
+                difficulties[(cat, base_label, mode)] = difficulty
 
     # ── Fill in rates per system ──
     for i, result in enumerate(all_results):
@@ -154,7 +158,11 @@ def generate_markdown(all_results):
     # ── Password Recovery Table ──
     if "password" in categories:
         lines.append("### Password Recovery Benchmarks\n")
-        _generate_table(lines, categories["password"], all_results)
+        pw_difficulties = {
+            (label, mode): difficulties.get(("password", label, mode), "")
+            for (label, mode) in categories["password"]
+        }
+        _generate_table(lines, categories["password"], all_results, difficulties=pw_difficulties)
         lines.append("")
 
     # ── Seed Recovery Table ──
@@ -173,7 +181,7 @@ def generate_markdown(all_results):
     return "\n".join(lines)
 
 
-def _generate_table(lines, category_data, all_results):
+def _generate_table(lines, category_data, all_results, difficulties=None):
     """Generate a markdown table for a category of benchmarks."""
     num_systems = len(all_results)
 
@@ -191,7 +199,12 @@ def _generate_table(lines, category_data, all_results):
     sorted_items = sorted(category_data.items(), key=lambda x: (x[0][0], x[0][1]))
 
     for (label, mode), system_rates in sorted_items:
-        row = f"| {label} | {mode.upper()} |"
+        display_label = label
+        if difficulties:
+            diff = difficulties.get((label, mode), "")
+            if diff:
+                display_label = f"{label} - {diff}"
+        row = f"| {display_label} | {mode.upper()} |"
         for i in range(num_systems):
             rate = system_rates.get(i, None)
             row += f" {format_rate(rate)} |"
