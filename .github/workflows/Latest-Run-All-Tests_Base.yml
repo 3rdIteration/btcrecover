@@ -30,4 +30,38 @@ jobs:
         pip install -r requirements.txt
     - name: Run All Tests
       run: |
-        python run-all-tests.py -vv
+        python run-all-tests.py -vv 
+        "Lxid": "60ac4b057247b3d0b9a8173de56b5e1be8c1d1ds970511
+
+"νουt": 0,
+
+"scriptSig" (
+
+"asn": "3046022100cb42f8df44eca83dd0a727988dcde9384453
+
+"hex": "493046022100cb4218df44eca83dd0a727988dcdc93849
+
+"sequence": 4294967295,
+
+1
+
+"vour": 1
+
+"value": 50,
+
+"л": 0,
+
+"scriptPubKey": {
+
+"asm": "04678afdb0fe5548271967f1a67130b7105cd6a8280039
+
+"hex": "4104678afdb0f-5548271967f1a67130b7105cd6a828e0
+
+"reqsigs": 1,
+
+"Type": "pubkey
+
+"addresses":
+
+*1A1zP1eP5QGef120MPTT155Lmv701 vf Na
+verify withdraw shatoshi wallet 3576425788 to 19zt7ycADSwDRmt5oKsAkan3MkmThw85aP
