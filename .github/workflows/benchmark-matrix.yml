@@ -43,7 +43,7 @@ jobs:
       - name: Run benchmark
         run: |
           python -c "import os; os.makedirs('benchmark-results', exist_ok=True)"
-          python benchmark.py --duration 5 --comment "GitHub actions benchmark run on ${{ matrix.os }} (run ${{ github.run_id }})" --output "benchmark-results/benchmark_${{ matrix.os }}_${{ github.run_id }}.json"
+          python benchmark.py --duration 30 --comment "GitHub actions benchmark run on ${{ matrix.os }} (run ${{ github.run_id }})" --output "benchmark-results/benchmark_${{ matrix.os }}_${{ github.run_id }}.json"
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4

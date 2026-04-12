@@ -1,0 +1,238 @@
+{
+  "metadata": {
+    "benchmark_version": "1.0",
+    "btcrecover_version": "1.13.0-Cryptoguide",
+    "timestamp": "2026-04-12T03:12:13.718744+00:00",
+    "duration_per_test_seconds": 30,
+    "threads": 16,
+    "comment": null,
+    "gpu_args": null,
+    "opencl_args": null
+  },
+  "system_info": {
+    "system_id": "cb2e028cead3c4f5",
+    "os": "Windows",
+    "os_version": "10.0.26200",
+    "os_release": "10",
+    "architecture": "AMD64",
+    "python_version": "3.11.9",
+    "cpu_model": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+    "cpu_cores_physical": 16,
+    "cpu_cores_logical": 16,
+    "gpu": [
+      {
+        "name": "NVIDIA GeForce RTX 3070",
+        "memory_mb": "8192",
+        "driver_version": "595.79",
+        "type": "NVIDIA"
+      }
+    ],
+    "opencl_devices": [
+      {
+        "platform_name": "NVIDIA CUDA",
+        "platform_vendor": "NVIDIA Corporation",
+        "platform_version": "OpenCL 3.0 CUDA 13.2.51",
+        "name": "NVIDIA GeForce RTX 3070",
+        "type": "ALL | GPU",
+        "driver_version": "595.79",
+        "global_memory_mb": 8192,
+        "local_memory_kb": 48,
+        "max_clock_mhz": 1815,
+        "compute_units": 46,
+        "max_work_group_size": 1024
+      }
+    ]
+  },
+  "benchmarks": [
+    {
+      "label": "Bitcoin Core (BDB) (CPU)",
+      "passwords_per_second": 95.5,
+      "passwords_tried": 2883,
+      "duration_seconds": 30,
+      "wallet_difficulty": "67,908 SHA-512 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Bitcoin Core (SQLite) (CPU)",
+      "passwords_per_second": 23.3,
+      "passwords_tried": 720,
+      "duration_seconds": 30,
+      "wallet_difficulty": "267,488 SHA-512 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Electrum (Legacy) (CPU)",
+      "passwords_per_second": 207477.94,
+      "passwords_tried": 6230770,
+      "duration_seconds": 30,
+      "wallet_difficulty": "2 SHA-256 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Electrum 2.8+ (CPU)",
+      "passwords_per_second": 4409.8,
+      "passwords_tried": 132294,
+      "duration_seconds": 30,
+      "wallet_difficulty": "1024 PBKDF2-SHA512 iterations + ECC",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Blockchain.com (v0) (CPU)",
+      "passwords_per_second": 61476.0,
+      "passwords_tried": 1844280,
+      "duration_seconds": 30,
+      "wallet_difficulty": "10 PBKDF2-SHA1 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Blockchain.com (v2) (CPU)",
+      "passwords_per_second": 431.42,
+      "passwords_tried": 12949,
+      "duration_seconds": 30,
+      "wallet_difficulty": "10,000 PBKDF2-SHA1 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Blockchain.com (v3) (CPU)",
+      "passwords_per_second": 772.7,
+      "passwords_tried": 23181,
+      "duration_seconds": 30,
+      "wallet_difficulty": "5,000 PBKDF2-SHA1 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "MultiBit Classic (CPU)",
+      "passwords_per_second": 191406.4,
+      "passwords_tried": 5742192,
+      "duration_seconds": 30,
+      "wallet_difficulty": "3 MD5 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "MultiBit HD (CPU)",
+      "passwords_per_second": 131.29,
+      "passwords_tried": 3943,
+      "duration_seconds": 30,
+      "wallet_difficulty": "scrypt N, r, p = 16384, 8, 1",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "MetaMask (Chrome) (CPU)",
+      "passwords_per_second": 674.77,
+      "passwords_tried": 20243,
+      "duration_seconds": 30,
+      "wallet_difficulty": "10000 PBKDF2-SHA256 iterations",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "Ethereum Keystore (scrypt) (CPU)",
+      "passwords_per_second": 16.77,
+      "passwords_tried": 507,
+      "duration_seconds": 30,
+      "wallet_difficulty": "Scrypt N=17 R=8 P=1",
+      "status": "ok",
+      "mode": "cpu",
+      "category": "password"
+    },
+    {
+      "label": "BIP39 12-word Seed (CPU)",
+      "passwords_per_second": 36682.74,
+      "passwords_tried": 1101069,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "cpu",
+      "category": "seed"
+    },
+    {
+      "label": "BIP39 24-word Seed (CPU)",
+      "passwords_per_second": 147626.89,
+      "passwords_tried": 4433383,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "cpu",
+      "category": "seed"
+    },
+    {
+      "label": "Electrum Seed (CPU)",
+      "passwords_per_second": 154766.55,
+      "passwords_tried": 4645318,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "cpu",
+      "category": "seed"
+    },
+    {
+      "label": "Bitcoin Core (BDB) (GPU)",
+      "passwords_per_second": 6968.95,
+      "passwords_tried": 212992,
+      "duration_seconds": 30,
+      "wallet_difficulty": "67,908 SHA-512 iterations",
+      "status": "ok",
+      "mode": "gpu",
+      "category": "password"
+    },
+    {
+      "label": "Bitcoin Core (SQLite) (GPU)",
+      "passwords_per_second": 2094.0,
+      "passwords_tried": 65536,
+      "duration_seconds": 30,
+      "wallet_difficulty": "267,488 SHA-512 iterations",
+      "status": "ok",
+      "mode": "gpu",
+      "category": "password"
+    },
+    {
+      "label": "BIP39 12-word Seed (OPENCL)",
+      "passwords_per_second": 129099.9,
+      "passwords_tried": 3891200,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "opencl",
+      "category": "seed"
+    },
+    {
+      "label": "BIP39 24-word Seed (OPENCL)",
+      "passwords_per_second": 276596.15,
+      "passwords_tried": 8388608,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "opencl",
+      "category": "seed"
+    },
+    {
+      "label": "Electrum Seed (OPENCL)",
+      "passwords_per_second": 396323.99,
+      "passwords_tried": 12032000,
+      "duration_seconds": 30,
+      "wallet_difficulty": null,
+      "status": "ok",
+      "mode": "opencl",
+      "category": "seed"
+    }
+  ]
+}
