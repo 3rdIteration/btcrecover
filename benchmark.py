@@ -480,8 +480,7 @@ def get_password_benchmarks():
     wallet_tests = [
         ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", [], True),
         ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", [], True),
-        ("Electrum (Legacy)", "electrum-wallet", [], False),
-        ("Electrum 2.8+", "electrum28-wallet", [], False),
+        ("Electrum 2.8+ Passphrase", "electrum28-wallet", [], False),
         ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", [], False),
         ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", [], False),
         ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", [], False),
@@ -502,6 +501,41 @@ def get_password_benchmarks():
                 "cmd_builder": lambda wp=wallet_path, ea=extra_args: _build_password_cmd(wp, ea),
             })
 
+    # BIP39 Passphrase (searching for the BIP39 passphrase given a known mnemonic)
+    benchmarks.append({
+        "label": "BIP39 Passphrase",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_bip39_passphrase_cmd(),
+    })
+
+    # SLIP39 Passphrase (searching for the SLIP39 passphrase given known shares)
+    benchmarks.append({
+        "label": "SLIP39 Passphrase",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_slip39_passphrase_cmd(),
+    })
+
+    # BIP38 Encrypted Private Key
+    benchmarks.append({
+        "label": "BIP38 Encrypted Key",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_bip38_cmd(),
+    })
+
+    # Raw Private Key (brute-force search for a private key given an address)
+    benchmarks.append({
+        "label": "Raw Private Key",
+        "category": "password",
+        "supports_gpu": False,
+        "cmd_builder": lambda: _build_rawprivatekey_cmd(),
+    })
+
     return benchmarks
 
 
@@ -519,6 +553,70 @@ def _build_password_cmd(wallet_path, extra_args):
     ]
     cmd.extend(extra_args)
     return cmd
+
+
+def _build_bip39_passphrase_cmd():
+    """Build the command for a BIP39 passphrase recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--bip39",
+        "--mpk", "xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+        "--mnemonic", "certain come keen collect slab gauge photo inside mechanic deny leader drop",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_slip39_passphrase_cmd():
+    """Build the command for a SLIP39 passphrase recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--slip39",
+        "--slip39-shares",
+        "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing",
+        "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together",
+        "--addrs", "bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq",
+        "--addr-limit", "2",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_bip38_cmd():
+    """Build the command for a BIP38 encrypted private key benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--bip38-enc-privkey", "6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_rawprivatekey_cmd():
+    """Build the command for a raw private key recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--rawprivatekey",
+        "--addrs", "1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
 
 
 def get_seed_benchmarks():
@@ -561,10 +659,28 @@ def get_seed_benchmarks():
         ),
     })
 
+    # Aezeed (LND) seed recovery
+    benchmarks.append({
+        "label": "Aezeed (LND) Seed",
+        "category": "seed",
+        "cmd_builder": lambda: _build_seed_cmd(
+            wallet_type="aezeed",
+            mnemonic_length=24,
+            address="1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ",
+        ),
+    })
+
+    # SLIP39 Seed Share recovery
+    benchmarks.append({
+        "label": "SLIP39 Seed Share",
+        "category": "seed",
+        "cmd_builder": lambda: _build_slip39_seed_cmd(),
+    })
+
     return benchmarks
 
 
-def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address):
+def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path=None, address=None):
     """Build the command for a seed recovery benchmark."""
     threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
@@ -576,12 +692,28 @@ def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address):
         "--dsw",
         "--no-eta",
         "--no-dupchecks",
-        "--addr-limit", "1",
-        "--bip32-path", bip32_path,
-        "--addrs", address,
         "--threads", threads,
     ]
+    if address:
+        cmd.extend(["--addr-limit", "1", "--addrs", address])
+    if bip32_path:
+        cmd.extend(["--bip32-path", bip32_path])
     return cmd
+
+
+def _build_slip39_seed_cmd():
+    """Build the command for a SLIP39 seed share recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "seedrecover.py",
+        "--performance",
+        "--wallet-type", "slip39seed",
+        "--mnemonic-length", "20",
+        "--dsw",
+        "--no-eta",
+        "--no-dupchecks",
+        "--threads", threads,
+    ]
 
 
 def _append_gpu_args(cmd, gpu_args):
@@ -684,7 +816,8 @@ def run_all_benchmarks(args):
 
             # Modify command for GPU/OpenCL mode
             # --enable-gpu is only for password recovery (Bitcoin Core only)
-            # --enable-opencl is only for seed recovery
+            # --enable-opencl is for seed recovery AND some password types
+            #   (BIP39 Passphrase, SLIP39 Passphrase, BIP38)
             if mode == "gpu" and bench["category"] == "password":
                 if not bench.get("supports_gpu"):
                     print(f"  Skipping (GPU not supported for this wallet type)")
@@ -694,10 +827,11 @@ def run_all_benchmarks(args):
             elif mode == "opencl" and bench["category"] == "seed":
                 cmd.append("--enable-opencl")
                 _append_opencl_args(cmd, opencl_args)
+            elif mode == "opencl" and bench.get("supports_opencl"):
+                cmd.append("--enable-opencl")
+                _append_opencl_args(cmd, opencl_args)
             elif mode != "cpu":
-                # Skip unsupported combinations:
-                # - GPU mode doesn't apply to seed benchmarks
-                # - OpenCL mode doesn't apply to password benchmarks
+                # Skip unsupported combinations
                 print(f"  Skipping (not applicable for {mode_label})")
                 continue
 

@@ -77,10 +77,7 @@ python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/bitco
 # Bitcoin Core with GPU acceleration (the only wallet type that supports --enable-gpu)
 python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/bitcoincore-wallet.dat --no-eta --no-dupchecks --dsw --enable-gpu
 
-# Electrum (Legacy)
-python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/electrum-wallet --no-eta --no-dupchecks --dsw
-
-# Electrum 2.8+
+# Electrum 2.8+ Passphrase
 python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/electrum28-wallet --no-eta --no-dupchecks --dsw
 
 # Blockchain.com (v0)
@@ -106,6 +103,27 @@ python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/coino
 
 # Ethereum Keystore (scrypt)
 python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/utc-keystore-v3-scrypt-myetherwallet.json --no-eta --no-dupchecks --dsw
+
+# BIP39 Passphrase (CPU)
+python btcrecover.py --performance --bip39 --mpk xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY --mnemonic "certain come keen collect slab gauge photo inside mechanic deny leader drop" --no-eta --no-dupchecks --dsw
+
+# BIP39 Passphrase with OpenCL acceleration
+python btcrecover.py --performance --bip39 --mpk xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY --mnemonic "certain come keen collect slab gauge photo inside mechanic deny leader drop" --no-eta --no-dupchecks --dsw --enable-opencl
+
+# SLIP39 Passphrase (CPU)
+python btcrecover.py --performance --slip39 --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together" --addrs bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq --addr-limit 2 --no-eta --no-dupchecks --dsw
+
+# SLIP39 Passphrase with OpenCL acceleration
+python btcrecover.py --performance --slip39 --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together" --addrs bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq --addr-limit 2 --no-eta --no-dupchecks --dsw --enable-opencl
+
+# BIP38 Encrypted Key (CPU)
+python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw
+
+# BIP38 Encrypted Key with OpenCL acceleration
+python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw --enable-opencl
+
+# Raw Private Key
+python btcrecover.py --performance --rawprivatekey --addrs 1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL --no-eta --no-dupchecks --dsw
 ```
 
 ### Seed Recovery
@@ -128,4 +146,10 @@ python seedrecover.py --performance --wallet-type electrum2 --mnemonic-length 12
 
 # Electrum Seed with OpenCL acceleration
 python seedrecover.py --performance --wallet-type electrum2 --mnemonic-length 12 --language en --dsw --no-eta --no-dupchecks --addr-limit 1 --bip32-path "m/0'" --addrs 17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU --enable-opencl
+
+# Aezeed (LND) Seed (CPU)
+python seedrecover.py --performance --wallet-type aezeed --mnemonic-length 24 --language en --dsw --no-eta --no-dupchecks --addr-limit 1 --addrs 1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ
+
+# SLIP39 Seed Share (CPU)
+python seedrecover.py --performance --wallet-type slip39seed --mnemonic-length 20 --dsw --no-eta --no-dupchecks
 ```
