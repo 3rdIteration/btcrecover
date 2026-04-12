@@ -5,6 +5,12 @@ on:
     branches: [ master ]
   pull_request:
 
+# Permissions needed for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-docs:
     runs-on: ubuntu-24.04
@@ -26,3 +32,29 @@ jobs:
           MKDOCS_GIT_COMMITTERS_APIKEY: ${{ github.token }}
         run: |
           mkdocs build --strict
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - name: Upload docs preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: ./site
+
+  # Deploy to GitHub Pages on push to master
+  deploy-docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build-docs
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
