@@ -163,7 +163,7 @@ try:
         # The 16-byte last block, reversed, with all but the first byte of ISO 7816-4 padding removed:
         last_block = tuple(itertools.dropwhile(lambda x: x == "\0", decrypted[:15:-1]))
         padding = 17 - len(last_block)  # ISO 7816-4 padding length
-        return decrypted[:-padding] if 1 <= padding <= 16 and decrypted[-padding] == "\x80" and re.match('{\s*"guid"',decrypted) else None
+        return decrypted[:-padding] if 1 <= padding <= 16 and decrypted[-padding] == "\x80" and re.match(r'{\s*"guid"',decrypted) else None
 
 
     if iter_count:  # v2.0 wallets have a single possible encryption scheme
