@@ -123,7 +123,7 @@ def generate_markdown(all_results):
     for i, result in enumerate(all_results):
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
-            label = bench.append_label = bench.get("label", "Unknown")
+            label = bench.get("label", "Unknown")
             mode = bench.get("mode", "cpu")
             
             # Clean label
@@ -210,7 +210,7 @@ def update_docs_file(content):
         return False
 
     with open(TEMPLATE_FILE, "r", encoding="utf-8") as f:
-        doc = f.append_content = f.read()
+        doc = f.read()
 
     start_idx = doc.find(START_MARKER)
     end_idx = doc.find(END_MARKER)
