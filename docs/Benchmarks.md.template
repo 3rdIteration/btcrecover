@@ -32,10 +32,10 @@ PR adding your results file to share your benchmarks with the community.
 
 Speed varies significantly based on:
 
-- **CPU model and core count** â€“ more cores = faster for CPU tests
-- **GPU model and memory** â€“ more powerful GPU = faster for GPU tests
-- **Wallet type** â€“ some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)
-- **Seed length** â€“ 24-word seeds are slower than 12-word seeds due to the additional PBKDF2 rounds
+- **CPU model and core count** -- more cores = faster for CPU tests
+- **GPU model and memory** -- more powerful GPU = faster for GPU tests
+- **Wallet type** -- some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)
+- **Seed length** -- 24-word seeds are faster than 12-word seeds due to the stronger checksum
 
 ## Benchmark Results
 
