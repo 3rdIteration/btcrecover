@@ -258,7 +258,7 @@ def update_docs_file(content):
         print(f"Error: {DOCS_FILE} not found", file=sys.stderr)
         return False
 
-    with open(DOCS_FILE, "r") as f:
+    with open(DOCS_FILE, "r", encoding="utf-8") as f:
         doc = f.read()
 
     start_idx = doc.find(START_MARKER)
@@ -276,7 +276,7 @@ def update_docs_file(content):
         + doc[end_idx:]
     )
 
-    with open(DOCS_FILE, "w") as f:
+    with open(DOCS_FILE, "w", encoding="utf-8") as f:
         f.write(new_doc)
 
     print(f"Updated {DOCS_FILE}")
