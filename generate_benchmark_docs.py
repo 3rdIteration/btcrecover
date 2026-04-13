@@ -35,7 +35,6 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
-TEMPLATE_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md.template")
 DOCS_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md")
 
 # Markers in the template where generated content is inserted
@@ -128,9 +127,11 @@ def generate_markdown(all_results):
 
     lines.append("")
 
-    # ── Collect all test labels per category ──
+    # ── Collect all test labels per category and wallet difficulties ──
     password_labels = []
     seed_labels = []
+    other_labels = {}  # cat -> [labels]
+    difficulties = {}  # base_label -> wallet_difficulty string
     for result in all_results:
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
@@ -142,6 +143,15 @@ def generate_markdown(all_results):
                 password_labels.append(base_label)
             elif cat == "seed" and base_label not in seed_labels:
                 seed_labels.append(base_label)
+            elif cat not in ("password", "seed"):
+                if cat not in other_labels:
+                    other_labels[cat] = []
+                if base_label not in other_labels[cat]:
+                    other_labels[cat].append(base_label)
+            # Capture wallet difficulty (same for all systems/modes)
+            difficulty = bench.get("wallet_difficulty", "")
+            if difficulty and base_label not in difficulties:
+                difficulties[base_label] = difficulty
 
     # ── Build lookup: (system_index, mode, base_label) -> rate ──
     rate_lookup = {}
@@ -168,31 +178,47 @@ def generate_markdown(all_results):
     if password_labels:
         lines.append("### Password Recovery Benchmarks\n")
         _generate_system_rows_table(lines, all_results, password_labels,
-                                    rate_lookup, _get_system_modes)
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
         lines.append("")
 
     # ── Seed Recovery Table ──
     if seed_labels:
         lines.append("### Seed Recovery Benchmarks\n")
         _generate_system_rows_table(lines, all_results, seed_labels,
-                                    rate_lookup, _get_system_modes)
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
+        lines.append("")
+
+    # ── Other categories ──
+    for cat_name, cat_labels in other_labels.items():
+        lines.append(f"### {cat_name.title()} Benchmarks\n")
+        _generate_system_rows_table(lines, all_results, cat_labels,
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
         lines.append("")
 
     return "\n".join(lines)
 
 
 def _generate_system_rows_table(lines, all_results, test_labels,
-                                rate_lookup, get_system_modes_fn):
+                                rate_lookup, get_system_modes_fn,
+                                difficulties=None):
     """Generate a table where systems are rows and test types are columns.
 
     If a system has results for multiple modes (CPU, GPU, OpenCL) each mode
     gets its own row.
     """
-    # Header
+    # Header — include wallet difficulty in column labels when available
     header = "| System | Mode |"
     separator = "|--------|------|"
     for label in test_labels:
-        header += f" {label} |"
+        display_label = label
+        if difficulties:
+            diff = difficulties.get(label, "")
+            if diff:
+                display_label = f"{label} - {diff}"
+        header += f" {display_label} |"
         separator += "--------|"
     lines.append(header)
     lines.append(separator)
@@ -227,19 +253,19 @@ def _generate_system_rows_table(lines, all_results, test_labels,
 
 
 def update_docs_file(content):
-    """Generate Benchmarks.md from the template file with benchmark content inserted."""
-    if not os.path.exists(TEMPLATE_FILE):
-        print(f"Error: {TEMPLATE_FILE} not found", file=sys.stderr)
+    """Update the Benchmarks.md file with generated content."""
+    if not os.path.exists(DOCS_FILE):
+        print(f"Error: {DOCS_FILE} not found", file=sys.stderr)
         return False
 
-    with open(TEMPLATE_FILE, "r", encoding="utf-8") as f:
+    with open(DOCS_FILE, "r") as f:
         doc = f.read()
 
     start_idx = doc.find(START_MARKER)
     end_idx = doc.find(END_MARKER)
 
     if start_idx == -1 or end_idx == -1:
-        print(f"Error: Could not find markers in {TEMPLATE_FILE}", file=sys.stderr)
+        print(f"Error: Could not find markers in {DOCS_FILE}", file=sys.stderr)
         return False
 
     new_doc = (
@@ -250,10 +276,10 @@ def update_docs_file(content):
         + doc[end_idx:]
     )
 
-    with open(DOCS_FILE, "w", encoding="utf-8") as f:
+    with open(DOCS_FILE, "w") as f:
         f.write(new_doc)
 
-    print(f"Generated {DOCS_FILE} from {TEMPLATE_FILE}")
+    print(f"Updated {DOCS_FILE}")
     return True
 
 
