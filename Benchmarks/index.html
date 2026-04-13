@@ -1548,28 +1548,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#contributing-benchmarks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing Benchmarks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#understanding-the-results" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Understanding the Results
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#benchmark-results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1582,10 +1560,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#systems-tested" class="md-nav__link">
+  <a href="#seed-benchmarks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Systems Tested
+        Seed Benchmarks
       
     </span>
   </a>
@@ -1604,10 +1582,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#seed-benchmarks" class="md-nav__link">
+  <a href="#systems-tested" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Seed Benchmarks
+        Systems Tested
       
     </span>
   </a>
@@ -1616,6 +1594,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-the-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding the Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing Benchmarks
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1836,138 +1836,130 @@
 <h1 id="performance-benchmarks">Performance Benchmarks</h1>
 <p>This page collects performance benchmarks from various systems running BTCRecover.
 Benchmarks measure the password/seed recovery speed in passwords per second (p/s).</p>
-<h2 id="contributing-benchmarks">Contributing Benchmarks</h2>
-<p>You can contribute your own benchmarks by running the benchmarking tool and
-submitting a pull request:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)</span>
-python<span class="w"> </span>benchmark.py
-
-<span class="c1"># Skip GPU/OpenCL benchmarks (CPU only)</span>
-python<span class="w"> </span>benchmark.py<span class="w"> </span>--no-gpu<span class="w"> </span>--no-opencl
-
-<span class="c1"># Adjust test duration (default: 30 seconds)</span>
-python<span class="w"> </span>benchmark.py<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span>
-</code></pre></div>
-<p>Results are saved as JSON files in the <code>benchmark-results/</code> directory. Submit a
-PR adding your results file to share your benchmarks with the community.</p>
-<h2 id="understanding-the-results">Understanding the Results</h2>
-<ul>
-<li><strong>p/s</strong> = passwords per second (or seeds per second for seed recovery)</li>
-<li><strong>Kp/s</strong> = thousands of passwords per second</li>
-<li><strong>Mp/s</strong> = millions of passwords per second</li>
-<li><strong>CPU</strong> = using CPU only (multi-threaded)</li>
-<li><strong>GPU/OpenCL</strong> = using GPU acceleration via OpenCL</li>
-</ul>
-<p>Speed varies significantly based on:</p>
-<ul>
-<li><strong>CPU model and core count</strong> -- more cores = faster for CPU tests</li>
-<li><strong>GPU model and memory</strong> -- more powerful GPU = faster for GPU tests</li>
-<li><strong>Wallet type</strong> -- some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
-<li><strong>Seed length</strong> -- 24-word seeds are faster than 12-word seeds due to the stronger checksum</li>
-<li><strong>Wallet difficulty</strong> -- each wallet type has a specific key derivation cost (shown in the table headers). Higher iteration counts or more expensive algorithms (e.g., scrypt) result in slower recovery speeds</li>
-</ul>
-<p>!!! note "Seed recovery performance"
-    For seed-based recovery, additional factors beyond raw derivation speed affect performance.
-    Checking extra script types (e.g., Legacy, SegWit, Native SegWit), searching multiple
-    derivation paths, and increasing the account generation limit all multiply the work required
-    per seed candidate and will reduce the effective recovery speed.</p>
 <h2 id="benchmark-results">Benchmark Results</h2>
 <!-- BENCHMARK_RESULTS_START -->
 
-<h3 id="systems-tested">Systems Tested</h3>
+<h3 id="seed-benchmarks">Seed Benchmarks</h3>
 <table>
 <thead>
 <tr>
-<th>#</th>
-<th>CPU</th>
-<th>Cores (Phys/Logical)</th>
-<th>GPU</th>
-<th>OpenCL Device</th>
-<th>OS</th>
-<th>Date</th>
+<th>System</th>
+<th>Mode</th>
+<th>Aezeed (LND) Seed</th>
+<th>BIP39 12-word Seed</th>
+<th>BIP39 24-word Seed</th>
+<th>Electrum Seed</th>
+<th>SLIP39 Seed Share</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>1</td>
-<td>i7-10700K @ 3.80GHz</td>
-<td>16/16</td>
-<td>NVIDIA GeForce RTX 3070</td>
-<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
-<td>Windows 10</td>
-<td>2026-04-12</td>
+<td>#1 i7-10700K @ 3.80GHz (16C/16T)</td>
+<td>CPU</td>
+<td>—</td>
+<td>36.68 Kp/s</td>
+<td>147.63 Kp/s</td>
+<td>154.77 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>2</td>
-<td>i7-10700K @ 3.80GHz</td>
-<td>16/16</td>
-<td>NVIDIA GeForce RTX 3070</td>
-<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
-<td>Windows 10</td>
-<td>2026-04-12</td>
+<td>#1 NVIDIA GeForce RTX 3070</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>129.10 Kp/s</td>
+<td>276.60 Kp/s</td>
+<td>396.32 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>3</td>
-<td>AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
-<td>32/32</td>
-<td>NVIDIA GeForce RTX 5090</td>
-<td>NVIDIA GeForce RTX 5090 (32607 MB)</td>
-<td>Windows 11</td>
-<td>2026-04-12</td>
+<td>#2 i7-10700K @ 3.80GHz (16C/16T)</td>
+<td>CPU</td>
+<td>284.50 Kp/s</td>
+<td>36.02 Kp/s</td>
+<td>155.32 Kp/s</td>
+<td>151.98 Kp/s</td>
+<td>89.85 Kp/s</td>
 </tr>
 <tr>
-<td>4</td>
-<td>Apple M1 (Virtual)</td>
-<td>3/3</td>
-<td>None</td>
-<td>None</td>
-<td>Darwin 24.6.0</td>
-<td>2026-04-12</td>
+<td>#2 NVIDIA GeForce RTX 3070</td>
+<td>OPENCL</td>
+<td>325.94 Kp/s</td>
+<td>127.20 Kp/s</td>
+<td>292.68 Kp/s</td>
+<td>390.90 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>5</td>
-<td>Apple M1 (Virtual)</td>
-<td>3/3</td>
-<td>None</td>
-<td>None</td>
-<td>Darwin 24.6.0</td>
-<td>2026-04-12</td>
+<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD (32C/32T)</td>
+<td>CPU</td>
+<td>—</td>
+<td>254.06 Kp/s</td>
+<td>841.75 Kp/s</td>
+<td>818.92 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>6</td>
-<td>EPYC 7763 64-Core</td>
-<td>2/4</td>
-<td>None</td>
-<td>None</td>
-<td>Linux 6.17.0-1010-azure</td>
-<td>2026-04-12</td>
+<td>#3 NVIDIA GeForce RTX 5090</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>132.77 Kp/s</td>
+<td>601.64 Kp/s</td>
+<td>147.17 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>7</td>
-<td>EPYC 7763 64-Core</td>
-<td>2/4</td>
-<td>None</td>
-<td>None</td>
-<td>Linux 6.17.0-1010-azure</td>
-<td>2026-04-12</td>
+<td>#4 Apple M1 (Virtual) (3C/3T)</td>
+<td>CPU</td>
+<td>—</td>
+<td>40.45 Kp/s</td>
+<td>154.92 Kp/s</td>
+<td>211.87 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>8</td>
-<td>AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
-<td>4/4</td>
-<td>None</td>
-<td>None</td>
-<td>Windows 2025Server</td>
-<td>2026-04-12</td>
+<td>#5 Apple M1 (Virtual) (3C/3T)</td>
+<td>CPU</td>
+<td>337.59 Kp/s</td>
+<td>53.18 Kp/s</td>
+<td>195.42 Kp/s</td>
+<td>249.63 Kp/s</td>
+<td>—</td>
 </tr>
 <tr>
-<td>9</td>
-<td>EPYC 9V74 80-Core</td>
-<td>4/4</td>
-<td>None</td>
-<td>None</td>
-<td>Windows 2025Server</td>
-<td>2026-04-12</td>
+<td>#6 EPYC 7763 64-Core (2C/4T)</td>
+<td>CPU</td>
+<td>—</td>
+<td>19.48 Kp/s</td>
+<td>106.14 Kp/s</td>
+<td>116.24 Kp/s</td>
+<td>—</td>
+</tr>
+<tr>
+<td>#7 EPYC 7763 64-Core (2C/4T)</td>
+<td>CPU</td>
+<td>230.10 Kp/s</td>
+<td>18.65 Kp/s</td>
+<td>106.56 Kp/s</td>
+<td>118.92 Kp/s</td>
+<td>—</td>
+</tr>
+<tr>
+<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD (4C/4T)</td>
+<td>CPU</td>
+<td>—</td>
+<td>16.15 Kp/s</td>
+<td>80.29 Kp/s</td>
+<td>90.91 Kp/s</td>
+<td>—</td>
+</tr>
+<tr>
+<td>#9 EPYC 9V74 80-Core (4C/4T)</td>
+<td>CPU</td>
+<td>215.30 Kp/s</td>
+<td>12.05 Kp/s</td>
+<td>90.66 Kp/s</td>
+<td>102.75 Kp/s</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
@@ -2272,132 +2264,140 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="seed-benchmarks">Seed Benchmarks</h3>
+<h3 id="systems-tested">Systems Tested</h3>
 <table>
 <thead>
 <tr>
-<th>System</th>
-<th>Mode</th>
-<th>Aezeed (LND) Seed</th>
-<th>BIP39 12-word Seed</th>
-<th>BIP39 24-word Seed</th>
-<th>Electrum Seed</th>
-<th>SLIP39 Seed Share</th>
+<th>#</th>
+<th>CPU</th>
+<th>Cores (Phys/Logical)</th>
+<th>GPU</th>
+<th>OpenCL Device</th>
+<th>OS</th>
+<th>Date</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>#1 i7-10700K @ 3.80GHz (16C/16T)</td>
-<td>CPU</td>
-<td>—</td>
-<td>36.68 Kp/s</td>
-<td>147.63 Kp/s</td>
-<td>154.77 Kp/s</td>
-<td>—</td>
+<td>1</td>
+<td>i7-10700K @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#1 NVIDIA GeForce RTX 3070</td>
-<td>OPENCL</td>
-<td>—</td>
-<td>129.10 Kp/s</td>
-<td>276.60 Kp/s</td>
-<td>396.32 Kp/s</td>
-<td>—</td>
+<td>2</td>
+<td>i7-10700K @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#2 i7-10700K @ 3.80GHz (16C/16T)</td>
-<td>CPU</td>
-<td>284.50 Kp/s</td>
-<td>36.02 Kp/s</td>
-<td>155.32 Kp/s</td>
-<td>151.98 Kp/s</td>
-<td>89.85 Kp/s</td>
+<td>3</td>
+<td>AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>32/32</td>
+<td>NVIDIA GeForce RTX 5090</td>
+<td>NVIDIA GeForce RTX 5090 (32607 MB)</td>
+<td>Windows 11</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#2 NVIDIA GeForce RTX 3070</td>
-<td>OPENCL</td>
-<td>325.94 Kp/s</td>
-<td>127.20 Kp/s</td>
-<td>292.68 Kp/s</td>
-<td>390.90 Kp/s</td>
-<td>—</td>
+<td>4</td>
+<td>Apple M1 (Virtual)</td>
+<td>3/3</td>
+<td>None</td>
+<td>None</td>
+<td>Darwin 24.6.0</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD (32C/32T)</td>
-<td>CPU</td>
-<td>—</td>
-<td>254.06 Kp/s</td>
-<td>841.75 Kp/s</td>
-<td>818.92 Kp/s</td>
-<td>—</td>
+<td>5</td>
+<td>Apple M1 (Virtual)</td>
+<td>3/3</td>
+<td>None</td>
+<td>None</td>
+<td>Darwin 24.6.0</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#3 NVIDIA GeForce RTX 5090</td>
-<td>OPENCL</td>
-<td>—</td>
-<td>132.77 Kp/s</td>
-<td>601.64 Kp/s</td>
-<td>147.17 Kp/s</td>
-<td>—</td>
+<td>6</td>
+<td>EPYC 7763 64-Core</td>
+<td>2/4</td>
+<td>None</td>
+<td>None</td>
+<td>Linux 6.17.0-1010-azure</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#4 Apple M1 (Virtual) (3C/3T)</td>
-<td>CPU</td>
-<td>—</td>
-<td>40.45 Kp/s</td>
-<td>154.92 Kp/s</td>
-<td>211.87 Kp/s</td>
-<td>—</td>
+<td>7</td>
+<td>EPYC 7763 64-Core</td>
+<td>2/4</td>
+<td>None</td>
+<td>None</td>
+<td>Linux 6.17.0-1010-azure</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#5 Apple M1 (Virtual) (3C/3T)</td>
-<td>CPU</td>
-<td>337.59 Kp/s</td>
-<td>53.18 Kp/s</td>
-<td>195.42 Kp/s</td>
-<td>249.63 Kp/s</td>
-<td>—</td>
+<td>8</td>
+<td>AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>4/4</td>
+<td>None</td>
+<td>None</td>
+<td>Windows 2025Server</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>#6 EPYC 7763 64-Core (2C/4T)</td>
-<td>CPU</td>
-<td>—</td>
-<td>19.48 Kp/s</td>
-<td>106.14 Kp/s</td>
-<td>116.24 Kp/s</td>
-<td>—</td>
-</tr>
-<tr>
-<td>#7 EPYC 7763 64-Core (2C/4T)</td>
-<td>CPU</td>
-<td>230.10 Kp/s</td>
-<td>18.65 Kp/s</td>
-<td>106.56 Kp/s</td>
-<td>118.92 Kp/s</td>
-<td>—</td>
-</tr>
-<tr>
-<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD (4C/4T)</td>
-<td>CPU</td>
-<td>—</td>
-<td>16.15 Kp/s</td>
-<td>80.29 Kp/s</td>
-<td>90.91 Kp/s</td>
-<td>—</td>
-</tr>
-<tr>
-<td>#9 EPYC 9V74 80-Core (4C/4T)</td>
-<td>CPU</td>
-<td>215.30 Kp/s</td>
-<td>12.05 Kp/s</td>
-<td>90.66 Kp/s</td>
-<td>102.75 Kp/s</td>
-<td>—</td>
+<td>9</td>
+<td>EPYC 9V74 80-Core</td>
+<td>4/4</td>
+<td>None</td>
+<td>None</td>
+<td>Windows 2025Server</td>
+<td>2026-04-12</td>
 </tr>
 </tbody>
 </table>
 <!-- BENCHMARK_RESULTS_END -->
 
+<h2 id="understanding-the-results">Understanding the Results</h2>
+<ul>
+<li><strong>p/s</strong> = passwords per second (or seeds per second for seed recovery)</li>
+<li><strong>Kp/s</strong> = thousands of passwords per second</li>
+<li><strong>Mp/s</strong> = millions of passwords per second</li>
+<li><strong>CPU</strong> = using CPU only (multi-threaded)</li>
+<li><strong>GPU/OpenCL</strong> = using GPU acceleration via OpenCL</li>
+</ul>
+<p>Speed varies significantly based on:</p>
+<ul>
+<li><strong>CPU model and core count</strong> -- more cores = faster for CPU tests</li>
+<li><strong>GPU model and memory</strong> -- more powerful GPU = faster for GPU tests</li>
+<li><strong>Wallet type</strong> -- some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
+<li><strong>Seed length</strong> -- 24-word seeds are faster than 12-word seeds due to the stronger checksum</li>
+<li><strong>Wallet difficulty</strong> -- each wallet type has a specific key derivation cost (shown in the table headers). Higher iteration counts or more expensive algorithms (e.g., scrypt) result in slower recovery speeds</li>
+</ul>
+<p>!!! note "Seed recovery performance"
+    For seed-based recovery, additional factors beyond raw derivation speed affect performance.
+    Checking extra script types (e.g., Legacy, SegWit, Native SegWit), searching multiple
+    derivation paths, and increasing the account generation limit all multiply the work required
+    per seed candidate and will reduce the effective recovery speed.</p>
+<h2 id="contributing-benchmarks">Contributing Benchmarks</h2>
+<p>You can contribute your own benchmarks by running the benchmarking tool and
+submitting a pull request:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)</span>
+python<span class="w"> </span>benchmark.py
+
+<span class="c1"># Skip GPU/OpenCL benchmarks (CPU only)</span>
+python<span class="w"> </span>benchmark.py<span class="w"> </span>--no-gpu<span class="w"> </span>--no-opencl
+
+<span class="c1"># Adjust test duration (default: 30 seconds)</span>
+python<span class="w"> </span>benchmark.py<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span>
+</code></pre></div>
+<p>Results are saved as JSON files in the <code>benchmark-results/</code> directory. Submit a
+PR adding your results file to share your benchmarks with the community.</p>
 <p>To view results locally, run the benchmark tool and then serve the docs:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Generate benchmarks</span>
 python<span class="w"> </span>benchmark.py
