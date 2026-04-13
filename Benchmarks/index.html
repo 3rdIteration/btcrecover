@@ -1593,10 +1593,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#password-recovery-benchmarks" class="md-nav__link">
+  <a href="#password-benchmarks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Password Recovery Benchmarks
+        Password Benchmarks
       
     </span>
   </a>
@@ -1604,10 +1604,49 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#seed-recovery-benchmarks" class="md-nav__link">
+  <a href="#seed-benchmarks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Seed Recovery Benchmarks
+        Seed Benchmarks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#individual-test-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Individual Test Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Individual Test Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#password-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Password Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#seed-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seed Recovery
       
     </span>
   </a>
@@ -1800,11 +1839,11 @@ Benchmarks measure the password/seed recovery speed in passwords per second (p/s
 <h2 id="contributing-benchmarks">Contributing Benchmarks</h2>
 <p>You can contribute your own benchmarks by running the benchmarking tool and
 submitting a pull request:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Run all CPU benchmarks (30 seconds each)</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)</span>
 python<span class="w"> </span>benchmark.py
 
-<span class="c1"># Also include GPU/OpenCL benchmarks</span>
-python<span class="w"> </span>benchmark.py<span class="w"> </span>--gpu<span class="w"> </span>--opencl
+<span class="c1"># Skip GPU/OpenCL benchmarks (CPU only)</span>
+python<span class="w"> </span>benchmark.py<span class="w"> </span>--no-gpu<span class="w"> </span>--no-opencl
 
 <span class="c1"># Adjust test duration (default: 30 seconds)</span>
 python<span class="w"> </span>benchmark.py<span class="w"> </span>--duration<span class="w"> </span><span class="m">60</span>
@@ -1821,10 +1860,10 @@ PR adding your results file to share your benchmarks with the community.</p>
 </ul>
 <p>Speed varies significantly based on:</p>
 <ul>
-<li><strong>CPU model and core count</strong> – more cores = faster for CPU tests</li>
-<li><strong>GPU model and memory</strong> – more powerful GPU = faster for GPU tests</li>
-<li><strong>Wallet type</strong> – some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
-<li><strong>Seed length</strong> – 24-word seeds are slower than 12-word seeds due to the additional PBKDF2 rounds</li>
+<li><strong>CPU model and core count</strong> â€“ more cores = faster for CPU tests</li>
+<li><strong>GPU model and memory</strong> â€“ more powerful GPU = faster for GPU tests</li>
+<li><strong>Wallet type</strong> â€“ some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
+<li><strong>Seed length</strong> â€“ 24-word seeds are slower than 12-word seeds due to the additional PBKDF2 rounds</li>
 </ul>
 <h2 id="benchmark-results">Benchmark Results</h2>
 <!-- BENCHMARK_RESULTS_START -->
@@ -1845,184 +1884,732 @@ PR adding your results file to share your benchmarks with the community.</p>
 <tbody>
 <tr>
 <td>1</td>
+<td>i7-10700K @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>2</td>
+<td>i7-10700K @ 3.80GHz</td>
+<td>16/16</td>
+<td>NVIDIA GeForce RTX 3070</td>
+<td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
+<td>Windows 10</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>3</td>
+<td>AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>32/32</td>
+<td>NVIDIA GeForce RTX 5090</td>
+<td>NVIDIA GeForce RTX 5090 (32607 MB)</td>
+<td>Windows 11</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>4</td>
 <td>Apple M1 (Virtual)</td>
 <td>3/3</td>
 <td>None</td>
 <td>None</td>
 <td>Darwin 24.6.0</td>
-<td>2026-04-11</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>2</td>
-<td>Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz</td>
+<td>5</td>
+<td>Apple M1 (Virtual)</td>
+<td>3/3</td>
+<td>None</td>
+<td>None</td>
+<td>Darwin 24.6.0</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>6</td>
+<td>EPYC 7763 64-Core</td>
 <td>2/4</td>
 <td>None</td>
 <td>None</td>
 <td>Linux 6.17.0-1010-azure</td>
-<td>2026-04-11</td>
+<td>2026-04-12</td>
 </tr>
 <tr>
-<td>3</td>
-<td>Intel64 Family 6 Model 106 Stepping 6, GenuineIntel</td>
+<td>7</td>
+<td>EPYC 7763 64-Core</td>
+<td>2/4</td>
+<td>None</td>
+<td>None</td>
+<td>Linux 6.17.0-1010-azure</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>8</td>
+<td>AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
 <td>4/4</td>
 <td>None</td>
 <td>None</td>
 <td>Windows 2025Server</td>
-<td>2026-04-11</td>
+<td>2026-04-12</td>
+</tr>
+<tr>
+<td>9</td>
+<td>EPYC 9V74 80-Core</td>
+<td>4/4</td>
+<td>None</td>
+<td>None</td>
+<td>Windows 2025Server</td>
+<td>2026-04-12</td>
 </tr>
 </tbody>
 </table>
-<h3 id="password-recovery-benchmarks">Password Recovery Benchmarks</h3>
+<h3 id="password-benchmarks">Password Benchmarks</h3>
 <table>
 <thead>
 <tr>
-<th>Test</th>
+<th>Test Type</th>
 <th>Mode</th>
-<th>System 1</th>
-<th>System 2</th>
-<th>System 3</th>
+<th>BIP38 Encrypted Key - sCrypt N=14, r=8, p=8</th>
+<th>BIP39 Passphrase - 2048 PBKDF2-SHA512 iterations + ECC</th>
+<th>BIP39 Passphrase - 2048 PBKDF2-SHA512 iterations + ECC</th>
+<th>Bitcoin Core (BDB) - 67,908 SHA-512 iterations</th>
+<th>Bitcoin Core (BDB) - 67,908 SHA-512 iterations</th>
+<th>Bitcoin Core (SQLite) - 267,488 SHA-512 iterations</th>
+<th>Bitcoin Core (SQLite) - 267,488 SHA-512 iterations</th>
+<th>Blockchain.com (v0) - 10 PBKDF2-SHA1 iterations</th>
+<th>Blockchain.com (v2) - 10,000 PBKDF2-SHA1 iterations</th>
+<th>Blockchain.com (v3) - 5,000 PBKDF2-SHA1 iterations</th>
+<th>Coinomi (Android) - scrypt N, r, p = 16384, 8, 1</th>
+<th>Electrum (Legacy) - 2 SHA-256 iterations</th>
+<th>Electrum 2.8+ - 1024 PBKDF2-SHA512 iterations + ECC</th>
+<th>Electrum 2.8+ Passphrase - 1024 PBKDF2-SHA512 iterations + ECC</th>
+<th>Ethereum Keystore (scrypt) - Scrypt N=17 R=8 P=1</th>
+<th>MetaMask (Chrome) - 10000 PBKDF2-SHA256 iterations</th>
+<th>MultiBit Classic - 3 MD5 iterations</th>
+<th>MultiBit HD - scrypt N, r, p = 16384, 8, 1</th>
+<th>Raw Private Key - 1 SHA-256 iteration</th>
+<th>SLIP39 Passphrase - 40,000 PBKDF2-SHA256 iterations + ECC</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Bitcoin Core (BDB) - 67,908 SHA-512 iterations</td>
+<td>Bitcoin Core (BDB)</td>
 <td>CPU</td>
-<td>106.58 p/s</td>
-<td>39.20 p/s</td>
-<td>16.95 p/s</td>
+<td>95.50 p/s</td>
+<td>82.60 p/s</td>
+<td>542.25 p/s</td>
+<td>98.17 p/s</td>
+<td>118.32 p/s</td>
+<td>46.73 p/s</td>
+<td>46.81 p/s</td>
+<td>29.00 p/s</td>
+<td>35.95 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Bitcoin Core (SQLite) - 267,488 SHA-512 iterations</td>
+<td>Bitcoin Core (SQLite)</td>
 <td>CPU</td>
-<td>27.34 p/s</td>
-<td>9.59 p/s</td>
-<td>4.41 p/s</td>
+<td>23.30 p/s</td>
+<td>22.87 p/s</td>
+<td>137.85 p/s</td>
+<td>28.78 p/s</td>
+<td>30.40 p/s</td>
+<td>11.40 p/s</td>
+<td>11.97 p/s</td>
+<td>6.34 p/s</td>
+<td>9.18 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Bither - scrypt N, r, p = 16384, 8, 1</td>
+<td>Electrum (Legacy)</td>
 <td>CPU</td>
-<td>75.28 p/s</td>
-<td>60.80 p/s</td>
-<td>15.81 p/s</td>
+<td>207.48 Kp/s</td>
+<td>—</td>
+<td>2.65 Mp/s</td>
+<td>301.99 Kp/s</td>
+<td>—</td>
+<td>158.57 Kp/s</td>
+<td>—</td>
+<td>158.42 Kp/s</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Blockchain.com (v0) - 10 PBKDF2-SHA1 iterations</td>
+<td>Electrum 2.8+</td>
 <td>CPU</td>
-<td>105.77 Kp/s</td>
-<td>41.45 Kp/s</td>
-<td>21.22 Kp/s</td>
+<td>4.41 Kp/s</td>
+<td>—</td>
+<td>33.74 Kp/s</td>
+<td>6.44 Kp/s</td>
+<td>—</td>
+<td>2.67 Kp/s</td>
+<td>—</td>
+<td>1.39 Kp/s</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Blockchain.com (v2) - 10,000 PBKDF2-SHA1 iterations</td>
+<td>Blockchain.com (v0)</td>
 <td>CPU</td>
-<td>573.48 p/s</td>
-<td>316.39 p/s</td>
-<td>98.36 p/s</td>
+<td>61.48 Kp/s</td>
+<td>62.35 Kp/s</td>
+<td>691.29 Kp/s</td>
+<td>73.60 Kp/s</td>
+<td>114.52 Kp/s</td>
+<td>41.80 Kp/s</td>
+<td>42.59 Kp/s</td>
+<td>33.26 Kp/s</td>
+<td>46.21 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Blockchain.com (v3) - 5,000 PBKDF2-SHA1 iterations</td>
+<td>Blockchain.com (v2)</td>
 <td>CPU</td>
-<td>965.99 p/s</td>
-<td>634.39 p/s</td>
-<td>196.57 p/s</td>
+<td>431.42 p/s</td>
+<td>431.40 p/s</td>
+<td>3.25 Kp/s</td>
+<td>520.64 p/s</td>
+<td>625.97 p/s</td>
+<td>394.67 p/s</td>
+<td>395.99 p/s</td>
+<td>154.00 p/s</td>
+<td>219.00 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Coinomi (Android) - scrypt N, r, p = 16384, 8, 1</td>
+<td>Blockchain.com (v3)</td>
 <td>CPU</td>
-<td>70.19 p/s</td>
-<td>60.00 p/s</td>
-<td>15.79 p/s</td>
+<td>772.70 p/s</td>
+<td>697.93 p/s</td>
+<td>6.46 Kp/s</td>
+<td>1.10 Kp/s</td>
+<td>1.22 Kp/s</td>
+<td>785.44 p/s</td>
+<td>787.66 p/s</td>
+<td>146.36 p/s</td>
+<td>433.67 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Dogechain - 5,000 PBKDF2-SHA256 iterations</td>
+<td>MultiBit Classic</td>
 <td>CPU</td>
-<td>2.25 Kp/s</td>
-<td>1.16 Kp/s</td>
-<td>367.78 p/s</td>
+<td>191.41 Kp/s</td>
+<td>181.25 Kp/s</td>
+<td>2.00 Mp/s</td>
+<td>261.71 Kp/s</td>
+<td>301.89 Kp/s</td>
+<td>140.33 Kp/s</td>
+<td>140.91 Kp/s</td>
+<td>56.55 Kp/s</td>
+<td>167.16 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Electrum (Legacy) - 2 SHA-256 iterations</td>
+<td>MultiBit HD</td>
 <td>CPU</td>
-<td>306.77 Kp/s</td>
-<td>157.13 Kp/s</td>
-<td>99.42 Kp/s</td>
+<td>131.29 p/s</td>
+<td>134.84 p/s</td>
+<td>476.15 p/s</td>
+<td>69.20 p/s</td>
+<td>83.95 p/s</td>
+<td>61.26 p/s</td>
+<td>62.02 p/s</td>
+<td>21.00 p/s</td>
+<td>35.82 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Electrum 2 - 2 SHA-256 iterations</td>
+<td>MetaMask (Chrome)</td>
 <td>CPU</td>
-<td>295.38 Kp/s</td>
-<td>160.89 Kp/s</td>
-<td>97.86 Kp/s</td>
+<td>674.77 p/s</td>
+<td>689.70 p/s</td>
+<td>6.33 Kp/s</td>
+<td>1.08 Kp/s</td>
+<td>1.34 Kp/s</td>
+<td>700.40 p/s</td>
+<td>699.37 p/s</td>
+<td>187.40 p/s</td>
+<td>383.07 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Electrum 2.8+ - 1024 PBKDF2-SHA512 iterations + ECC</td>
+<td>Ethereum Keystore (scrypt)</td>
 <td>CPU</td>
-<td>6.69 Kp/s</td>
-<td>2.21 Kp/s</td>
-<td>957.77 p/s</td>
+<td>16.77 p/s</td>
+<td>16.37 p/s</td>
+<td>—</td>
+<td>8.97 p/s</td>
+<td>10.39 p/s</td>
+<td>8.82 p/s</td>
+<td>9.32 p/s</td>
+<td>5.46 p/s</td>
+<td>7.33 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>Ethereum Keystore (scrypt) - Scrypt N=17 R=8 P=1</td>
-<td>CPU</td>
-<td>8.33 p/s</td>
-<td>8.80 p/s</td>
-<td>3.13 p/s</td>
+<td>Bitcoin Core (BDB)</td>
+<td>GPU</td>
+<td>6.97 Kp/s</td>
+<td>6.93 Kp/s</td>
+<td>11.96 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>MetaMask (Chrome) - 10000 PBKDF2-SHA256 iterations</td>
-<td>CPU</td>
-<td>1.25 Kp/s</td>
-<td>578.39 p/s</td>
-<td>178.09 p/s</td>
+<td>Bitcoin Core (SQLite)</td>
+<td>GPU</td>
+<td>2.09 Kp/s</td>
+<td>2.09 Kp/s</td>
+<td>3.21 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>MultiBit Classic - 3 MD5 iterations</td>
+<td>Electrum 2.8+ Passphrase</td>
 <td>CPU</td>
-<td>263.56 Kp/s</td>
-<td>138.59 Kp/s</td>
-<td>80.74 Kp/s</td>
+<td>—</td>
+<td>4.67 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>7.38 Kp/s</td>
+<td>—</td>
+<td>2.67 Kp/s</td>
+<td>—</td>
+<td>2.17 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>MultiBit HD - scrypt N, r, p = 16384, 8, 1</td>
+<td>BIP39 Passphrase</td>
 <td>CPU</td>
-<td>77.74 p/s</td>
-<td>60.00 p/s</td>
-<td>15.58 p/s</td>
+<td>—</td>
+<td>2.40 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>3.79 Kp/s</td>
+<td>—</td>
+<td>1.36 Kp/s</td>
+<td>—</td>
+<td>1.15 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SLIP39 Passphrase</td>
+<td>CPU</td>
+<td>—</td>
+<td>365.89 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>BIP38 Encrypted Key</td>
+<td>CPU</td>
+<td>—</td>
+<td>15.00 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Raw Private Key</td>
+<td>CPU</td>
+<td>—</td>
+<td>73.45 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>76.00 Kp/s</td>
+<td>—</td>
+<td>35.41 Kp/s</td>
+<td>—</td>
+<td>24.57 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>BIP39 Passphrase</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>10.80 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Coinomi (Android)</td>
+<td>CPU</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>70.81 p/s</td>
+<td>84.39 p/s</td>
+<td>61.79 p/s</td>
+<td>62.37 p/s</td>
+<td>26.35 p/s</td>
+<td>35.30 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<h3 id="seed-recovery-benchmarks">Seed Recovery Benchmarks</h3>
+<h3 id="seed-benchmarks">Seed Benchmarks</h3>
 <table>
 <thead>
 <tr>
-<th>Test</th>
+<th>Test Type</th>
 <th>Mode</th>
-<th>System 1</th>
-<th>System 2</th>
-<th>System 3</th>
+<th>Aezeed (LND) Seed</th>
+<th>Aezeed (LND) Seed</th>
+<th>BIP39 12-word Seed</th>
+<th>BIP39 12-word Seed</th>
+<th>BIP39 24-word Seed</th>
+<th>BIP39 24-word Seed</th>
+<th>Electrum Seed</th>
+<th>Electrum Seed</th>
+<th>SLIP39 Seed Share</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>BIP39 12-word Seed</td>
 <td>CPU</td>
-<td>50.45 Kp/s</td>
-<td>16.45 Kp/s</td>
-<td>7.34 Kp/s</td>
+<td>36.68 Kp/s</td>
+<td>36.02 Kp/s</td>
+<td>254.06 Kp/s</td>
+<td>40.45 Kp/s</td>
+<td>53.18 Kp/s</td>
+<td>19.48 Kp/s</td>
+<td>18.65 Kp/s</td>
+<td>16.15 Kp/s</td>
+<td>12.05 Kp/s</td>
 </tr>
 <tr>
 <td>BIP39 24-word Seed</td>
 <td>CPU</td>
-<td>169.73 Kp/s</td>
-<td>94.72 Kp/s</td>
-<td>51.86 Kp/s</td>
+<td>147.63 Kp/s</td>
+<td>155.32 Kp/s</td>
+<td>841.75 Kp/s</td>
+<td>154.92 Kp/s</td>
+<td>195.42 Kp/s</td>
+<td>106.14 Kp/s</td>
+<td>106.56 Kp/s</td>
+<td>80.29 Kp/s</td>
+<td>90.66 Kp/s</td>
 </tr>
 <tr>
 <td>Electrum Seed</td>
 <td>CPU</td>
-<td>220.82 Kp/s</td>
-<td>103.70 Kp/s</td>
-<td>44.65 Kp/s</td>
+<td>154.77 Kp/s</td>
+<td>151.98 Kp/s</td>
+<td>818.92 Kp/s</td>
+<td>211.87 Kp/s</td>
+<td>249.63 Kp/s</td>
+<td>116.24 Kp/s</td>
+<td>118.92 Kp/s</td>
+<td>90.91 Kp/s</td>
+<td>102.75 Kp/s</td>
+</tr>
+<tr>
+<td>BIP39 12-word Seed</td>
+<td>OPENCL</td>
+<td>129.10 Kp/s</td>
+<td>127.20 Kp/s</td>
+<td>132.77 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>BIP39 24-word Seed</td>
+<td>OPENCL</td>
+<td>276.60 Kp/s</td>
+<td>292.68 Kp/s</td>
+<td>601.64 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Electrum Seed</td>
+<td>OPENCL</td>
+<td>396.32 Kp/s</td>
+<td>390.90 Kp/s</td>
+<td>147.17 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Aezeed (LND) Seed</td>
+<td>CPU</td>
+<td>—</td>
+<td>284.50 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>337.59 Kp/s</td>
+<td>—</td>
+<td>230.10 Kp/s</td>
+<td>—</td>
+<td>215.30 Kp/s</td>
+</tr>
+<tr>
+<td>SLIP39 Seed Share</td>
+<td>CPU</td>
+<td>—</td>
+<td>89.85 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Aezeed (LND) Seed</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>325.94 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
@@ -2035,6 +2622,93 @@ python<span class="w"> </span>benchmark.py
 <span class="c1"># View results in docs (requires mkdocs and dependencies)</span>
 python<span class="w"> </span>generate_benchmark_docs.py
 mkdocs<span class="w"> </span>serve
+</code></pre></div>
+<h2 id="individual-test-commands">Individual Test Commands</h2>
+<p>If you want to benchmark a specific wallet type or seed recovery mode on your system, you can
+copy and paste any of the commands below. Each runs a <code>--performance</code> test that will execute
+for a short time and report your system's recovery speed.</p>
+<h3 id="password-recovery">Password Recovery</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Bitcoin Core (BDB)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Bitcoin Core (SQLite)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-0.21.1-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Bitcoin Core with GPU acceleration (the only wallet type that supports --enable-gpu)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/bitcoincore-wallet.dat<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-gpu
+
+<span class="c1"># Electrum 2.8+ Passphrase</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/electrum28-wallet<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v0)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v0.0-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v2)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v2.0-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Blockchain.com (v3)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/blockchain-v3.0-MAY2020-wallet.aes.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MultiBit Classic</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/multibit-wallet.key<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MultiBit HD</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/mbhd.wallet.aes<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># MetaMask (Chrome)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Coinomi (Android)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/coinomi.wallet.android<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># Ethereum Keystore (scrypt)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet<span class="w"> </span>./btcrecover/test/test-wallets/utc-keystore-v3-scrypt-myetherwallet.json<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP39 Passphrase (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip39<span class="w"> </span>--mpk<span class="w"> </span>xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY<span class="w"> </span>--mnemonic<span class="w"> </span><span class="s2">&quot;certain come keen collect slab gauge photo inside mechanic deny leader drop&quot;</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP39 Passphrase with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip39<span class="w"> </span>--mpk<span class="w"> </span>xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY<span class="w"> </span>--mnemonic<span class="w"> </span><span class="s2">&quot;certain come keen collect slab gauge photo inside mechanic deny leader drop&quot;</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># SLIP39 Passphrase (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--slip39<span class="w"> </span>--slip39-shares<span class="w"> </span><span class="s2">&quot;hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing&quot;</span><span class="w"> </span><span class="s2">&quot;hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">2</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># SLIP39 Passphrase with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--slip39<span class="w"> </span>--slip39-shares<span class="w"> </span><span class="s2">&quot;hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing&quot;</span><span class="w"> </span><span class="s2">&quot;hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">2</span><span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># BIP38 Encrypted Key (CPU)</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip38-enc-privkey<span class="w"> </span>6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+
+<span class="c1"># BIP38 Encrypted Key with OpenCL acceleration</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--bip38-enc-privkey<span class="w"> </span>6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Raw Private Key</span>
+python<span class="w"> </span>btcrecover.py<span class="w"> </span>--performance<span class="w"> </span>--rawprivatekey<span class="w"> </span>--addrs<span class="w"> </span>1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--dsw
+</code></pre></div>
+<h3 id="seed-recovery">Seed Recovery</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># BIP39 12-word Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># BIP39 24-word Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># BIP39 12-word Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># BIP39 24-word Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>bip39<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/44&#39;/0&#39;/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Electrum Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>electrum2<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU
+
+<span class="c1"># Electrum Seed with OpenCL acceleration</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>electrum2<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">12</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--bip32-path<span class="w"> </span><span class="s2">&quot;m/0&#39;&quot;</span><span class="w"> </span>--addrs<span class="w"> </span>17GR7xWtWrfYm6y3xoZy8cXioVqBbSYcpU<span class="w"> </span>--enable-opencl
+
+<span class="c1"># Aezeed (LND) Seed (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>aezeed<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">24</span><span class="w"> </span>--language<span class="w"> </span>en<span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks<span class="w"> </span>--addr-limit<span class="w"> </span><span class="m">1</span><span class="w"> </span>--addrs<span class="w"> </span>1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ
+
+<span class="c1"># SLIP39 Seed Share (CPU)</span>
+python<span class="w"> </span>seedrecover.py<span class="w"> </span>--performance<span class="w"> </span>--wallet-type<span class="w"> </span>slip39seed<span class="w"> </span>--mnemonic-length<span class="w"> </span><span class="m">20</span><span class="w"> </span>--dsw<span class="w"> </span>--no-eta<span class="w"> </span>--no-dupchecks
 </code></pre></div>
 
 
