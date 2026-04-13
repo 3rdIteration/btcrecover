@@ -1860,11 +1860,17 @@ PR adding your results file to share your benchmarks with the community.</p>
 </ul>
 <p>Speed varies significantly based on:</p>
 <ul>
-<li><strong>CPU model and core count</strong> â€“ more cores = faster for CPU tests</li>
-<li><strong>GPU model and memory</strong> â€“ more powerful GPU = faster for GPU tests</li>
-<li><strong>Wallet type</strong> â€“ some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
-<li><strong>Seed length</strong> â€“ 24-word seeds are slower than 12-word seeds due to the additional PBKDF2 rounds</li>
+<li><strong>CPU model and core count</strong> -- more cores = faster for CPU tests</li>
+<li><strong>GPU model and memory</strong> -- more powerful GPU = faster for GPU tests</li>
+<li><strong>Wallet type</strong> -- some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)</li>
+<li><strong>Seed length</strong> -- 24-word seeds are faster than 12-word seeds due to the stronger checksum</li>
+<li><strong>Wallet difficulty</strong> -- each wallet type has a specific key derivation cost (shown in the table headers). Higher iteration counts or more expensive algorithms (e.g., scrypt) result in slower recovery speeds</li>
 </ul>
+<p>!!! note "Seed recovery performance"
+    For seed-based recovery, additional factors beyond raw derivation speed affect performance.
+    Checking extra script types (e.g., Legacy, SegWit, Native SegWit), searching multiple
+    derivation paths, and increasing the account generation limit all multiply the work required
+    per seed candidate and will reduce the effective recovery speed.</p>
 <h2 id="benchmark-results">Benchmark Results</h2>
 <!-- BENCHMARK_RESULTS_START -->
 
@@ -1992,7 +1998,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </thead>
 <tbody>
 <tr>
-<td>#1 i7-10700K @ 3.80GHz</td>
+<td>#1 i7-10700K @ 3.80GHz (16C/16T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>—</td>
@@ -2034,7 +2040,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#2 i7-10700K @ 3.80GHz</td>
+<td>#2 i7-10700K @ 3.80GHz (16C/16T)</td>
 <td>CPU</td>
 <td>15.00 p/s</td>
 <td>2.40 Kp/s</td>
@@ -2097,7 +2103,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD (32C/32T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>—</td>
@@ -2139,7 +2145,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#4 Apple M1 (Virtual)</td>
+<td>#4 Apple M1 (Virtual) (3C/3T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>—</td>
@@ -2160,7 +2166,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#5 Apple M1 (Virtual)</td>
+<td>#5 Apple M1 (Virtual) (3C/3T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>3.79 Kp/s</td>
@@ -2181,7 +2187,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#6 EPYC 7763 64-Core</td>
+<td>#6 EPYC 7763 64-Core (2C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>—</td>
@@ -2202,7 +2208,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#7 EPYC 7763 64-Core</td>
+<td>#7 EPYC 7763 64-Core (2C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>1.36 Kp/s</td>
@@ -2223,7 +2229,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD (4C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>—</td>
@@ -2244,7 +2250,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#9 EPYC 9V74 80-Core</td>
+<td>#9 EPYC 9V74 80-Core (4C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>1.15 Kp/s</td>
@@ -2281,7 +2287,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </thead>
 <tbody>
 <tr>
-<td>#1 i7-10700K @ 3.80GHz</td>
+<td>#1 i7-10700K @ 3.80GHz (16C/16T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>36.68 Kp/s</td>
@@ -2299,7 +2305,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#2 i7-10700K @ 3.80GHz</td>
+<td>#2 i7-10700K @ 3.80GHz (16C/16T)</td>
 <td>CPU</td>
 <td>284.50 Kp/s</td>
 <td>36.02 Kp/s</td>
@@ -2317,7 +2323,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
+<td>#3 AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD (32C/32T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>254.06 Kp/s</td>
@@ -2335,7 +2341,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#4 Apple M1 (Virtual)</td>
+<td>#4 Apple M1 (Virtual) (3C/3T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>40.45 Kp/s</td>
@@ -2344,7 +2350,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#5 Apple M1 (Virtual)</td>
+<td>#5 Apple M1 (Virtual) (3C/3T)</td>
 <td>CPU</td>
 <td>337.59 Kp/s</td>
 <td>53.18 Kp/s</td>
@@ -2353,7 +2359,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#6 EPYC 7763 64-Core</td>
+<td>#6 EPYC 7763 64-Core (2C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>19.48 Kp/s</td>
@@ -2362,7 +2368,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#7 EPYC 7763 64-Core</td>
+<td>#7 EPYC 7763 64-Core (2C/4T)</td>
 <td>CPU</td>
 <td>230.10 Kp/s</td>
 <td>18.65 Kp/s</td>
@@ -2371,7 +2377,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
+<td>#8 AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD (4C/4T)</td>
 <td>CPU</td>
 <td>—</td>
 <td>16.15 Kp/s</td>
@@ -2380,7 +2386,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 </tr>
 <tr>
-<td>#9 EPYC 9V74 80-Core</td>
+<td>#9 EPYC 9V74 80-Core (4C/4T)</td>
 <td>CPU</td>
 <td>215.30 Kp/s</td>
 <td>12.05 Kp/s</td>
