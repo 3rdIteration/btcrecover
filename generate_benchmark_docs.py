@@ -170,16 +170,24 @@ def generate_markdown(all_results):
     return "\n".join(lines)
 
 
-def _get_system_label(result, index):
-    """Build a short label for a system to use as a row identifier."""
+def _get_system_hw_label(result, index, mode):
+    """Build a short label showing system number and relevant hardware.
+
+    For CPU mode, shows the CPU name.
+    For GPU/OpenCL modes, shows the GPU name.
+    """
     sys_info = result.get("system_info", {})
     cpu = sys_info.get("cpu_model", "Unknown")
     cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
     cpu = cpu.replace(" Processor", "").replace(" CPU", "")
     gpu_info = sys_info.get("gpu", [])
     gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
-    if gpu != "None":
-        return f"#{index + 1} {cpu} / {gpu}"
+
+    if mode in ("gpu", "opencl"):
+        if gpu != "None":
+            return f"#{index + 1} {gpu}"
+        # Fall back to CPU if no GPU info available
+        return f"#{index + 1} {cpu}"
     return f"#{index + 1} {cpu}"
 
 
@@ -188,32 +196,42 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
     if not category_data:
         return
 
-    # Header — include wallet difficulty in column labels when available
-    header = "| System |"
-    separator = "|--------|"
+    # Collect unique base labels (without mode) in sorted order
+    base_labels = sorted(set(label for label, mode in category_data.keys()))
 
-    # Sort items to have a consistent order (e.g., by label then mode)
-    sorted_items = sorted(category_data.keys())
+    # Collect all (system_idx, mode) row keys that have data
+    row_keys = set()
+    for (label, mode), system_rates in category_data.items():
+        for sys_idx in system_rates:
+            row_keys.add((sys_idx, mode))
+    # Sort by system index first, then mode
+    mode_order = {"cpu": 0, "gpu": 1, "opencl": 2}
+    sorted_row_keys = sorted(row_keys, key=lambda x: (x[0], mode_order.get(x[1], 9)))
 
-    for label, mode in sorted_items:
-        display_label = f"{label} ({mode.upper()})"
+    # Header — test labels as columns, with difficulty if available
+    header = "| System | Mode |"
+    separator = "|--------|------|"
+    for label in base_labels:
+        display_label = label
         if difficulties:
-            diff = difficulties.get((label, mode), "")
-            if diff:
-                display_label = f"{label} ({mode.upper()}) - {diff}"
+            # Find any difficulty for this label (pick from any mode)
+            for mode_key in ("cpu", "gpu", "opencl"):
+                diff = difficulties.get((label, mode_key), "")
+                if diff:
+                    display_label = f"{label} - {diff}"
+                    break
         header += f" {display_label} |"
         separator += "--------|"
 
     lines.append(header)
     lines.append(separator)
 
-    # Rows — one per system
-    num_systems = len(all_results)
-    for i in range(num_systems):
-        sys_label = _get_system_label(all_results[i], i)
-        row = f"| {sys_label} |"
-        for label, mode in sorted_items:
-            rate = category_data[(label, mode)].get(i, None)
+    # Rows — one per (system, mode) combination
+    for sys_idx, mode in sorted_row_keys:
+        sys_label = _get_system_hw_label(all_results[sys_idx], sys_idx, mode)
+        row = f"| {sys_label} | {mode.upper()} |"
+        for label in base_labels:
+            rate = category_data.get((label, mode), {}).get(sys_idx, None)
             row += f" {format_rate(rate)} |"
         lines.append(row)
 
