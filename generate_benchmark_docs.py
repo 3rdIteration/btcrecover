@@ -175,28 +175,27 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
     if not category_data:
         return
 
-    # Header — include wallet difficulty in column labels when available
-    header = "| Test Type | Mode |"
-    separator = "|--------|------|"
-    
-    # Sort items to have a consistent order (e.g., by label then mode)
-    sorted_items = sorted(category_data.keys())
+    num_systems = len(all_results)
 
-    for label, mode in sorted_items:
-        display_label = label
-        if difficulties:
-            diff = difficulties.get((label, mode), "")
-            if diff:
-                display_label = f"{label} - {diff}"
-        header += f" {display_label} |"
+    # Header — system numbers as columns
+    header = "| Test Type | Mode | Difficulty |"
+    separator = "|--------|------|------------|"
+    for i in range(num_systems):
+        header += f" System {i + 1} |"
         separator += "--------|"
-    
+
     lines.append(header)
     lines.append(separator)
 
-    num_systems = len(all_results)
-    for (label, mode), system_rates in category_data.items():
-        row = f"| {label} | {mode.upper()} |"
+    # Sort items to have a consistent order (by label then mode)
+    sorted_items = sorted(category_data.keys())
+
+    for label, mode in sorted_items:
+        system_rates = category_data[(label, mode)]
+        diff = ""
+        if difficulties:
+            diff = difficulties.get((label, mode), "")
+        row = f"| {label} | {mode.upper()} | {diff} |"
         for i in range(num_systems):
             rate = system_rates.get(i, None)
             row += f" {format_rate(rate)} |"
