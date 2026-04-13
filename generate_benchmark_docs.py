@@ -188,6 +188,10 @@ def _get_system_hw_label(result, index, mode):
             return f"#{index + 1} {gpu}"
         # Fall back to CPU if no GPU info available
         return f"#{index + 1} {cpu}"
+    phys = sys_info.get("cpu_cores_physical", "")
+    logical = sys_info.get("cpu_cores_logical", "")
+    if phys and logical:
+        return f"#{index + 1} {cpu} ({phys}C/{logical}T)"
     return f"#{index + 1} {cpu}"
 
 
