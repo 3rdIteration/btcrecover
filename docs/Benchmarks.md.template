@@ -3,24 +3,11 @@
 This page collects performance benchmarks from various systems running BTCRecover.
 Benchmarks measure the password/seed recovery speed in passwords per second (p/s).
 
-## Contributing Benchmarks
+## Benchmark Results
 
-You can contribute your own benchmarks by running the benchmarking tool and
-submitting a pull request:
+<!-- BENCHMARK_RESULTS_START -->
 
-```bash
-# Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)
-python benchmark.py
-
-# Skip GPU/OpenCL benchmarks (CPU only)
-python benchmark.py --no-gpu --no-opencl
-
-# Adjust test duration (default: 30 seconds)
-python benchmark.py --duration 60
-```
-
-Results are saved as JSON files in the `benchmark-results/` directory. Submit a
-PR adding your results file to share your benchmarks with the community.
+<!-- BENCHMARK_RESULTS_END -->
 
 ## Understanding the Results
 
@@ -44,11 +31,24 @@ Speed varies significantly based on:
     derivation paths, and increasing the account generation limit all multiply the work required
     per seed candidate and will reduce the effective recovery speed.
 
-## Benchmark Results
+## Contributing Benchmarks
 
-<!-- BENCHMARK_RESULTS_START -->
+You can contribute your own benchmarks by running the benchmarking tool and
+submitting a pull request:
 
-<!-- BENCHMARK_RESULTS_END -->
+```bash
+# Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)
+python benchmark.py
+
+# Skip GPU/OpenCL benchmarks (CPU only)
+python benchmark.py --no-gpu --no-opencl
+
+# Adjust test duration (default: 30 seconds)
+python benchmark.py --duration 60
+```
+
+Results are saved as JSON files in the `benchmark-results/` directory. Submit a
+PR adding your results file to share your benchmarks with the community.
 
 To view results locally, run the benchmark tool and then serve the docs:
 

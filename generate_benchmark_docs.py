@@ -82,39 +82,6 @@ def generate_markdown(all_results):
 
     lines = []
 
-    # ── System Overview ──
-    lines.append("### Systems Tested\n")
-    lines.append("| # | CPU | Cores (Phys/Logical) | GPU | OpenCL Device | OS | Date |")
-    lines.append("|---|-----|----------------------|-----|---------------|----|----- |")
-
-    for i, result in enumerate(all_results, 1):
-        sys_info = result.get("system_info", {})
-        cpu = sys_info.get("cpu_model", "Unknown")
-        cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
-        cpu = cpu.replace(" Processor", "").replace(" CPU", "")
-        phys = sys_info.get("cpu_cores_physical", "?")
-        logical = sys_info.get("cpu_cores_logical", "?")
-        gpu_info = sys_info.get("gpu", [])
-        gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
-        opencl_devs = sys_info.get("opencl_devices", [])
-        if isinstance(opencl_devs, list) and opencl_devs:
-            dev = opencl_devs[0]
-            opencl = f"{dev.get('name', '?')} ({dev.get('global_memory_mb', '?')} MB)"
-        else:
-            opencl = "None"
-        os_name = f"{sys_info.get('os', '?')} {sys_info.get('s_release', '')}"
-        # Note: using os_release if available, else os
-        if not sys_info.get('os_release'):
-             os_name = f"{sys_info.get('os', '?')}"
-        else:
-             os_name = f"{sys_info.get('os', '?')} {sys_info.get('os_release', '')}"
-
-        timestamp = result.get("metadata", {}).get("timestamp", "?")
-        date = timestamp[:10] if len(timestamp) >= 10 else timestamp
-        lines.append(f"| {i} | {cpu} | {phys}/{logical} | {gpu} | {opencl} | {os_name} | {date} |")
-
-    lines.append("")
-
     # ── Collect all test labels and organize by category ──
     categories = {}
     difficulties = {}  # (cat, base_label, mode) -> wallet_difficulty string
@@ -146,8 +113,8 @@ def generate_markdown(all_results):
             if difficulty:
                 difficulties[(cat, base_label, mode)] = difficulty
 
-    # ── Build tables for each category ──
-    for cat in sorted(categories.keys()):
+    # ── Build tables for each category (seed before password) ──
+    for cat in sorted(categories.keys(), reverse=True):
         lines.append(f"### {cat.title()} Benchmarks\n")
         
         # Prepare data for _generate_table: (label, mode) -> {system_idx: rate}
@@ -166,6 +133,38 @@ def generate_markdown(all_results):
 
         _generate_table(lines, category_data, all_results, difficulties=cat_difficulties)
         lines.append("")
+
+    # ── System Overview ──
+    lines.append("### Systems Tested\n")
+    lines.append("| # | CPU | Cores (Phys/Logical) | GPU | OpenCL Device | OS | Date |")
+    lines.append("|---|-----|----------------------|-----|---------------|----|----- |")
+
+    for i, result in enumerate(all_results, 1):
+        sys_info = result.get("system_info", {})
+        cpu = sys_info.get("cpu_model", "Unknown")
+        cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
+        cpu = cpu.replace(" Processor", "").replace(" CPU", "")
+        phys = sys_info.get("cpu_cores_physical", "?")
+        logical = sys_info.get("cpu_cores_logical", "?")
+        gpu_info = sys_info.get("gpu", [])
+        gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
+        opencl_devs = sys_info.get("opencl_devices", [])
+        if isinstance(opencl_devs, list) and opencl_devs:
+            dev = opencl_devs[0]
+            opencl = f"{dev.get('name', '?')} ({dev.get('global_memory_mb', '?')} MB)"
+        else:
+            opencl = "None"
+        # Note: using os_release if available, else os
+        if not sys_info.get('os_release'):
+            os_name = f"{sys_info.get('os', '?')}"
+        else:
+            os_name = f"{sys_info.get('os', '?')} {sys_info.get('os_release', '')}"
+
+        timestamp = result.get("metadata", {}).get("timestamp", "?")
+        date = timestamp[:10] if len(timestamp) >= 10 else timestamp
+        lines.append(f"| {i} | {cpu} | {phys}/{logical} | {gpu} | {opencl} | {os_name} | {date} |")
+
+    lines.append("")
 
     return "\n".join(lines)
 
