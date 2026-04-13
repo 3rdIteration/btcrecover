@@ -36,6 +36,13 @@ Speed varies significantly based on:
 - **GPU model and memory** -- more powerful GPU = faster for GPU tests
 - **Wallet type** -- some wallets use more expensive key derivation (e.g., scrypt vs PBKDF2)
 - **Seed length** -- 24-word seeds are faster than 12-word seeds due to the stronger checksum
+- **Wallet difficulty** -- each wallet type has a specific key derivation cost (shown in the table headers). Higher iteration counts or more expensive algorithms (e.g., scrypt) result in slower recovery speeds
+
+!!! note "Seed recovery performance"
+    For seed-based recovery, additional factors beyond raw derivation speed affect performance.
+    Checking extra script types (e.g., Legacy, SegWit, Native SegWit), searching multiple
+    derivation paths, and increasing the account generation limit all multiply the work required
+    per seed candidate and will reduce the effective recovery speed.
 
 ## Benchmark Results
 
