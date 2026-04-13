@@ -94,8 +94,8 @@ jobs:
         run: chown -R 1000:1000 .
       - name: Install dependencies
         run: |
-          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig
-          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -vi wallycore requirements-full.txt | pip install -r /dev/stdin"
+          /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig libsodium
+          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 SODIUM_INSTALL=system && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -vi wallycore requirements-full.txt | pip install -r /dev/stdin"
       - name: Install wallycore (optional, may fail to build from source on some platforms)
         continue-on-error: true
         run: /entrypoint.sh pip install wallycore==1.5.2
