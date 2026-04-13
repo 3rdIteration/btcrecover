@@ -4653,6 +4653,7 @@ def main(argv):
             help="force the alert to use the internal PC speaker when a seed is found",
         )
         parser.add_argument("--performance", action="store_true",   help="run a continuous performance test (Ctrl-C to exit)")
+        parser.add_argument("--performance-duration", type=int, default=None, metavar="SECONDS", help="automatically stop a --performance test after this many seconds and report results")
         parser.add_argument("--btcr-args",   action="store_true",   help=argparse.SUPPRESS)
         parser.add_argument("--version","-v",action="store_true",   help="show full version information and exit")
         parser.add_argument("--disablesecuritywarnings", "--dsw", action="store_true", help="Disable Security Warning Messages")
@@ -4944,7 +4945,7 @@ def main(argv):
             create_from_params["checksinglexpubaddress"] = True
 
         # These arguments and their values are passed on to btcrpass.parse_arguments()
-        for argkey in "skip", "threads", "worker", "max_eta", "pre_start_seconds":
+        for argkey in "skip", "threads", "worker", "max_eta", "pre_start_seconds", "performance_duration":
             if args.__dict__[argkey] is not None:
                 extra_args.extend(("--"+argkey.replace("_", "-"), str(args.__dict__[argkey])))
 

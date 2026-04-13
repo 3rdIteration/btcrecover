@@ -35,6 +35,7 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
+TEMPLATE_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md.template")
 DOCS_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md")
 
 # Markers in the template where generated content is inserted
@@ -69,27 +70,12 @@ def format_rate(rate):
         return f"{rate:.2f} p/s"
 
 
-def get_system_label(result):
-    """Create a short label for a system from its info."""
-    sys_info = result.get("system_info", {})
-    cpu = sys_info.get("cpu_model", "Unknown CPU")
-    # Shorten common CPU model strings
-    cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
-    cpu = cpu.replace(" Processor", "").replace(" CPU", "")
-
-    cores = sys_info.get("cpu_cores_logical", "?")
-    gpu_info = sys_info.get("gpu", [])
-    gpu_name = gpu_info[0].get("name", "") if gpu_info else "No GPU"
-
-    return f"{cpu} ({cores} threads)", gpu_name
-
-
 def generate_markdown(all_results):
     """Generate the benchmark results markdown content."""
     if not all_results:
         return (
             '!!! note "No benchmark results yet"\n'
-            "    No benchmark result files have been found in the `benchmark-results/` directory.\n"
+            "    No benchmark result files have have been found in the `benchmark-results/` directory.\n"
             "    Run `python benchmark.py` to generate your first benchmark, or see the\n"
             "    contributing section above.\n"
         )
@@ -104,6 +90,8 @@ def generate_markdown(all_results):
     for i, result in enumerate(all_results, 1):
         sys_info = result.get("system_info", {})
         cpu = sys_info.get("cpu_model", "Unknown")
+        cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
+        cpu = cpu.replace(" Processor", "").replace(" CPU", "")
         phys = sys_info.get("cpu_cores_physical", "?")
         logical = sys_info.get("cpu_cores_logical", "?")
         gpu_info = sys_info.get("gpu", [])
@@ -114,7 +102,13 @@ def generate_markdown(all_results):
             opencl = f"{dev.get('name', '?')} ({dev.get('global_memory_mb', '?')} MB)"
         else:
             opencl = "None"
-        os_name = f"{sys_info.get('os', '?')} {sys_info.get('os_release', '')}"
+        os_name = f"{sys_info.get('os', '?')} {sys_info.get('s_release', '')}"
+        # Note: using os_release if available, else os
+        if not sys_info.get('os_release'):
+             os_name = f"{sys_info.get('os', '?')}"
+        else:
+             os_name = f"{sys_info.get('os', '?')} {sys_info.get('os_release', '')}"
+
         timestamp = result.get("metadata", {}).get("timestamp", "?")
         date = timestamp[:10] if len(timestamp) >= 10 else timestamp
         lines.append(f"| {i} | {cpu} | {phys}/{logical} | {gpu} | {opencl} | {os_name} | {date} |")
@@ -124,87 +118,85 @@ def generate_markdown(all_results):
     # ── Collect all test labels and organize by category ──
     categories = {}
     difficulties = {}  # (cat, base_label, mode) -> wallet_difficulty string
-    for result in all_results:
-        for bench in result.get("benchmarks", []):
-            cat = bench.get("category", "other")
-            label = bench.get("label", "Unknown")
-            # Strip the mode suffix from label for grouping
-            base_label = label
-            for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
-                base_label = base_label.replace(suffix, "")
-            mode = bench.get("mode", "cpu")
-            if cat not in categories:
-                categories[cat] = {}
-            if (base_label, mode) not in categories[cat]:
-                categories[cat][(base_label, mode)] = {}
-            # Capture wallet difficulty (same for all systems)
-            difficulty = bench.get("wallet_difficulty", "")
-            if difficulty and (cat, base_label, mode) not in difficulties:
-                difficulties[(cat, base_label, mode)] = difficulty
+    rate_lookup = {}   # (system_idx, mode, base_label) -> rate
 
-    # ── Fill in rates per system ──
     for i, result in enumerate(all_results):
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
             label = bench.get("label", "Unknown")
+            mode = bench.get("mode", "cpu")
+            
+            # Clean label
             base_label = label
             for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
                 base_label = base_label.replace(suffix, "")
-            mode = bench.get("mode", "cpu")
+            
+            if cat not in categories:
+                categories[cat] = {}
+            
+            if (base_label, mode) not in categories[cat]:
+                categories[cat][(base_label, mode)] = {}
+            
+            # Capture rate
             rate = bench.get("passwords_per_second", 0)
-            if cat in categories and (base_label, mode) in categories[cat]:
-                categories[cat][(base_label, mode)][i] = rate
+            rate_lookup[(i, mode, base_label)] = rate
 
-    # ── Password Recovery Table ──
-    if "password" in categories:
-        lines.append("### Password Recovery Benchmarks\n")
-        pw_difficulties = {
-            (label, mode): difficulties.get(("password", label, mode), "")
-            for (label, mode) in categories["password"]
-        }
-        _generate_table(lines, categories["password"], all_results, difficulties=pw_difficulties)
+            # Capture difficulty
+            difficulty = bench.get("wallet_difficulty", "")
+            if difficulty:
+                difficulties[(cat, base_label, mode)] = difficulty
+
+    # ── Build tables for each category ──
+    for cat in sorted(categories.keys()):
+        lines.append(f"### {cat.title()} Benchmarks\n")
+        
+        # Prepare data for _generate_table: (label, mode) -> {system_idx: rate}
+        category_data = {}
+        for (base_label, mode), _ in categories[cat].items():
+            category_data[(base_label, mode)] = {}
+            for i in range(len(all_results)):
+                if (i, mode, base_label) in rate_lookup:
+                    category_data[(base_label, mode)][i] = rate_lookup[(i, mode, base_label)]
+
+        # Prepare difficulties for this category
+        cat_difficulties = {}
+        for (c, label, mode), diff in difficulties.items():
+            if c == cat:
+                cat_difficulties[(label, mode)] = diff
+
+        _generate_table(lines, category_data, all_results, difficulties=cat_difficulties)
         lines.append("")
-
-    # ── Seed Recovery Table ──
-    if "seed" in categories:
-        lines.append("### Seed Recovery Benchmarks\n")
-        _generate_table(lines, categories["seed"], all_results)
-        lines.append("")
-
-    # ── Other categories ──
-    for cat_name, cat_data in categories.items():
-        if cat_name not in ("password", "seed"):
-            lines.append(f"### {cat_name.title()} Benchmarks\n")
-            _generate_table(lines, cat_data, all_results)
-            lines.append("")
 
     return "\n".join(lines)
 
 
 def _generate_table(lines, category_data, all_results, difficulties=None):
     """Generate a markdown table for a category of benchmarks."""
-    num_systems = len(all_results)
+    if not category_data:
+        return
 
-    # Build header
-    header = "| Test | Mode |"
-    separator = "|------|------|"
-    for i in range(num_systems):
-        header += f" System {i + 1} |"
-        separator += "--------|"
+    # Header — include wallet difficulty in column labels when available
+    header = "| Test Type | Mode |"
+    separator = "|--------|------|"
+    
+    # Sort items to have a consistent order (e.g., by label then mode)
+    sorted_items = sorted(category_data.keys())
 
-    lines.append(header)
-    lines.append(separator)
-
-    # Sort by label then mode
-    sorted_items = sorted(category_data.items(), key=lambda x: (x[0][0], x[0][1]))
-
-    for (label, mode), system_rates in sorted_items:
+    for label, mode in sorted_items:
         display_label = label
         if difficulties:
             diff = difficulties.get((label, mode), "")
             if diff:
                 display_label = f"{label} - {diff}"
-        row = f"| {display_label} | {mode.upper()} |"
+        header += f" {display_label} |"
+        separator += "--------|"
+    
+    lines.append(header)
+    lines.append(separator)
+
+    num_systems = len(all_results)
+    for (label, mode), system_rates in category_data.items():
+        row = f"| {label} | {mode.upper()} |"
         for i in range(num_systems):
             rate = system_rates.get(i, None)
             row += f" {format_rate(rate)} |"
@@ -212,19 +204,19 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
 
 
 def update_docs_file(content):
-    """Update the Benchmarks.md file with generated content."""
-    if not os.path.exists(DOCS_FILE):
-        print(f"Error: {DOCS_FILE} not found", file=sys.stderr)
+    """Generate Benchmarks.md from the template file with benchmark content inserted."""
+    if not os.path.exists(TEMPLATE_FILE):
+        print(f"Error: {TEMPLATE_FILE} not found", file=sys.stderr)
         return False
 
-    with open(DOCS_FILE, "r") as f:
+    with open(TEMPLATE_FILE, "r", encoding="utf-8") as f:
         doc = f.read()
 
     start_idx = doc.find(START_MARKER)
     end_idx = doc.find(END_MARKER)
 
     if start_idx == -1 or end_idx == -1:
-        print(f"Error: Could not find markers in {DOCS_FILE}", file=sys.stderr)
+        print(f"Error: Could not find markers in {TEMPLATE_FILE}", file=sys.stderr)
         return False
 
     new_doc = (
@@ -235,10 +227,10 @@ def update_docs_file(content):
         + doc[end_idx:]
     )
 
-    with open(DOCS_FILE, "w") as f:
+    with open(DOCS_FILE, "w", encoding="utf-8") as f:
         f.write(new_doc)
 
-    print(f"Updated {DOCS_FILE}")
+    print(f"Generated {DOCS_FILE} from {TEMPLATE_FILE}")
     return True
 
 

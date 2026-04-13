@@ -25,9 +25,9 @@ Tests CPU, GPU, and OpenCL acceleration. Results are saved as JSON files in
 the benchmark-results/ directory for easy comparison across systems.
 
 Usage:
-    python benchmark.py                    # Run all CPU benchmarks
-    python benchmark.py --gpu              # Also run GPU benchmarks
-    python benchmark.py --opencl           # Also run OpenCL benchmarks
+    python benchmark.py                    # Run all benchmarks (CPU + GPU + OpenCL)
+    python benchmark.py --no-gpu           # Skip GPU benchmarks
+    python benchmark.py --no-opencl        # Skip OpenCL benchmarks
     python benchmark.py --duration 60      # Run each test for 60 seconds
     python benchmark.py --wallet-type all  # Test all wallet types (default)
     python benchmark.py --wallet-type seed # Test only seed recovery
@@ -40,7 +40,6 @@ import json
 import os
 import platform
 import re
-import signal
 import subprocess
 import sys
 import threading
@@ -51,8 +50,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(SCRIPT_DIR, "btcrecover", "test", "test-wallets")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
 
-# Seconds to let the pre-start benchmark phase run before the actual search
-PRE_START_BENCHMARK_SECONDS = 5
 # Maximum seconds to wait for the search phase to begin (some wallets like
 # scrypt-based ones have slow pre-start benchmarks)
 SEARCH_PHASE_TIMEOUT = 120
@@ -105,13 +102,35 @@ def _get_system_id():
     return hashlib.sha256(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 
+def _get_windows_release():
+    """Get the correct Windows release string.
+
+    On systems upgraded from Windows 10 to Windows 11, platform.release()
+    may still return '10' because the registry value it reads is stale.
+    Use sys.getwindowsversion() to check the build number: builds >= 22000
+    are Windows 11.
+    """
+    release = platform.release()
+    try:
+        ver = sys.getwindowsversion()
+        if ver.build >= 22000 and release == "10":
+            return "11"
+    except Exception:
+        pass
+    return release
+
+
 def get_system_info():
     """Collect system information for the benchmark results."""
+    os_release = platform.release()
+    if platform.system() == "Windows":
+        os_release = _get_windows_release()
+
     info = {
         "system_id": _get_system_id(),
         "os": platform.system(),
         "os_version": platform.version(),
-        "os_release": platform.release(),
+        "os_release": os_release,
         "architecture": platform.machine(),
         "python_version": platform.python_version(),
         "cpu_model": _get_cpu_model(),
@@ -133,7 +152,15 @@ def get_system_info():
 
 
 def _get_cpu_model():
-    """Get the CPU model string."""
+    """Get the CPU model string.
+
+    On Windows the most reliable source is the registry key
+    ``HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\\ProcessorNameString``
+    which always contains the full human-readable brand string (e.g.
+    "AMD Ryzen 9 7950X 16-Core Processor").  The older ``wmic`` approach and
+    ``platform.processor()`` often return raw CPUID identifiers such as
+    "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD" on AMD systems.
+    """
     try:
         if platform.system() == "Linux":
             with open("/proc/cpuinfo", "r") as f:
@@ -148,14 +175,35 @@ def _get_cpu_model():
             if result.returncode == 0:
                 return result.stdout.strip()
         elif platform.system() == "Windows":
-            result = subprocess.run(
-                ["wmic", "cpu", "get", "name"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip() and l.strip() != "Name"]
-                if lines:
-                    return lines[0]
+            # Prefer the registry – it always has the full brand string and
+            # does not depend on deprecated tools like wmic.
+            try:
+                import winreg
+                key = winreg.OpenKey(
+                    winreg.HKEY_LOCAL_MACHINE,
+                    r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+                )
+                try:
+                    value, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                    if value and value.strip():
+                        return value.strip()
+                finally:
+                    winreg.CloseKey(key)
+            except Exception:
+                pass
+            # Fallback: wmic (deprecated but still present on many systems)
+            try:
+                result = subprocess.run(
+                    ["wmic", "cpu", "get", "name"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    lines = [l.strip() for l in result.stdout.strip().split("\n")
+                             if l.strip() and l.strip() != "Name"]
+                    if lines:
+                        return lines[0]
+            except Exception:
+                pass
     except Exception:
         pass
     return platform.processor() or "Unknown"
@@ -193,6 +241,22 @@ def _get_physical_cores():
             )
             if result.returncode == 0:
                 return int(result.stdout.strip())
+        elif platform.system() == "Windows":
+            result = subprocess.run(
+                ["wmic", "cpu", "get", "NumberOfCores"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                total = 0
+                for line in result.stdout.strip().split("\n"):
+                    line = line.strip()
+                    if line and line != "NumberOfCores":
+                        try:
+                            total += int(line)
+                        except ValueError:
+                            pass
+                if total > 0:
+                    return total
     except Exception:
         pass
     return os.cpu_count()
@@ -286,13 +350,10 @@ def _get_opencl_info():
 def run_benchmark(cmd, duration, label, cwd=None):
     """Run a single benchmark command and return the results.
 
-    Runs the command as a subprocess for the specified duration, then sends
-    SIGINT (or CTRL_C_EVENT on Windows) to stop it gracefully.  Parses the
-    output to extract the speed.
-
-    To get a stabilised speed reading, we ignore the pre-start benchmark
-    rate and instead compute the actual rate from the number of passwords
-    tried and the wall-clock time spent in the search phase.
+    The command is expected to include ``--performance-duration`` so that the
+    subprocess stops itself gracefully after the desired time.  This avoids
+    the need to send SIGINT/CTRL_C_EVENT which causes BrokenPipeError on
+    Windows.
 
     A background thread reads stdout line-by-line so that the approach
     works on every platform (the previous ``selectors`` strategy fails on
@@ -300,7 +361,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
 
     Args:
         cmd: Command to run as a list of strings.
-        duration: How many seconds to let the test run.
+        duration: Nominal duration for display/timeout purposes.
         label: Human-readable label for this benchmark.
         cwd: Working directory for the subprocess.
 
@@ -312,46 +373,30 @@ def run_benchmark(cmd, duration, label, cwd=None):
 
     print(f"  Running: {label}...", end="", flush=True)
 
-    # Add --pre-start-seconds to keep the pre-start phase short
-    # (we measure our own stabilised rate from the actual search phase)
-    enhanced_cmd = list(cmd) + ["--pre-start-seconds", str(PRE_START_BENCHMARK_SECONDS)]
-
     try:
-        # Use unbuffered output via PYTHONUNBUFFERED env var
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
 
-        # On Windows, CREATE_NEW_PROCESS_GROUP is required so that we can
-        # later send CTRL_C_EVENT to the child without killing ourselves.
-        creation_flags = 0
-        if sys.platform == "win32":
-            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
-
         proc = subprocess.Popen(
-            enhanced_cmd,
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             cwd=cwd,
             env=env,
-            creationflags=creation_flags,
         )
 
         # -- Reader thread: pumps stdout lines into a shared list ----------
-        output_lines = []      # protected by output_lock
+        output_lines = []
         output_lock = threading.Lock()
-        search_event = threading.Event()  # set when search phase starts
-        eof_event = threading.Event()     # set when stdout reaches EOF
+        eof_event = threading.Event()
 
         def _reader():
             try:
                 for line in proc.stdout:
                     with output_lock:
                         output_lines.append(line)
-                    if "Searching for password" in line:
-                        search_event.set()
             except ValueError:
-                # stdout closed
                 pass
             finally:
                 eof_event.set()
@@ -359,82 +404,48 @@ def run_benchmark(cmd, duration, label, cwd=None):
         reader = threading.Thread(target=_reader, daemon=True)
         reader.start()
 
-        # Phase 1: Wait for setup to complete and search to start
-        # Allow up to 120s for setup: some wallets (e.g. scrypt-based) have
-        # a slow pre-start benchmark phase before the search begins.
-        if not search_event.wait(timeout=SEARCH_PHASE_TIMEOUT):
-            # Search phase never started
+        # Wait for the process to finish.  Allow generous extra time beyond
+        # the nominal duration for the pre-start benchmark phase and setup.
+        total_timeout = duration + SEARCH_PHASE_TIMEOUT
+        try:
+            proc.wait(timeout=total_timeout)
+        except subprocess.TimeoutExpired:
             proc.kill()
-            proc.wait()
-            reader.join(timeout=5)
-            with output_lock:
-                output = "".join(output_lines)
-            print(f" FAILED (search phase never started)")
-            if output.strip():
-                meaningful = [l.strip() for l in output.split("\n") if l.strip()]
-                for line in meaningful[-3:]:
-                    print(f"    {line}")
-            return None
-
-        search_start_time = time.monotonic()
-
-        # Phase 2: Let the search run for the specified duration
-        eof_event.wait(timeout=duration)
-
-        actual_search_duration = time.monotonic() - search_start_time
-
-        # Send interrupt to stop gracefully
-        if proc.poll() is None:
-            if sys.platform == "win32":
-                # On Windows, send CTRL_C_EVENT to the process group
-                os.kill(proc.pid, signal.CTRL_C_EVENT)
-            else:
-                proc.send_signal(signal.SIGINT)
-            try:
-                proc.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=10)
+            proc.wait(timeout=10)
 
         reader.join(timeout=10)
 
         with output_lock:
             output = "".join(output_lines)
 
-        # Parse the number of passwords tried
+        # Parse results -- prefer the summary line from --performance-duration
+        perf_rate = _parse_performance_summary(output)
+        progress_rate = _parse_progress_rate(output)
         passwords_tried = _parse_passwords_tried(output)
-        pre_start_rate = _parse_pre_start_rate(output)
         wallet_difficulty = _parse_wallet_difficulty(output)
 
-        if passwords_tried and actual_search_duration > 0:
-            actual_rate = passwords_tried / actual_search_duration
-            print(f" {_format_rate(actual_rate)} ({passwords_tried:,} in {actual_search_duration:.1f}s)")
-            return {
-                "label": label,
-                "passwords_per_second": round(actual_rate, 2),
-                "passwords_tried": passwords_tried,
-                "duration_seconds": round(actual_search_duration, 2),
-                "pre_start_rate": round(pre_start_rate, 2) if pre_start_rate else None,
-                "wallet_difficulty": wallet_difficulty,
-                "status": "ok",
-            }
-        elif pre_start_rate:
-            print(f" {_format_rate(pre_start_rate)} (from pre-start benchmark)")
-            return {
-                "label": label,
-                "passwords_per_second": round(pre_start_rate, 2),
-                "passwords_tried": None,
-                "duration_seconds": round(actual_search_duration, 2),
-                "pre_start_rate": round(pre_start_rate, 2),
-                "wallet_difficulty": wallet_difficulty,
-                "status": "pre_start_only",
-            }
+        actual_rate = perf_rate or progress_rate
+        if actual_rate:
+            source = "from summary" if perf_rate else "from progress output"
+            print(f" {_format_rate(actual_rate)} ({source})")
+        elif passwords_tried and duration > 0:
+            actual_rate = passwords_tried / duration
+            print(f" {_format_rate(actual_rate)} ({passwords_tried:,} in ~{duration}s)")
         else:
             print(f" FAILED (could not parse results)")
             meaningful = [l.strip() for l in output.split("\n") if l.strip()]
             for line in meaningful[-3:]:
                 print(f"    {line}")
             return None
+
+        return {
+            "label": label,
+            "passwords_per_second": round(actual_rate, 2),
+            "passwords_tried": passwords_tried,
+            "duration_seconds": duration,
+            "wallet_difficulty": wallet_difficulty,
+            "status": "ok",
+        }
 
     except Exception as e:
         print(f" ERROR: {e}")
@@ -448,17 +459,58 @@ def run_benchmark(cmd, duration, label, cwd=None):
 
 def _parse_passwords_tried(output):
     """Extract the number of passwords tried from the output."""
+    # Try the --performance-duration summary line first
+    match = re.search(
+        r'Performance test completed:\s*([\d,]+)\s+passwords\s+in',
+        output,
+    )
+    if match:
+        return int(match.group(1).replace(",", ""))
+    # Fall back to the interrupt message
     match = re.search(r"Interrupted after finishing password #\s*([\d,]+)", output)
     if match:
         return int(match.group(1).replace(",", ""))
     return None
 
 
-def _parse_pre_start_rate(output):
-    """Extract the pre-start benchmark rate from the output."""
-    match = re.search(r"Pre-start benchmark completed in [\d.]+s \(([\d.]+) passwords/s\)", output)
+def _parse_progress_rate(output):
+    """Extract the last reported rate from the progress bar output.
+
+    The progressbar widget outputs updates like:
+        / 426510  elapsed: 0:00:11  rate:  37.28 kP/s
+
+    Each update overwrites the previous one via carriage-return (\\r).
+    We find ALL rate values in the captured output and return the last
+    one, which is the most stabilised reading.
+    """
+    # Match "rate:" followed by a number and an optional SI prefix before P/s
+    matches = re.findall(r'rate:\s*([\d.]+)\s*([kMGT]?)\s*P/s', output, re.IGNORECASE)
+    if not matches:
+        return None
+    value_str, prefix = matches[-1]
+    value = float(value_str)
+    multipliers = {
+        '': 1, 'k': 1_000, 'K': 1_000,
+        'M': 1_000_000, 'G': 1_000_000_000, 'T': 1_000_000_000_000,
+    }
+    return value * multipliers.get(prefix, 1)
+
+
+def _parse_performance_summary(output):
+    """Extract rate from the --performance-duration summary line.
+
+    The line looks like:
+        Performance test completed: 1,234,567 passwords in 30.0s (41152.23 passwords/s)
+
+    Returns the passwords/s rate as a float, or None if not found.
+    """
+    match = re.search(
+        r'Performance test completed:\s*([\d,]+)\s+passwords\s+in\s+([\d.]+)s\s+'
+        r'\(([\d.]+)\s+passwords/s\)',
+        output,
+    )
     if match:
-        return float(match.group(1))
+        return float(match.group(3))
     return None
 
 
@@ -490,32 +542,66 @@ def get_password_benchmarks():
     wallet_dir = WALLET_DIR
 
     # Each entry: (label, wallet_file, extra_args)
+    # Each entry: (label, wallet_file, extra_args, supports_gpu)
+    # supports_gpu indicates whether --enable-gpu is supported for this wallet type
     wallet_tests = [
-        ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", []),
-        ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", []),
-        ("Electrum (Legacy)", "electrum-wallet", []),
-        ("Electrum 2", "electrum2-wallet", []),
-        ("Electrum 2.8+", "electrum28-wallet", []),
-        ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", []),
-        ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", []),
-        ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", []),
-        ("MultiBit Classic", "multibit-wallet.key", []),
-        ("MultiBit HD", "mbhd.wallet.aes", []),
-        ("MetaMask (Chrome)", "metamask/nkbihfbeogaeaoehlefnkodbefgpgknn", []),
-        ("Coinomi (Android)", "coinomi.wallet.android", []),
-        ("Dogechain", "dogechain.wallet.aes.json", []),
-        ("Bither", "bither-wallet.db", []),
-        ("Ethereum Keystore (scrypt)", "utc-keystore-v3-scrypt-myetherwallet.json", []),
+        ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", [], True),
+        ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", [], True),
+        ("Electrum 2.8+ Passphrase", "electrum28-wallet", [], False),
+        ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", [], False),
+        ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", [], False),
+        ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", [], False),
+        ("MultiBit Classic", "multibit-wallet.key", [], False),
+        ("MultiBit HD", "mbhd.wallet.aes", [], False),
+        ("MetaMask (Chrome)", "metamask/nkbihfbeogaeaoehlefnkodbefgpgknn", [], False),
+        ("Coinomi (Android)", "coinomi.wallet.android", [], False),
+        ("Ethereum Keystore (scrypt)", "utc-keystore-v3-scrypt-myetherwallet.json", [], False),
     ]
 
-    for label, wallet_file, extra_args in wallet_tests:
+    for label, wallet_file, extra_args, supports_gpu in wallet_tests:
         wallet_path = os.path.join(wallet_dir, wallet_file)
         if os.path.exists(wallet_path):
             benchmarks.append({
                 "label": label,
                 "category": "password",
+                "supports_gpu": supports_gpu,
                 "cmd_builder": lambda wp=wallet_path, ea=extra_args: _build_password_cmd(wp, ea),
             })
+
+    # BIP39 Passphrase (searching for the BIP39 passphrase given a known mnemonic)
+    benchmarks.append({
+        "label": "BIP39 Passphrase",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_bip39_passphrase_cmd(),
+    })
+
+    # SLIP39 Passphrase (searching for the SLIP39 passphrase given known shares)
+    benchmarks.append({
+        "label": "SLIP39 Passphrase",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_slip39_passphrase_cmd(),
+    })
+
+    # BIP38 Encrypted Private Key
+    benchmarks.append({
+        "label": "BIP38 Encrypted Key",
+        "category": "password",
+        "supports_gpu": False,
+        "supports_opencl": True,
+        "cmd_builder": lambda: _build_bip38_cmd(),
+    })
+
+    # Raw Private Key (brute-force search for a private key given an address)
+    benchmarks.append({
+        "label": "Raw Private Key",
+        "category": "password",
+        "supports_gpu": False,
+        "cmd_builder": lambda: _build_rawprivatekey_cmd(),
+    })
 
     return benchmarks
 
@@ -534,6 +620,70 @@ def _build_password_cmd(wallet_path, extra_args):
     ]
     cmd.extend(extra_args)
     return cmd
+
+
+def _build_bip39_passphrase_cmd():
+    """Build the command for a BIP39 passphrase recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--bip39",
+        "--mpk", "xpub6D3uXJmdUg4xVnCUkNXJPCkk18gZAB8exGdQeb2rDwC5UJtraHHARSCc2Nz7rQ14godicjXiKxhUn39gbAw6Xb5eWb5srcbkhqPgAqoTMEY",
+        "--mnemonic", "certain come keen collect slab gauge photo inside mechanic deny leader drop",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_slip39_passphrase_cmd():
+    """Build the command for a SLIP39 passphrase recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--slip39",
+        "--slip39-shares",
+        "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing",
+        "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together",
+        "--addrs", "bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq",
+        "--addr-limit", "2",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_bip38_cmd():
+    """Build the command for a BIP38 encrypted private key benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--bip38-enc-privkey", "6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
+
+
+def _build_rawprivatekey_cmd():
+    """Build the command for a raw private key recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "btcrecover.py",
+        "--performance",
+        "--rawprivatekey",
+        "--addrs", "1EDrqbJMVwjQ2K5avN3627NcAXyWbkpGBL",
+        "--no-eta",
+        "--no-dupchecks",
+        "--dsw",
+        "--threads", threads,
+    ]
 
 
 def get_seed_benchmarks():
@@ -576,10 +726,28 @@ def get_seed_benchmarks():
         ),
     })
 
+    # Aezeed (LND) seed recovery
+    benchmarks.append({
+        "label": "Aezeed (LND) Seed",
+        "category": "seed",
+        "cmd_builder": lambda: _build_seed_cmd(
+            wallet_type="aezeed",
+            mnemonic_length=24,
+            address="1Hp6UXuJjzt9eSBa9LhtW97KPb44bq4CAQ",
+        ),
+    })
+
+    # SLIP39 Seed Share recovery
+    benchmarks.append({
+        "label": "SLIP39 Seed Share",
+        "category": "seed",
+        "cmd_builder": lambda: _build_slip39_seed_cmd(),
+    })
+
     return benchmarks
 
 
-def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address):
+def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path=None, address=None):
     """Build the command for a seed recovery benchmark."""
     threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
@@ -591,12 +759,28 @@ def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path, address):
         "--dsw",
         "--no-eta",
         "--no-dupchecks",
-        "--addr-limit", "1",
-        "--bip32-path", bip32_path,
-        "--addrs", address,
         "--threads", threads,
     ]
+    if address:
+        cmd.extend(["--addr-limit", "1", "--addrs", address])
+    if bip32_path:
+        cmd.extend(["--bip32-path", bip32_path])
     return cmd
+
+
+def _build_slip39_seed_cmd():
+    """Build the command for a SLIP39 seed share recovery benchmark."""
+    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
+    return [
+        sys.executable, "seedrecover.py",
+        "--performance",
+        "--wallet-type", "slip39seed",
+        "--mnemonic-length", "20",
+        "--dsw",
+        "--no-eta",
+        "--no-dupchecks",
+        "--threads", threads,
+    ]
 
 
 def _append_gpu_args(cmd, gpu_args):
@@ -694,20 +878,25 @@ def run_all_benchmarks(args):
                 print(f"  Skipping (failed to build command)")
                 continue
 
+            # Tell the subprocess to stop itself after the desired duration
+            cmd.extend(["--performance-duration", str(args.duration)])
+
             # Modify command for GPU/OpenCL mode
+            # --enable-gpu is only for password recovery (Bitcoin Core only)
+            # --enable-opencl is for seed recovery AND some password types
+            #   (BIP39 Passphrase, SLIP39 Passphrase, BIP38)
             if mode == "gpu" and bench["category"] == "password":
+                if not bench.get("supports_gpu"):
+                    print(f"  Skipping (GPU not supported for this wallet type)")
+                    continue
                 cmd.append("--enable-gpu")
                 _append_gpu_args(cmd, gpu_args)
             elif mode == "opencl" and bench["category"] == "seed":
                 cmd.append("--enable-opencl")
                 _append_opencl_args(cmd, opencl_args)
-            elif mode == "gpu" and bench["category"] == "seed":
-                # Seeds use --enable-opencl, not --enable-gpu
+            elif mode == "opencl" and bench.get("supports_opencl"):
                 cmd.append("--enable-opencl")
                 _append_opencl_args(cmd, opencl_args)
-            elif mode == "opencl" and bench["category"] == "password":
-                cmd.append("--enable-gpu")
-                _append_gpu_args(cmd, gpu_args)
             elif mode != "cpu":
                 # Skip unsupported combinations
                 print(f"  Skipping (not applicable for {mode_label})")
@@ -797,14 +986,15 @@ def main():
         epilog="""
 Examples:
   %(prog)s                         Run CPU benchmarks for all wallet types
-  %(prog)s --gpu                   Also run GPU/OpenCL benchmarks
-  %(prog)s --opencl                Also run OpenCL seed benchmarks
+  %(prog)s                         Run all benchmarks (CPU + GPU + OpenCL)
+  %(prog)s --no-gpu                Skip GPU benchmarks
+  %(prog)s --no-opencl             Skip OpenCL benchmarks
   %(prog)s --duration 60           Run each test for 60 seconds
   %(prog)s --wallet-type seed      Only test seed recovery
   %(prog)s --wallet-type password  Only test password recovery
   %(prog)s --threads 4             Use 4 worker threads
-  %(prog)s --gpu --global-ws 8192  GPU benchmarks with custom work size
-  %(prog)s --opencl --opencl-workgroup-size 1024  OpenCL with custom workgroup
+  %(prog)s --global-ws 8192        GPU benchmarks with custom work size
+  %(prog)s --opencl-workgroup-size 1024  OpenCL with custom workgroup
   %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
   %(prog)s --output results.json   Save results to a specific file
         """
@@ -815,12 +1005,20 @@ Examples:
         help="Duration in seconds for each benchmark test (default: 30)"
     )
     parser.add_argument(
-        "--gpu", action="store_true",
-        help="Also run GPU-accelerated benchmarks (requires compatible GPU and drivers)"
+        "--gpu", action="store_true", default=True,
+        help="Run GPU-accelerated benchmarks (default: enabled)"
     )
     parser.add_argument(
-        "--opencl", action="store_true",
-        help="Also run OpenCL-accelerated benchmarks (requires OpenCL runtime)"
+        "--no-gpu", action="store_false", dest="gpu",
+        help="Skip GPU-accelerated benchmarks"
+    )
+    parser.add_argument(
+        "--opencl", action="store_true", default=True,
+        help="Run OpenCL-accelerated benchmarks (default: enabled)"
+    )
+    parser.add_argument(
+        "--no-opencl", action="store_false", dest="opencl",
+        help="Skip OpenCL-accelerated benchmarks"
     )
     parser.add_argument(
         "--wallet-type", choices=["all", "password", "seed"], default="all",
