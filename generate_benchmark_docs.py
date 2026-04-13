@@ -170,34 +170,50 @@ def generate_markdown(all_results):
     return "\n".join(lines)
 
 
+def _get_system_label(result, index):
+    """Build a short label for a system to use as a row identifier."""
+    sys_info = result.get("system_info", {})
+    cpu = sys_info.get("cpu_model", "Unknown")
+    cpu = cpu.replace("Intel(R) Core(TM) ", "").replace("AMD ", "")
+    cpu = cpu.replace(" Processor", "").replace(" CPU", "")
+    gpu_info = sys_info.get("gpu", [])
+    gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
+    if gpu != "None":
+        return f"#{index + 1} {cpu} / {gpu}"
+    return f"#{index + 1} {cpu}"
+
+
 def _generate_table(lines, category_data, all_results, difficulties=None):
     """Generate a markdown table for a category of benchmarks."""
     if not category_data:
         return
 
-    num_systems = len(all_results)
+    # Header — include wallet difficulty in column labels when available
+    header = "| System |"
+    separator = "|--------|"
 
-    # Header — system numbers as columns
-    header = "| Test Type | Mode | Difficulty |"
-    separator = "|--------|------|------------|"
-    for i in range(num_systems):
-        header += f" System {i + 1} |"
+    # Sort items to have a consistent order (e.g., by label then mode)
+    sorted_items = sorted(category_data.keys())
+
+    for label, mode in sorted_items:
+        display_label = f"{label} ({mode.upper()})"
+        if difficulties:
+            diff = difficulties.get((label, mode), "")
+            if diff:
+                display_label = f"{label} ({mode.upper()}) - {diff}"
+        header += f" {display_label} |"
         separator += "--------|"
 
     lines.append(header)
     lines.append(separator)
 
-    # Sort items to have a consistent order (by label then mode)
-    sorted_items = sorted(category_data.keys())
-
-    for label, mode in sorted_items:
-        system_rates = category_data[(label, mode)]
-        diff = ""
-        if difficulties:
-            diff = difficulties.get((label, mode), "")
-        row = f"| {label} | {mode.upper()} | {diff} |"
-        for i in range(num_systems):
-            rate = system_rates.get(i, None)
+    # Rows — one per system
+    num_systems = len(all_results)
+    for i in range(num_systems):
+        sys_label = _get_system_label(all_results[i], i)
+        row = f"| {sys_label} |"
+        for label, mode in sorted_items:
+            rate = category_data[(label, mode)].get(i, None)
             row += f" {format_rate(rate)} |"
         lines.append(row)
 
