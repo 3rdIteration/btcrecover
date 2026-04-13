@@ -128,9 +128,11 @@ def generate_markdown(all_results):
 
     lines.append("")
 
-    # ── Collect all test labels per category ──
+    # ── Collect all test labels per category and wallet difficulties ──
     password_labels = []
     seed_labels = []
+    other_labels = {}  # cat -> [labels]
+    difficulties = {}  # base_label -> wallet_difficulty string
     for result in all_results:
         for bench in result.get("benchmarks", []):
             cat = bench.get("category", "other")
@@ -142,6 +144,15 @@ def generate_markdown(all_results):
                 password_labels.append(base_label)
             elif cat == "seed" and base_label not in seed_labels:
                 seed_labels.append(base_label)
+            elif cat not in ("password", "seed"):
+                if cat not in other_labels:
+                    other_labels[cat] = []
+                if base_label not in other_labels[cat]:
+                    other_labels[cat].append(base_label)
+            # Capture wallet difficulty (same for all systems/modes)
+            difficulty = bench.get("wallet_difficulty", "")
+            if difficulty and base_label not in difficulties:
+                difficulties[base_label] = difficulty
 
     # ── Build lookup: (system_index, mode, base_label) -> rate ──
     rate_lookup = {}
@@ -168,31 +179,47 @@ def generate_markdown(all_results):
     if password_labels:
         lines.append("### Password Recovery Benchmarks\n")
         _generate_system_rows_table(lines, all_results, password_labels,
-                                    rate_lookup, _get_system_modes)
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
         lines.append("")
 
     # ── Seed Recovery Table ──
     if seed_labels:
         lines.append("### Seed Recovery Benchmarks\n")
         _generate_system_rows_table(lines, all_results, seed_labels,
-                                    rate_lookup, _get_system_modes)
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
+        lines.append("")
+
+    # ── Other categories ──
+    for cat_name, cat_labels in other_labels.items():
+        lines.append(f"### {cat_name.title()} Benchmarks\n")
+        _generate_system_rows_table(lines, all_results, cat_labels,
+                                    rate_lookup, _get_system_modes,
+                                    difficulties)
         lines.append("")
 
     return "\n".join(lines)
 
 
 def _generate_system_rows_table(lines, all_results, test_labels,
-                                rate_lookup, get_system_modes_fn):
+                                rate_lookup, get_system_modes_fn,
+                                difficulties=None):
     """Generate a table where systems are rows and test types are columns.
 
     If a system has results for multiple modes (CPU, GPU, OpenCL) each mode
     gets its own row.
     """
-    # Header
+    # Header — include wallet difficulty in column labels when available
     header = "| System | Mode |"
     separator = "|--------|------|"
     for label in test_labels:
-        header += f" {label} |"
+        display_label = label
+        if difficulties:
+            diff = difficulties.get(label, "")
+            if diff:
+                display_label = f"{label} - {diff}"
+        header += f" {display_label} |"
         separator += "--------|"
     lines.append(header)
     lines.append(separator)
