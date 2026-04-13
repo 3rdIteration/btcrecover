@@ -1593,10 +1593,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#password-recovery-benchmarks" class="md-nav__link">
+  <a href="#password-benchmarks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Password Recovery Benchmarks
+        Password Benchmarks
       
     </span>
   </a>
@@ -1604,10 +1604,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#seed-recovery-benchmarks" class="md-nav__link">
+  <a href="#seed-benchmarks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Seed Recovery Benchmarks
+        Seed Benchmarks
       
     </span>
   </a>
@@ -1884,7 +1884,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 <tbody>
 <tr>
 <td>1</td>
-<td>Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz</td>
+<td>i7-10700K @ 3.80GHz</td>
 <td>16/16</td>
 <td>NVIDIA GeForce RTX 3070</td>
 <td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
@@ -1893,7 +1893,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 <tr>
 <td>2</td>
-<td>Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz</td>
+<td>i7-10700K @ 3.80GHz</td>
 <td>16/16</td>
 <td>NVIDIA GeForce RTX 3070</td>
 <td>NVIDIA GeForce RTX 3070 (8192 MB)</td>
@@ -1929,7 +1929,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 <tr>
 <td>6</td>
-<td>AMD EPYC 7763 64-Core Processor</td>
+<td>EPYC 7763 64-Core</td>
 <td>2/4</td>
 <td>None</td>
 <td>None</td>
@@ -1938,7 +1938,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 <tr>
 <td>7</td>
-<td>AMD EPYC 7763 64-Core Processor</td>
+<td>EPYC 7763 64-Core</td>
 <td>2/4</td>
 <td>None</td>
 <td>None</td>
@@ -1956,7 +1956,7 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 <tr>
 <td>9</td>
-<td>AMD EPYC 9V74 80-Core Processor</td>
+<td>EPYC 9V74 80-Core</td>
 <td>4/4</td>
 <td>None</td>
 <td>None</td>
@@ -1965,162 +1965,328 @@ PR adding your results file to share your benchmarks with the community.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="password-recovery-benchmarks">Password Recovery Benchmarks</h3>
+<h3 id="password-benchmarks">Password Benchmarks</h3>
 <table>
 <thead>
 <tr>
-<th>System</th>
+<th>Test Type</th>
 <th>Mode</th>
-<th>Bitcoin Core (BDB)</th>
-<th>Bitcoin Core (SQLite)</th>
-<th>Electrum (Legacy)</th>
-<th>Electrum 2.8+</th>
-<th>Blockchain.com (v0)</th>
-<th>Blockchain.com (v2)</th>
-<th>Blockchain.com (v3)</th>
-<th>MultiBit Classic</th>
-<th>MultiBit HD</th>
-<th>MetaMask (Chrome)</th>
-<th>Ethereum Keystore (scrypt)</th>
-<th>Electrum 2.8+ Passphrase</th>
-<th>BIP39 Passphrase</th>
-<th>SLIP39 Passphrase</th>
-<th>BIP38 Encrypted Key</th>
-<th>Raw Private Key</th>
-<th>Coinomi (Android)</th>
+<th>BIP38 Encrypted Key - sCrypt N=14, r=8, p=8</th>
+<th>BIP39 Passphrase - 2048 PBKDF2-SHA512 iterations + ECC</th>
+<th>BIP39 Passphrase - 2048 PBKDF2-SHA512 iterations + ECC</th>
+<th>Bitcoin Core (BDB) - 67,908 SHA-512 iterations</th>
+<th>Bitcoin Core (BDB) - 67,908 SHA-512 iterations</th>
+<th>Bitcoin Core (SQLite) - 267,488 SHA-512 iterations</th>
+<th>Bitcoin Core (SQLite) - 267,488 SHA-512 iterations</th>
+<th>Blockchain.com (v0) - 10 PBKDF2-SHA1 iterations</th>
+<th>Blockchain.com (v2) - 10,000 PBKDF2-SHA1 iterations</th>
+<th>Blockchain.com (v3) - 5,000 PBKDF2-SHA1 iterations</th>
+<th>Coinomi (Android) - scrypt N, r, p = 16384, 8, 1</th>
+<th>Electrum (Legacy) - 2 SHA-256 iterations</th>
+<th>Electrum 2.8+ - 1024 PBKDF2-SHA512 iterations + ECC</th>
+<th>Electrum 2.8+ Passphrase - 1024 PBKDF2-SHA512 iterations + ECC</th>
+<th>Ethereum Keystore (scrypt) - Scrypt N=17 R=8 P=1</th>
+<th>MetaMask (Chrome) - 10000 PBKDF2-SHA256 iterations</th>
+<th>MultiBit Classic - 3 MD5 iterations</th>
+<th>MultiBit HD - scrypt N, r, p = 16384, 8, 1</th>
+<th>Raw Private Key - 1 SHA-256 iteration</th>
+<th>SLIP39 Passphrase - 40,000 PBKDF2-SHA256 iterations + ECC</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>Bitcoin Core (BDB)</td>
 <td>CPU</td>
 <td>95.50 p/s</td>
-<td>23.30 p/s</td>
-<td>207.48 Kp/s</td>
-<td>4.41 Kp/s</td>
-<td>61.48 Kp/s</td>
-<td>431.42 p/s</td>
-<td>772.70 p/s</td>
-<td>191.41 Kp/s</td>
-<td>131.29 p/s</td>
-<td>674.77 p/s</td>
-<td>16.77 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
+<td>82.60 p/s</td>
+<td>542.25 p/s</td>
+<td>98.17 p/s</td>
+<td>118.32 p/s</td>
+<td>46.73 p/s</td>
+<td>46.81 p/s</td>
+<td>29.00 p/s</td>
+<td>35.95 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>System 1: NVIDIA GeForce RTX 3070</td>
+<td>Bitcoin Core (SQLite)</td>
+<td>CPU</td>
+<td>23.30 p/s</td>
+<td>22.87 p/s</td>
+<td>137.85 p/s</td>
+<td>28.78 p/s</td>
+<td>30.40 p/s</td>
+<td>11.40 p/s</td>
+<td>11.97 p/s</td>
+<td>6.34 p/s</td>
+<td>9.18 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Electrum (Legacy)</td>
+<td>CPU</td>
+<td>207.48 Kp/s</td>
+<td>—</td>
+<td>2.65 Mp/s</td>
+<td>301.99 Kp/s</td>
+<td>—</td>
+<td>158.57 Kp/s</td>
+<td>—</td>
+<td>158.42 Kp/s</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Electrum 2.8+</td>
+<td>CPU</td>
+<td>4.41 Kp/s</td>
+<td>—</td>
+<td>33.74 Kp/s</td>
+<td>6.44 Kp/s</td>
+<td>—</td>
+<td>2.67 Kp/s</td>
+<td>—</td>
+<td>1.39 Kp/s</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Blockchain.com (v0)</td>
+<td>CPU</td>
+<td>61.48 Kp/s</td>
+<td>62.35 Kp/s</td>
+<td>691.29 Kp/s</td>
+<td>73.60 Kp/s</td>
+<td>114.52 Kp/s</td>
+<td>41.80 Kp/s</td>
+<td>42.59 Kp/s</td>
+<td>33.26 Kp/s</td>
+<td>46.21 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Blockchain.com (v2)</td>
+<td>CPU</td>
+<td>431.42 p/s</td>
+<td>431.40 p/s</td>
+<td>3.25 Kp/s</td>
+<td>520.64 p/s</td>
+<td>625.97 p/s</td>
+<td>394.67 p/s</td>
+<td>395.99 p/s</td>
+<td>154.00 p/s</td>
+<td>219.00 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Blockchain.com (v3)</td>
+<td>CPU</td>
+<td>772.70 p/s</td>
+<td>697.93 p/s</td>
+<td>6.46 Kp/s</td>
+<td>1.10 Kp/s</td>
+<td>1.22 Kp/s</td>
+<td>785.44 p/s</td>
+<td>787.66 p/s</td>
+<td>146.36 p/s</td>
+<td>433.67 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>MultiBit Classic</td>
+<td>CPU</td>
+<td>191.41 Kp/s</td>
+<td>181.25 Kp/s</td>
+<td>2.00 Mp/s</td>
+<td>261.71 Kp/s</td>
+<td>301.89 Kp/s</td>
+<td>140.33 Kp/s</td>
+<td>140.91 Kp/s</td>
+<td>56.55 Kp/s</td>
+<td>167.16 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>MultiBit HD</td>
+<td>CPU</td>
+<td>131.29 p/s</td>
+<td>134.84 p/s</td>
+<td>476.15 p/s</td>
+<td>69.20 p/s</td>
+<td>83.95 p/s</td>
+<td>61.26 p/s</td>
+<td>62.02 p/s</td>
+<td>21.00 p/s</td>
+<td>35.82 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>MetaMask (Chrome)</td>
+<td>CPU</td>
+<td>674.77 p/s</td>
+<td>689.70 p/s</td>
+<td>6.33 Kp/s</td>
+<td>1.08 Kp/s</td>
+<td>1.34 Kp/s</td>
+<td>700.40 p/s</td>
+<td>699.37 p/s</td>
+<td>187.40 p/s</td>
+<td>383.07 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Ethereum Keystore (scrypt)</td>
+<td>CPU</td>
+<td>16.77 p/s</td>
+<td>16.37 p/s</td>
+<td>—</td>
+<td>8.97 p/s</td>
+<td>10.39 p/s</td>
+<td>8.82 p/s</td>
+<td>9.32 p/s</td>
+<td>5.46 p/s</td>
+<td>7.33 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Bitcoin Core (BDB)</td>
 <td>GPU</td>
 <td>6.97 Kp/s</td>
-<td>2.09 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 2: i7-10700K @ 3.80GHz</td>
-<td>CPU</td>
-<td>82.60 p/s</td>
-<td>22.87 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>62.35 Kp/s</td>
-<td>431.40 p/s</td>
-<td>697.93 p/s</td>
-<td>181.25 Kp/s</td>
-<td>134.84 p/s</td>
-<td>689.70 p/s</td>
-<td>16.37 p/s</td>
-<td>4.67 Kp/s</td>
-<td>2.40 Kp/s</td>
-<td>365.89 p/s</td>
-<td>15.00 p/s</td>
-<td>73.45 Kp/s</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 2: NVIDIA GeForce RTX 3070</td>
-<td>GPU</td>
 <td>6.93 Kp/s</td>
-<td>2.09 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 2: NVIDIA GeForce RTX 3070</td>
-<td>OPENCL</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>10.80 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
-<td>CPU</td>
-<td>542.25 p/s</td>
-<td>137.85 p/s</td>
-<td>2.65 Mp/s</td>
-<td>33.74 Kp/s</td>
-<td>691.29 Kp/s</td>
-<td>3.25 Kp/s</td>
-<td>6.46 Kp/s</td>
-<td>2.00 Mp/s</td>
-<td>476.15 p/s</td>
-<td>6.33 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 3: NVIDIA GeForce RTX 5090</td>
-<td>GPU</td>
 <td>11.96 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Bitcoin Core (SQLite)</td>
+<td>GPU</td>
+<td>2.09 Kp/s</td>
+<td>2.09 Kp/s</td>
 <td>3.21 Kp/s</td>
 <td>—</td>
 <td>—</td>
@@ -2128,264 +2294,321 @@ PR adding your results file to share your benchmarks with the community.</p>
 <td>—</td>
 <td>—</td>
 <td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 <tr>
-<td>System 4: Apple M1 (Virtual)</td>
+<td>Electrum 2.8+ Passphrase</td>
 <td>CPU</td>
-<td>98.17 p/s</td>
-<td>28.78 p/s</td>
-<td>301.99 Kp/s</td>
-<td>6.44 Kp/s</td>
-<td>73.60 Kp/s</td>
-<td>520.64 p/s</td>
-<td>1.10 Kp/s</td>
-<td>261.71 Kp/s</td>
-<td>69.20 p/s</td>
-<td>1.08 Kp/s</td>
-<td>8.97 p/s</td>
+<td>—</td>
+<td>4.67 Kp/s</td>
 <td>—</td>
 <td>—</td>
+<td>7.38 Kp/s</td>
+<td>—</td>
+<td>2.67 Kp/s</td>
+<td>—</td>
+<td>2.17 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>BIP39 Passphrase</td>
+<td>CPU</td>
+<td>—</td>
+<td>2.40 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>3.79 Kp/s</td>
+<td>—</td>
+<td>1.36 Kp/s</td>
+<td>—</td>
+<td>1.15 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SLIP39 Passphrase</td>
+<td>CPU</td>
+<td>—</td>
+<td>365.89 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>BIP38 Encrypted Key</td>
+<td>CPU</td>
+<td>—</td>
+<td>15.00 p/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Raw Private Key</td>
+<td>CPU</td>
+<td>—</td>
+<td>73.45 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>76.00 Kp/s</td>
+<td>—</td>
+<td>35.41 Kp/s</td>
+<td>—</td>
+<td>24.57 Kp/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>BIP39 Passphrase</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>10.80 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Coinomi (Android)</td>
+<td>CPU</td>
 <td>—</td>
 <td>—</td>
 <td>—</td>
 <td>70.81 p/s</td>
-</tr>
-<tr>
-<td>System 5: Apple M1 (Virtual)</td>
-<td>CPU</td>
-<td>118.32 p/s</td>
-<td>30.40 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>114.52 Kp/s</td>
-<td>625.97 p/s</td>
-<td>1.22 Kp/s</td>
-<td>301.89 Kp/s</td>
-<td>83.95 p/s</td>
-<td>1.34 Kp/s</td>
-<td>10.39 p/s</td>
-<td>7.38 Kp/s</td>
-<td>3.79 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>76.00 Kp/s</td>
 <td>84.39 p/s</td>
-</tr>
-<tr>
-<td>System 6: EPYC 7763 64-Core</td>
-<td>CPU</td>
-<td>46.73 p/s</td>
-<td>11.40 p/s</td>
-<td>158.57 Kp/s</td>
-<td>2.67 Kp/s</td>
-<td>41.80 Kp/s</td>
-<td>394.67 p/s</td>
-<td>785.44 p/s</td>
-<td>140.33 Kp/s</td>
-<td>61.26 p/s</td>
-<td>700.40 p/s</td>
-<td>8.82 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
 <td>61.79 p/s</td>
-</tr>
-<tr>
-<td>System 7: EPYC 7763 64-Core</td>
-<td>CPU</td>
-<td>46.81 p/s</td>
-<td>11.97 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>42.59 Kp/s</td>
-<td>395.99 p/s</td>
-<td>787.66 p/s</td>
-<td>140.91 Kp/s</td>
-<td>62.02 p/s</td>
-<td>699.37 p/s</td>
-<td>9.32 p/s</td>
-<td>2.67 Kp/s</td>
-<td>1.36 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>35.41 Kp/s</td>
 <td>62.37 p/s</td>
-</tr>
-<tr>
-<td>System 8: AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
-<td>CPU</td>
-<td>29.00 p/s</td>
-<td>6.34 p/s</td>
-<td>158.42 Kp/s</td>
-<td>1.39 Kp/s</td>
-<td>33.26 Kp/s</td>
-<td>154.00 p/s</td>
-<td>146.36 p/s</td>
-<td>56.55 Kp/s</td>
-<td>21.00 p/s</td>
-<td>187.40 p/s</td>
-<td>5.46 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
-<td>—</td>
 <td>26.35 p/s</td>
-</tr>
-<tr>
-<td>System 9: EPYC 9V74 80-Core</td>
-<td>CPU</td>
-<td>35.95 p/s</td>
-<td>9.18 p/s</td>
-<td>—</td>
-<td>—</td>
-<td>46.21 Kp/s</td>
-<td>219.00 p/s</td>
-<td>433.67 p/s</td>
-<td>167.16 Kp/s</td>
-<td>35.82 p/s</td>
-<td>383.07 p/s</td>
-<td>7.33 p/s</td>
-<td>2.17 Kp/s</td>
-<td>1.15 Kp/s</td>
-<td>—</td>
-<td>—</td>
-<td>24.57 Kp/s</td>
 <td>35.30 p/s</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<h3 id="seed-recovery-benchmarks">Seed Recovery Benchmarks</h3>
+<h3 id="seed-benchmarks">Seed Benchmarks</h3>
 <table>
 <thead>
 <tr>
-<th>System</th>
+<th>Test Type</th>
 <th>Mode</th>
+<th>Aezeed (LND) Seed</th>
+<th>Aezeed (LND) Seed</th>
+<th>BIP39 12-word Seed</th>
 <th>BIP39 12-word Seed</th>
 <th>BIP39 24-word Seed</th>
+<th>BIP39 24-word Seed</th>
 <th>Electrum Seed</th>
-<th>Aezeed (LND) Seed</th>
+<th>Electrum Seed</th>
 <th>SLIP39 Seed Share</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>System 1: i7-10700K @ 3.80GHz</td>
+<td>BIP39 12-word Seed</td>
 <td>CPU</td>
 <td>36.68 Kp/s</td>
-<td>147.63 Kp/s</td>
-<td>154.77 Kp/s</td>
-<td>—</td>
-<td>—</td>
+<td>36.02 Kp/s</td>
+<td>254.06 Kp/s</td>
+<td>40.45 Kp/s</td>
+<td>53.18 Kp/s</td>
+<td>19.48 Kp/s</td>
+<td>18.65 Kp/s</td>
+<td>16.15 Kp/s</td>
+<td>12.05 Kp/s</td>
 </tr>
 <tr>
-<td>System 1: NVIDIA GeForce RTX 3070</td>
+<td>BIP39 24-word Seed</td>
+<td>CPU</td>
+<td>147.63 Kp/s</td>
+<td>155.32 Kp/s</td>
+<td>841.75 Kp/s</td>
+<td>154.92 Kp/s</td>
+<td>195.42 Kp/s</td>
+<td>106.14 Kp/s</td>
+<td>106.56 Kp/s</td>
+<td>80.29 Kp/s</td>
+<td>90.66 Kp/s</td>
+</tr>
+<tr>
+<td>Electrum Seed</td>
+<td>CPU</td>
+<td>154.77 Kp/s</td>
+<td>151.98 Kp/s</td>
+<td>818.92 Kp/s</td>
+<td>211.87 Kp/s</td>
+<td>249.63 Kp/s</td>
+<td>116.24 Kp/s</td>
+<td>118.92 Kp/s</td>
+<td>90.91 Kp/s</td>
+<td>102.75 Kp/s</td>
+</tr>
+<tr>
+<td>BIP39 12-word Seed</td>
 <td>OPENCL</td>
 <td>129.10 Kp/s</td>
-<td>276.60 Kp/s</td>
-<td>396.32 Kp/s</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 2: i7-10700K @ 3.80GHz</td>
-<td>CPU</td>
-<td>36.02 Kp/s</td>
-<td>155.32 Kp/s</td>
-<td>151.98 Kp/s</td>
-<td>284.50 Kp/s</td>
-<td>89.85 Kp/s</td>
-</tr>
-<tr>
-<td>System 2: NVIDIA GeForce RTX 3070</td>
-<td>OPENCL</td>
 <td>127.20 Kp/s</td>
-<td>292.68 Kp/s</td>
-<td>390.90 Kp/s</td>
-<td>325.94 Kp/s</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 3: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD</td>
-<td>CPU</td>
-<td>254.06 Kp/s</td>
-<td>841.75 Kp/s</td>
-<td>818.92 Kp/s</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 3: NVIDIA GeForce RTX 5090</td>
-<td>OPENCL</td>
 <td>132.77 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>BIP39 24-word Seed</td>
+<td>OPENCL</td>
+<td>276.60 Kp/s</td>
+<td>292.68 Kp/s</td>
 <td>601.64 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Electrum Seed</td>
+<td>OPENCL</td>
+<td>396.32 Kp/s</td>
+<td>390.90 Kp/s</td>
 <td>147.17 Kp/s</td>
 <td>—</td>
 <td>—</td>
-</tr>
-<tr>
-<td>System 4: Apple M1 (Virtual)</td>
-<td>CPU</td>
-<td>40.45 Kp/s</td>
-<td>154.92 Kp/s</td>
-<td>211.87 Kp/s</td>
+<td>—</td>
+<td>—</td>
 <td>—</td>
 <td>—</td>
 </tr>
 <tr>
-<td>System 5: Apple M1 (Virtual)</td>
+<td>Aezeed (LND) Seed</td>
 <td>CPU</td>
-<td>53.18 Kp/s</td>
-<td>195.42 Kp/s</td>
-<td>249.63 Kp/s</td>
+<td>—</td>
+<td>284.50 Kp/s</td>
+<td>—</td>
+<td>—</td>
 <td>337.59 Kp/s</td>
 <td>—</td>
-</tr>
-<tr>
-<td>System 6: EPYC 7763 64-Core</td>
-<td>CPU</td>
-<td>19.48 Kp/s</td>
-<td>106.14 Kp/s</td>
-<td>116.24 Kp/s</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 7: EPYC 7763 64-Core</td>
-<td>CPU</td>
-<td>18.65 Kp/s</td>
-<td>106.56 Kp/s</td>
-<td>118.92 Kp/s</td>
 <td>230.10 Kp/s</td>
 <td>—</td>
-</tr>
-<tr>
-<td>System 8: AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD</td>
-<td>CPU</td>
-<td>16.15 Kp/s</td>
-<td>80.29 Kp/s</td>
-<td>90.91 Kp/s</td>
-<td>—</td>
-<td>—</td>
-</tr>
-<tr>
-<td>System 9: EPYC 9V74 80-Core</td>
-<td>CPU</td>
-<td>12.05 Kp/s</td>
-<td>90.66 Kp/s</td>
-<td>102.75 Kp/s</td>
 <td>215.30 Kp/s</td>
+</tr>
+<tr>
+<td>SLIP39 Seed Share</td>
+<td>CPU</td>
+<td>—</td>
+<td>89.85 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Aezeed (LND) Seed</td>
+<td>OPENCL</td>
+<td>—</td>
+<td>325.94 Kp/s</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
 <td>—</td>
 </tr>
 </tbody>
