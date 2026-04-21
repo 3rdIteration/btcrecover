@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+.venv/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation site
+site/
+docs/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Project-specific
+*.db
+addresses.db
+addresses-BTC.db
+HashCheck.txt
+wallet.aes.json
+test.txt
+tokenlist.txt
+seeds.txt
+btcrecover-tokens-auto.txt
+possible_passwords.log
+passwordlist.txt
+batch_seeds.txt.progress
+batch_seeds.txt
+
+# Data directory (mounted as volume)
+data/
+
+# GitHub
+.github/

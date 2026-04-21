@@ -143,6 +143,34 @@ To try recovering your password or a BIP39 passphrase, please start with the **[
 
 If you mostly know your recovery seed/mnemonic (12-24 recovery words), but think there may be a mistake in it, please see the **[Seed Recovery Quick Start](docs/Seedrecover_Quick_Start_Guide.md)**.
 
+## Docker ##
+
+BTCRecover can be run via Docker without installing Python or dependencies on your system.
+
+**Quick start:**
+```bash
+# Clone the repository
+git clone https://github.com/3rdIteration/btcrecover.git
+cd btcrecover
+
+# Run with basic requirements (Bitcoin/Ethereum wallets)
+docker compose run --rm btcrecover python btcrecover.py --help
+
+# Run with full requirements (all wallet types including Solana, Cosmos, etc.)
+docker compose run --rm btcrecover-full python btcrecover.py --help
+```
+
+**Running a recovery:**
+```bash
+# Place wallet files in ./data directory, then:
+docker compose run --rm btcrecover python btcrecover.py --wallet ./data/wallet.dat --tokenlist ./data/tokens.txt
+```
+
+**Interactive shell:**
+```bash
+docker compose run --rm btcrecover bash
+```
+
 ## Audible Alerts ##
 
 Command-line recoveries support an optional `--beep-on-find` flag that plays a two-tone pattern—two beeps one and a half seconds apart that repeat every ten seconds—after a successful recovery and emits a single beep when the search finishes without a match. The alert still prints the ASCII bell character so terminals can raise their own notification, but *btcrecover* now also tries to engage the Linux console tone generator so the on-board PC speaker can sound even when the terminal would stay silent. The helper first attempts to open `/dev/console` (or the device named by `BTCRECOVER_CONSOLE_BELL`) for the tone ioctl; if that fails but the [`beep`](https://linux.die.net/man/1/beep) utility is available it will run that before falling back to writing the bell character directly, exactly as before. Set the environment variable to an empty string to disable the console access entirely or to another device path if your distribution exposes the speaker elsewhere.
