@@ -5,7 +5,10 @@
 **Note:** The YouTube video and examples were made before OpenCL acceleration was added to Blockchain.com wallets and can give at least a 10x performance improvement. (See [GPU Accleration](../../GPU_Acceleration.md) for more info) 
 
 ## Overview
-[Firstly you download the wallet file as per the process here:](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
+You will first need to download the wallet file. You can either:
+
+* **Use the download script:** Navigate to the `extract-scripts` folder and run `python3 download-blockchain-wallet.py`. You will be prompted for your wallet ID and will need to approve the login via email.
+* **Use browser Developer Tools:** [Follow the manual download process here.](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
 
 Once you have that file, there are three ways that blockchain.com wallets can be recovered.
 
@@ -31,9 +34,16 @@ Once you recover your seed phrase it will reveal your password, the password can
 
 ### Download the wallet file...
 
-[Download the wallet file as per the process here:](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
+Navigate to the BTCRecover folder and run:
+**Command**
 
-After doing the process above, we will save the wallet data in a file called wallet.aes.json (Which can just be left in your BTCRecover folder be used instead of the wallet file in any of the examples below)
+`python ./extract-scripts/download-blockchain-wallet.py`
+
+You will then be prompted for your wallet ID, will need to confirm the request via email and enter any required 2fa code.
+
+Alternatively, you can [download the wallet file using browser Developer Tools.](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
+
+This will then create a file wallet.aes.json (Which can just be left in your BTCRecover folder be used instead of the wallet file in any of the examples below)
 
 ### Create the TokenList File 
 **Example Tokenlist - tokenListTest.txt**
