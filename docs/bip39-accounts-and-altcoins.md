@@ -101,6 +101,13 @@ You can also edit the files in the common-derivation-pathslists folder to either
 
 You can also use the --bip32-path argument to specify a derivation path (or paths) via the commandline.
 
+## Change Addresses
+By default, for UTXO-style wallets (BTC, LTC, BCH, DASH, DGB, DOGE, GRS, MONA, VTC and similar), BTCRecover will automatically also search the matching "change" (internal, `/1`) derivation path for every "receive" (external, `/0`) path supplied. This doubles the number of derivation paths tested but means you will still find seeds when the only funded address you know of is a change output.
+
+If you know that none of the supplied addresses are change addresses and want a small speed-up, pass `--no-check-change-addresses` to disable this behaviour.
+
+This option has no effect for account-model wallets such as ETH (and other EVM chains), XRP, Solana, Cosmos, etc., where a "change" chain is not meaningful; those wallets continue to use only the configured derivation paths.
+
 ## Altcoins, forks,clones or custom derivation paths
 You can also try to specifiy a custom derivation path for altcoins/forks which share the same address format as any supported coins. (Though this doesn't necessarily mean the coin uses the same derivation function.)
 
