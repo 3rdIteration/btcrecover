@@ -150,6 +150,15 @@ If when run this command, you get an error message similar to **error: externall
 
 Note: If you use Python for other things beyond BTCRecover, then the `--break-system-packages` could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.
 
+#### Python 3.14 and coincurve
+
+**coincurve 21 currently has a bug that prevents it from building from source** (`RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0`). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using **Python 3.14** (or any platform without a pre-built wheel), you must install coincurve 20 manually *before* running the requirements install:
+
+    pip3 install coincurve==20.0.0
+    pip3 install -r requirements.txt
+
+Because `requirements.txt` accepts any coincurve version in the range `>=20.0.0,<22`, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.
+
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
 
