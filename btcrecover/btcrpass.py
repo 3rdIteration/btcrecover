@@ -118,13 +118,71 @@ try:
 except:
     pass
 
-# Modules dependant on bitcoinutils
-bitcoinutils_available = False
-try:
-    import lib.block_io
-    bitcoinutils_available = True
-except:
+class _BlockIODecryptionError(Exception):
     pass
+
+def _block_io_extract_pubkey(user_key, pin):
+    """Decrypt a block.io user_key with pin; return compressed pubkey as hex bytes.
+
+    Replaces lib.block_io.BlockIo.Helper.dynamicExtractKey using only stdlib,
+    pycryptodome (already a dependency), and the ecdsa package.
+    Raises _BlockIODecryptionError on wrong PIN (GCM auth failure).
+    May raise binascii.Error if decrypted data is not valid hex (wrong PIN for ECB/CBC).
+    """
+    import base64
+    from hashlib import pbkdf2_hmac, sha256 as _sha256
+
+    algorithm = {
+        "pbkdf2_salt": "",
+        "pbkdf2_iterations": 2048,
+        "pbkdf2_phase1_key_length": 16,
+        "pbkdf2_phase2_key_length": 32,
+        "aes_iv": None,
+        "aes_cipher": "AES-256-ECB",
+        "aes_auth_tag": None,
+    }
+    if "algorithm" in user_key:
+        algorithm = user_key["algorithm"]
+
+    half_iter = int(algorithm["pbkdf2_iterations"]) // 2
+    salt = algorithm["pbkdf2_salt"].encode()
+    phase1 = pbkdf2_hmac("sha256", pin.encode(), salt, half_iter,
+                         int(algorithm["pbkdf2_phase1_key_length"]))
+    aes_key = pbkdf2_hmac("sha256", binascii.hexlify(phase1), salt, half_iter,
+                          int(algorithm["pbkdf2_phase2_key_length"]))
+
+    data = base64.b64decode(user_key["encrypted_passphrase"])
+    cipher_type = algorithm["aes_cipher"]
+    try:
+        if cipher_type == "AES-256-ECB":
+            obj = AES.new(aes_key, AES.MODE_ECB)
+            plaintext = obj.decrypt(data)
+            plaintext = plaintext[:-plaintext[-1]]  # remove PKCS7 padding
+        elif cipher_type == "AES-256-CBC":
+            obj = AES.new(aes_key, AES.MODE_CBC, binascii.unhexlify(algorithm["aes_iv"]))
+            plaintext = obj.decrypt(data)
+            plaintext = plaintext[:-plaintext[-1]]
+        elif cipher_type == "AES-256-GCM":
+            obj = AES.new(aes_key, AES.MODE_GCM,
+                          nonce=binascii.unhexlify(algorithm["aes_iv"]))
+            plaintext = obj.decrypt_and_verify(
+                data, binascii.unhexlify(algorithm["aes_auth_tag"]))
+        else:
+            raise Exception("Unsupported cipher: " + cipher_type)
+    except (ValueError, KeyError):
+        raise _BlockIODecryptionError("Invalid Secret PIN provided.")
+
+    # plaintext is a hex-encoded passphrase; SHA256 of its bytes is the private key
+    # binascii.unhexlify may raise binascii.Error for wrong PIN with ECB/CBC (garbage plaintext);
+    # the caller handles this exception alongside _BlockIODecryptionError.
+    private_key_bytes = _sha256(binascii.unhexlify(plaintext)).digest()
+
+    import ecdsa as _ecdsa
+    signing_key = _ecdsa.SigningKey.from_string(private_key_bytes, curve=_ecdsa.SECP256k1)
+    vk_bytes = signing_key.get_verifying_key().to_string()  # 64 bytes: x‖y
+    # Compressed public key: 0x02 prefix for even y, 0x03 for odd y (secp256k1 convention)
+    prefix = b"\x02" if vk_bytes[63] % 2 == 0 else b"\x03"
+    return binascii.hexlify(prefix + vk_bytes[:32])
 
 # Modules dependant on SJCL
 sjcl_available = False
@@ -2807,12 +2865,6 @@ class WalletBlockIO(object):
             exit(
                 "\nERROR: Cannot load ecdsa module which is required for block.io wallets... You can install it with the command 'pip3 install ecdsa")
 
-        try:
-            import bitcoinutils
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load bitcoin-utils module which is required for block.io wallets... You can install it with the command 'pip3 install bitcoin-utils'")
-
     @staticmethod
     def is_wallet_file(wallet_file):
         wallet_file.seek(0)
@@ -2860,11 +2912,11 @@ class WalletBlockIO(object):
 
         for count, password in enumerate(arg_passwords, 1):
             try:
-                key = lib.block_io.BlockIo.Helper.dynamicExtractKey(self.user_key, password)
-                if self.user_key['public_key'].encode() == key.pubkey_hex():
+                pubkey_hex = _block_io_extract_pubkey(self.user_key, password)
+                if self.user_key['public_key'].encode() == pubkey_hex:
                     return password, count
 
-            except lib.block_io.IncorrectDecryptionPasswordError:
+            except _BlockIODecryptionError:
                 pass
             except binascii.Error:
                 pass
