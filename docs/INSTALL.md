@@ -78,7 +78,7 @@ Some warnings and notes...
 
 You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)
 
-    pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust
+    pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust libsodium
 
   The `python-pip` package already includes PIP. Attempting to upgrade it with
   `pip install --upgrade pip` will fail and is unnecessary.
@@ -88,6 +88,7 @@ Once this is done, you can install the base requirements for BTCRecover that all
 If you want to install the full requirements (requirements-full.txt), some packages like `py-sr25519-bindings` and `cryptography` use maturin as their build backend. The pre-built maturin wheel does not work correctly on Termux, so you need to build maturin from source first and install the affected packages without build isolation:
 
     export ANDROID_API_LEVEL=24
+    export SODIUM_INSTALL=system
     pip install maturin --no-binary maturin
     pip install py-sr25519-bindings==0.2.3 --no-build-isolation
     pip install -r requirements-full.txt
