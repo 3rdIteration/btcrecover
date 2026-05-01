@@ -2014,13 +2014,14 @@
 </li>
 </ul>
 <p>You will then need to install Python as well as some other packages (Mostly the Coincurve build requirements)</p>
-<div class="highlight"><pre><span></span><code>pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust
+<div class="highlight"><pre><span></span><code>pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust libsodium
 </code></pre></div>
 <p>The <code>python-pip</code> package already includes PIP. Attempting to upgrade it with
   <code>pip install --upgrade pip</code> will fail and is unnecessary.</p>
 <p>Once this is done, you can install the base requirements for BTCRecover that allow recovery of common wallet types. (The full requirements have a lot of packages and will take a long time to build, like 15-20 minutes or more...)</p>
 <p>If you want to install the full requirements (requirements-full.txt), some packages like <code>py-sr25519-bindings</code> and <code>cryptography</code> use maturin as their build backend. The pre-built maturin wheel does not work correctly on Termux, so you need to build maturin from source first and install the affected packages without build isolation:</p>
 <div class="highlight"><pre><span></span><code>export ANDROID_API_LEVEL=24
+export SODIUM_INSTALL=system
 pip install maturin --no-binary maturin
 pip install py-sr25519-bindings==0.2.3 --no-build-isolation
 pip install -r requirements-full.txt
