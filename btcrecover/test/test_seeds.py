@@ -1606,6 +1606,174 @@ class TestRecoveryFromAddress(unittest.TestCase):
         del wallet
 
 
+class TestChangeAddresses(unittest.TestCase):
+    """Tests for the change-address (internal /1 chain) derivation path
+    expansion feature. Verifies both the structural path-list handling
+    and end-to-end seed recovery when the only known address is a change
+    address."""
+
+    # Mnemonic whose BTC BIP44 external address 0 is 1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3
+    # and whose BTC BIP44 internal (change) address 0 is 15c6cdDwdpzb6vLFmZMhzKTdjTXoqkh9Xc
+    BTC_BIP44_MNEMONIC = (
+        "certain come keen collect slab gauge photo inside mechanic deny leader drop"
+    )
+    BTC_BIP44_CHANGE_ADDRESS = "15c6cdDwdpzb6vLFmZMhzKTdjTXoqkh9Xc"
+
+    # Mnemonic shared by a number of existing BTC/LTC tests. BIP49 change: 3MZZPF57JvtxuA3JbcyYS6Berzp126gneC,
+    # BIP84 change: bc1qz96h9nj9la8p636njg5rh0hckaukk7qa9326d5, LTC BIP44 change: LZ6Sk1E6tVZEm4a8nHtEut9yjHxzmva6qD.
+    SHARED_MNEMONIC = (
+        "element entire sniff tired miracle solve shadow scatter hello never "
+        "tank side sight isolate sister uniform advice pen praise soap lizard "
+        "festival connect baby"
+    )
+    BTC_BIP49_CHANGE_ADDRESS = "3MZZPF57JvtxuA3JbcyYS6Berzp126gneC"
+    BTC_BIP84_CHANGE_ADDRESS = "bc1qz96h9nj9la8p636njg5rh0hckaukk7qa9326d5"
+    LTC_BIP44_CHANGE_ADDRESS = "LZ6Sk1E6tVZEm4a8nHtEut9yjHxzmva6qD"
+
+    # ------------------------------------------------------------------ #
+    # Structural tests: _path_strings / _has_change_addresses wiring.
+    # ------------------------------------------------------------------ #
+
+    def test_btc_default_expands_change_paths(self):
+        """Supplying a BTC receive address should also produce matching /1 paths by default."""
+        wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"], address_limit=1,
+        )
+        # Baseline /0 receive path must still be present and each one must
+        # have a corresponding /1 change path appended after it.
+        self.assertIn("m/44'/0'/0'/0", wallet._path_strings)
+        self.assertIn("m/44'/0'/0'/1", wallet._path_strings)
+        # The expansion is always appended after the original paths.
+        idx_recv = wallet._path_strings.index("m/44'/0'/0'/0")
+        idx_chg = wallet._path_strings.index("m/44'/0'/0'/1")
+        self.assertLess(idx_recv, idx_chg)
+        # Script type must be preserved between sibling paths.
+        self.assertEqual(wallet._path_script_types[idx_recv],
+                         wallet._path_script_types[idx_chg])
+
+    def test_btc_opt_out_does_not_expand(self):
+        """--no-check-change-addresses / check_change_addresses=False must suppress expansion."""
+        wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"], address_limit=1,
+            check_change_addresses=False,
+        )
+        self.assertIn("m/44'/0'/0'/0", wallet._path_strings)
+        self.assertNotIn("m/44'/0'/0'/1", wallet._path_strings)
+        for p in wallet._path_strings:
+            self.assertFalse(p.endswith("/1"),
+                             "no /1 change paths should be present when opted out")
+
+    def test_explicit_pathlist_still_expands(self):
+        """--pathlist / explicit path argument should also mirror /0 → /1."""
+        wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"], address_limit=1,
+            path=["m/44'/0'/0'/0"],
+        )
+        self.assertEqual(sorted(wallet._path_strings),
+                         ["m/44'/0'/0'/0", "m/44'/0'/0'/1"])
+
+    def test_existing_change_path_not_duplicated(self):
+        """A supplied path that already contains the /1 sibling must not be duplicated."""
+        wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"], address_limit=1,
+            path=["m/44'/0'/0'/0", "m/44'/0'/0'/1"],
+        )
+        self.assertEqual(wallet._path_strings.count("m/44'/0'/0'/1"), 1)
+
+    @unittest.skipUnless(can_load_keccak(), "requires pycryptodome")
+    def test_eth_never_expands(self):
+        """Account-model wallets (ETH) must never gain /1 paths regardless of the flag."""
+        # lowercase address skips EIP55 checksum so the test doesn't depend on case.
+        wallet = btcrseed.WalletEthereum.create_from_params(
+            addresses=["0x1a05a75e4041efb46a34f208b677f82c079197d8"], address_limit=1,
+        )
+        self.assertFalse(wallet._has_change_addresses)
+        for p in wallet._path_strings:
+            self.assertFalse(p.endswith("/1"),
+                             "ETH wallet must not have /1 change paths")
+
+    def test_hardened_last_index_is_not_mirrored(self):
+        """A path whose last index is hardened must not be rewritten as /1."""
+        wallet = btcrseed.WalletBIP39.create_from_params(
+            addresses=["1AiAYaVJ7SCkDeNqgFz7UDecycgzb6LoT3"], address_limit=1,
+            path=["m/44'/0'/0'"],
+        )
+        self.assertEqual(wallet._path_strings, ["m/44'/0'/0'"])
+
+    # ------------------------------------------------------------------ #
+    # End-to-end behavioural tests: supplying only a change address.
+    # Each scenario confirms the seed is found with the default setting
+    # and is NOT found when change-address checking is opted out.
+    # ------------------------------------------------------------------ #
+
+    def _run_change_address_scenario(self, wallet_type, change_address,
+                                     correct_mnemonic, pathlist_file,
+                                     check_change_addresses, **kwds):
+        test_path = btcrseed.load_pathlist("./derivationpath-lists/" + pathlist_file)
+        wallet = wallet_type.create_from_params(
+            addresses=[change_address],
+            address_limit=2,
+            path=test_path,
+            check_change_addresses=check_change_addresses,
+        )
+        wallet.config_mnemonic(correct_mnemonic, **kwds)
+        correct_mnemonic_ids = btcrseed.mnemonic_ids_guess
+        return wallet.return_verified_password_or_false((correct_mnemonic_ids,))
+
+    def _assert_found_only_with_default(self, wallet_type, change_address,
+                                        correct_mnemonic, pathlist_file, **kwds):
+        # With the default (change-address checking enabled) the correct
+        # mnemonic must be identified.
+        result_default = self._run_change_address_scenario(
+            wallet_type, change_address, correct_mnemonic, pathlist_file,
+            check_change_addresses=True, **kwds)
+        self.assertNotEqual(
+            result_default[0], False,
+            "Seed should be found when change addresses are being checked")
+
+        # With --no-check-change-addresses / check_change_addresses=False
+        # the same setup must fail to find the seed because only change
+        # paths would have matched.
+        result_disabled = self._run_change_address_scenario(
+            wallet_type, change_address, correct_mnemonic, pathlist_file,
+            check_change_addresses=False, **kwds)
+        self.assertEqual(
+            result_disabled, (False, 1),
+            "Seed must NOT be found when change-address checking is disabled")
+
+    def test_btc_bip44_change_address_default_vs_opt_out(self):
+        self._assert_found_only_with_default(
+            btcrseed.WalletBIP39,
+            self.BTC_BIP44_CHANGE_ADDRESS,
+            self.BTC_BIP44_MNEMONIC,
+            pathlist_file="BTC.txt",
+        )
+
+    def test_btc_bip49_change_address_default_vs_opt_out(self):
+        self._assert_found_only_with_default(
+            btcrseed.WalletBIP39,
+            self.BTC_BIP49_CHANGE_ADDRESS,
+            self.SHARED_MNEMONIC,
+            pathlist_file="BTC.txt",
+        )
+
+    def test_btc_bip84_change_address_default_vs_opt_out(self):
+        self._assert_found_only_with_default(
+            btcrseed.WalletBIP39,
+            self.BTC_BIP84_CHANGE_ADDRESS,
+            self.SHARED_MNEMONIC,
+            pathlist_file="BTC.txt",
+        )
+
+    def test_ltc_bip44_change_address_default_vs_opt_out(self):
+        self._assert_found_only_with_default(
+            btcrseed.WalletBIP39,
+            self.LTC_BIP44_CHANGE_ADDRESS,
+            self.SHARED_MNEMONIC,
+            pathlist_file="LTC.txt",
+        )
+
+
 class OpenCL_Tests(unittest.TestSuite):
     def __init__(self):
         super(OpenCL_Tests, self).__init__()

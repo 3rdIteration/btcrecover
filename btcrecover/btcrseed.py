@@ -1103,10 +1103,21 @@ class BlockChainPasswordV2(BlockChainPassword):
 
 class WalletBIP32(WalletBase):
 
+    # Whether this wallet type uses "change" addresses (internal chain /1)
+    # in addition to "receive" addresses (external chain /0). True for
+    # UTXO-style wallets (BTC, LTC, BCH, DASH, DGB, DOGE, GRS, MONA, VTC,
+    # Electrum, Bitcoinj, Aezeed, etc.); overridden to False on account-model
+    # wallets (ETH, XRP, Cosmos, Solana, etc.) where a change chain is not
+    # meaningful.
+    _has_change_addresses = True
+
     def __init__(self, arg_derivationpath = None, loading = False):
         super(WalletBIP32, self).__init__(loading)
         self._chaincode            = None
         self._passwords_per_second = None
+        # Whether to also try /1 (change) paths in addition to /0 (receive) paths;
+        # actually set by create_from_params() before _expand_paths_for_change_addresses().
+        self.check_change_addresses = True
 
         derivation_paths = []
         self._append_last_index = False
@@ -1382,14 +1393,62 @@ class WalletBIP32(WalletBase):
         enabled = getattr(self, "_enabled_script_types", {"p2pkh", "p2wpkh", "p2sh", "p2tr"})
         return script_type in enabled
 
+    def _expand_paths_for_change_addresses(self):
+        """For UTXO-style wallets, mirror each derivation path that ends
+        on an external (receive) chain index of 0 by adding a matching
+        path that ends on the internal (change) chain index of 1.
+
+        The expansion is a no-op when:
+          * the wallet type does not use change addresses
+            (``_has_change_addresses`` is False), or
+          * ``check_change_addresses`` has been disabled, or
+          * no existing path's final index is the non-hardened value 0.
+        Existing duplicate paths are preserved unchanged.
+        """
+        if not getattr(self, "_has_change_addresses", False):
+            return
+        if not getattr(self, "check_change_addresses", True):
+            return
+        if not self._path_indexes:
+            return
+
+        existing = {tuple(p) for p in self._path_indexes}
+        new_indexes = []
+        new_scripts = []
+        new_strings = []
+        for idx, current_path in enumerate(self._path_indexes):
+            if not current_path:
+                continue
+            last_index = current_path[-1]
+            # Only mirror when the final index is the non-hardened external
+            # chain value 0; hardened indexes are account numbers rather
+            # than chain selectors and must not be rewritten.
+            if last_index != 0:
+                continue
+            change_path = list(current_path[:-1]) + [1]
+            change_tuple = tuple(change_path)
+            if change_tuple in existing:
+                continue
+            existing.add(change_tuple)
+            new_indexes.append(change_path)
+            script_type = self._path_script_types[idx] if idx < len(self._path_script_types) else None
+            new_scripts.append(script_type)
+            new_strings.append(self._format_path(change_path))
+
+        if new_indexes:
+            self._path_indexes.extend(new_indexes)
+            self._path_script_types.extend(new_scripts)
+            self._path_strings.extend(new_strings)
+
     
 
     # Creates a wallet instance from either an mpk, an addresses container and address_limit,
     # or a hash160s container. If none of these were supplied, prompts the user for each.
     # (the BIP32 key derivation path is by default BIP44's account 0)
     @classmethod
-    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False):
+    def create_from_params(cls, mpk = None, addresses = None, address_limit = None, hash160s = None, path = None, is_performance = False, address_start_index =  None, force_p2sh = False, checksinglexpubaddress = False, force_p2tr = False, force_bip44 = False, force_bip84 = False, disable_p2sh = False, disable_p2tr = False, disable_bip44 = False, disable_bip84 = False, check_change_addresses = True):
         self = cls(path, loading=True)
+        self.check_change_addresses = check_change_addresses
 
         auto_detected_types = None
 
@@ -1522,8 +1581,14 @@ class WalletBIP32(WalletBase):
             # If we don't have an mpk but need to append the last
             # index, assume it's the external (non-change) chain
             if self._append_last_index:
-                for current_path_indexes in self._path_indexes:
+                for idx, current_path_indexes in enumerate(self._path_indexes):
                     current_path_indexes += 0,
+                    if idx < len(self._path_strings):
+                        self._path_strings[idx] = self._format_path(current_path_indexes)
+
+            # For UTXO-style wallets also check the matching internal
+            # (change) chain path for each external receive path.
+            self._expand_paths_for_change_addresses()
 
             # If an mpk Testing Mnemonic:'t provided (at all), and addresses and hash160s arguments also
             # weren't provided (in the original function call), prompt the user for addresses.
@@ -2163,6 +2228,7 @@ class WalletAezeed(WalletBIP39):
         disable_p2tr=False,
         disable_bip44=False,
         disable_bip84=False,
+        check_change_addresses=True,
     ):
         if mpk or addresses or hash160s:
             wallet = super(WalletAezeed, cls).create_from_params(
@@ -2182,15 +2248,21 @@ class WalletAezeed(WalletBIP39):
                 disable_p2tr=disable_p2tr,
                 disable_bip44=disable_bip44,
                 disable_bip84=disable_bip84,
+                check_change_addresses=check_change_addresses,
             )
             wallet._checksum_only_mode = False
             return wallet
 
         wallet = cls(path, loading=True)
+        wallet.check_change_addresses = check_change_addresses
 
         if wallet._append_last_index:
-            for current_path_indexes in wallet._path_indexes:
+            for idx, current_path_indexes in enumerate(wallet._path_indexes):
                 current_path_indexes += 0,
+                if idx < len(wallet._path_strings):
+                    wallet._path_strings[idx] = wallet._format_path(current_path_indexes)
+
+        wallet._expand_paths_for_change_addresses()
 
         wallet._addrs_to_generate = 0
         wallet._address_start_index = 0
@@ -2613,6 +2685,8 @@ class WalletElectrum2(WalletBIP39):
 @register_selectable_wallet_class('Ethereum Standard BIP39/BIP44 (Or Most EVM Wallets)')
 class WalletEthereum(WalletBIP39):
 
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not path: path = load_pathlist("./derivationpath-lists/ETH.txt")
         super(WalletEthereum, self).__init__(path, loading)
@@ -2662,6 +2736,8 @@ class WalletEthereum(WalletBIP39):
 
 @register_selectable_wallet_class('Hedera BIP39/44 (ed25519)')
 class WalletHederaEd25519(WalletBIP39):
+
+    _has_change_addresses = False
 
     _HEDERA_LEDGER_ID = b"\x00"
     _ACCOUNT_RE = re.compile(r"^(\d+)\.(\d+)\.([0-9a-fA-F]+)(?:-([a-z]{5}))?$")
@@ -2974,6 +3050,8 @@ class WalletHederaEd25519(WalletBIP39):
 @register_selectable_wallet_class('Ethereum Validator BIP39')
 class WalletEthereumValidator(WalletBIP39):
 
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not eth2_staking_deposit_available:
             exit("Ethereum Validator Seed Recovery requires the staking-deposit and py_ecc modules, please see the installation documentation at http://btcrecover.readthedocs.io/INSTALL/#staking-deposit for further information")
@@ -3048,6 +3126,8 @@ class WalletEthereumValidator(WalletBIP39):
 @register_selectable_wallet_class('Zilliqa Standard BIP39/44 (***Ledger Nano CURRENTLY UNSUPPORTED***)')
 class WalletZilliqa(WalletBIP39):
 
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not path: path = load_pathlist("./derivationpath-lists/ZIL.txt")
         super(WalletZilliqa, self).__init__(path, loading)
@@ -3091,6 +3171,8 @@ class WalletZilliqa(WalletBIP39):
 
 @register_selectable_wallet_class('Cardano Shelly-Era BIP39/44')
 class WalletCardano(WalletBIP39):
+
+    _has_change_addresses = False
 
     def __init__(self, path = None, loading = False):
         super(WalletCardano, self).__init__(None, loading)
@@ -3347,6 +3429,8 @@ class WalletCardano(WalletBIP39):
 
 ############### Py_Crypto_HD_Wallet Based Wallets ####################
 class WalletPyCryptoHDWallet(WalletBIP39):
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not py_crypto_hd_wallet_available:
             print()
@@ -3755,6 +3839,8 @@ class WalletMultiversX(WalletPyCryptoHDWallet):
 @register_selectable_wallet_class('Helium BIP39/44 & Mobile')
 class WalletHelium(WalletBIP39):
 
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not nacl_available:
             exit("Helium Wallet Requires the nacl module, this can be installed via pip3 install pynacl")
@@ -4045,6 +4131,8 @@ class WalletGroestlecoin(WalletBIP39):
 @register_selectable_wallet_class('Ripple Standard BIP39/44')
 class WalletRipple(WalletBIP39):
 
+    _has_change_addresses = False
+
     def __init__(self, path = None, loading = False):
         if not path: path = load_pathlist("./derivationpath-lists/XRP.txt")
         super(WalletRipple, self).__init__(path, loading)
@@ -4063,6 +4151,8 @@ class WalletRipple(WalletBIP39):
 
 @register_selectable_wallet_class('Stacks Standard BIP39/44')
 class WalletStacks(WalletBIP39):
+
+    _has_change_addresses = False
 
     def __init__(self, path = None, loading = False):
         if not path: path = ["m/44'/5757'/0'/0"]
@@ -4088,6 +4178,8 @@ class WalletStacks(WalletBIP39):
 
 @register_selectable_wallet_class("Stellar (XLM) BIP39")
 class WalletXLM(WalletBIP39):
+    _has_change_addresses = False
+
     def __init__(self, path=None, loading=False):
         # Use Stellar's default derivation path if none specified
         if not path: path = ["m/44'/148'"]
@@ -4611,6 +4703,8 @@ def main(argv):
         parser.add_argument("--disable-bip44", action="store_true", help="Disable checking of BIP44 legacy (P2PKH) addresses")
         parser.add_argument("--disable-bip84", action="store_true", help="Disable checking of BIP84 native SegWit (P2WPKH) addresses")
         parser.add_argument("--pathlist",    metavar="FILE",        help="A list of derivation paths to be searched")
+        parser.add_argument("--no-check-change-addresses", action="store_true",
+                            help="Disable the default behaviour of also checking matching \"change\" (internal, /1) derivation paths alongside \"receive\" (external, /0) paths for UTXO-style wallets (BTC, LTC, BCH, DASH, DGB, DOGE, GRS, MONA, VTC, etc). Has no effect for account-model wallets such as ETH, XRP, SOL, etc.")
         parser.add_argument("--transform-wordswaps",   type=int, metavar="COUNT", help="Test swapping COUNT pairs of words within the mnemonic")
         parser.add_argument(
             "--transform-trezor-common-mistakes",
@@ -4943,6 +5037,9 @@ def main(argv):
             
         if args.checksinglexpubaddress:
             create_from_params["checksinglexpubaddress"] = True
+
+        if args.no_check_change_addresses:
+            create_from_params["check_change_addresses"] = False
 
         # These arguments and their values are passed on to btcrpass.parse_arguments()
         for argkey in "skip", "threads", "worker", "max_eta", "pre_start_seconds", "performance_duration":
