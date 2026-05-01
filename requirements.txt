@@ -1,3 +1,4 @@
-coincurve~=20.0.0
+coincurve==20.0.0; platform_machine == 'aarch64'
+coincurve>=20.0.0,<22; platform_machine != 'aarch64'
 protobuf~=5.29.6
 pycryptodome~=3.23.0
