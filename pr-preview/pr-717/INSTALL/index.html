@@ -665,6 +665,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Essential Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#python-314-and-coincurve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python 3.14 and coincurve
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2042,6 +2059,12 @@ pip install -r requirements-full.txt
 <p>This will give you the functionality needed recovery of Bitcoin/Ethereum wallets (And clones of these chains)</p>
 <p>If when run this command, you get an error message similar to <strong>error: externally-managed-environment</strong> then you need to add an additional argument <code>--break-system-packages</code> to the above command. (So the command will be <code>pip3 install -r requirements.txt --break-system-packages</code>) </p>
 <p>Note: If you use Python for other things beyond BTCRecover, then the <code>--break-system-packages</code> could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.</p>
+<h4 id="python-314-and-coincurve">Python 3.14 and coincurve</h4>
+<p><strong>coincurve 21 currently has a bug that prevents it from building from source</strong> (<code>RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0</code>). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using <strong>Python 3.14</strong> (or any platform without a pre-built wheel), you must install coincurve 20 manually <em>before</em> running the requirements install:</p>
+<div class="highlight"><pre><span></span><code>pip3 install coincurve==20.0.0
+pip3 install -r requirements.txt
+</code></pre></div>
+<p>Because <code>requirements.txt</code> accepts any coincurve version in the range <code>&gt;=20.0.0,&lt;22</code>, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.</p>
 <h3 id="packages-for-extended-wallet-support">Packages for Extended Wallet Support</h3>
 <p>Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.</p>
 <p><code>pip3 install -r requirements-full.txt</code></p>
