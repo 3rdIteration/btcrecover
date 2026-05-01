@@ -943,6 +943,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#change-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change Addresses
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#altcoins-forksclones-or-custom-derivation-paths" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2232,6 +2243,10 @@ m/44&#39;/313&#39;/0&#39;/0 #Non-Hardened derivation, used in Zillet, Atomic Wal
 <h2 id="custom-derivation-paths">Custom Derivation Paths</h2>
 <p>You can also edit the files in the common-derivation-pathslists folder to either add, or remove derivation paths that will be searched, as removing those that aren't required will speed things up a bit... </p>
 <p>You can also use the --bip32-path argument to specify a derivation path (or paths) via the commandline.</p>
+<h2 id="change-addresses">Change Addresses</h2>
+<p>By default, for UTXO-style wallets (BTC, LTC, BCH, DASH, DGB, DOGE, GRS, MONA, VTC and similar), BTCRecover will automatically also search the matching "change" (internal, <code>/1</code>) derivation path for every "receive" (external, <code>/0</code>) path supplied. This doubles the number of derivation paths tested but means you will still find seeds when the only funded address you know of is a change output.</p>
+<p>If you know that none of the supplied addresses are change addresses and want a small speed-up, pass <code>--no-check-change-addresses</code> to disable this behaviour.</p>
+<p>This option has no effect for account-model wallets such as ETH (and other EVM chains), XRP, Solana, Cosmos, etc., where a "change" chain is not meaningful; those wallets continue to use only the configured derivation paths.</p>
 <h2 id="altcoins-forksclones-or-custom-derivation-paths">Altcoins, forks,clones or custom derivation paths</h2>
 <p>You can also try to specifiy a custom derivation path for altcoins/forks which share the same address format as any supported coins. (Though this doesn't necessarily mean the coin uses the same derivation function.)</p>
 <h2 id="adding-unsupported-coins">Adding Unsupported Coins</h2>
@@ -2262,14 +2277,19 @@ m/44&#39;/313&#39;/0&#39;/0 #Non-Hardened derivation, used in Zillet, Atomic Wal
     
     <nav>
       
-        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
           
-          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
         </a>
       
         <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
           
           <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
+        </a>
+      
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+          
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
         </a>
       
       
@@ -2296,7 +2316,7 @@ m/44&#39;/313&#39;/0&#39;/0 #Non-Hardened derivation, used in Zillet, Atomic Wal
       
 <ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
     Page Contributors
-    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li></ul>
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li></ul>
 </ul>
 <footer class="md-footer">
   
