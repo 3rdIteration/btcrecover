@@ -21,7 +21,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, mmap, pickle
+import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, mmap, pickle, binascii
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -525,14 +525,140 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         self.assertEqual(btcrseed.loaded_wallet.return_verified_password_or_false(
             (wrong_mnemonic_iter.__next__(), correct_mnemonic, wrong_mnemonic_iter.__next__())), (correct_mnemonic, 2))
 
-    # I don't have a test v2 seed to test
-    # def test_blockchain_password_seedv2(self):
-    #     self.checksum_tester(btcrseed.BlockChainPasswordV2, 15,
-    #         "hill long stupid finally dream taught tree twice tea together bar useless diamond sanity serve")
-        
+    def blockchain_auto_tester(self, mnemonic, expected_handler_classes):
+        wallet = btcrseed.WalletBlockchainLegacyMnemonic.create_from_params()
+        wallet.config_mnemonic(mnemonic_guess=mnemonic, expected_len=len(mnemonic.split()))
+        mnemonic_ids = btcrseed.mnemonic_ids_guess
+
+        self.assertEqual(wallet.return_verified_password_or_false((mnemonic_ids,)), (mnemonic_ids, 1))
+        attempted = set(wallet._last_attempted_wallet_classes)
+        for expected_handler in expected_handler_classes:
+            self.assertIn(expected_handler, attempted)
+
+    # The original repository carried this commented-out V2 test note:
+    #   "I don't have a test v2 seed to test"
+    # The string in the original comment ("hill long stupid ... sanity serve") is not a
+    # real V2 mnemonic - its checksum doesn't validate under the canonical Blockchain.com
+    # mnemonic.js algorithm. Instead we generate a real V2 mnemonic on the fly using the
+    # canonical encoder and verify that BTCRecover's V2 decoder accepts it. This both
+    # exercises BlockChainPasswordV2 and guards against regressions in the V2 algorithm.
+    #
+    # Canonical encoder shared by all mnemonic version tests. Matches the algorithm in
+    # https://github.com/blockchain/unused-My-Wallet/blob/master/mnemonic.js
+
+    @staticmethod
+    def _make_blockchain_encoder():
+        """Return (encode_v2, encode_v3, build_mnemonic) functions matching mnemonic.js exactly."""
+        v2 = list(map(str, btcrseed.load_wordlist("blockchainpassword_words_v2", "en")))
+        v3 = list(map(str, btcrseed.load_wordlist("blockchainpassword_words_v3", "en")))
+        n2 = len(v2)
+
+        def encode_v2(x):
+            w1 = x % n2
+            w2 = ((x // n2) + w1) % n2
+            w3 = ((x // n2 // n2) + w2) % n2
+            return [v2[w1], v2[w2], v2[w3]]
+
+        def encode_v3(x):
+            # Each 32-bit word is encoded as two 16-bit indices into the V3 list.
+            # r2 == 0 means only one word is emitted (trailing null byte handling).
+            b = x.to_bytes(4, "big")
+            r1 = (b[0] << 8) | b[1]
+            r2 = (b[2] << 8) | b[3]
+            return [v3[r1]] if r2 == 0 else [v3[r1], v3[r2]]
+
+        def _checksum(version, payload):
+            sha = hashlib.sha256(payload).digest()
+            c = (version << 24) | (sha[0] << 16) | (sha[1] << 8) | sha[2]
+            # JavaScript bytesToWords returns a signed 32-bit int; negate if negative
+            if c >= 0x80000000:
+                c = 0x100000000 - c
+            return c
+
+        def _pack(payload):
+            pad = (4 - len(payload) % 4) % 4
+            padded = payload + bytes(pad)
+            return [int.from_bytes(padded[i:i+4], "big") for i in range(0, len(padded), 4)]
+
+        def build_mnemonic(version, payload):
+            cs = _checksum(version, payload)
+            prefix = encode_v2(cs)
+            if version == 2:
+                body = [w for word in _pack(payload) for w in encode_v2(word)]
+            else:
+                body = [w for word in _pack(payload) for w in encode_v3(word)]
+            return " ".join(prefix + body)
+
+        return build_mnemonic
+
+    def test_blockchain_password_seedv2(self):
+        build_mnemonic = self._make_blockchain_encoder()
+        # V2: password-only payload encoded with the 1626-word V2 list.
+        password = "btcr-test-password"
+        mnemonic = build_mnemonic(2, password.encode("utf-8"))
+        self.checksum_tester(btcrseed.BlockChainPasswordV2, len(mnemonic.split()), mnemonic)
+
     def test_blockchain_password_seedv3(self):
+        # Hard-coded reference vector (present since the original repo)
         self.checksum_tester(btcrseed.BlockChainPasswordV3, 17,
             "carve witch manage yerevan yerevan yerevan yerevan yerevan yerevan yerevan yerevan hardly hamburgers insiders hamburgers ignite infernal")
+
+    def test_blockchain_password_seedv3_generated(self):
+        # Generated vector using the canonical encoder – V3: password-only.
+        build_mnemonic = self._make_blockchain_encoder()
+        password = "btcr-test-password"
+        mnemonic = build_mnemonic(3, password.encode("utf-8"))
+        self.checksum_tester(btcrseed.BlockChainPasswordV3, len(mnemonic.split()), mnemonic)
+
+    def test_blockchain_password_seedv4(self):
+        # V4: 16-byte wallet GUID prepended to the password, then V3-encoded.
+        # This is the "wallet identifier mnemonic" used in Blockchain.com's
+        # forgot-password page to recover both the Wallet ID and the password.
+        build_mnemonic = self._make_blockchain_encoder()
+        guid = "feedfeed-feed-feed-feed-feedfeedfeed"
+        password = "btcr-test-password"
+        guid_bytes = binascii.unhexlify(guid.replace("-", ""))
+        payload = guid_bytes + password.encode("utf-8")
+        mnemonic = build_mnemonic(4, payload)
+        self.checksum_tester(btcrseed.BlockChainPasswordV3, len(mnemonic.split()), mnemonic)
+
+    def test_blockchain_password_seedv5(self):
+        # V5: 4-byte creation timestamp prepended to the password, then V3-encoded.
+        build_mnemonic = self._make_blockchain_encoder()
+        timestamp = 1406647434   # a representative blockchain.info creation timestamp
+        password = "btcr-test-password"
+        ts_bytes = timestamp.to_bytes(4, "big")
+        payload = ts_bytes + password.encode("utf-8")
+        mnemonic = build_mnemonic(5, payload)
+        self.checksum_tester(btcrseed.BlockChainPasswordV3, len(mnemonic.split()), mnemonic)
+
+    def test_blockchain_password_auto_detect_v2_to_v5(self):
+        build_mnemonic = self._make_blockchain_encoder()
+        password = "btcr-test-password"
+        guid = "feedfeed-feed-feed-feed-feedfeedfeed"
+        guid_bytes = binascii.unhexlify(guid.replace("-", ""))
+        timestamp = 1406647434
+
+        # V2 should route through BlockChainPasswordV2.
+        mnemonic_v2 = build_mnemonic(2, password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v2, {"BlockChainPasswordV2"})
+
+        # V3/V4/V5 should route through BlockChainPasswordV3 (which handles v3/4/5/6).
+        mnemonic_v3 = build_mnemonic(3, password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v3, {"BlockChainPasswordV3"})
+
+        mnemonic_v4 = build_mnemonic(4, guid_bytes + password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v4, {"BlockChainPasswordV3"})
+
+        mnemonic_v5 = build_mnemonic(5, timestamp.to_bytes(4, "big") + password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v5, {"BlockChainPasswordV3"})
+
+    def test_blockchain_password_auto_detect_ambiguous_checks_both(self):
+        # Canonical-generated edge vector: all words are present in both V2 and V3 wordlists,
+        # so auto-detection should attempt both handlers.
+        build_mnemonic = self._make_blockchain_encoder()
+        mnemonic = build_mnemonic(2, b"amb-2-0")
+        self.blockchain_auto_tester(mnemonic, {"BlockChainPasswordV2", "BlockChainPasswordV3"})
 
 is_sha3_loadable = None
 def can_load_keccak():

@@ -955,7 +955,50 @@ class BlockChainPassword(WalletBase):
             return lst[index]
         except IndexError:
             return None
-                
+
+
+@register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic (auto-detect v2-v5)")
+class WalletBlockchainLegacyMnemonic(BlockChainPassword):
+
+    def __init__(self, loading=False):
+        # Accept both legacy wordlists so one wallet type can handle v2 and v3/4/5/6 seeds.
+        v2_words = tuple(map(str, load_wordlist("blockchainpassword_words_v2", "en")))
+        v3_words = tuple(map(str, load_wordlist("blockchainpassword_words_v3", "en")))
+        self._words = tuple(dict.fromkeys(v2_words + v3_words))
+        self._num_words = len(self._words)
+        self._word_to_id = {word: idx for idx, word in enumerate(self._words)}
+        self._v3word_to_id = {word: idx for idx, word in enumerate(v3_words)}
+        self._last_attempted_wallet_classes = ()
+        super(WalletBlockchainLegacyMnemonic, self).__init__(loading)
+
+        # Reuse existing, version-specific validators.
+        self._v2_checker = BlockChainPasswordV2(loading=True)
+        self._v3_checker = BlockChainPasswordV3(loading=True)
+
+    def _verify_checksum(self, words):
+        try:
+            mnemonic_words = [self._words[word_id] for word_id in words]
+        except (IndexError, TypeError):
+            return False
+
+        attempted_wallet_classes = []
+        is_valid = False
+        for wallet_class_name, word_to_id, checker in (
+            (BlockChainPasswordV2.__name__, self._v2word_to_id, self._v2_checker),
+            (BlockChainPasswordV3.__name__, self._v3word_to_id, self._v3_checker),
+        ):
+            try:
+                mapped_word_ids = [word_to_id[word] for word in mnemonic_words]
+            except KeyError:
+                continue
+
+            attempted_wallet_classes.append(wallet_class_name)
+            if checker._verify_checksum(mapped_word_ids):
+                is_valid = True
+
+        self._last_attempted_wallet_classes = tuple(attempted_wallet_classes)
+        return is_valid
+
 
 @register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic v3")
 class BlockChainPasswordV3(BlockChainPassword):
@@ -985,9 +1028,11 @@ class BlockChainPasswordV3(BlockChainPassword):
 
             obj = self.decode_v3456_word_list(words[3:], version, checksum)
             print('\nPassword found: ' + obj['password'] + '\n')
-            if obj['guid']:
+            if obj.get('guid'):
                 print('\nAccount ID found: ' + obj['guid'] + '\n')
-            
+            if obj.get('time'):
+                print('\nWallet creation timestamp found: ' + str(obj['time']) + '\n')
+
             return True
         except ValueError:
             return False
@@ -1041,7 +1086,7 @@ class BlockChainPasswordV3(BlockChainPassword):
             )
             password_bytes = str_bytes[16:]
         elif version == 5:
-            obj['time'] = bytes_to_int(str_bytes[:4], 4)
+            obj['time'] = int.from_bytes(str_bytes[:4], 'big')
             password_bytes = str_bytes[4:]
         obj['password'] = self.bytes_to_string(password_bytes)
         return obj
@@ -1064,31 +1109,38 @@ class BlockChainPasswordV2(BlockChainPassword):
     def _verify_checksum(self, words):
         if len(words) < 3:
             raise ValueError('Mnemonic must have at least 3 words do checksum')
-        
+
         try:
-            # Try decoding the first two words using version 3 logic
+            # The first 3 words encode a 4-byte value: top byte = version (2 for V2),
+            # low 3 bytes = SHA-256(payload)[0..2].
             checksum = self.decode_v2(words[0], words[1], words[2])
-            version = int_to_bytes(checksum, 1)[0]
+            version = int_to_bytes(checksum, 4)[0]
             if version != 2: return False
 
-            obj = self.decode_v2_word_list(words, checksum)
-            print(obj.password) 
+            obj = self.decode_v2_word_list(words[3:], version, checksum)
+            # decode_v2_word_list returns either a dict {'password': ...} on success,
+            # or False on internal Exception (the function should have raised but doesn't).
+            if not obj:
+                return False
+            print('\nPassword found: ' + obj['password'] + '\n')
             return True
         except ValueError:
             return False
         except Exception as e:
             print(e)
-            return False    
-        
-    def decode_v2_word_list(self, wlist, checksum):
+            return False
+
+    def decode_v2_word_list(self, wlist, version, checksum):
+        # `wlist` here is the body (the checksum triplet has already been removed).
         try:
             words = [self.decode_v2(wlist[i], self.safe_get(wlist, i + 1), self.safe_get(wlist, i + 2)) for i in range(0, len(wlist), 3)]
             str_bytes = self.words_to_bytes(words)
             str_bytes = bytearray([byte for byte in str_bytes if byte != 0])
 
-            restored_checksum = bytes_to_int(hashlib.sha256(str_bytes).digest()[:3])
-            if restored_checksum < 0:
-                restored_checksum = -restored_checksum
+            # Per the canonical Blockchain.com mnemonic.js implementation, the checksum is
+            # [ version_byte || SHA256(payload)[0..2] ] (a 4-byte big-endian integer).
+            restored_checksum_bytes = version.to_bytes(1, byteorder='big') + hashlib.sha256(str_bytes).digest()[:3]
+            restored_checksum = int.from_bytes(restored_checksum_bytes, byteorder='big')
             if checksum != restored_checksum:
                 raise ValueError('Invalid Mnemonic Checksum. Please enter it carefully.')
             else:
@@ -1097,7 +1149,7 @@ class BlockChainPasswordV2(BlockChainPassword):
             raise ValueError()
         except Exception as e:
             print(e)
-            return False             
+            return False
              
 ############### BIP32 ###############
 

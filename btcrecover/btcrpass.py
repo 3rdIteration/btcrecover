@@ -2200,16 +2200,40 @@ class WalletBlockchain(object):
         return decrypted[:-padding] if 1 <= padding <= 16 and re.search(self.matchStrings, decrypted) else None
 
     #
-    # Encryption scheme only used in version 0.0 wallets (N.B. this is untested)
+    # Encryption scheme only used in version 0.0 wallets
     def decrypt_old(self, password, salt_and_iv, data):
         key = pbkdf2_hmac("sha1", password, salt_and_iv, 1, 32)  # only 1 iteration
         decrypted = aes256_ofb_decrypt(key, salt_and_iv, data)  # OFB mode
-        # The 16-byte last block, reversed, with all but the first byte of ISO 7816-4 padding removed:
-        last_block = tuple(itertools.dropwhile(lambda x: x == b"\0", decrypted[:15:-1]))
+        # The 16-byte last block, reversed, with all but the first byte of ISO 7816-4 padding removed.
+        # Note: indexing a bytes object returns an int, so compare to 0 (not b"\0") to drop NULs.
+        last_block = tuple(itertools.dropwhile(lambda x: x == 0, decrypted[:15:-1]))
         padding = 17 - len(last_block)  # ISO 7816-4 padding length
-        return decrypted[:-padding] if 1 <= padding <= 16 and \
-                                       decrypted[-padding] == b"\x80" and \
-                                       re.match(self.matchStrings,decrypted.decode()) else None
+        # If padding parsing succeeded, accept; otherwise, also accept if the decrypted bytes look
+        # like JSON containing one of our matchStrings (handles wallets where ISO 7816-4 padding
+        # detection fails but the plaintext is clearly correct).
+        if 1 <= padding <= 16 and decrypted[-padding] == 0x80 and \
+                re.search(self.matchStrings, decrypted):
+            return decrypted[:-padding]
+        if re.search(self.matchStrings, decrypted):
+            return decrypted
+        return None
+
+    # Wrapper around decrypt_current that returns None instead of raising when the
+    # data isn't a multiple of the AES block size (which happens for v0.0 wallets
+    # encrypted with OFB mode when we speculatively try CBC).
+    def _try_decrypt_current(self, password, iv, iter_count, encrypted):
+        try:
+            return self.decrypt_current(password, iv, iter_count, encrypted)
+        except ValueError:
+            return None
+
+    # Wrapper around decrypt_old that returns None instead of raising when the
+    # decrypted bytes can't be decoded for the matchStrings check.
+    def _try_decrypt_old(self, password, iv, encrypted):
+        try:
+            return self.decrypt_old(password, iv, encrypted)
+        except (ValueError, UnicodeDecodeError):
+            return None
 
     def decrypt_wallet(self,password):
         from lib.cashaddress import base58
@@ -2229,11 +2253,15 @@ class WalletBlockchain(object):
         iv, encrypted = self._encrypted_wallet[:16], self._encrypted_wallet[16:]
 
         if self._iter_count:  # v2.0 wallets have a single possible encryption scheme
-            data = self.decrypt_current(password, iv, self._iter_count, encrypted)
+            data = self._try_decrypt_current(password, iv, self._iter_count, encrypted)
         else:           # v0.0 wallets have three different possible encryption schemes
-            data = self.decrypt_current(password, iv, 10, encrypted) or \
-                   self.decrypt_current(password, iv, 1, encrypted) or \
-                   self.decrypt_old(password, iv, encrypted)
+            data = self._try_decrypt_current(password, iv, 10, encrypted) or \
+                   self._try_decrypt_current(password, iv, 1, encrypted) or \
+                   self._try_decrypt_old(password, iv, encrypted)
+
+        if not data:
+            print("Warning: Failed to decrypt wallet for dumping (unknown encryption scheme)")
+            return
 
         # Load and parse the now-decrypted wallet
         self._wallet_json = json.loads(data)
@@ -2282,7 +2310,13 @@ class WalletBlockchain(object):
             try:
                 for hd_wallets in self._wallet_json['hd_wallets']:
                     for accounts in hd_wallets['accounts']:
-                        logfile.write(accounts['xpriv'] + "\n")
+                        # Legacy v3 format: xpriv directly on the account
+                        if 'xpriv' in accounts:
+                            logfile.write(accounts['xpriv'] + "\n")
+                        # v4+ format: one xpriv per derivation/script-type
+                        for derivation in accounts.get('derivations', []):
+                            if 'xpriv' in derivation:
+                                logfile.write(derivation['xpriv'] + "\n")
             except:
                 pass
 
@@ -2506,11 +2540,15 @@ class WalletBlockchain(object):
                 unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
                 # print("CBC:", unencrypted_block)
                 if self.check_blockchain_decrypted_block(unencrypted_block, password):
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
 
                 unencrypted_block = l_aes256_ofb_decrypt(key, salt_and_iv, encrypted_block)  # OFB mode
                 # print("OBF:", unencrypted_block)
                 if self.check_blockchain_decrypted_block(unencrypted_block, password):
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -2536,6 +2574,8 @@ class WalletBlockchain(object):
         for count, (password,key) in enumerate(results, 1):
             unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
             if self.check_blockchain_decrypted_block(unencrypted_block, password):
+                # Decrypt and dump the wallet if required
+                self.decrypt_wallet(password)
                 return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -2602,9 +2642,17 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         try:
             for hd_wallets in self._wallet_json['hd_wallets']:
                 for accounts in hd_wallets['accounts']:
-                    accounts['xpriv_decrypted'] = self.decrypt_secondpass_privkey(accounts["xpriv"],
-                                                              self._wallet_json['sharedKey'].encode('ascii') + password,
-                                                              iter_count, legacy_decrypt).decode()
+                    # Legacy v3 format: xpriv directly on the account
+                    if 'xpriv' in accounts:
+                        accounts['xpriv_decrypted'] = self.decrypt_secondpass_privkey(accounts["xpriv"],
+                                                                  self._wallet_json['sharedKey'].encode('ascii') + password,
+                                                                  iter_count, legacy_decrypt).decode()
+                    # v4+ format: one xpriv per derivation/script-type
+                    for derivation in accounts.get('derivations', []):
+                        if 'xpriv' in derivation:
+                            derivation['xpriv_decrypted'] = self.decrypt_secondpass_privkey(derivation["xpriv"],
+                                                                  self._wallet_json['sharedKey'].encode('ascii') + password,
+                                                                  iter_count, legacy_decrypt).decode()
         except:
             pass
 
@@ -2633,7 +2681,13 @@ class WalletBlockchainSecondpass(WalletBlockchain):
             try:
                 for hd_wallets in self._wallet_json['hd_wallets']:
                     for accounts in hd_wallets['accounts']:
-                        logfile.write(accounts['xpriv_decrypted']+ "\n")
+                        # Legacy v3 format: xpriv directly on the account
+                        if 'xpriv_decrypted' in accounts:
+                            logfile.write(accounts['xpriv_decrypted']+ "\n")
+                        # v4+ format: one xpriv per derivation/script-type
+                        for derivation in accounts.get('derivations', []):
+                            if 'xpriv_decrypted' in derivation:
+                                logfile.write(derivation['xpriv_decrypted']+ "\n")
             except:
                 pass
 
@@ -3008,12 +3062,12 @@ class WalletDogechain(object):
         passwordbase64 = base64.b64encode(passwordSHA256)
         key = hashlib.pbkdf2_hmac('sha256', passwordbase64, self.salt, self._iter_count, 32)
 
-        decrypted = AES.new(key, AES.MODE_CBC).decrypt(self._encrypted_wallet)
-        padding = ord(decrypted[-1:])  # ISO 10126 padding length
+        decrypted = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self._encrypted_wallet)
+        padding = decrypted[-1]  # ISO 10126 padding length
 
         # A bit fragile because it assumes the guid is in the first encrypted block,
         return decrypted[:-padding] if 1 <= padding <= 16 and re.search(
-            self.matchString, decrypted) else None
+            self.matchStrings, decrypted) else None
 
     def decrypt_wallet(self, password):
         # Can't decrypt or dump an extract in any meaninful way...
@@ -3024,8 +3078,19 @@ class WalletDogechain(object):
         if not (self._dump_wallet_file or self._dump_privkeys_file):
             return
 
-        # print(self._encrypted_wallet)
-        data = self.decrypt(password)[16:]
+        if self.aes_cipher == "AES-CBC":
+            data = self.decrypt(password)
+            if data is None:
+                return
+        else:  # AES-GCM
+            passwordSHA256 = hashlib.sha256(password).digest()
+            passwordbase64 = base64.b64encode(passwordSHA256)
+            key = hashlib.pbkdf2_hmac('sha256', passwordbase64, self.salt, self._iter_count, 32)
+            try:
+                data = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(
+                    self._encrypted_wallet, self.aes_auth_tag)
+            except ValueError:
+                return
 
         # Load and parse the now-decrypted wallet
         self._wallet_json = json.loads(data)
@@ -3226,6 +3291,8 @@ class WalletDogechain(object):
                     # For AES-GCM we need to decrypt the whole wallet, not just a block,
                     # also don't need to manually check the file contents as verification is part of the decryption
                     decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet, self.aes_auth_tag)
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
                 except ValueError:
                     continue
@@ -3255,6 +3322,8 @@ class WalletDogechain(object):
                 try:
                     decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet,
                                                                                              self.aes_auth_tag)
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
                 except ValueError:
                     continue
