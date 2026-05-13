@@ -1043,7 +1043,7 @@ class BlockChainPasswordV3(BlockChainPassword):
             )
             password_bytes = str_bytes[16:]
         elif version == 5:
-            obj['time'] = int.from_bytes(bytes(str_bytes[:4]), 'big')
+            obj['time'] = int.from_bytes(str_bytes[:4], 'big')
             password_bytes = str_bytes[4:]
         obj['password'] = self.bytes_to_string(password_bytes)
         return obj

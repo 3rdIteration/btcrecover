@@ -21,7 +21,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, mmap, pickle
+import warnings, unittest, os, tempfile, shutil, filecmp, sys, hashlib, random, mmap, pickle, binascii
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -605,7 +605,6 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         # This is the "wallet identifier mnemonic" used in Blockchain.com's
         # forgot-password page to recover both the Wallet ID and the password.
         build_mnemonic = self._make_blockchain_encoder()
-        import binascii
         guid = "feedfeed-feed-feed-feed-feedfeedfeed"
         password = "btcr-test-password"
         guid_bytes = binascii.unhexlify(guid.replace("-", ""))
