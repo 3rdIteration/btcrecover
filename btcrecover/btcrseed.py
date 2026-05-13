@@ -1064,14 +1064,15 @@ class BlockChainPasswordV2(BlockChainPassword):
     def _verify_checksum(self, words):
         if len(words) < 3:
             raise ValueError('Mnemonic must have at least 3 words do checksum')
-        
+
         try:
-            # Try decoding the first two words using version 3 logic
+            # The first 3 words encode a 4-byte value: top byte = version (2 for V2),
+            # low 3 bytes = SHA-256(payload)[0..2].
             checksum = self.decode_v2(words[0], words[1], words[2])
-            version = int_to_bytes(checksum, 1)[0]
+            version = int_to_bytes(checksum, 4)[0]
             if version != 2: return False
 
-            obj = self.decode_v2_word_list(words, checksum)
+            obj = self.decode_v2_word_list(words[3:], version, checksum)
             # decode_v2_word_list returns either a dict {'password': ...} on success,
             # or False on internal Exception (the function should have raised but doesn't).
             if not obj:
@@ -1083,16 +1084,18 @@ class BlockChainPasswordV2(BlockChainPassword):
         except Exception as e:
             print(e)
             return False
-        
-    def decode_v2_word_list(self, wlist, checksum):
+
+    def decode_v2_word_list(self, wlist, version, checksum):
+        # `wlist` here is the body (the checksum triplet has already been removed).
         try:
             words = [self.decode_v2(wlist[i], self.safe_get(wlist, i + 1), self.safe_get(wlist, i + 2)) for i in range(0, len(wlist), 3)]
             str_bytes = self.words_to_bytes(words)
             str_bytes = bytearray([byte for byte in str_bytes if byte != 0])
 
-            restored_checksum = bytes_to_int(hashlib.sha256(str_bytes).digest()[:3])
-            if restored_checksum < 0:
-                restored_checksum = -restored_checksum
+            # Per the canonical Blockchain.com mnemonic.js implementation, the checksum is
+            # [ version_byte || SHA256(payload)[0..2] ] (a 4-byte big-endian integer).
+            restored_checksum_bytes = version.to_bytes(1, byteorder='big') + hashlib.sha256(str_bytes).digest()[:3]
+            restored_checksum = int.from_bytes(restored_checksum_bytes, byteorder='big')
             if checksum != restored_checksum:
                 raise ValueError('Invalid Mnemonic Checksum. Please enter it carefully.')
             else:
@@ -1101,7 +1104,7 @@ class BlockChainPasswordV2(BlockChainPassword):
             raise ValueError()
         except Exception as e:
             print(e)
-            return False             
+            return False
              
 ############### BIP32 ###############
 

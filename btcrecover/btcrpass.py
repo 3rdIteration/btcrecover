@@ -3062,12 +3062,12 @@ class WalletDogechain(object):
         passwordbase64 = base64.b64encode(passwordSHA256)
         key = hashlib.pbkdf2_hmac('sha256', passwordbase64, self.salt, self._iter_count, 32)
 
-        decrypted = AES.new(key, AES.MODE_CBC).decrypt(self._encrypted_wallet)
-        padding = ord(decrypted[-1:])  # ISO 10126 padding length
+        decrypted = AES.new(key, AES.MODE_CBC, self.iv).decrypt(self._encrypted_wallet)
+        padding = decrypted[-1]  # ISO 10126 padding length
 
         # A bit fragile because it assumes the guid is in the first encrypted block,
         return decrypted[:-padding] if 1 <= padding <= 16 and re.search(
-            self.matchString, decrypted) else None
+            self.matchStrings, decrypted) else None
 
     def decrypt_wallet(self, password):
         # Can't decrypt or dump an extract in any meaninful way...
@@ -3078,8 +3078,19 @@ class WalletDogechain(object):
         if not (self._dump_wallet_file or self._dump_privkeys_file):
             return
 
-        # print(self._encrypted_wallet)
-        data = self.decrypt(password)[16:]
+        if self.aes_cipher == "AES-CBC":
+            data = self.decrypt(password)
+            if data is None:
+                return
+        else:  # AES-GCM
+            passwordSHA256 = hashlib.sha256(password).digest()
+            passwordbase64 = base64.b64encode(passwordSHA256)
+            key = hashlib.pbkdf2_hmac('sha256', passwordbase64, self.salt, self._iter_count, 32)
+            try:
+                data = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(
+                    self._encrypted_wallet, self.aes_auth_tag)
+            except ValueError:
+                return
 
         # Load and parse the now-decrypted wallet
         self._wallet_json = json.loads(data)
@@ -3280,6 +3291,8 @@ class WalletDogechain(object):
                     # For AES-GCM we need to decrypt the whole wallet, not just a block,
                     # also don't need to manually check the file contents as verification is part of the decryption
                     decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet, self.aes_auth_tag)
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
                 except ValueError:
                     continue
@@ -3309,6 +3322,8 @@ class WalletDogechain(object):
                 try:
                     decrypted_block = AES.new(key, AES.MODE_GCM, self.iv).decrypt_and_verify(self._encrypted_wallet,
                                                                                              self.aes_auth_tag)
+                    # Decrypt and dump the wallet if required
+                    self.decrypt_wallet(password)
                     return password.decode("utf_8", "replace"), count
                 except ValueError:
                     continue

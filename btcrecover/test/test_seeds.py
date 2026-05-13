@@ -525,11 +525,41 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         self.assertEqual(btcrseed.loaded_wallet.return_verified_password_or_false(
             (wrong_mnemonic_iter.__next__(), correct_mnemonic, wrong_mnemonic_iter.__next__())), (correct_mnemonic, 2))
 
-    # I don't have a test v2 seed to test
-    # def test_blockchain_password_seedv2(self):
-    #     self.checksum_tester(btcrseed.BlockChainPasswordV2, 15,
-    #         "hill long stupid finally dream taught tree twice tea together bar useless diamond sanity serve")
-        
+    # The original repository carried this commented-out V2 test note:
+    #   "I don't have a test v2 seed to test"
+    # The string in the original comment ("hill long stupid ... sanity serve") is not a
+    # real V2 mnemonic - its checksum doesn't validate under the canonical Blockchain.com
+    # mnemonic.js algorithm. Instead we generate a real V2 mnemonic on the fly using the
+    # canonical encoder and verify that BTCRecover's V2 decoder accepts it. This both
+    # exercises BlockChainPasswordV2 and guards against regressions in the V2 algorithm.
+    def test_blockchain_password_seedv2(self):
+        # Canonical V2 encoder (matches Blockchain.com unused-My-Wallet mnemonic.js)
+        v2 = list(map(str, btcrseed.load_wordlist("blockchainpassword_words_v2", "en")))
+        n = len(v2)
+
+        def encode_v2(x):
+            w1 = x % n
+            w2 = ((x // n) + w1) % n
+            w3 = ((x // n // n) + w2) % n
+            return [v2[w1], v2[w2], v2[w3]]
+
+        password = "examplepassword"
+        payload = password.encode("utf-8")
+        # Pack body bytes as 32-bit big-endian words (zero-pad the trailing word)
+        pad = (4 - len(payload) % 4) % 4
+        padded = payload + bytes(pad)
+        words = [int.from_bytes(padded[i:i+4], "big") for i in range(0, len(padded), 4)]
+        body = []
+        for w in words:
+            body += encode_v2(w)
+
+        # Checksum word: [version_byte || sha256(payload)[0:3]] as a 32-bit big-endian int
+        sha = hashlib.sha256(payload).digest()
+        checksum = (2 << 24) | (sha[0] << 16) | (sha[1] << 8) | sha[2]
+        mnemonic = " ".join(encode_v2(checksum) + body)
+
+        self.checksum_tester(btcrseed.BlockChainPasswordV2, len(mnemonic.split()), mnemonic)
+
     def test_blockchain_password_seedv3(self):
         self.checksum_tester(btcrseed.BlockChainPasswordV3, 17,
             "carve witch manage yerevan yerevan yerevan yerevan yerevan yerevan yerevan yerevan hardly hamburgers insiders hamburgers ignite infernal")
