@@ -955,7 +955,50 @@ class BlockChainPassword(WalletBase):
             return lst[index]
         except IndexError:
             return None
-                
+
+
+@register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic (auto-detect v2-v5)")
+class WalletBlockchainLegacyMnemonic(BlockChainPassword):
+
+    def __init__(self, loading=False):
+        # Accept both legacy wordlists so one wallet type can handle v2 and v3/4/5/6 seeds.
+        v2_words = tuple(map(str, load_wordlist("blockchainpassword_words_v2", "en")))
+        v3_words = tuple(map(str, load_wordlist("blockchainpassword_words_v3", "en")))
+        self._words = tuple(dict.fromkeys(v2_words + v3_words))
+        self._num_words = len(self._words)
+        self._word_to_id = {word: idx for idx, word in enumerate(self._words)}
+        self._v3word_to_id = {word: idx for idx, word in enumerate(v3_words)}
+        self._last_attempted_wallet_classes = ()
+        super(WalletBlockchainLegacyMnemonic, self).__init__(loading)
+
+        # Reuse existing, version-specific validators.
+        self._v2_checker = BlockChainPasswordV2(loading=True)
+        self._v3_checker = BlockChainPasswordV3(loading=True)
+
+    def _verify_checksum(self, words):
+        try:
+            mnemonic_words = [self._words[word_id] for word_id in words]
+        except (IndexError, TypeError):
+            return False
+
+        attempted_wallet_classes = []
+        is_valid = False
+        for wallet_class_name, word_to_id, checker in (
+            (BlockChainPasswordV2.__name__, self._v2word_to_id, self._v2_checker),
+            (BlockChainPasswordV3.__name__, self._v3word_to_id, self._v3_checker),
+        ):
+            try:
+                mapped_word_ids = [word_to_id[word] for word in mnemonic_words]
+            except KeyError:
+                continue
+
+            attempted_wallet_classes.append(wallet_class_name)
+            if checker._verify_checksum(mapped_word_ids):
+                is_valid = True
+
+        self._last_attempted_wallet_classes = tuple(attempted_wallet_classes)
+        return is_valid
+
 
 @register_selectable_wallet_class("Blockchain.info Legacy Wallet Recovery Mnemonic v3")
 class BlockChainPasswordV3(BlockChainPassword):

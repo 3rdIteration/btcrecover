@@ -525,6 +525,16 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         self.assertEqual(btcrseed.loaded_wallet.return_verified_password_or_false(
             (wrong_mnemonic_iter.__next__(), correct_mnemonic, wrong_mnemonic_iter.__next__())), (correct_mnemonic, 2))
 
+    def blockchain_auto_tester(self, mnemonic, expected_handler_classes):
+        wallet = btcrseed.WalletBlockchainLegacyMnemonic.create_from_params()
+        wallet.config_mnemonic(mnemonic_guess=mnemonic, expected_len=len(mnemonic.split()))
+        mnemonic_ids = btcrseed.mnemonic_ids_guess
+
+        self.assertEqual(wallet.return_verified_password_or_false((mnemonic_ids,)), (mnemonic_ids, 1))
+        attempted = set(wallet._last_attempted_wallet_classes)
+        for expected_handler in expected_handler_classes:
+            self.assertIn(expected_handler, attempted)
+
     # The original repository carried this commented-out V2 test note:
     #   "I don't have a test v2 seed to test"
     # The string in the original comment ("hill long stupid ... sanity serve") is not a
@@ -621,6 +631,34 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         payload = ts_bytes + password.encode("utf-8")
         mnemonic = build_mnemonic(5, payload)
         self.checksum_tester(btcrseed.BlockChainPasswordV3, len(mnemonic.split()), mnemonic)
+
+    def test_blockchain_password_auto_detect_v2_to_v5(self):
+        build_mnemonic = self._make_blockchain_encoder()
+        password = "btcr-test-password"
+        guid = "feedfeed-feed-feed-feed-feedfeedfeed"
+        guid_bytes = binascii.unhexlify(guid.replace("-", ""))
+        timestamp = 1406647434
+
+        # V2 should route through BlockChainPasswordV2.
+        mnemonic_v2 = build_mnemonic(2, password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v2, {"BlockChainPasswordV2"})
+
+        # V3/V4/V5 should route through BlockChainPasswordV3 (which handles v3/4/5/6).
+        mnemonic_v3 = build_mnemonic(3, password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v3, {"BlockChainPasswordV3"})
+
+        mnemonic_v4 = build_mnemonic(4, guid_bytes + password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v4, {"BlockChainPasswordV3"})
+
+        mnemonic_v5 = build_mnemonic(5, timestamp.to_bytes(4, "big") + password.encode("utf-8"))
+        self.blockchain_auto_tester(mnemonic_v5, {"BlockChainPasswordV3"})
+
+    def test_blockchain_password_auto_detect_ambiguous_checks_both(self):
+        # Canonical-generated edge vector: all words are present in both V2 and V3 wordlists,
+        # so auto-detection should attempt both handlers.
+        build_mnemonic = self._make_blockchain_encoder()
+        mnemonic = build_mnemonic(2, b"amb-2-0")
+        self.blockchain_auto_tester(mnemonic, {"BlockChainPasswordV2", "BlockChainPasswordV3"})
 
 is_sha3_loadable = None
 def can_load_keccak():
