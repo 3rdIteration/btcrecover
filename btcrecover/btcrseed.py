@@ -1072,13 +1072,17 @@ class BlockChainPasswordV2(BlockChainPassword):
             if version != 2: return False
 
             obj = self.decode_v2_word_list(words, checksum)
-            print(obj.password) 
+            # decode_v2_word_list returns either a dict {'password': ...} on success,
+            # or False on internal Exception (the function should have raised but doesn't).
+            if not obj:
+                return False
+            print('\nPassword found: ' + obj['password'] + '\n')
             return True
         except ValueError:
             return False
         except Exception as e:
             print(e)
-            return False    
+            return False
         
     def decode_v2_word_list(self, wlist, checksum):
         try:

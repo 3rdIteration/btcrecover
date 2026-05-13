@@ -21,7 +21,7 @@
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
 
-import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse
+import warnings, os, unittest, pickle, tempfile, shutil, multiprocessing, time, gc, filecmp, sys, hashlib, argparse, json
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -1747,6 +1747,158 @@ class Test07WalletDecryption(unittest.TestCase):
     @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
     def test_electrum28_100kbwallet_OpenCL_Brute(self):
         self.Electrum28_tester_OpenCL_Brute("electrum28-100kbwallet")
+
+
+# Tests for the --dump-wallet / --dump-privkeys functionality on every supported
+# Blockchain.com wallet version in btcrecover/test/test-wallets/. These exercise
+# the post-password-found code paths (WalletBlockchain.decrypt_wallet/dump_privkeys
+# and WalletBlockchainSecondpass.decrypt_wallet/dump_privkeys) which historically
+# regressed on newer wallet formats (e.g. the v4 "derivations" structure) and on
+# v0.0 wallets that match via the alternate OFB / 1-iteration CBC schemes.
+class Test07BlockchainDump(unittest.TestCase):
+
+    # Each entry: wallet filename, main password, optional second password,
+    # and the list of strings that MUST appear in the produced --dump-privkeys file.
+    BLOCKCHAIN_MAIN_DUMP_CASES = (
+        # v0.0 wallet using the OFB encryption scheme (Mar 2012)
+        ("blockchain-v0.0-march2012-uncompressed-wallet.aes.json", "inmydreams", [
+            "L1eqQAui7DdrTFWMPqqoNEK9QmTyPr2s9AWruG8p52whdKU1wKgw",
+            "5JpYMf3RijjneDMF8tr7t2f6Xm4PkEq12rHHHpqScofDqBRvcbG",
+        ]),
+        # v0.0 wallet (Jan 2014, single-key, no second password)
+        ("blockchain-v0.0-Jan2014-wallet.aes.json", "testblockchain", [
+            "L5KKiZjQZXfSEcZQoHSxenK1rPoeBVZKbrV4u5NgftoKHo8Ny2Hc",
+            "5KegatNPZHv7dAR7JHR1NhdFhC4KPmXtLgJgrQeYC5VAaoAVN7K",
+        ]),
+        # v3.0 wallet (May 2020) - HD wallet with accounts[].xpriv directly
+        ("blockchain-v3.0-MAY2020-wallet.aes.json", "btcr-test-password", [
+            "xprv9xhdXP5mFTcfE9V4ywfAYWxSaVhqZKitWxUd9SFiJ7zpb1VMwfto4r1YCW9VaLjjmNEU3fGYCY66o1tJWdHmfBtkYTVCTSLYmZWJHiYKjba",
+        ]),
+        # v3.0 Android wallet (Jan 2021)
+        ("blockchain-v3.0-Jan2021-Android.json", "Testing123!", [
+            "xprv9yRMPa2Q7D9kJN1j2ykZEvoXjQMT6fs6maxDEgBFuW4tQHZsCZhpLfDkp6fM5E8ZjJStyzh2gh2rTQUTosWw9EoT4iZnVkQkbun6XPW15B9",
+        ]),
+        # v4.0 wallet - the new "derivations" format with one xpriv per script type
+        ("blockchain-v4.0-wallet.aes.json", "btcr-test-password", [
+            "xprv9y42eiE7iwmxjVAJZjjkzE3ThMx5xj9TJEt4RcBikxuHs4H83Cm2AWgeK9W5FcQoTwDXGbv6mY3M4JPhmvvpY1FnhoEJBkt52DXb9NF6mJM",
+            "xprv9z3g1hoiTyTfxWQvJVbaYEHJiGgdsdpap4ChVdMWFQ4Sag4g2TjoNhQaxdS9pmQbYPVsyH1b3KpvpKvQWQ18b8fAYx1zRhrYoKiJgye3e4p",
+        ]),
+    )
+
+    BLOCKCHAIN_SECONDPASS_DUMP_CASES = (
+        # v0.0 wallet with second password
+        ("blockchain-v0.0-wallet.aes.json", "btcr-test-password", "btcr-test-password", [
+            "KzwrWpHpu5zyZXDDsV4MWkDhobhji46kk2YYpWr4vwDxYLHa3NXs",
+            "5JfFqtx1tDv1aef7YNmG52BaiNTSzLHFttZ53A2bsjeNeXKKkUc",
+        ]),
+        # v2.0 wallet with second password
+        ("blockchain-v2.0-wallet.aes.json", "btcr-test-password", "btcr-test-password", [
+            "KzwrWpHpu5zyZXDDsV4MWkDhobhji46kk2YYpWr4vwDxYLHa3NXs",
+            "5JfFqtx1tDv1aef7YNmG52BaiNTSzLHFttZ53A2bsjeNeXKKkUc",
+        ]),
+        # Unencrypted main, but has a second password (no second-password iter_count)
+        ("blockchain-unencrypted-wallet.aes.json", "IGNORED", "btcr-test-password", [
+            "KzwrWpHpu5zyZXDDsV4MWkDhobhji46kk2YYpWr4vwDxYLHa3NXs",
+            "5JfFqtx1tDv1aef7YNmG52BaiNTSzLHFttZ53A2bsjeNeXKKkUc",
+        ]),
+    )
+
+    @staticmethod
+    def _read_dump(path):
+        with open(path, "r") as f:
+            return f.read()
+
+    def _run_main_dump(self, wallet_filename, password):
+        """Decrypt the main wallet and run dump_wallet/dump_privkeys.
+        Returns (dump_wallet_contents, dump_privkeys_contents)."""
+        src = os.path.join(WALLET_DIR, wallet_filename)
+        temp_dir = tempfile.mkdtemp("-test-btcr-dump")
+        try:
+            wallet_copy = os.path.join(temp_dir, os.path.basename(wallet_filename))
+            try:
+                shutil.copyfile(src, wallet_copy)
+            except (PermissionError, IsADirectoryError, FileNotFoundError):
+                wallet_copy = src
+
+            dump_wallet_file = os.path.join(temp_dir, "dump_wallet.txt")
+            dump_privkeys_file = os.path.join(temp_dir, "dump_privkeys.txt")
+
+            wallet = btcrpass.load_wallet(wallet_copy)
+            wallet._dump_wallet_file = dump_wallet_file
+            wallet._dump_privkeys_file = dump_privkeys_file
+
+            # Run verification with the correct password; this triggers decrypt_wallet
+            # which writes the dump files when a match is found.
+            result = wallet.return_verified_password_or_false(
+                (tstr("btcr-wrong-password-1"), tstr(password), tstr("btcr-wrong-password-2")))
+            self.assertEqual(result, (tstr(password), 2),
+                             "Password not found for %s" % wallet_filename)
+
+            dump_wallet = self._read_dump(dump_wallet_file) if os.path.exists(dump_wallet_file) else ""
+            dump_privkeys = self._read_dump(dump_privkeys_file) if os.path.exists(dump_privkeys_file) else ""
+            return dump_wallet, dump_privkeys
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _run_secondpass_dump(self, wallet_filename, main_password, second_password):
+        src = os.path.join(WALLET_DIR, wallet_filename)
+        temp_dir = tempfile.mkdtemp("-test-btcr-dump")
+        try:
+            wallet_copy = os.path.join(temp_dir, os.path.basename(wallet_filename))
+            try:
+                shutil.copyfile(src, wallet_copy)
+            except (PermissionError, IsADirectoryError, FileNotFoundError):
+                wallet_copy = src
+
+            dump_wallet_file = os.path.join(temp_dir, "dump_wallet.txt")
+            dump_privkeys_file = os.path.join(temp_dir, "dump_privkeys.txt")
+
+            wallet = btcrpass.WalletBlockchainSecondpass.load_from_filename(
+                wallet_copy, tstr(main_password))
+            wallet._dump_wallet_file = dump_wallet_file
+            wallet._dump_privkeys_file = dump_privkeys_file
+
+            result = wallet.return_verified_password_or_false(
+                (tstr("btcr-wrong-password-1"), tstr(second_password), tstr("btcr-wrong-password-2")))
+            self.assertEqual(result, (tstr(second_password), 2),
+                             "Second password not found for %s" % wallet_filename)
+
+            dump_wallet = self._read_dump(dump_wallet_file) if os.path.exists(dump_wallet_file) else ""
+            dump_privkeys = self._read_dump(dump_privkeys_file) if os.path.exists(dump_privkeys_file) else ""
+            return dump_wallet, dump_privkeys
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _assert_valid_main_dump(self, wallet_filename, dump_wallet, dump_privkeys, expected_keys):
+        # The dump-wallet file must be non-empty and parseable JSON
+        self.assertTrue(dump_wallet, "%s: dump-wallet is empty" % wallet_filename)
+        try:
+            wallet_json = json.loads(dump_wallet)
+        except Exception as e:
+            self.fail("%s: dump-wallet is not valid JSON: %s" % (wallet_filename, e))
+        self.assertIn("guid", wallet_json, "%s: dump-wallet missing guid" % wallet_filename)
+
+        # The dump-privkeys file must contain every expected key
+        self.assertTrue(dump_privkeys, "%s: dump-privkeys is empty" % wallet_filename)
+        for expected in expected_keys:
+            self.assertIn(expected, dump_privkeys,
+                          "%s: expected key %r not found in dump-privkeys" % (wallet_filename, expected))
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_blockchain_main_dump_all_versions(self):
+        for wallet_filename, password, expected_keys in self.BLOCKCHAIN_MAIN_DUMP_CASES:
+            with self.subTest(wallet=wallet_filename):
+                dump_wallet, dump_privkeys = self._run_main_dump(wallet_filename, password)
+                self._assert_valid_main_dump(wallet_filename, dump_wallet, dump_privkeys, expected_keys)
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_blockchain_secondpass_dump_all_versions(self):
+        for wallet_filename, main_password, second_password, expected_keys in self.BLOCKCHAIN_SECONDPASS_DUMP_CASES:
+            with self.subTest(wallet=wallet_filename):
+                dump_wallet, dump_privkeys = self._run_secondpass_dump(
+                    wallet_filename, main_password, second_password)
+                self._assert_valid_main_dump(wallet_filename, dump_wallet, dump_privkeys, expected_keys)
+
 
 class Test08BIP39Passwords(unittest.TestCase):
 
