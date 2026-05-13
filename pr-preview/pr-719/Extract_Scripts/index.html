@@ -1,0 +1,2423 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for BTCRecover">
+      
+      
+        <meta name="author" content="Stephen Rothery">
+      
+      
+        <link rel="canonical" href="https://btcrecover.readthedocs.io/Extract_Scripts/">
+      
+      
+        <link rel="prev" href="../passwordlist_file/">
+      
+      
+        <link rel="next" href="../Decrypting_dumping_walletfiles/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Trustless (or Cloud) Recovery - Creating Wallet Extracts - BTCRecover</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-D6CP4Q1RW8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-D6CP4Q1RW8');
+</script>
+
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#btcrecover-extract-scripts" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="BTCRecover" class="md-header__button md-logo" aria-label="BTCRecover" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            BTCRecover
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Trustless (or Cloud) Recovery - Creating Wallet Extracts
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/3rdIteration/btcrecover" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../INSTALL/" class="md-tabs__link">
+          
+  
+  
+  Installation & Testing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Seedrecover_Quick_Start_Guide/" class="md-tabs__link">
+          
+  
+  
+  Seed Recovery
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../TUTORIAL/" class="md-tabs__link">
+          
+  
+  
+  Password/Passphrase Recovery
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Usage_Examples/UsageExamples/" class="md-tabs__link">
+          
+  
+  
+  Usage Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../Benchmarks/" class="md-tabs__link">
+          
+  
+  
+  Benchmarks
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CREDITS/" class="md-tabs__link">
+          
+  
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../donate/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Donate
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="BTCRecover" class="md-nav__button md-logo" aria-label="BTCRecover" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    BTCRecover
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/3rdIteration/btcrecover" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation & Testing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation & Testing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../INSTALL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installing BTCRecover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GPU_Acceleration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GPU Acceleration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Limitations_and_Caveats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource Usage and Security Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local_mkdocs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Viewing this documentation offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Recovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Seed Recovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Seedrecover_Quick_Start_Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Recovery Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wordlist_notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seed Word Lists & Languages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bip39-accounts-and-altcoins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes on Accounts (Derivation paths) and Altcoins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BIP39_descrambling_seedlists/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BIP39 Seed/Token Lists
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Creating_and_Using_AddressDB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recovery without Addresses (Address Database)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_seed_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Seed Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Password/Passphrase Recovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Password/Passphrase Recovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../TUTORIAL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Password Recovery Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Typos_Quick_Start_Guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Typos Quick Start Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tokenlist_file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokenlist Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-wildcard-lists/custom_wildcards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom String and Repeating Wildcards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../passwordlist_file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Passwordlist Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trustless (or Cloud) Recovery - Creating Wallet Extracts
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trustless (or Cloud) Recovery - Creating Wallet Extracts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#download" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-bitcoin-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Bitcoin Core
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for Bitcoin Core">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bitcoin-core-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bitcoin Core Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-bither" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Bither
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for Bither">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bither-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bither Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-blockchaincom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Blockchain.com
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for Blockchain.com">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blockchaincom-second-passwords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blockchain.com Second Passwords
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blockchaincom-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blockchain.com Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-coinomi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Coinomi
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-dogechaininfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Dogechain.info
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-electrum" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Electrum
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for Electrum">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#electrum-1x-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Electrum 1.x Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#electrum-2x-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Electrum 2.x Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-metamask" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for Metamask
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-msigna" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for mSIGNA
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for mSIGNA">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#msigna-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mSIGNA Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-multibit-classic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for MultiBit Classic
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for MultiBit Classic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multibit-classic-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiBit Classic Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-for-multibit-hd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage for MultiBit HD
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage for MultiBit HD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multibit-hd-technical-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MultiBit HD Technical Details
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Decrypting_dumping_walletfiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extracting Private Keys from Wallet Files (Decrypt & Dump)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_password_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Password/Passphrase Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/UsageExamples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_seed_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Seed Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/basic_password_recoveries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Password/Passphrase Recovery Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/Example_Descrambling_a_12_word_seed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Descrambling a 12 word seed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-08_Recovering_Blockchain_Wallet_Passwords/Example_Recovering_Blockchain_Wallet_Passwords/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recovering Blockchain.com wallet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-05-23_multi_device_descrambling_12_word_seed_with_extras/Example_multi_device_descrambling_12_word_seed_with_extras/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Worker Descrambling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2020-10-06_Multi-GPU_with_vastai/Example_Multi-GPU_with_vastai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-GPU Cloud Based Recovery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2022-04-02_Seed_Tokenlist_TokenBlocks/example_seed_tokenlist_tokenblocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grouping words together in tokenlist based seed recoveries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Usage_Examples/2023-04-29_Checking_Swapped_Seed_Words/example_checking_swapped_seed_words/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checking for Swapped Words in Seed Recoveries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Benchmarks
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    About
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CREDITS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Credits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../licence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../donate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Donate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="btcrecover-extract-scripts"><em>btcrecover</em> extract scripts</h1>
+<p>Sometimes, it is not desirable to run <em>btcrecover</em> directly on the computer which stores the target wallet file. For example:</p>
+<ul>
+<li>A computer or a cloud-based virtual machine with faster CPUs or GPUs might be a better place to run <em>btcrecover</em>.</li>
+<li>Configuring <em>btcrecover</em> to search for your password correctly can be tricky; you might be interested in finding someone who can configure and run <em>btcrecover</em> for you on their computer.</li>
+<li>You may not trust that <em>btcrecover</em> is free from harmful bugs or other malicious behavior. <em>btcrecover</em> is open source, and requires no untrustworthy binaries be installed. However it's also a fairly long and complicated Python script, which makes it difficult even for other Python programmers to be certain that it doesn't contain any harmful code (either intentionally malicious or just by accident).</li>
+</ul>
+<p>The extract scripts in this directory are relatively short and simple scripts which extract the just enough information from a wallet file to allow <em>btcrecover</em> to perform a password search. These scripts never extract enough information to put any of your bitcoin funds at risk, even after the password is found.</p>
+<p>For more information regarding <em>btcrecover</em>, please see <a href="../TUTORIAL/">TUTORIAL.md</a>.</p>
+<h2 id="download">Download</h2>
+<p>You can download the entire <em>btcrecover</em> package from: <a href="https://github.com/3rditeration/btcrecover/archive/master.zip">https://github.com/3rditeration/btcrecover/archive/master.zip</a></p>
+<p>If you'd prefer to download just a single extract script, please select the one for your wallet software from below, then right click and choose “Save link as...” or “Save target as...”:</p>
+<ul>
+<li>Bitcoin Core - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-bitcoincore-mkey.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-bitcoincore-mkey.py</a></li>
+<li>Bither - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-bither-partkey.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-bither-partkey.py</a></li>
+<li>Blockchain main password - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-blockchain-main-data.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-blockchain-main-data.py</a></li>
+<li>Blockchain second password -  <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-blockchain-second-hash.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-blockchain-second-hash.py</a></li>
+<li>Electrum 1.x - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-electrum-halfseed.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-electrum-halfseed.py</a></li>
+<li>Electrum 2.x - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-electrum2-partmpk.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-electrum2-partmpk.py</a></li>
+<li>mSIGNA - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-msigna-partmpk.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-msigna-partmpk.py</a></li>
+<li>MultiBit Classic - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-privkey.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-privkey.py</a></li>
+<li>MultiBit HD - <a href="https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-hd-data.py">https://github.com/3rditeration/btcrecover/raw/master/extract-scripts/extract-multibit-hd-data.py</a></li>
+</ul>
+<p>If you're on Windows, you will also need to install the latest version of Python 3.7 or above. For any other wallets, just follow the <a href="../INSTALL/#2-install-python">instructions to install Python here</a>.</p>
+<hr />
+<h2 id="usage-for-bitcoin-core">Usage for Bitcoin Core</h2>
+<p>After downloading the script, <strong>make a copy of your wallet.dat file into a different folder</strong> (to make it easy, into the same folder as <em>extract-bitcoincore-mkey.py</em>). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open your Bitcoin folder which contains your wallet.dat file: <code>%appdata%\Bitcoin</code>. From here you can copy and paste your wallet.dat file into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming you've made a copy of your wallet.dat into the same folder):</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-bitcoincore-mkey.py wallet.dat
+</code></pre></div>
+<p>You should get a message which looks like this as a result:</p>
+<div class="highlight"><pre><span></span><code>Bitcoin Core encrypted master key, salt, iter_count, and crc in base64:
+lV/wGO5oAUM42KTfq5s3egX3Uhk6gc5gEf1R3TppgzWNW7NGZQF5t5U3Ik0qYs5/dprb+ifLDHuGNQIA+8oRWA==
+</code></pre></div>
+<p>If you instead have a dump file of a Bitcoin Core wallet that was created by pywallet, just follow these same instructions except use the <em>extract-bitcoincore-mkey-from-pywallet.py</em> script instead.</p>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-bitcoincore-mkey.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; lV/wGO5oAUM42KTfq5s3egX3Uhk6gc5gEf1R3TppgzWNW7NGZQF5t5U3Ik0qYs5/dprb+ifLDHuGNQIA+8oRWA==
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="bitcoin-core-technical-details">Bitcoin Core Technical Details</h3>
+<p>The <em>extract-bitcoincore-mkey.py</em> script is intentionally short and should be easy to read for any Python programmer. It opens a wallet.dat file using the Python bsddb.db (Or a Pure Python implementation if this module isn't available) or SQLite, and then extracts a single key/value pair with the key string of <code>\x04mkey\x01\x00\x00\x00</code>. This key/value pair contains an encrypted version of the Bitcoin Core “master key”, or mkey for short, along with some other information required to try decrypting the mkey, specifically the mkey salt and iteration count. This information is then converted to base64 format for easy copy/paste, and printed to the screen.</p>
+<p>The encrypted mkey is useful to <em>btcrecover</em>, but it does not contain any of your Bitcoin address or private key information. <em>btcrecover</em> can attempt to decrypt the mkey by trying different password combinations. Should it succeed, it and whoever runs it will then know the password to your wallet file, but without the rest of your wallet file, the password and the decrypted mkey are of no use.</p>
+<h2 id="usage-for-bither">Usage for Bither</h2>
+<p>After downloading the script, <strong>make a copy of your wallet file into a different folder</strong> (to make it easy, into the same folder as the extract script). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open the folder which usually contains your wallet file: <code>%appdata%\Bither</code>. From here you can copy and paste your wallet file (it's usually named <code>address.db</code>), into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming your wallet file is in the same folder):</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-bither-partkey.py address.db
+</code></pre></div>
+<p>You should get a message which looks like this:</p>
+<div class="highlight"><pre><span></span><code>Bither partial encrypted private key, salt, and crc in base64:
+YnQ6PocfHvWGVbCzlVb9cUtPDjosnuB7RoyspTEzZZAqURlCsLudQaQ4IkIW8YE=
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-bither-partkey.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; YnQ6PocfHvWGVbCzlVb9cUtPDjosnuB7RoyspTEzZZAqURlCsLudQaQ4IkIW8YE=
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="bither-technical-details">Bither Technical Details</h3>
+<p>The <em>extract-bither-partkey.py</em> script is intentionally short and should be easy to read for any Python programmer. A Bither encrypted private key is 48 bytes long. It contains 32 bytes of encrypted private key data, followed by 16 bytes of encrypted padding.</p>
+<p>Because only the last half of the private key is extracted, the private key cannot be feasibly reconstructed even if this half of the private key could be decrypted (assuming the password search succeeds). The remaining 16 bytes of padding, once decrypted, is predictable, and this allows <em>btcrecover</em> to use it to check passwords. It tries decrypting the bytes with each password, and once this results in valid padding, it has found the correct password.</p>
+<p>Without access to the rest of your wallet file, it is impossible the decrypted padding could ever lead to a loss of funds.</p>
+<h2 id="usage-for-blockchaincom">Usage for Blockchain.com</h2>
+<p><a href="../TUTORIAL/#downloading-blockchaincom-wallet-files">Firstly you download the wallet file as per the documentation here:</a></p>
+<p>When prompted, enter your wallet ID and then approve the login request on the email account associated with the wallet. Once the login is approved, your wallet.aes.json file will be saved to you PC.</p>
+<p>Next you'll need to open a Command Prompt window and type something like this :</p>
+<div class="highlight"><pre><span></span><code>python3 extract-blockchain-main-data.py wallet.aes.json
+</code></pre></div>
+<p>Of course, you need to replace the wallet file name with yours. You should get a message which looks like this as a result:</p>
+<div class="highlight"><pre><span></span><code>Blockchain first 16 encrypted bytes, iv, and iter_count in base64:
+Yms6abF6aZYdu5sKpStKA4ihra6GEAeZTumFiIM0YQUkTjcQJwAAj8ekAQ==
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-blockchain-main-data.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; Yms6abF6aZYdu5sKpStKA4ihra6GEAeZTumFiIM0YQUkTjcQJwAAj8ekAQ==
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="blockchaincom-second-passwords">Blockchain.com Second Passwords</h3>
+<p>If you've enabled the Second Password feature of your Blockchain.com wallet, and if you need to search for this second password, you must start by finding the main password if you don't already have it (see above). Once you have your main password, take your wallet backup file (it's usually named <code>wallet.aes.json</code>), and <strong>make a copy of it into a different folder</strong> (to make it easy, into the same folder as the extract script). Next you'll need to open a Command Prompt window and type something like this :</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-blockchain-second-hash.py wallet.aes.json
+Please enter the Blockchain wallet&#39;s main password:
+</code></pre></div>
+<p>You need to enter your wallet's main password when prompted so that the extract script can remove the first level of encryption to gain access to the second level of encrypted data. You should get a message which looks like this as a result:</p>
+<div class="highlight"><pre><span></span><code>Blockchain second password hash, salt, and iter_count in base64:
+YnM6LeP7peG853HnQlaGswlwpwtqXKwa/1rLyeGzvKNl9HpyjnaeTCZDAaC4LbJcVkxaECcAACwXY6w=
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-blockchain-second-hash.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; YnM6LeP7peG853HnQlaGswlwpwtqXKwa/1rLyeGzvKNl9HpyjnaeTCZDAaC4LbJcVkxaECcAACwXY6w=
+...
+Password found: xxxx
+</code></pre></div>
+<p>Please note that you must either download the entire <em>btcrecover</em> package which includes an AES decryption library, or you must already have PyCrypto installed in order to use the <em>extract-blockchain-second-hash.py</em> script.</p>
+<h3 id="blockchaincom-technical-details">Blockchain.com Technical Details</h3>
+<p>The <em>extract-blockchain-main-data.py</em> script is intentionally short and should be easy to read for any Python programmer. This script extracts the first 32 bytes of encrypted data from a Blockchain.com wallet, of which 16 bytes are an AES initialization vector, and the remaining 16 bytes are the first encrypted AES block. This information is then converted to base64 format for easy copy/paste, and printed to the screen. The one encrypted block does not contain any private key information, but once decrypted it does contain a non-sensitive string (specifically the string "guid", "tx_notes", "address_book" or "double") which can be used by <em>btcrecover</em> to test for a successful password try.</p>
+<p>The <em>extract-blockchain-second-hash.py</em> script is a bit longer, but it should still be short enough for most Python programmers to read and understand. After decrypting the first level of encryption of a Blockchain.com wallet, it extracts a password hash and salt which can be used by <em>btcrecover</em> to test for a successful password try. It does not extract any of the encrypted private keys.</p>
+<p>Without access to the rest of your wallet file, the bits of information extracted by these scripts alone do not put any of your Bitcoin funds at risk, even after a successful password guess and decryption.</p>
+<h2 id="usage-for-coinomi">Usage for Coinomi</h2>
+<p><strong>Note: This only supports wallets that are protected by a password. If you selected "no password", "biometrics" or "password + biometrics" then you will also need information from your phones keystore... (Which may be impossible to retrieve)</strong></p>
+<p>The first step for Coinomi depends on which platform you are running it on.</p>
+<p>For Windows users, it's simply a case of navigating to %localappdata%\Coinomi\Coinomi\wallets and you will find your wallet files. </p>
+<p>For Android users, you will need to have a rooted phone which will allow you to access the .wallet file in the Coinomi. (It should be found in the folder data\data\com.coinomi.wallet\files\wallets) How to get root access on your particular phone is beyond the scope of this document, but be warned that some methods of rooting your phone will involve a factory reset.</p>
+<p>If there are mulitiple wallets there and you are not sure which is the correct one, the name of each wallet can be found in clear text at the end of the file. <a href="https://github.com/3rdIteration/btcrecover/tree/master/btcrecover/test/test-wallets">See the test wallets included with this repository in ./btcrecover/test/test-wallets</a> for an example)</p>
+<p>Once you have the file, you can either use it directly with BTCRecover, or you can create an extract.</p>
+<div class="highlight"><pre><span></span><code>python extract-coinomi-privkey.py ../btcrecover/test/test-wallets/coinomi.wallet.android
+Coinomi partial first encrypted private key, salt, n, r, p and crc in base64:
+Y246uwodSaelErkb7GIYls3xaeX5i5YWtmh814zgsBCx+y8xgjp7Mul0TQBAAAAIAAEASAgdvw==
+</code></pre></div>
+<h2 id="usage-for-dogechaininfo">Usage for Dogechain.info</h2>
+<p><a href="../TUTORIAL/#downloading-dogechaininfo-wallet-files">Firstly you download the wallet file as per the documentation here:</a></p>
+<p>You can then create an extract script from the downloaded wallet file with the a command like the one below. (Which uses the sample wallet file that is part of the repository)</p>
+<div class="highlight"><pre><span></span><code>python extract-dogechain-privkey.py ../btcrecover\test\test-wallets/dogechain.wallet.aes.json
+Dogechain first 16 encrypted bytes, iv, and iter_count in base64:
+ZGM6jJzIUd6i9DMEgCFG9JQ1/z4xSamItXAiQnV4AeJ0BwcZznn+169Eb84PFQ3QQ2JGiBMAAGL+4VE=
+</code></pre></div>
+<h2 id="usage-for-electrum">Usage for Electrum</h2>
+<p>After downloading the script, <strong>make a copy of your wallet file into a different folder</strong> (to make it easy, into the same folder as the extract script). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open the folder which contains the first wallet file created by Electrum after it is installed: <code>%appdata%\Electrum\wallets</code>. From here you can copy and paste your wallet file, usually named <code>default_wallet</code>, into a separate folder. Next you'll need to open a Command Prompt window and type something like this :</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-electrum2-partmpk.py default_wallet
+</code></pre></div>
+<p>The example above assumes you have an Electrum 2.x wallet. If it's an Electrum 1.x wallet instead, replace <em>extract-electrum2-partmpk.py</em> with <em>extract-electrum-halfseed.py</em>. Of course, you'll also need to replace the wallet file name with yours. You should get a message which looks either like this:</p>
+<div class="highlight"><pre><span></span><code>First half of encrypted Electrum seed, iv, and crc in base64:
+ZWw6kLJxTDF7LxneT7c5DblJ9k9WYwV6YUIUQO+IDiIXzMUZvsCT
+</code></pre></div>
+<p>Or like this, depending on the wallet details:</p>
+<div class="highlight"><pre><span></span><code>Electrum2 partial encrypted master private key, iv, and crc in base64:
+ZTI69B961mYKYFV7Bg1zRYZ8ZGw4cE+2D8NF3lp6d2XPe8qTdJUz
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-electrum-halfseed.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; ZWw6kLJxTDF7LxneT7c5DblJ9k9WYwV6YUIUQO+IDiIXzMUZvsCT
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="electrum-1x-technical-details">Electrum 1.x Technical Details</h3>
+<p>The <em>extract-electrum-halfseed.py</em> script is intentionally short and should be easy to read for any Python programmer. An Electrum encrypted seed is 64 bytes long. It contains a 16-byte AES initialization vector, followed by 48 bytes of encrypted seed data, the last 16 of which are padding (so just 32 bytes of actual seed data). The script extracts the 16-byte initialization vector and just the first 16 bytes of actual seed data (50% of the seed).</p>
+<p>Because only half of the seed is extracted, the private keys cannot be feasibly reconstructed even after the half-seed is decrypted (assuming the password search succeeds). Because these 16 characters, once decrypted, are hex encoded, <em>btcrecover</em> can use them alone to check passwords. It tries decrypting the bytes with each password, and once the result is a valid 16-character long hex-encoded string, it has found the correct password.</p>
+<p>Without access to the rest of your wallet file, it is extremely unlikely that these 16 characters alone could put any of your Bitcoin funds at risk, even after a successful password guess and decryption.</p>
+<h3 id="electrum-2x-technical-details">Electrum 2.x Technical Details</h3>
+<p>The <em>extract-electrum2-partmpk.py</em> script is intentionally short and should be easy to read for any Python programmer. An Electrum 2.x encrypted master private key (mpk) is 128 bytes long. It contains a 16-byte AES initialization vector, followed by 112 bytes of encrypted mpk data, with the last byte being padding (so 111 bytes of actual mpk data). Of these 111 bytes, roughly 18 comprise a header, the next 44 the chaincode, and the remaining 47 a private key. The script extracts the 16-byte initialization vector and just the first 16 bytes of mpk data, all of it non-sensitive header information.</p>
+<p>Once decrypted, these 16 characters always begin with the string "xprv", and the remainder are base58 encoded, <em>btcrecover</em> can use them alone to check passwords. It tries decrypting the bytes with each password, and once the result is what's expected, it has found the correct password.</p>
+<p>Without access to the rest of your wallet file, it is impossible the decrypted header information could ever lead to a loss of funds.</p>
+<h2 id="usage-for-metamask">Usage for Metamask</h2>
+<p>There are two extract scripts for Metamask, that lets you extract all the vault data (including old overwritten wallets) from the extension and one that allows you to create a n extract for trustedless recovery. </p>
+<p>For Chrome Based Browsers, you will need to locate the data folder for the browser extension.</p>
+<p>For Metamask this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\nkbihfbeogaeaoehlefnkodbefgpgknn\</p>
+<p>For Binance Wallet Extension this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fhbohimaelbohpjbbldcngcnapndodjp\</p>
+<p>For Ronin Wallet this is: %localappdata%\Google\Chrome\User Data\Default\Local Extension Settings\fnjhmkhhmkbjkkabndcnnogagogbneec\</p>
+<p>The paths for the extension data will be a bit different for other Chrome based browserse (Like Brave) but the general location and final folder name will be the same.</p>
+<p><em>You can then view all of the vault data for that extension by using a command similar to the one below (Except you will want to use the path to your own browser extension data)</em></p>
+<div class="highlight"><pre><span></span><code>python extract-metamask-vaults.py ../btcrecover/test/test-wallets/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn
+===== (Likely) Old Vault Data =====
+
+{&quot;data&quot;:&quot;vXOTraxWuDmDrhxZ759NodhTmd4UQkThRG6YLvPt14OdZgnvJo4P5wj+LRupmb+7Vql+fOM5IF33Qb3FQvWro8Ro201M1YOH5zBdSwK6wzYmlFndlwqgOq61HSDUD9Ee1ccUF/iUgqJIngCw9/bRo93kpj11MuVonNOayTFztRc68+/JPCmIe0vqPYShRfJbeI8IBvauJdUxg6VqG0PId0Pw30ZO3f3QXmKFE+ZoibgbO111j7gQ0l7j6KdABeA=&quot;,&quot;iv&quot;:&quot;7hvnbvsoSQmAbWzfvtMkjA==&quot;,&quot;salt&quot;:&quot;13+DUqg893kPM0MiJz3bz2iYGAxPtPisX1JE1+be9IU=&quot;}
+
+===== Current Vault Data =====
+
+{&quot;data&quot;:&quot;Ny6zeXCgltvFkIWycZU3gYLocIM+gH/2m4fozdKdJxwff2BUHXaxBkaLDuzMs7WtazXJ+3P+XsFFG2W8+7tpNfCv2RCNNHWX9aVEBKeKEwQPUT6MD4rNU2XYykPROAcbdUPHKEVpaAEj+1VlCiMk1m3j7KhIHpt1cI7Qp8rV7lxzCUc5FWAWlc+gxvFTfSXOPJd0k23/F9MgRq0vn2h+UJolmLzpQFvEv2BUuL6CoEbog8Vn2N+ktypbR2pnNMA=&quot;,&quot;iv&quot;:&quot;H82DrVooOndR7fk1SKKGwQ==&quot;,&quot;salt&quot;:&quot;cxp0pRtsgyUBjll6MktU2HySubrtnMaPXAwaBsANA1Y=&quot;}
+</code></pre></div>
+<p>For Firefox, you will need to retrieve your Metamask vault using the process described here:
+https://metamask.zendesk.com/hc/en-us/articles/360018766351-How-to-use-the-Vault-Decryptor-with-the-MetaMask-Vault-Data</p>
+<p>Once you have the vault data, you can put it in a text file and you can either use it directly with BTCRecover, or you can create an extract.</p>
+<div class="highlight"><pre><span></span><code>python extract-metamask-privkey.py ../btcrecover/test/test-wallets/metamask.9.8.4_firefox_vault
+Metamask first 16 encrypted bytes, iv, and salt in base64:
+bXQ6bB5JP1EW0xwBmWZ9vI/iw9IRkorRs9rI6wJCNrd8KUw61ubkQxf9JF9jDv9kZIlxVVkKb7lIwnt7+519MLodzoK0sOw=
+</code></pre></div>
+<h2 id="usage-for-msigna">Usage for mSIGNA</h2>
+<p>After downloading the script, <strong>make a copy of your wallet file into a different folder</strong> (to make it easy, into the same folder as the extract script). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open the folder which usually contains your wallet file: <code>%homedrive%%homepath%</code>. From here you can copy and paste your wallet file (it's a <code>.vault</code> file), into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming your wallet file is named <code>msigna-wallet.vault</code> and it's in the same folder):</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-msigna-partmpk.py msigna-wallet.vault
+</code></pre></div>
+<p>You should get a message which looks like this:</p>
+<div class="highlight"><pre><span></span><code>mSIGNA partial encrypted master private key, salt, and crc in base64:
+bXM6SWd6U+qTKOzQDfz8auBL1/tzu0kap7NMOqctt7U0nA8XOI6j6BCjxCsc7mU=
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-msigna-partmpk.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; bXM6SWd6U+qTKOzQDfz8auBL1/tzu0kap7NMOqctt7U0nA8XOI6j6BCjxCsc7mU=
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="msigna-technical-details">mSIGNA Technical Details</h3>
+<p>The <em>extract-msigna-partmpk.py</em> script is intentionally short and should be easy to read for any Python programmer. An mSIGNA encrypted master private key is 48 bytes long. It contains 32 bytes of encrypted private key data, followed by 16 bytes of encrypted padding (the chaincode is stored separately).</p>
+<p>Because only the last half of the private key is extracted, the wallet cannot be feasibly reconstructed even if this half of the private key could be decrypted (assuming the password search succeeds). The remaining 16 bytes of padding, once decrypted, is predictable, and this allows <em>btcrecover</em> to use it to check passwords. It tries decrypting the bytes with each password, and once this results in valid padding, it has found the correct password.</p>
+<p>Without access to the rest of your wallet file, it is impossible the decrypted padding could ever lead to a loss of funds.</p>
+<h2 id="usage-for-multibit-classic">Usage for MultiBit Classic</h2>
+<p><strong><em>Warning:</em></strong> Using the <code>extract-multibit-privkey.py</code> script on a MultiBit Classic key file, as described below, can lead to <em>false positives</em>. A <em>false positive</em> occurs when <em>btcrecover</em> reports that it has found the password, but is mistaken—the password which it displays may not be correct. If you plan to test a large number of passwords (on the order of 10 billion (10,000,000,000) or more), it's <strong>strongly recommended</strong> that you use <em>btcrecover</em> directly with a key file instead of using <code>extract-multibit-privkey.py</code>.</p>
+<p><em>btcrecover</em> doesn’t operate directly on MultiBit wallet files, instead it operates on MultiBit private key backup files. When you first add a password to your MultiBit wallet, and after that each time you add a new receiving address or change your wallet password, MultiBit creates an encrypted private key backup file in a <code>key-backup</code> directory that's near the wallet file. These private key backup files are much faster to try passwords against (by a factor of over 1,000), which is why <em>btcrecover</em> uses them. For the default wallet that is created when MultiBit is first installed, this directory is located here:</p>
+<div class="highlight"><pre><span></span><code>%appdata%\MultiBit\multibit-data\key-backup
+</code></pre></div>
+<p>The key files have names which look like <code>walletname-20140407200743.key</code>. If you've created additional wallets, their <code>key-backup</code> directories will be located elsewhere and it's up to you to locate them.</p>
+<p>For more details on locating your MultiBit private key backup files, see: <a href="https://www.multibit.org/en/help/v0.5/help_fileDescriptions.html">https://www.multibit.org/en/help/v0.5/help_fileDescriptions.html</a></p>
+<p>Once you've located the correct MultiBit private key backup file, <strong>make a copy of it into a different folder</strong> (to make it easy, into the same folder as the extract script). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this to open the private key backup folder for the first wallet which MultiBit creates (this might not be the one you want, though...): <code>%appdata%\MultiBit\multibit-data\key-backup</code>. From here you can copy and paste a private key backup file into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming you've made a copy of the private key file into the same folder):</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-multibit-privkey.py multibit-20140407200743.key
+</code></pre></div>
+<p>Of course, you need to replace the private key file name with yours. You should get a message which looks like this as a result:</p>
+<div class="highlight"><pre><span></span><code>MultiBit partial first encrypted private key, salt, and crc in base64:
+bWI6sTaHldcBFFj9zlgNpO1szOwy8elpl20OWgj+lA==
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file or the private key file, only the output from <em>extract-multibit-privkey.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; bWI6sTaHldcBFFj9zlgNpO1szOwy8elpl20OWgj+lA==
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="multibit-classic-technical-details">MultiBit Classic Technical Details</h3>
+<p><strong>Warning:</strong> MultiBit Classic data-extracts have a false positive rate of approximately 1 in 3×10<sup>11</sup>. See the warning above for more information.</p>
+<p>The <em>extract-multibit-privkey.py</em> script is intentionally short and should be easy to read for any Python programmer. This script extracts 8 bytes of password salt plus the first 16 encrypted base58-encoded characters (out of 52) from the first private key from a MultiBit private key backup file. Because less than 34% of a single private key is extracted, the private key itself cannot be feasibly reconstructed even after these first 16 bytes are decrypted (assuming the password search succeeds). Because these 16 characters, once decrypted, are base58 encoded, <em>btcrecover</em> can use them alone to check passwords. It tries decrypting the bytes with each password, and once the result is a valid 16-character long base58-encoded private key prefix, it has found the correct password.</p>
+<p>Without access to the rest of your private key backup file or your wallet file, these 16 characters alone do not put any of your Bitcoin funds at risk, even after a successful password guess and decryption.</p>
+<h2 id="usage-for-multibit-hd">Usage for MultiBit HD</h2>
+<p>After downloading the script, <strong>make a copy of your mbhd.wallet.aes file into a different folder</strong> (to make it easy, into the same folder as <em>extract-multibit-hd-data.py</em>). As an example for Windows, click on the Start Menu, then click “Run...”, and then type this: <code>%appdata%\MultiBitHD</code>. From here you can open your wallet folder, and copy and paste your mbhd.wallet.aes file into a separate folder. Next you'll need to open a Command Prompt window and type something like this (depending on where the downloaded script is, and assuming you've made a copy of your mbhd.wallet.aes into the same folder):</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master\extract-scripts
+python3 extract-multibit-hd-data.py mbhd.wallet.aes
+</code></pre></div>
+<p>You should get a message which looks like this as a result:</p>
+<div class="highlight"><pre><span></span><code>MultiBit HD first 16 bytes of encrypted wallet and crc in base64:
+bTI6LbH/+ROEa0cQ0inH7V3thbdFJV4=
+</code></pre></div>
+<p>When you (or someone else) runs <em>btcrecover</em> to search for passwords, you will not need your wallet file, only the output from <em>extract-multibit-hd-data.py</em>. To continue the example:</p>
+<div class="highlight"><pre><span></span><code>cd btcrecover-master
+python3 btcrecover.py --data-extract --tokenlist tokens.txt
+Please enter the data from the extract script
+&gt; bTI6LbH/+ROEa0cQ0inH7V3thbdFJV4=
+...
+Password found: xxxx
+</code></pre></div>
+<h3 id="multibit-hd-technical-details">MultiBit HD Technical Details</h3>
+<p>The <em>extract-multibit-hd-data</em> script is intentionally short and should be easy to read for any Python programmer. A MultiBit HD wallet file is entirely encrypted. The extract script simply reads the first 32 bytes from the wallet file.</p>
+<p>These 32 bytes optionally (starting with MultiBit HD v0.5.0) start with a 16-byte AES initialization vector followed by the header bytes of a bitcoinj wallet file, specifically the byte string "\x0a?org.bitcoin." once decrypted (where the ? can be any byte). It tries decrypting the bytes with each password, and once the result is what's expected, it has found the correct password.</p>
+<p>Without access to the rest of your wallet file, it is impossible the decrypted header information could ever lead to a loss of funds.</p>
+
+
+
+
+
+
+
+
+  <aside class="md-source-file">
+    
+    
+    
+    
+      
+  <span class="md-source-file__fact">
+    
+      
+  <span class="md-icon" title="Contributors">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+  </span>
+  <span>GitHub</span>
+
+    
+    <nav>
+      
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+          
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
+        </a>
+      
+        <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
+          
+          <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
+        </a>
+      
+        <a href="https://github.com/gurnec" class="md-author" title="@gurnec">
+          
+          <img src="https://avatars.githubusercontent.com/u/2966862?v=4&size=72" alt="gurnec">
+        </a>
+      
+        <a href="https://github.com/mrmookie" class="md-author" title="@mrmookie">
+          
+          <img src="https://avatars.githubusercontent.com/u/1279112?v=4&size=72" alt="mrmookie">
+        </a>
+      
+      
+      
+    </nav>
+  </span>
+
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+<ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
+    Page Contributors
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">gurnec - </a></li><li><a href="" data-bi-name="contributorprofile">mrmookie - </a></li></ul>
+</ul>
+<footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      3rdIteration/btcrecover is licensed under the GNU General Public License v2.0 - 2021 Stephen Rothery
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.youtube.com/channel/UCEviBQwLv-yfv3BErm0ojHg/" target="_blank" rel="noopener" title="www.youtube.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M549.7 124.1c-6.2-23.7-24.8-42.3-48.3-48.6C458.9 64 288.1 64 288.1 64S117.3 64 74.7 75.5c-23.5 6.3-42 24.9-48.3 48.6C15 167 15 256.4 15 256.4s0 89.4 11.4 132.3c6.3 23.6 24.8 41.5 48.3 47.8C117.3 448 288.1 448 288.1 448s170.8 0 213.4-11.5c23.5-6.3 42-24.2 48.3-47.8 11.4-42.9 11.4-132.3 11.4-132.3s0-89.4-11.4-132.3zM232.2 337.6V175.2l142.7 81.2z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.facebook.com/ytcryptoguide" target="_blank" rel="noopener" title="www.facebook.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M512 256C512 114.6 397.4 0 256 0S0 114.6 0 256c0 120 82.7 220.8 194.2 248.5V334.2h-52.8V256h52.8v-33.7c0-87.1 39.4-127.5 125-127.5 16.2 0 44.2 3.2 55.7 6.4V172c-6-.6-16.5-1-29.6-1-42 0-58.2 15.9-58.2 57.2V256h83.6l-14.4 78.2H287v175.9C413.8 494.8 512 386.9 512 256"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/ytcryptoguide" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M459.4 151.7c.3 4.5.3 9.1.3 13.6 0 138.7-105.6 298.6-298.6 298.6-59.5 0-114.7-17.2-161.1-47.1 8.4 1 16.6 1.3 25.3 1.3 49.1 0 94.2-16.6 130.3-44.8-46.1-1-84.8-31.2-98.1-72.8 6.5 1 13 1.6 19.8 1.6 9.4 0 18.8-1.3 27.6-3.6-48.1-9.7-84.1-52-84.1-103v-1.3c14 7.8 30.2 12.7 47.4 13.3-28.3-18.8-46.8-51-46.8-87.4 0-19.5 5.2-37.4 14.3-53C87.4 130.8 165 172.4 252.1 176.9c-1.6-7.8-2.6-15.9-2.6-24C249.5 95.1 296.3 48 354.4 48c30.2 0 57.5 12.7 76.7 33.1 23.7-4.5 46.5-13.3 66.6-25.3-7.8 24.4-24.4 44.8-46.1 57.8 21.1-2.3 41.6-8.1 60.4-16.2-14.3 20.8-32.2 39.3-52.6 54.3"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://cryptoguide.tips" target="_blank" rel="noopener" title="cryptoguide.tips" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="mailto:steve@cryptoguide.tips" target="_blank" rel="noopener" title="" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4l208 156a48 48 0 0 0 57.6 0l208-156c12.1-9.1 19.2-23.3 19.2-38.4 0-26.5-21.5-48-48-48zM0 196v188c0 35.3 28.7 64 64 64h384c35.3 0 64-28.7 64-64V196L313.6 344.8c-34.1 25.6-81.1 25.6-115.2 0z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.reddit.com/user/Crypto-Guide" target="_blank" rel="noopener" title="www.reddit.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M0 256C0 114.6 114.6 0 256 0s256 114.6 256 256-114.6 256-256 256H37.1c-13.7 0-20.5-16.5-10.9-26.2L75 437C28.7 390.7 0 326.7 0 256m349.6-102.4c23.6 0 42.7-19.1 42.7-42.7s-19.1-42.7-42.7-42.7c-20.6 0-37.8 14.6-41.8 34-34.5 3.7-61.4 33-61.4 68.4v.2c-37.5 1.6-71.8 12.3-99 29.1-10.1-7.8-22.8-12.5-36.5-12.5-33 0-59.8 26.8-59.8 59.8 0 24 14.1 44.6 34.4 54.1 2 69.4 77.6 125.2 170.6 125.2s168.7-55.9 170.6-125.3c20.2-9.6 34.1-30.2 34.1-54 0-33-26.8-59.8-59.8-59.8-13.7 0-26.3 4.6-36.4 12.4-27.4-17-62.1-27.7-100-29.1v-.2c0-25.4 18.9-46.5 43.4-49.9 4.4 18.8 21.3 32.8 41.5 32.8zm-172.5 93.3c16.7 0 29.5 17.6 28.5 39.3s-13.5 29.6-30.3 29.6-31.4-8.8-30.4-30.5S160.3 247 177 247zm190.1 38.3c1 21.7-13.7 30.5-30.4 30.5s-29.3-7.9-30.3-29.6 11.8-39.3 28.5-39.3 31.2 16.6 32.1 38.3zm-48.1 56.7c-10.3 24.6-34.6 41.9-63 41.9s-52.7-17.3-63-41.9c-1.2-2.9.8-6.2 3.9-6.5 18.4-1.9 38.3-2.9 59.1-2.9s40.7 1 59.1 2.9c3.1.3 5.1 3.6 3.9 6.5"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://join.skype.com/invite/g3fn0EzshP69" target="_blank" rel="noopener" title="join.skype.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M424.7 299.8c2.9-14 4.7-28.9 4.7-43.8 0-113.5-91.9-205.3-205.3-205.3-14.9 0-29.7 1.7-43.8 4.7C161.3 40.7 137.7 32 112 32 50.2 32 0 82.2 0 144c0 25.7 8.7 49.3 23.3 68.2-2.9 14-4.7 28.9-4.7 43.8 0 113.5 91.9 205.3 205.3 205.3 14.9 0 29.7-1.7 43.8-4.7 19 14.6 42.6 23.3 68.2 23.3 61.8 0 112-50.2 112-112 .1-25.6-8.6-49.2-23.2-68.1m-194.6 91.5c-65.6 0-120.5-29.2-120.5-65 0-16 9-30.6 29.5-30.6 31.2 0 34.1 44.9 88.1 44.9 25.7 0 42.3-11.4 42.3-26.3 0-18.7-16-21.6-42-28-62.5-15.4-117.8-22-117.8-87.2 0-59.2 58.6-81.1 109.1-81.1 55.1 0 110.8 21.9 110.8 55.4 0 16.9-11.4 31.8-30.3 31.8-28.3 0-29.2-33.5-75-33.5-25.7 0-42 7-42 22.5 0 19.8 20.8 21.8 69.1 33 41.4 9.3 90.7 26.8 90.7 77.6 0 59.1-57.1 86.5-112 86.5"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
