@@ -985,9 +985,11 @@ class BlockChainPasswordV3(BlockChainPassword):
 
             obj = self.decode_v3456_word_list(words[3:], version, checksum)
             print('\nPassword found: ' + obj['password'] + '\n')
-            if obj['guid']:
+            if obj.get('guid'):
                 print('\nAccount ID found: ' + obj['guid'] + '\n')
-            
+            if obj.get('time'):
+                print('\nWallet creation timestamp found: ' + str(obj['time']) + '\n')
+
             return True
         except ValueError:
             return False
@@ -1041,7 +1043,7 @@ class BlockChainPasswordV3(BlockChainPassword):
             )
             password_bytes = str_bytes[16:]
         elif version == 5:
-            obj['time'] = bytes_to_int(str_bytes[:4], 4)
+            obj['time'] = int.from_bytes(bytes(str_bytes[:4]), 'big')
             password_bytes = str_bytes[4:]
         obj['password'] = self.bytes_to_string(password_bytes)
         return obj

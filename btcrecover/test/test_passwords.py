@@ -2025,6 +2025,7 @@ class Test07OtherWalletsDump(unittest.TestCase):
 
     # ----- WalletMultiBitHD -----
     @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    @skipUnless(can_load_protobuf, "requires protobuf")
     @skipUnless(can_load_scrypt,   "requires a binary implementation of pylibscrypt")
     def test_dump_multibithd_v0_5_0(self):
         # The 0.5.0 wallet has a known BIP39 seed that dump-privkeys writes verbatim.
