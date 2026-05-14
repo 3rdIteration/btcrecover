@@ -66,9 +66,16 @@ explain why before doing anything else.
   placeholder syntax is required at all — pass only the known words and
   `seedrecover.py` handles the rest automatically. `-` placeholders are only
   needed when **three** words are missing.
-* A **12-word seed in the wrong order** can be descrambled by feeding the words
-  as a tokenlist to `seedrecover.py` (see
-  [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)).
+* **Always assume the mnemonic words provided by the user are in the correct
+  order.** Do **not** attempt to descramble / reorder a seed unless the user
+  *explicitly* states that the words are out of order and asks for descrambling
+  help. Proactively suggesting descrambling when the user has not raised it is
+  harmful — it adds enormous search-space and implies the user may have made an
+  error they haven't reported.
+* A **12-word seed in the wrong order** *can* be descrambled by feeding the
+  words as a tokenlist to `seedrecover.py` (see
+  [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)),
+  but only pursue this path when the user has explicitly asked for it.
   Descrambling a 24-word seed is generally infeasible.
 * One or two word typos within mnemonics are usually caught automatically
 * For BIP39 passphrase, the user needs to have a pretty close guess to the actual passphrase.
@@ -289,10 +296,6 @@ placeholders is the practical upper limit; more is usually too slow.
 
 Also ask:
 
-* "Are you sure the **order** of the words is correct?" If the user is unsure
-  and the seed is 12 words, mention that the words can be descrambled by
-  feeding them as a tokenlist (see
-  [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)).
 * "Do you have one address from the wallet, or a master public key?" – needed
   to validate guesses; otherwise an AddressDB is required.
 * For BIP44 wallets, ask which coin/derivation path the wallet was on.
