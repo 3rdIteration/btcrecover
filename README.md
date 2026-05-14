@@ -12,6 +12,10 @@ For wallet password or passphrase recovery, it is primarily useful if you have a
 
 [(You can also view the documentation in your browser locally by following the instructions here. )](docs/local_mkdocs.md)
 
+## AI-Assisted Recovery
+
+If you'd like an AI coding agent (Claude Code, GitHub Copilot, ChatGPT, Cline, …) to walk you through using BTCRecover safely, this repository ships with a [`skills.md`](skills.md) prompt that teaches the agent the full recovery workflow. See [AI-Assisted Recovery](docs/AI_Assisted_Recovery.md) for where to install `skills.md` for each supported agent and for the safety rules to follow when the agent is running in the cloud.
+
 If you need help, [your best bet is to look at my BTCRecover playlist on YouTube](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) and ask a question in the comments section for any of video closest to your situation.
 
 ## Features ##
