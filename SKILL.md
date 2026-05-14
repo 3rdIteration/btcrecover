@@ -62,7 +62,10 @@ explain why before doing anything else.
 * The user generally needs **all** of the seed words if they are trying to recover the BIP39 passphrase.
 * `seedrecover.py` can practically search for up to **three missing or wrong
   words** in a 12/24-word BIP39 seed. Four or more is usually computationally
-  infeasible for a normal user.
+  infeasible for a normal user. With **one or two** missing words no `-`
+  placeholder syntax is required at all — pass only the known words and
+  `seedrecover.py` handles the rest automatically. `-` placeholders are only
+  needed when **three** words are missing.
 * A **12-word seed in the wrong order** can be descrambled by feeding the words
   as a tokenlist to `seedrecover.py` (see
   [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)).
@@ -347,17 +350,23 @@ approach but pass it to `seedrecover.py` with `--passphrase-arg` style options
 Prompt the user to type their best-guess seed phrase. **Do not fixate on making
 the user identify the exact number of missing words up front** — `seedrecover.py`
 can infer mnemonic length from the words provided (unless `--mnemonic-length` is
-explicitly set). For seed-based wallets with one or two missing words, do not
-require the user to enter placeholder dashes themselves; you can insert `-`
-placeholders when constructing the command. Use a single `-` (dash) in place of
-each completely-unknown word when needed, e.g.:
+explicitly set).
+
+**How many words are missing determines whether placeholders are needed:**
+
+* **One or two missing words** — **no placeholders are needed at all.** Just
+  pass the known words to `--mnemonic` and `seedrecover.py` will automatically
+  try every valid BIP39 word in every possible position. Do *not* ask the user
+  to insert `-` dashes, and do *not* insert them yourself in the command.
+* **Three missing words** — placeholders *are* required so the tool knows which
+  positions to fill. Use a single `-` (dash) for each completely-unknown word:
 
 ```
 abandon ability - about absorb - achieve acid acoustic acquire across act
 ```
 
-`seedrecover.py` will try all valid BIP39 candidates for each `-`. One to three
-`-` placeholders is usually practical; more is usually too slow.
+`seedrecover.py` will try all valid BIP39 candidates for each `-`. Three `-`
+placeholders is the practical upper limit; more is usually too slow.
 
 Also ask:
 
@@ -574,7 +583,7 @@ the maintainer can't merge what they never hear about.
 | Goal | Script | Key flags |
 | --- | --- | --- |
 | Wallet password / passphrase | `btcrecover.py` | `--wallet`, `--tokenlist` *or* `--passwordlist`, `--typos N --typos-insert %q --typos-replace %q --typos-delete` |
-| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic`, `--addrs`/`--mpk`/`--addressdb`, `--addr-limit`, `--bip32-path` |
+| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic` (no `-` placeholders needed if ≤2 words missing; use `-` placeholders only for 3 missing words), `--addrs`/`--mpk`/`--addressdb`, `--addr-limit`, `--bip32-path` |
 | 12-word seed in wrong order | `seedrecover.py` | `--tokenlist` of the 12 words, plus an address or xpub |
 | SLIP39 shares | `seedrecover.py` | SLIP39 mode (see README "SLIP39") |
 | BIP38 encrypted private key | `btcrecover.py` | `--bip38-enc-privkey`, typos flags as above |
