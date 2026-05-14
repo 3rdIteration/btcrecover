@@ -1,3 +1,8 @@
+---
+name: btcrecover-recovery
+description: Help a user safely attempt a cryptocurrency wallet recovery with BTCRecover (password / passphrase / BIP38 via btcrecover.py and seed / mnemonic / SLIP39 via seedrecover.py). Invoke when the user wants help recovering a lost wallet password or seed phrase, descrambling a 12-word seed, or building an AddressDB. Walks the user through triage, install, taking the system offline before any secrets are entered, collecting wallet details, constructing the recovery command, and (if successful) showing tip / donation addresses.
+---
+
 # BTCRecover Assisted Recovery Skill
 
 This document tells an AI agent how to help a user attempt a cryptocurrency wallet
