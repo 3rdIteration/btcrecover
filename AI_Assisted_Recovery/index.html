@@ -1723,6 +1723,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tested-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tested models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tested models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tested-local-model-combinations-vs-code-cline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tested local-model combinations (VS Code + Cline)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cloud-models-claude-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloud Models (Claude Desktop)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#claude-code-anthropics-terminal-coding-agent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1884,10 +1923,30 @@ guesses, not the wallet file; or password guesses, not the mnemonic.</p>
    agent will then follow the workflow in <code>SKILL.md</code> and walk you through
    triage, install, going offline, building a command, and running it.</li>
 </ol>
+<p>If you have already downloaded the BTCRecover repository, you can simply open
+it in Claude Desktop, Claude Code, or VS Code + Cline and prompt with:
+<em>"I want to recover a wallet, can you use the SKILL.md in this repo to help
+me?"</em>.</p>
 <p>If your agent isn't listed below, the universal fallback is: open a fresh
 chat, paste the <strong>contents</strong> of <code>SKILL.md</code> as the first message (or as a
 system / custom-instructions message if the product supports it), then
 describe your situation.</p>
+<hr />
+<h2 id="tested-models">Tested models</h2>
+<h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
+<ul>
+<li><code>qwen/qwen3.5-9b</code> (usable on CPU or 8 GB GPU)</li>
+<li><code>qwen/qwen3.6-27b</code> (usable on 24 GB+ GPU)</li>
+</ul>
+<p>Both work well with this skill and with running local commands. The 27b model
+is better overall, but the 9b model is still quite usable.</p>
+<h3 id="cloud-models-claude-desktop">Cloud Models (Claude Desktop)</h3>
+<ul>
+<li>Claude Sonnet 4.6</li>
+<li>Claude Haiku 4.5</li>
+</ul>
+<p>Both work fine. Opus will have no problem at all but you shouldn't need that
+level of reasoning.</p>
 <hr />
 <h2 id="claude-code-anthropics-terminal-coding-agent">Claude Code (Anthropic's terminal coding agent)</h2>
 <p><a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> automatically
