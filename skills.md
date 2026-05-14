@@ -16,9 +16,20 @@ Authoritative documentation lives in [`docs/`](docs/) — most importantly
 [`docs/INSTALL.md`](docs/INSTALL.md), [`docs/TUTORIAL.md`](docs/TUTORIAL.md),
 [`docs/Seedrecover_Quick_Start_Guide.md`](docs/Seedrecover_Quick_Start_Guide.md),
 [`docs/Typos_Quick_Start_Guide.md`](docs/Typos_Quick_Start_Guide.md),
+[`docs/Extract_Scripts.md`](docs/Extract_Scripts.md),
 [`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md),
 and [`docs/donate.md`](docs/donate.md). Read these files when you need detail
 beyond what's summarised here.
+
+> **Where this skill is meant to run.** This skill is *primarily* intended to
+> be used with a **local** AI agent (one running on the user's own machine,
+> e.g. a local model or a coding agent that stays on-device) because real
+> secrets are involved. It **can** also be used with a **cloud / remote**
+> agent, but only if you follow the split-workflow rules in Step 4 below:
+> the cloud agent must never receive enough information to unlock the wallet
+> on its own (e.g. it can help build password guesses, but the wallet file or
+> the actual mnemonic must only ever be combined with those guesses on the
+> user's own offline machine).
 
 ---
 
@@ -225,7 +236,61 @@ nslookup github.com
 ```
 
 Do not proceed past this step until the connectivity check fails. If the user
-refuses to disconnect, stop and explain that you will not collect their
+refuses to disconnect, **don't give up** — fall back to the split-workflow
+rules in 4a below instead of collecting their secrets online.
+
+### 4a. If the user can't or won't take the system offline
+
+The whole reason for going offline is the **safety principle**: *the machine
+the AI agent is running on must never simultaneously hold all of the pieces
+needed to unlock the wallet.* As long as that invariant is preserved, useful
+work can still happen online — including on a cloud-hosted agent. Apply the
+following per recovery type:
+
+* **Seed / mnemonic recoveries.** It is fine to gather password / passphrase
+  guesses, candidate derivation paths, addresses, and xpubs online and to
+  build a passwordlist / tokenlist (Step 5a) with the agent. **Never** ask
+  for the actual mnemonic on the online machine. Construct the
+  `seedrecover.py` command with a placeholder mnemonic (e.g. the word
+  `MNEMONIC_GOES_HERE` or the example `abandon abandon … about` string) and
+  hand it to the user to copy-paste; tell them exactly which argument to
+  swap their real seed words into, and to run the command only after they
+  take the machine offline (or on a separate offline machine).
+* **File-based (wallet password) recoveries.** It is fine for the user to
+  brainstorm password fragments with the agent and build a tokenlist /
+  passwordlist online — passwords alone are not enough to unlock anything
+  without the wallet file. The wallet file itself must not be uploaded to or
+  opened on the online machine the agent has access to. Hand the user a
+  `btcrecover.py` command that references `--wallet <path-to-your-wallet>`
+  as a placeholder and tell them to run it on the (offline) machine that
+  actually holds the wallet file.
+* **Wallets that have an extract script.** For wallets supported by
+  [`docs/Extract_Scripts.md`](docs/Extract_Scripts.md) — currently
+  Bitcoin/Litecoin/Dogecoin Core, Bither, Blockchain.com (main data and
+  second-hash), Coinomi, Dogechain, Electrum 1.x and 2.x, MetaMask,
+  mSIGNA, MultiBit HD, and MultiBit Classic — the user can run the matching
+  `extract-*.py` script on the machine that holds the wallet file. The
+  script outputs a short data extract that contains **only enough material
+  to test passwords**, not enough to spend funds, and can therefore be
+  pasted back into the online agent and fed to `btcrecover.py --data-extract`
+  safely. After a password is found, the agent must give the user clear
+  instructions for decrypting / dumping the keys from the full wallet on
+  the machine that has it (typically by re-running `btcrecover.py` against
+  the real wallet file with the found password, or by importing the
+  password back into the original wallet software).
+* **Step 5d (locating an unknown wallet file).** Recognising wallet files
+  by their internal fingerprints (see 5d below) does **not** require the
+  contents to leave the user's machine, so it is fine to walk the user
+  through this search online. Just make sure the matches themselves stay
+  on the user's machine and are never pasted back into the chat.
+* **Step 6 (constructing the command).** Composing the BTCRecover command
+  is always safe to do online as long as any field that would expose a
+  secret is shown as a placeholder. Clearly label which parts of the
+  command (mnemonic, wallet file path, raw private key, etc.) the user
+  must substitute themselves before running it.
+
+If the recovery type does not fit any of these patterns and the user still
+refuses to disconnect, stop and explain that you cannot safely collect their
 secrets on an online machine.
 
 ---
@@ -334,12 +399,15 @@ fingerprints when scanning the user's system. Useful content cues to look for
 * **BIP38 encrypted private key** – an ASCII string starting with `6P`.
 
 With the user's permission, search a local path they specify (home directory,
-backup drive, cloud-sync folder, phone backup) on the **offline** machine.
-Combine name-based hints with the content fingerprints above — e.g. find all
-JSON files and grep for `"payload"` and `"pbkdf2_iterations"` to spot
-Blockchain.com wallets regardless of filename, or look for the BDB magic to
-spot Core wallets that have been renamed. Present candidate matches to the
-user; never upload or transmit any matches.
+backup drive, cloud-sync folder, phone backup). Combine name-based hints with
+the content fingerprints above — e.g. find all JSON files and grep for
+`"payload"` and `"pbkdf2_iterations"` to spot Blockchain.com wallets
+regardless of filename, or look for the BDB magic to spot Core wallets that
+have been renamed. Present candidate matches to the user; the matches must
+stay on the user's machine and must never be pasted into the chat or uploaded
+anywhere. This step is safe to run before going offline (no wallet contents
+leave the user's machine), so it is also a useful thing to do when the user
+cannot or will not disconnect — see Step 4a.
 
 ---
 
@@ -348,6 +416,17 @@ user; never upload or transmit any matches.
 Compose the command from the pieces gathered above. Show it to the user as
 text **first**, explain each flag in one line, and offer to run it on their
 behalf. Always run from the BTCRecover checkout directory.
+
+If the agent is online (see Step 4a), build the command with **placeholders**
+for any field that would contain a secret — for example show
+`--mnemonic "MNEMONIC_GOES_HERE"` for seed recoveries, or
+`--wallet <path-to-your-wallet-file>` for file-based recoveries — and tell
+the user precisely which placeholders to replace before they run the command
+on their offline (or wallet-holding) machine. For wallets supported by
+[`docs/Extract_Scripts.md`](docs/Extract_Scripts.md), instead point the user
+at the matching `extract-*.py` script and feed its short data extract into
+`btcrecover.py --data-extract …` (the extract is safe to share back with
+the online agent).
 
 ### Seed recovery shape (`seedrecover.py`)
 
