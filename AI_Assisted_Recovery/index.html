@@ -1915,9 +1915,13 @@ guesses, not the wallet file; or password guesses, not the mnemonic.</p>
 <h2 id="quick-start-any-agent">Quick start (any agent)</h2>
 <ol>
 <li>Clone or download this repository so you have a local copy of
-   <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>.</li>
-<li>Drop <code>SKILL.md</code> into the location your AI agent looks at (see per-agent
-   instructions below).</li>
+   <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>
+   <strong>and the <a href="https://github.com/3rdIteration/btcrecover/tree/master/skills"><code>skills/</code></a>
+   directory</strong> next to it. The main <code>SKILL.md</code> dispatches to sub-skills
+   under <code>skills/</code> for installation, building a passwordlist / tokenlist,
+   and locating a wallet file on disk — they must be installed together.</li>
+<li>Drop <code>SKILL.md</code> (and the <code>skills/</code> directory) into the location your AI
+   agent looks at (see per-agent instructions below).</li>
 <li>Start a new chat / session and ask the agent something like
    <em>"Use the BTCRecover recovery skill to help me recover my wallet."</em> The
    agent will then follow the workflow in <code>SKILL.md</code> and walk you through
@@ -1961,8 +1965,13 @@ directory, and discovers reusable "skills" from a <code>.claude/skills/</code> f
   <em>"Follow <code>SKILL.md</code> in this repo"</em>.</li>
 <li><strong>User-scoped (so the skill is available in any directory):</strong> copy
   <code>SKILL.md</code> to <code>~/.claude/skills/btcrecover-recovery/SKILL.md</code> (create the
-  directory if it doesn't exist). Claude Code will then offer the BTCRecover
-  recovery skill from any project.</li>
+  directory if it doesn't exist), and copy each sub-skill under the
+  repository's <code>skills/</code> directory to its own folder under
+  <code>~/.claude/skills/</code> (e.g. <code>~/.claude/skills/install-btcrecover/SKILL.md</code>,
+  <code>~/.claude/skills/build-password-tokenlist/SKILL.md</code>,
+  <code>~/.claude/skills/locate-wallet-file/SKILL.md</code>). Claude Code will then
+  offer the BTCRecover recovery skill from any project and the sub-skills
+  will be discoverable by name when the main skill delegates to them.</li>
 </ul>
 <p>When recovery involves real secrets, run Claude Code on the offline machine
 (or on a separate machine from the wallet file — see Step 4 / 4a in
@@ -2056,6 +2065,7 @@ asks the agent to prompt you about this once your funds are safe.</p>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a> — the actual skill the agent follows.</li>
+<li><a href="https://github.com/3rdIteration/btcrecover/tree/master/skills"><code>skills/</code></a> — sub-skills the main <code>SKILL.md</code> delegates to (install, build passwordlist/tokenlist, locate wallet file).</li>
 <li><a href="https://github.com/3rdIteration/btcrecover/blob/master/AGENTS.md"><code>AGENTS.md</code></a> — repository-wide guardrails AI agents must respect.</li>
 <li><a href="../INSTALL/">Installing BTCRecover</a></li>
 <li><a href="../Seedrecover_Quick_Start_Guide/">Seed Recovery Quickstart</a></li>
