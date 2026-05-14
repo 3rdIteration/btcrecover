@@ -59,7 +59,7 @@ explain why before doing anything else.
 
 ### 1a. Seed / mnemonic recoveries (BIP39, Electrum, SLIP39 etc.)
 
-* The user generally needs **all** of the seed words.
+* The user generally needs **all** of the seed words if they are trying to recover the BIP39 passphrase.
 * `seedrecover.py` can practically search for up to **three missing or wrong
   words** in a 12/24-word BIP39 seed. Four or more is usually computationally
   infeasible for a normal user.
@@ -67,8 +67,8 @@ explain why before doing anything else.
   as a tokenlist to `seedrecover.py` (see
   [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)).
   Descrambling a 24-word seed is generally infeasible.
-* Single-word typos within a real BIP39 word are usually caught automatically
-  by the closest-word search; the user does not need to enumerate typos.
+* One or two word typos within mnemonics are usually caught automatically
+* For BIP39 passphrase, the user needs to have a pretty close guess to the actual passphrase.
 
 ### 1b. Seed-based recoveries need one of the following to validate guesses
 
