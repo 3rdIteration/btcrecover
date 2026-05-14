@@ -34,10 +34,35 @@ gives the safety rules you should keep in mind no matter which agent you use.
    agent will then follow the workflow in `SKILL.md` and walk you through
    triage, install, going offline, building a command, and running it.
 
+If you have already downloaded the BTCRecover repository, you can simply open
+it in Claude Desktop, Claude Code, or VS Code + Cline and prompt with:
+*"I want to recover a wallet, can you use the SKILL.md in this repo to help
+me?"*.
+
 If your agent isn't listed below, the universal fallback is: open a fresh
 chat, paste the **contents** of `SKILL.md` as the first message (or as a
 system / custom-instructions message if the product supports it), then
 describe your situation.
+
+---
+
+## Tested models
+
+### Tested local-model combinations (VS Code + Cline)
+
+* `qwen/qwen3.5-9b` (usable on CPU or 8 GB GPU)
+* `qwen/qwen3.6-27b` (usable on 24 GB+ GPU)
+
+Both work well with this skill and with running local commands. The 27b model
+is better overall, but the 9b model is still quite usable.
+
+### Cloud Models (Claude Desktop)
+
+* Claude Sonnet 4.6
+* Claude Haiku 4.5
+
+Both work fine. Opus will have no problem at all but you shouldn't need that
+level of reasoning.
 
 ---
 
