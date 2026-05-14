@@ -34,6 +34,11 @@ gives the safety rules you should keep in mind no matter which agent you use.
    agent will then follow the workflow in `SKILL.md` and walk you through
    triage, install, going offline, building a command, and running it.
 
+If you have already downloaded the BTCRecover repository, you can simply open
+it in Claude Desktop, Claude Code, or VS Code + Cline and prompt with:
+*"I want to recover a wallet, can you use the SKILL.md in this repo to help
+me?"*.
+
 If your agent isn't listed below, the universal fallback is: open a fresh
 chat, paste the **contents** of `SKILL.md` as the first message (or as a
 system / custom-instructions message if the product supports it), then
@@ -133,6 +138,18 @@ Recommended setup:
 Cline can run locally against your own model (e.g. via Ollama or LM Studio),
 which is the safest option for recovery work. If you're pointing Cline at a
 hosted model, treat it like ChatGPT above and stick to the split-workflow.
+
+Tested local-model combinations:
+
+* VS Code + Cline with `qwen/qwen3.5-9b` (usable on CPU or 8 GB GPU) and
+  `qwen/qwen3.6-27b` (usable on 24 GB+ GPU) both work well with this skill and
+  with running local commands. The 27b model is better overall, but the 9b
+  model is still quite usable.
+
+Tested Claude Desktop cloud models:
+
+* Claude Sonnet 4.6 works without issues.
+* Claude Haiku 4.5 also appears to work fine.
 
 ---
 

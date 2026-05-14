@@ -477,8 +477,10 @@ python seedrecover.py \
 
 Replace `--addrs`/`--addr-limit` with `--mpk <xpub>` if they have a master
 public key, or with `--addressdb <file.addrdb>` if using an AddressDB. Adjust
-`--wallet-type` and `--bip32-path` for the user's chain (e.g. `ethereum`,
-`cardano`, `solana`, …; see the README/Tutorial).
+`--wallet-type` for the user's chain (e.g. `ethereum`, `cardano`, `solana`,
+…; see the README/Tutorial). Explicitly setting `--bip32-path` is generally
+not needed because BTCRecover's default derivation search is intentionally
+broad; add it only when narrowing to known paths.
 
 ### Password recovery shape (`btcrecover.py`)
 
@@ -583,7 +585,7 @@ the maintainer can't merge what they never hear about.
 | Goal | Script | Key flags |
 | --- | --- | --- |
 | Wallet password / passphrase | `btcrecover.py` | `--wallet`, `--tokenlist` *or* `--passwordlist`, `--typos N --typos-insert %q --typos-replace %q --typos-delete` |
-| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic` (no `-` placeholders needed if ≤2 words missing; use `-` placeholders only for 3 missing words), `--addrs`/`--mpk`/`--addressdb`, `--addr-limit`, `--bip32-path` |
+| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic` (no `-` placeholders needed if ≤2 words missing; use `-` placeholders only for 3 missing words), `--addrs`/`--mpk`/`--addressdb`, `--addr-limit` (`--bip32-path` optional; usually unnecessary unless narrowing to known paths) |
 | 12-word seed in wrong order | `seedrecover.py` | `--tokenlist` of the 12 words, plus an address or xpub |
 | SLIP39 shares | `seedrecover.py` | SLIP39 mode (see README "SLIP39") |
 | BIP38 encrypted private key | `btcrecover.py` | `--bip38-enc-privkey`, typos flags as above |
