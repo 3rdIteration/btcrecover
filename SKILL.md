@@ -138,98 +138,19 @@ If the case is supported, briefly tell the user which script you will use
 
 ## Step 3 – Install BTCRecover for the user's operating system
 
-Detect the OS programmatically before giving instructions. Examples:
+Quick check first: if `python btcrecover.py --help` and
+`python seedrecover.py --help` both run from the current working directory (or
+from `./btcrecover` / `./btcrecover-master`), BTCRecover is already installed
+and you can skip ahead to Step 4.
 
-* Python: `import platform; platform.system()` → `Windows` / `Linux` /
-  `Darwin`.
-* Shell: `uname -a`, or check `$PREFIX` containing `com.termux` for Termux.
-
-Before telling the user to clone/install, first check whether BTCRecover is
-already present and runnable in the current workspace:
-
-1. **If the current directory already looks like BTCRecover** (it contains
-   `btcrecover.py` and `seedrecover.py`), use it directly.
-2. **If not**, check for sibling folders named `btcrecover` or
-   `btcrecover-master` in the current working directory and `cd` into whichever
-   exists.
-3. **Quick-run check using the basic usage entry points**:
-   * `python btcrecover.py --help`
-   * `python seedrecover.py --help`
-   If both commands show usage/help text, BTCRecover is installed enough to
-   proceed; do not reclone or reinstall unless the user hits dependency errors.
-4. If neither the current directory nor `./btcrecover` / `./btcrecover-master`
-   is usable, then continue with a fresh install below.
-
-Always install **only what is needed**. The repo has two requirements files:
-
-* [`requirements.txt`](requirements.txt) – essential, enough for Bitcoin /
-  Ethereum and most clones, BIP39 BTC/ETH, and most wallet-password
-  recoveries.
-* [`requirements-full.txt`](requirements-full.txt) – adds packages for
-  Cardano, Cosmos, Polkadot, Solana, Stellar, Tezos, Tron, Helium, SLIP39,
-  Ethereum staking deposit, Metamask, etc.
-
-Use `requirements-full.txt` **only** when the user's recovery actually needs
-one of the extra wallets. Otherwise stick to `requirements.txt`, which is much
-faster to install (especially on Termux).
-
-The canonical install instructions are in
-[`docs/INSTALL.md`](docs/INSTALL.md). The short forms by OS are:
-
-### Windows
-1. Install Python (from the Microsoft Store, 3.10–3.14 supported).
-2. `git clone https://github.com/3rdIteration/btcrecover/` (or download the
-   master zip).
-3. `pip install -r requirements.txt` (add `-r requirements-full.txt`
-   if the recovery requires it).
-4. If on Python 3.14, install coincurve 20 first because coincurve 21 cannot
-   currently build from source:
-   `pip install coincurve==20.0.0` then `pip install -r requirements.txt`.
-
-### Linux (Debian/Ubuntu shown)
-```
-sudo apt install python3 python3-pip python3-tk libffi-dev
-git clone https://github.com/3rdIteration/btcrecover/
-cd btcrecover
-pip3 install -r requirements.txt
-```
-Add `--break-system-packages` to `pip3` if pip complains about an
-externally-managed environment (or use a venv). `python3-tk` is only needed
-if the user will use the seedrecover GUI prompts.
-
-### macOS
-1. Install Homebrew (`brew.sh`), then:
-   `brew install autoconf automake libffi libtool pkg-config python python-tk swig gsed`.
-2. For `requirements-full.txt`, also install Rust:
-   `curl https://sh.rustup.rs -sSf | sh` and restart the terminal.
-3. `pip3 install -r requirements.txt` (and `-r requirements-full.txt`
-   only if needed). If full requirements fail, also run
-   `export PYTHON=/opt/homebrew/bin/python3`.
-
-### Android / Termux (experimental)
-```
-pkg install python-pip git autoconf automake build-essential libtool pkg-config llvm lld rust libsodium
-pip install -r requirements.txt
-```
-For `requirements-full.txt` on Termux:
-```
-export ANDROID_API_LEVEL=24
-export SODIUM_INSTALL=system
-pip install maturin --no-binary maturin
-pip install py-sr25519-bindings==0.2.3 --no-build-isolation
-pip install -r requirements-full.txt
-```
-Warn the user that Termux is experimental, slow, and may overheat the phone.
-
-### Optional GPU acceleration
-For supported wallets/typos, GPU mode can be 10–100× faster. See
-[`docs/GPU_Acceleration.md`](docs/GPU_Acceleration.md). Only suggest this for
-genuinely large password searches.
-
-### Verify the install
-Run the repo's smoke test: `python run-all-tests.py -vv`. It should finish
-without errors. If a specific test module fails for an optional dependency the
-user does not need, that's acceptable; explain which feature it gates.
+Otherwise, **delegate to the [`install-btcrecover`](skills/install-btcrecover/SKILL.md)
+sub-skill**. It detects the OS, picks the right requirements file
+(`requirements.txt` vs `requirements-full.txt` based on whether the recovery
+needs Cardano / Cosmos / Polkadot / Solana / Stellar / Tezos / Tron / SLIP39 /
+MetaMask / etc.), walks through the OS-specific install commands for Windows,
+Linux, macOS, and Android/Termux, covers the optional GPU build, and runs the
+`python run-all-tests.py -vv` smoke test. Resume here at Step 4 once it
+confirms both `--help` commands work.
 
 ---
 
@@ -328,22 +249,20 @@ contents.
 
 ### 5a. Password / passphrase recoveries → build a passwordlist or tokenlist
 
-Ask the user to brainstorm the passwords they think they may have used. From
-their answers, build **one** of the following:
+**Delegate to the [`build-password-tokenlist`](skills/build-password-tokenlist/SKILL.md)
+sub-skill.** It brainstorms password fragments with the user, helps them
+choose between a passwordlist (one full candidate per line) and a tokenlist
+(pieces with anchors `^`/`$` and wildcards `%d`/`%a`/`%i`/`%c` etc.), picks
+sensible typo flags (`--typos N --typos-insert %q --typos-replace %q
+--typos-delete`, with `--max-typos-*` caps and optional `--typos-case` /
+`--typos-closecase` / `--typos-capslock`), and sanity-checks the search size
+before a real run. The sub-skill returns the path to the file and the typos
+flags to use in Step 6.
 
-* **Passwordlist** – a plain text file with one full candidate password per
-  line. Best when the user has a small number of fully-formed guesses.
-  Documented in [`docs/passwordlist_file.md`](docs/passwordlist_file.md).
-* **Tokenlist** – a text file where each line is a "token" (piece) that may
-  appear in the password, optionally with `^` / `$` anchors, alternatives
-  separated by spaces, and wildcards like `%d`, `%a`, `%i`, `%c` etc. Best
-  when the user remembers building blocks (a name, a year, a symbol, etc.)
-  but not the exact composition. Documented in
-  [`docs/tokenlist_file.md`](docs/tokenlist_file.md).
-
-For a BIP39 **passphrase** (25th word), use the same passwordlist/tokenlist
-approach but pass it to `seedrecover.py` with `--passphrase-arg` style options
-(see the seed recovery docs).
+For a BIP39 **passphrase** (25th word), use the same sub-skill but pass the
+output to `seedrecover.py` with `--passphrase-arg`-style options (see the
+seed recovery docs). The user still needs one of the validators listed in
+1b.
 
 ### 5b. Seed / mnemonic recoveries → best-guess mnemonic with placeholders
 
@@ -392,56 +311,20 @@ blob to the offline machine.
 
 ### 5d. If the user is not sure where their wallet file is
 
-Real-world wallet filenames vary a lot — users rename files, mobile backups
-strip extensions, and many wallets share generic names like `wallet.dat` or
-`default_wallet`. **Recognise wallets by their internal contents, not by their
-filename.** The repository ships sample wallets in
-[`btcrecover/test/test-wallets/`](btcrecover/test/test-wallets/); open the
-samples and learn what each format looks like *inside*, then use those
-fingerprints when scanning the user's system. Useful content cues to look for
-(open each sample to confirm before relying on it):
+**Delegate to the [`locate-wallet-file`](skills/locate-wallet-file/SKILL.md)
+sub-skill.** It recognises wallet files by their internal content
+fingerprints (Bitcoin / Litecoin / Dogecoin Core BDB headers, Electrum JSON
+or `BIE1` blobs, MultiBit HD, bitcoinj / MultiBit Classic protobufs,
+Blockchain.com JSON, Bither / mSIGNA SQLite, Coinomi, MetaMask vaults,
+Ethereum UTC keystores, BIP38 `6P` strings, etc.) rather than by filename,
+so renamed or extension-stripped files are still found. It uses the samples
+in [`btcrecover/test/test-wallets/`](btcrecover/test/test-wallets/) as
+reference shapes.
 
-* **Bitcoin / Litecoin / Dogecoin Core** (`bitcoincore-*-wallet.dat`,
-  `litecoincore-*-wallet.dat`, `dogecoincore-*-wallet.dat`) – Berkeley DB
-  binary files; the first bytes contain the BDB magic and the body has
-  strings like `\x04name`, `\x04mkey`, `\x04ckey`, `\x04default`.
-* **Electrum** (`electrum*-wallet`, `electrum4_4_3_unencrypted`) – either a
-  JSON object whose top-level keys include `seed_version`, `wallet_type`,
-  `keystore`, etc., or (for Electrum 2.8+ fully encrypted) a base64 blob
-  starting with `BIE1`.
-* **MultiBit HD** (`mbhd.wallet.aes`) – binary AES-CBC blob; usually sits
-  next to a `mbhd.yaml` in an MBHD application directory.
-* **bitcoinj / MultiBit Classic** (`multibit.wallet.bitcoinj.*`,
-  `bitcoinj-wallet.wallet`) – protobuf binary starting with the bytes
-  `\x0a\x16org.bitcoin.production` (or similar `org.<network>.production`).
-* **Blockchain.com** (`blockchain-v*-wallet.aes.json`, real-world name
-  **`wallet.aes.json`**) – JSON with top-level keys such as `version`,
-  `pbkdf2_iterations`, and `payload` (the payload is a base64 string).
-* **Bither** (`bither-wallet.db`, `bither-hdonly-wallet.db`) – SQLite 3
-  database (`SQLite format 3\x00` header) containing tables like
-  `passwords_seed`, `hd_seeds`, `addresses`.
-* **Coinomi** (`coinomi.wallet.android`, `coinomi.wallet.desktop`) – bitcoinj
-  protobuf wrapped with Coinomi's encryption metadata; often paired with a
-  `wallet-header` file on Android.
-* **Metamask** (`metamask.*persist-root`, `metamask*vault*`) – JSON vault
-  containing a `data`, `iv`, and `salt` field (the `data` is a base64 blob).
-* **Ethereum keystore (UTC)** (`utc-keystore-v3-*.json`) – JSON with
-  `version: 3`, a `crypto` object containing `ciphertext`, `cipherparams`,
-  `kdf` (`scrypt` or `pbkdf2`), and `mac`.
-* **mSIGNA / CoinVault** (`msigna-wallet.vault`) – SQLite 3 database with
-  tables specific to mSIGNA (e.g. `Keychain`, `Account`).
-* **BIP38 encrypted private key** – an ASCII string starting with `6P`.
-
-With the user's permission, search a local path they specify (home directory,
-backup drive, cloud-sync folder, phone backup). Combine name-based hints with
-the content fingerprints above — e.g. find all JSON files and grep for
-`"payload"` and `"pbkdf2_iterations"` to spot Blockchain.com wallets
-regardless of filename, or look for the BDB magic to spot Core wallets that
-have been renamed. Present candidate matches to the user; the matches must
-stay on the user's machine and must never be pasted into the chat or uploaded
-anywhere. This step is safe to run before going offline (no wallet contents
-leave the user's machine), so it is also a useful thing to do when the user
-cannot or will not disconnect — see Step 4a.
+This step is safe to run online (no wallet contents leave the user's
+machine), so it is also a useful thing to do when the user cannot or will
+not disconnect — see Step 4a. Once the sub-skill returns a confirmed wallet
+path, resume here at Step 5c.
 
 ---
 
@@ -494,23 +377,15 @@ python btcrecover.py \
     --typos-delete
 ```
 
-Guidance for the typos flags (per Step 5a / the
-[Typos Quick Start Guide](docs/Typos_Quick_Start_Guide.md)):
-
-* `--typos-insert %q` and `--typos-replace %q` (where `%q` is the wildcard
-  for "any printable character") together with `--typos-delete` are good
-  default starting points. They cover the most common keyboard mistakes:
-  an extra character, a wrong character, and a missing character.
-* `--typos 2` is generally the largest typo count that is computationally
-  practical for a single CPU. Start with `--typos 1` for a quick first pass,
-  then escalate to `--typos 2`.
-* Add `--typos-case` / `--typos-closecase` / `--typos-capslock` if the user
-  thinks they may have shift/caps-lock issues.
-* Cap exploding typo categories with `--max-typos-insert`, `--max-typos-replace`,
-  `--max-typos-delete` (each often set to 1 or 2) so the search space stays
-  bounded.
-* Use `--autosave autosave.bin` for long runs so progress survives a crash or
-  reboot.
+Guidance for the typos flags lives in the
+[`build-password-tokenlist`](skills/build-password-tokenlist/SKILL.md)
+sub-skill (Step 4 there) and the
+[Typos Quick Start Guide](docs/Typos_Quick_Start_Guide.md). The short version:
+`--typos-insert %q`, `--typos-replace %q`, and `--typos-delete` are good
+defaults; cap with `--max-typos-*` to keep the search bounded; start with
+`--typos 1` and escalate to `--typos 2`; add `--typos-case` /
+`--typos-closecase` / `--typos-capslock` if shift/caps issues are likely;
+use `--autosave autosave.bin` for long runs.
 
 Tell the user roughly how big the search is before starting (BTCRecover prints
 a count and ETA on startup; you can run with `--no-eta --listpass | wc -l` on
