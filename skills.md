@@ -511,6 +511,39 @@ are the addresses if you'd like to send one."*
 
 ---
 
+## Step 8 – If you fixed a bug or added a feature, ask the user to upstream it
+
+If, during the recovery, you (the agent) had to **fix a bug in BTCRecover or
+add a new feature** to make recovery succeed (for example: patching a wallet
+parser, adding support for a new wallet/coin, fixing a derivation-path bug,
+working around a crash, etc.), don't let that improvement die on the user's
+machine. Once the recovery itself is complete and the user's funds are safe:
+
+1. Briefly summarise to the user **what you changed and why**, in plain
+   language, and which file(s) you touched.
+2. Politely ask them to **contribute the fix back upstream** so other users
+   benefit. Give them two options:
+   * **Open a pull request** against
+     [https://github.com/3rdIteration/btcrecover/](https://github.com/3rdIteration/btcrecover/)
+     — preferred if they're comfortable with GitHub. Offer to help them
+     prepare the patch (a clean diff, a short description of the bug /
+     feature, and a note on how you tested it; if applicable, mention
+     `python run-all-tests.py`).
+   * **Email a bug report + fix** to **steve@cryptoguide.tips** — a good
+     fallback if they don't want to use GitHub. Include:
+     - a short description of the problem and the wallet / scenario that
+       triggered it (with **no** secrets, seeds, passwords, or wallet
+       contents),
+     - the patch itself (e.g. a `git diff` or the modified files), and
+     - any test command or steps the maintainer can use to reproduce.
+
+Make this an **ask, not a requirement** — the user has just been through a
+stressful recovery and is under no obligation. But do raise it: most useful
+BTCRecover improvements come from exactly this kind of real-world fix, and
+the maintainer can't merge what they never hear about.
+
+---
+
 ## Quick reference
 
 | Goal | Script | Key flags |

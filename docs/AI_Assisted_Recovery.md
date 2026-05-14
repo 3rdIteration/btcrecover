@@ -149,7 +149,21 @@ message in a fresh chat. The key requirements are:
 3. You can identify whether the agent is local or cloud-hosted, so you can
    apply the right safety rules from Step 4 / 4a of `skills.md`.
 
----
+## Contributing fixes back
+
+If the AI agent had to **fix a bug** in BTCRecover or **add a new feature**
+during your recovery (for example to support a wallet variant that wasn't
+quite handled correctly), please consider sending that improvement back so
+other users benefit:
+
+* Preferred: open a pull request against
+  [https://github.com/3rdIteration/btcrecover/](https://github.com/3rdIteration/btcrecover/).
+* Or: email a short bug report **with the fix attached** (e.g. a `git diff`
+  or the modified files, plus reproduction steps that contain **no**
+  secrets) to **steve@cryptoguide.tips**.
+
+Step 8 of [`skills.md`](https://github.com/3rdIteration/btcrecover/blob/master/skills.md)
+asks the agent to prompt you about this once your funds are safe.
 
 ## See also
 
