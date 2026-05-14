@@ -46,6 +46,26 @@ describe your situation.
 
 ---
 
+## Tested models
+
+### Tested local-model combinations (VS Code + Cline)
+
+* `qwen/qwen3.5-9b` (usable on CPU or 8 GB GPU)
+* `qwen/qwen3.6-27b` (usable on 24 GB+ GPU)
+
+Both work well with this skill and with running local commands. The 27b model
+is better overall, but the 9b model is still quite usable.
+
+### Cloud Models (Claude Desktop)
+
+* Claude Sonnet 4.6
+* Claude Haiku 4.5
+
+Both work fine. Opus will have no problem at all but you shouldn't need that
+level of reasoning.
+
+---
+
 ## Claude Code (Anthropic's terminal coding agent)
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) automatically
@@ -138,18 +158,6 @@ Recommended setup:
 Cline can run locally against your own model (e.g. via Ollama or LM Studio),
 which is the safest option for recovery work. If you're pointing Cline at a
 hosted model, treat it like ChatGPT above and stick to the split-workflow.
-
-Tested local-model combinations:
-
-* VS Code + Cline with `qwen/qwen3.5-9b` (usable on CPU or 8 GB GPU) and
-  `qwen/qwen3.6-27b` (usable on 24 GB+ GPU) both work well with this skill and
-  with running local commands. The 27b model is better overall, but the 9b
-  model is still quite usable.
-
-Tested Claude Desktop cloud models:
-
-* Claude Sonnet 4.6 works without issues.
-* Claude Haiku 4.5 also appears to work fine.
 
 ---
 
