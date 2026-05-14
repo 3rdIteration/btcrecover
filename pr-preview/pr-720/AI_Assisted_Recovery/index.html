@@ -85,7 +85,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ai-assisted-recovery-using-skillsmd" class="md-skip">
+        <a href="#ai-assisted-recovery-using-skillmd" class="md-skip">
           Skip to content
         </a>
       
@@ -1778,6 +1778,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#contributing-fixes-back" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing fixes back
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1840,23 +1851,23 @@
 
 
 
-<h1 id="ai-assisted-recovery-using-skillsmd">AI-Assisted Recovery (using <code>skills.md</code>)</h1>
-<p>BTCRecover ships with a <a href="https://github.com/3rdIteration/btcrecover/blob/master/skills.md"><code>skills.md</code></a>
+<h1 id="ai-assisted-recovery-using-skillmd">AI-Assisted Recovery (using <code>SKILL.md</code>)</h1>
+<p>BTCRecover ships with a <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>
 file at the root of the repository. It is a structured prompt that teaches an
 AI coding agent how to triage a wallet-recovery situation, install BTCRecover,
 take the user's system offline, collect wallet material, build a
 <code>btcrecover.py</code> / <code>seedrecover.py</code> command, and finish up — all while avoiding
 the common ways a user can leak their secrets to an online machine.</p>
-<p>This page tells you <strong>where to put <code>skills.md</code></strong> for the four AI agents the
+<p>This page tells you <strong>where to put <code>SKILL.md</code></strong> for the four AI agents the
 skill has been tested against (and a generic fallback for anything else), and
 gives the safety rules you should keep in mind no matter which agent you use.</p>
 <blockquote>
 <p>⚠️ <strong>Important — read this before you start.</strong>
 AI agents will happily ask for your seed phrase, password, or wallet file.
 Never paste a real secret into a chat with a hosted / cloud agent. The
-<code>skills.md</code> workflow is <em>primarily</em> intended for a <strong>local</strong> agent (one
+<code>SKILL.md</code> workflow is <em>primarily</em> intended for a <strong>local</strong> agent (one
 running on your own machine), and <em>secondarily</em> for cloud agents under the
-split-workflow rules described in Step 4 of <code>skills.md</code>. If you're using a
+split-workflow rules described in Step 4 of <code>SKILL.md</code>. If you're using a
 cloud agent (ChatGPT, Claude on the web, GitHub Copilot chat, etc.) make
 sure the agent only ever sees half the puzzle — for example password
 guesses, not the wallet file; or password guesses, not the mnemonic.</p>
@@ -1865,16 +1876,16 @@ guesses, not the wallet file; or password guesses, not the mnemonic.</p>
 <h2 id="quick-start-any-agent">Quick start (any agent)</h2>
 <ol>
 <li>Clone or download this repository so you have a local copy of
-   <a href="https://github.com/3rdIteration/btcrecover/blob/master/skills.md"><code>skills.md</code></a>.</li>
-<li>Drop <code>skills.md</code> into the location your AI agent looks at (see per-agent
+   <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>.</li>
+<li>Drop <code>SKILL.md</code> into the location your AI agent looks at (see per-agent
    instructions below).</li>
 <li>Start a new chat / session and ask the agent something like
    <em>"Use the BTCRecover recovery skill to help me recover my wallet."</em> The
-   agent will then follow the workflow in <code>skills.md</code> and walk you through
+   agent will then follow the workflow in <code>SKILL.md</code> and walk you through
    triage, install, going offline, building a command, and running it.</li>
 </ol>
 <p>If your agent isn't listed below, the universal fallback is: open a fresh
-chat, paste the <strong>contents</strong> of <code>skills.md</code> as the first message (or as a
+chat, paste the <strong>contents</strong> of <code>SKILL.md</code> as the first message (or as a
 system / custom-instructions message if the product supports it), then
 describe your situation.</p>
 <hr />
@@ -1886,17 +1897,17 @@ directory, and discovers reusable "skills" from a <code>.claude/skills/</code> f
 <ul>
 <li><strong>Project-scoped (preferred for one-off use):</strong> From inside your local
   BTCRecover checkout, just start Claude Code with <code>claude</code> — it will pick
-  up <code>skills.md</code> from the project root because the file is referenced from
+  up <code>SKILL.md</code> from the project root because the file is referenced from
   <code>AGENTS.md</code> / <code>README.md</code>. You can also explicitly tell Claude
-  <em>"Follow <code>skills.md</code> in this repo"</em>.</li>
+  <em>"Follow <code>SKILL.md</code> in this repo"</em>.</li>
 <li><strong>User-scoped (so the skill is available in any directory):</strong> copy
-  <code>skills.md</code> to <code>~/.claude/skills/btcrecover-recovery/SKILL.md</code> (create the
+  <code>SKILL.md</code> to <code>~/.claude/skills/btcrecover-recovery/SKILL.md</code> (create the
   directory if it doesn't exist). Claude Code will then offer the BTCRecover
   recovery skill from any project.</li>
 </ul>
 <p>When recovery involves real secrets, run Claude Code on the offline machine
 (or on a separate machine from the wallet file — see Step 4 / 4a in
-<code>skills.md</code>).</p>
+<code>SKILL.md</code>).</p>
 <hr />
 <h2 id="github-copilot-vs-code-jetbrains-visual-studio">GitHub Copilot (VS Code / JetBrains / Visual Studio)</h2>
 <p>GitHub Copilot picks up repo-specific instructions from
@@ -1905,30 +1916,30 @@ directory, and discovers reusable "skills" from a <code>.claude/skills/</code> f
 <ul>
 <li>Open your local BTCRecover checkout in VS Code (or your supported IDE)
   with GitHub Copilot Chat enabled.</li>
-<li><code>AGENTS.md</code> already points Copilot at <code>skills.md</code> — open Copilot Chat and
-  ask it <em>"Help me run a BTCRecover recovery using <code>skills.md</code>."</em></li>
+<li><code>AGENTS.md</code> already points Copilot at <code>SKILL.md</code> — open Copilot Chat and
+  ask it <em>"Help me run a BTCRecover recovery using <code>SKILL.md</code>."</em></li>
 <li>If you want the skill available in <strong>every</strong> repo you open, copy
-  <code>skills.md</code> into your user-level Copilot custom instructions
+  <code>SKILL.md</code> into your user-level Copilot custom instructions
   (Settings → Copilot → "Custom instructions") or into
   <code>.github/copilot-instructions.md</code> of the project you typically work in.</li>
 </ul>
 <p>Treat Copilot Chat as an <strong>online</strong> agent (it talks to GitHub's servers).
-Follow the Step 4a split-workflow rules in <code>skills.md</code>: brainstorm passwords
+Follow the Step 4a split-workflow rules in <code>SKILL.md</code>: brainstorm passwords
 and build the command with Copilot online, then swap the mnemonic / wallet
 file in on your offline machine.</p>
 <hr />
 <h2 id="chatgpt-openai-web-or-desktop-app">ChatGPT (OpenAI, web or desktop app)</h2>
 <p>ChatGPT doesn't read files from your disk automatically, so you load
-<code>skills.md</code> into the conversation instead.</p>
+<code>SKILL.md</code> into the conversation instead.</p>
 <p>Two good options:</p>
 <ul>
 <li><strong>Custom GPT (recommended if you'll use this more than once).</strong> Create a
   new GPT in <em>Explore GPTs → Create</em>. In the <em>Instructions</em> box, paste the
-  full contents of <code>skills.md</code>. Optionally upload the BTCRecover repository
+  full contents of <code>SKILL.md</code>. Optionally upload the BTCRecover repository
   (or just the <code>docs/</code> folder) as a Knowledge file so the GPT can reference
   the linked documents. Use that GPT whenever you do a recovery.</li>
 <li><strong>One-off chat.</strong> Start a new conversation, paste the contents of
-  <code>skills.md</code> as the first message, then describe your situation.</li>
+  <code>SKILL.md</code> as the first message, then describe your situation.</li>
 </ul>
 <p>ChatGPT is a <strong>cloud agent</strong>. Do not paste your real seed phrase, real
 password, or wallet-file contents into the chat. Use it to draft your
@@ -1945,10 +1956,10 @@ your home directory.</p>
 <p>Recommended setup:</p>
 <ul>
 <li><strong>Per-project:</strong> open your local BTCRecover checkout in VS Code with the
-  Cline extension installed. Cline will see <code>AGENTS.md</code> and <code>skills.md</code>
-  automatically. Start a task with <em>"Follow <code>skills.md</code> to help me recover
+  Cline extension installed. Cline will see <code>AGENTS.md</code> and <code>SKILL.md</code>
+  automatically. Start a task with <em>"Follow <code>SKILL.md</code> to help me recover
   my wallet."</em></li>
-<li><strong>Global:</strong> copy <code>skills.md</code> to <code>~/.clinerules</code> (macOS/Linux) or
+<li><strong>Global:</strong> copy <code>SKILL.md</code> to <code>~/.clinerules</code> (macOS/Linux) or
   <code>%USERPROFILE%\.clinerules</code> (Windows) so the skill applies in every
   workspace. You can also keep both — project rules override global rules
   for the project you're in.</li>
@@ -1958,21 +1969,34 @@ which is the safest option for recovery work. If you're pointing Cline at a
 hosted model, treat it like ChatGPT above and stick to the split-workflow.</p>
 <hr />
 <h2 id="any-other-agent-generic-instructions">Any other agent (generic instructions)</h2>
-<p>Most AI assistants will accept <code>skills.md</code> either as a "system prompt",
+<p>Most AI assistants will accept <code>SKILL.md</code> either as a "system prompt",
 "custom instructions", "project rules", or simply by pasting it as the first
 message in a fresh chat. The key requirements are:</p>
 <ol>
-<li>The agent sees <code>skills.md</code> <strong>before</strong> you describe your situation.</li>
+<li>The agent sees <code>SKILL.md</code> <strong>before</strong> you describe your situation.</li>
 <li>The agent has access to a terminal where it can run <code>git</code>, <code>python</code>,
    <code>btcrecover.py</code>, and <code>seedrecover.py</code> (or it gives you commands to run
    yourself).</li>
 <li>You can identify whether the agent is local or cloud-hosted, so you can
-   apply the right safety rules from Step 4 / 4a of <code>skills.md</code>.</li>
+   apply the right safety rules from Step 4 / 4a of <code>SKILL.md</code>.</li>
 </ol>
-<hr />
+<h2 id="contributing-fixes-back">Contributing fixes back</h2>
+<p>If the AI agent had to <strong>fix a bug</strong> in BTCRecover or <strong>add a new feature</strong>
+during your recovery (for example to support a wallet variant that wasn't
+quite handled correctly), please consider sending that improvement back so
+other users benefit:</p>
+<ul>
+<li>Preferred: open a pull request against
+  <a href="https://github.com/3rdIteration/btcrecover/">https://github.com/3rdIteration/btcrecover/</a>.</li>
+<li>Or: email a short bug report <strong>with the fix attached</strong> (e.g. a <code>git diff</code>
+  or the modified files, plus reproduction steps that contain <strong>no</strong>
+  secrets) to <strong>steve@cryptoguide.tips</strong>.</li>
+</ul>
+<p>Step 8 of <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>
+asks the agent to prompt you about this once your funds are safe.</p>
 <h2 id="see-also">See also</h2>
 <ul>
-<li><a href="https://github.com/3rdIteration/btcrecover/blob/master/skills.md"><code>skills.md</code></a> — the actual skill the agent follows.</li>
+<li><a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a> — the actual skill the agent follows.</li>
 <li><a href="https://github.com/3rdIteration/btcrecover/blob/master/AGENTS.md"><code>AGENTS.md</code></a> — repository-wide guardrails AI agents must respect.</li>
 <li><a href="../INSTALL/">Installing BTCRecover</a></li>
 <li><a href="../Seedrecover_Quick_Start_Guide/">Seed Recovery Quickstart</a></li>
