@@ -1,5 +1,18 @@
 # AI-Assisted Recovery (using `SKILL.md`)
 
+## Two ways to use AI for recovery help
+
+There are two approaches:
+
+1. Use a normal chat bot that helps you follow the documentation.
+2. Use an AI CLI (coding) tool that can run commands, including BTCRecover installation and execution.
+
+For a chat bot, you can simply prompt with:
+**"Can you help me recover a wallet using https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"**
+
+Or if you have downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
+**"Can you help me recover a wallet using the Skill.md from this repository**
+
 BTCRecover ships with a [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md)
 file at the root of the repository. It is a structured prompt that teaches an
 AI coding agent how to triage a wallet-recovery situation, install BTCRecover,
@@ -26,18 +39,99 @@ gives the safety rules you should keep in mind no matter which agent you use.
 ## Quick start (any agent)
 
 1. Clone or download this repository so you have a local copy of
-   [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md).
-2. Drop `SKILL.md` into the location your AI agent looks at (see per-agent
-   instructions below).
+   [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md)
+   **and the [`skills/`](https://github.com/3rdIteration/btcrecover/tree/master/skills)
+   directory** next to it. The main `SKILL.md` dispatches to sub-skills
+   under `skills/` for installation, building a passwordlist / tokenlist,
+   and locating a wallet file on disk — they must be installed together.
+2. Drop `SKILL.md` (and the `skills/` directory) into the location your AI
+   agent looks at (see per-agent instructions below).
 3. Start a new chat / session and ask the agent something like
    *"Use the BTCRecover recovery skill to help me recover my wallet."* The
    agent will then follow the workflow in `SKILL.md` and walk you through
    triage, install, going offline, building a command, and running it.
 
+If you have already downloaded the BTCRecover repository, you can simply open
+it in Claude Desktop, Claude Code, or VS Code + Cline and prompt with:
+*"I want to recover a wallet, can you use the SKILL.md in this repo to help
+me?"*.
+
 If your agent isn't listed below, the universal fallback is: open a fresh
 chat, paste the **contents** of `SKILL.md` as the first message (or as a
 system / custom-instructions message if the product supports it), then
 describe your situation.
+
+---
+
+## Tested models
+
+### Tested local-model combinations (VS Code + Cline)
+
+* `qwen/qwen3.6-27b` (Usable on 24GB+ GPU like a 3090, 4090 or 5090)
+* `qwen/qwen3.5-9b` (Usable on 8GB GPU like a 3070, full performance with 20,000 context, disable KV cache GPU offload for context of up to 90k but halving LLM performance)
+* `qwen/qwen3.5-4b` (Usable on just about any modern system, but may be painfully slow without a GPU)
+
+The 27b model is **much** better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. **Anything below 4b parameters just gets stuck looping.**
+
+### Local LLM Settings to watch:
+* Set context length to at least 20,000 regardless of model, more if better if you can fit it all in vram. (LMStudio has a good estimator for this) If you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)
+* If you are using Cline, then enabling "Use Compact Prompt" will help it work **much better** as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)
+
+### Cloud Models (Claude Desktop or Claude Code)
+
+* Claude Sonnet 4.6
+* Claude Haiku 4.5
+
+Both work fine. Opus will have no problem at all but you shouldn't need that
+level of reasoning.
+
+---
+
+## Use with less capable agents (e.g. smaller 9b models)
+
+Some smaller models struggle when asked to do the full multi-step recovery
+workflow in one go. Instead, run recovery as a sequence of short, explicit
+requests and only ask for one skill at a time.
+
+Recommended pattern:
+
+1. Keep each prompt narrow (one outcome only).
+2. Wait for output, confirm it looks correct, then send the next prompt.
+3. Explicitly name the skill you want used (`install-btcrecover`,
+   `build-password-tokenlist`, `locate-wallet-file`).
+4. Do not mix online brainstorming with offline secret-entry steps in the same
+   prompt.
+5. For first-run command building, ask the agent not to over-specify tuning
+   flags (`--threads`, seed `--typos` / `--big-typos`) unless there is a clear
+   case requiring them.
+
+Example prompt sequence:
+
+* **Main skill kickoff (triage only):**
+  *"Use `SKILL.md`, run Step 1 triage only, and stop after you summarize what
+  recovery path I should use."*
+* **Install skill only:**
+  *"Use the `install-btcrecover` skill only. Detect my OS, check if BTCRecover
+  is already runnable, and then give me only the exact next install commands."*
+* **Wallet file location skill only (if needed):**
+  *"Use the `locate-wallet-file` skill only. Help me scan these folders and
+  return candidate wallet paths with matched fingerprint type, without printing
+  file contents."*
+* **Password/tokenlist skill only:**
+  *"Use the `build-password-tokenlist` skill only. Help me create a tokenlist
+  from my remembered fragments and propose conservative typo flags for a first
+  run."*
+* **Command build only (main skill step):**
+  *"Return to `SKILL.md` and do only Step 6: build the exact
+  `btcrecover.py`/`seedrecover.py` command with placeholders, keep defaults,
+  and do not add `--threads` or seed `--typos` / `--big-typos` unless I
+  explicitly ask for expansion, then stop."*
+* **Execution only (offline machine):**
+  *"Now do only the run/monitor step with the command we already built; do not
+  redesign the tokenlist unless the run fails quickly."*
+
+This staged approach usually improves reliability with lower-capability models
+and makes it easier for you to verify each step before continuing.
 
 ---
 
@@ -56,8 +150,13 @@ Recommended setup:
   *"Follow `SKILL.md` in this repo"*.
 * **User-scoped (so the skill is available in any directory):** copy
   `SKILL.md` to `~/.claude/skills/btcrecover-recovery/SKILL.md` (create the
-  directory if it doesn't exist). Claude Code will then offer the BTCRecover
-  recovery skill from any project.
+  directory if it doesn't exist), and copy each sub-skill under the
+  repository's `skills/` directory to its own folder under
+  `~/.claude/skills/` (e.g. `~/.claude/skills/install-btcrecover/SKILL.md`,
+  `~/.claude/skills/build-password-tokenlist/SKILL.md`,
+  `~/.claude/skills/locate-wallet-file/SKILL.md`). Claude Code will then
+  offer the BTCRecover recovery skill from any project and the sub-skills
+  will be discoverable by name when the main skill delegates to them.
 
 When recovery involves real secrets, run Claude Code on the offline machine
 (or on a separate machine from the wallet file — see Step 4 / 4a in
@@ -168,6 +267,7 @@ asks the agent to prompt you about this once your funds are safe.
 ## See also
 
 * [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md) — the actual skill the agent follows.
+* [`skills/`](https://github.com/3rdIteration/btcrecover/tree/master/skills) — sub-skills the main `SKILL.md` delegates to (install, build passwordlist/tokenlist, locate wallet file).
 * [`AGENTS.md`](https://github.com/3rdIteration/btcrecover/blob/master/AGENTS.md) — repository-wide guardrails AI agents must respect.
 * [Installing BTCRecover](INSTALL.md)
 * [Seed Recovery Quickstart](Seedrecover_Quick_Start_Guide.md)
