@@ -59,7 +59,7 @@ Build **one** of the following:
 
 Guidance:
 
-* If the user can list ≲ a few hundred specific full passwords → passwordlist.
+* If the user can list up to a few hundred specific full passwords → passwordlist.
 * If the user remembers fragments and how they tend to combine them →
   tokenlist (much more powerful, but the search space grows fast).
 
