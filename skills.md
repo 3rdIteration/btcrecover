@@ -286,33 +286,60 @@ see [`docs/Extract_Scripts.md`](docs/Extract_Scripts.md)) into the working
 folder next to BTCRecover, and tell you its filename. Do not ask them to
 paste its contents into chat.
 
-For hosted wallets like Blockchain.com, ask for the wallet ID and walk them
-through using their 2FA device to download the encrypted JSON blob to the
-offline machine.
+For hosted wallets like Blockchain.com (blockchain.info), the encrypted wallet
+file is typically named **`wallet.aes.json`**. Ask the user for their wallet ID
+and walk them through using their 2FA device to download this `wallet.aes.json`
+blob to the offline machine.
 
 ### 5d. If the user is not sure where their wallet file is
 
-Before searching anything, point them at example wallet filenames so they can
-recognise one. The repository ships sample wallets in
-[`btcrecover/test/test-wallets/`](btcrecover/test/test-wallets/). Useful
-landmarks:
+Real-world wallet filenames vary a lot — users rename files, mobile backups
+strip extensions, and many wallets share generic names like `wallet.dat` or
+`default_wallet`. **Recognise wallets by their internal contents, not by their
+filename.** The repository ships sample wallets in
+[`btcrecover/test/test-wallets/`](btcrecover/test/test-wallets/); open the
+samples and learn what each format looks like *inside*, then use those
+fingerprints when scanning the user's system. Useful content cues to look for
+(open each sample to confirm before relying on it):
 
-* `bitcoincore-*-wallet.dat`, `litecoincore-*-wallet.dat`, `dogecoincore-*-wallet.dat`
-  – Core-style wallets.
-* `electrum*-wallet`, `electrum4_4_3_unencrypted` – Electrum wallets.
-* `mbhd.wallet.aes` – MultiBit HD.
-* `multibit.wallet.bitcoinj.*`, `bitcoinj-wallet.wallet` – bitcoinj-based.
-* `blockchain-v*-wallet.aes.json` – Blockchain.com exports.
-* `bither-wallet.db`, `bither-hdonly-wallet.db` – Bither.
-* `coinomi.wallet.android`, `coinomi.wallet.desktop` – Coinomi.
-* `metamask.*persist-root`, `metamask*vault*` – Metamask vaults.
-* `utc-keystore-v3-*.json` – Ethereum keystore files.
-* `msigna-wallet.vault` – mSIGNA.
+* **Bitcoin / Litecoin / Dogecoin Core** (`bitcoincore-*-wallet.dat`,
+  `litecoincore-*-wallet.dat`, `dogecoincore-*-wallet.dat`) – Berkeley DB
+  binary files; the first bytes contain the BDB magic and the body has
+  strings like `\x04name`, `\x04mkey`, `\x04ckey`, `\x04default`.
+* **Electrum** (`electrum*-wallet`, `electrum4_4_3_unencrypted`) – either a
+  JSON object whose top-level keys include `seed_version`, `wallet_type`,
+  `keystore`, etc., or (for Electrum 2.8+ fully encrypted) a base64 blob
+  starting with `BIE1`.
+* **MultiBit HD** (`mbhd.wallet.aes`) – binary AES-CBC blob; usually sits
+  next to a `mbhd.yaml` in an MBHD application directory.
+* **bitcoinj / MultiBit Classic** (`multibit.wallet.bitcoinj.*`,
+  `bitcoinj-wallet.wallet`) – protobuf binary starting with the bytes
+  `\x0a\x16org.bitcoin.production` (or similar `org.<network>.production`).
+* **Blockchain.com** (`blockchain-v*-wallet.aes.json`, real-world name
+  **`wallet.aes.json`**) – JSON with top-level keys such as `version`,
+  `pbkdf2_iterations`, and `payload` (the payload is a base64 string).
+* **Bither** (`bither-wallet.db`, `bither-hdonly-wallet.db`) – SQLite 3
+  database (`SQLite format 3\x00` header) containing tables like
+  `passwords_seed`, `hd_seeds`, `addresses`.
+* **Coinomi** (`coinomi.wallet.android`, `coinomi.wallet.desktop`) – bitcoinj
+  protobuf wrapped with Coinomi's encryption metadata; often paired with a
+  `wallet-header` file on Android.
+* **Metamask** (`metamask.*persist-root`, `metamask*vault*`) – JSON vault
+  containing a `data`, `iv`, and `salt` field (the `data` is a base64 blob).
+* **Ethereum keystore (UTC)** (`utc-keystore-v3-*.json`) – JSON with
+  `version: 3`, a `crypto` object containing `ciphertext`, `cipherparams`,
+  `kdf` (`scrypt` or `pbkdf2`), and `mac`.
+* **mSIGNA / CoinVault** (`msigna-wallet.vault`) – SQLite 3 database with
+  tables specific to mSIGNA (e.g. `Keychain`, `Account`).
+* **BIP38 encrypted private key** – an ASCII string starting with `6P`.
 
-With the user's permission, you may search a local path they specify (e.g.
-their home directory or a backup drive) for files matching those patterns and
-present the candidates to them — but only do this on the **offline** machine
-and do not upload or transmit any matches.
+With the user's permission, search a local path they specify (home directory,
+backup drive, cloud-sync folder, phone backup) on the **offline** machine.
+Combine name-based hints with the content fingerprints above — e.g. find all
+JSON files and grep for `"payload"` and `"pbkdf2_iterations"` to spot
+Blockchain.com wallets regardless of filename, or look for the BDB magic to
+spot Core wallets that have been renamed. Present candidate matches to the
+user; never upload or transmit any matches.
 
 ---
 
