@@ -344,19 +344,20 @@ approach but pass it to `seedrecover.py` with `--passphrase-arg` style options
 
 ### 5b. Seed / mnemonic recoveries → best-guess mnemonic with placeholders
 
-Prompt the user to type their best-guess seed phrase. **For seed-based wallets
-with one or two missing words, do not require the user to enter placeholder
-dashes themselves** — you can insert the `-` placeholders when constructing the
-`seedrecover.py` command. If there are three missing words (the practical
-upper limit), use a single `-` (dash) in place of each completely-unknown word,
-e.g.:
+Prompt the user to type their best-guess seed phrase. **Do not fixate on making
+the user identify the exact number of missing words up front** — `seedrecover.py`
+can infer mnemonic length from the words provided (unless `--mnemonic-length` is
+explicitly set). For seed-based wallets with one or two missing words, do not
+require the user to enter placeholder dashes themselves; you can insert `-`
+placeholders when constructing the command. Use a single `-` (dash) in place of
+each completely-unknown word when needed, e.g.:
 
 ```
 abandon ability - about absorb - achieve acid acoustic acquire across act
 ```
 
-`seedrecover.py` will try all valid BIP39 candidates for each `-`. Up to
-three `-` placeholders is realistic; more is usually too slow.
+`seedrecover.py` will try all valid BIP39 candidates for each `-`. One to three
+`-` placeholders is usually practical; more is usually too slow.
 
 Also ask:
 
