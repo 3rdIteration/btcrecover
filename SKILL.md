@@ -141,6 +141,22 @@ Detect the OS programmatically before giving instructions. Examples:
   `Darwin`.
 * Shell: `uname -a`, or check `$PREFIX` containing `com.termux` for Termux.
 
+Before telling the user to clone/install, first check whether BTCRecover is
+already present and runnable in the current workspace:
+
+1. **If the current directory already looks like BTCRecover** (it contains
+   `btcrecover.py` and `seedrecover.py`), use it directly.
+2. **If not**, check for sibling folders named `btcrecover` or
+   `btcrecover-master` in the current working directory and `cd` into whichever
+   exists.
+3. **Quick-run check using the basic usage entry points**:
+   * `python btcrecover.py --help`
+   * `python seedrecover.py --help`
+   If both commands show usage/help text, BTCRecover is installed enough to
+   proceed; do not reclone or reinstall unless the user hits dependency errors.
+4. If neither the current directory nor `./btcrecover` / `./btcrecover-master`
+   is usable, then continue with a fresh install below.
+
 Always install **only what is needed**. The repo has two requirements files:
 
 * [`requirements.txt`](requirements.txt) – essential, enough for Bitcoin /
