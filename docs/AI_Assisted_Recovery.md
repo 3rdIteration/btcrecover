@@ -1,5 +1,15 @@
 # AI-Assisted Recovery (using `SKILL.md`)
 
+## Two ways to use AI for recovery help
+
+There are two approaches:
+
+1. Use a normal chat bot that helps you follow the documentation.
+2. Use an AI CLI (coding) tool that can run commands, including BTCRecover installation and execution.
+
+For a chat bot, you can simply prompt with:
+**"Can you help me recover a wallet using https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"**
+
 BTCRecover ships with a [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md)
 file at the root of the repository. It is a structured prompt that teaches an
 AI coding agent how to triage a wallet-recovery situation, install BTCRecover,
