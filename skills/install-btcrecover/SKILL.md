@@ -23,6 +23,26 @@ beyond what's summarised here.
 * The user explicitly asks how to install BTCRecover.
 * A previous install attempt failed and the user needs help debugging it.
 
+## Step 0 – Safety warning + choose install route
+
+Before running any installation steps, clearly warn the user:
+
+* Letting an AI install BTCRecover entirely on its own is **very dangerous**,
+  especially on an everyday/personal PC.
+* Automatic installs can execute commands the user does not fully review.
+* Encourage an offline/dedicated machine for wallet-recovery work whenever
+  possible.
+
+Then offer exactly two routes and let the user choose:
+
+1. **Automatic route (higher risk):**
+   * The AI executes install commands for them.
+   * Use only if they explicitly accept the risk.
+2. **Guided route (recommended):**
+   * Walk through the official docs in [`docs/INSTALL.md`](../../docs/INSTALL.md).
+   * Provide commands for the user to copy/paste manually.
+   * Help debug any command failures step-by-step.
+
 ## Step 1 – Check whether BTCRecover is already installed
 
 Before telling the user to clone/install anything, check whether BTCRecover
