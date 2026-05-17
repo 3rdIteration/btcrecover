@@ -90,6 +90,7 @@ It is always required.
 
 Prefer targeted installs (one package at a time) when possible:
 
+* **Bitcoin Core / Electrum / MultiBit / Blockchain.com / most standard BTC/ETH password recoveries** → no extra install after `requirements.txt`
 * **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"`
 * **BIP38 / block.io** → `pip install ecdsa`
 * **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
