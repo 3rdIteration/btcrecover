@@ -35,13 +35,13 @@ Before running any installation steps, clearly warn the user:
 
 Then offer exactly two routes and let the user choose:
 
-1. **Automatic route (higher risk):**
-   * The AI executes install commands for them.
-   * Use only if they explicitly accept the risk.
-2. **Guided route (recommended):**
+1. **Guided route (recommended):**
    * Walk through the official docs in [`docs/INSTALL.md`](../../docs/INSTALL.md).
    * Provide commands for the user to copy/paste manually.
    * Help debug any command failures step-by-step.
+2. **Automatic route (higher risk):**
+   * The AI executes install commands for them.
+   * Use only if they explicitly accept the risk.
 
 ## Step 1 – Check whether BTCRecover is already installed
 
