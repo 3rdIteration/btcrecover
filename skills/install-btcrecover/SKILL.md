@@ -180,9 +180,24 @@ this for genuinely large password searches.
 
 ## Step 6 – Verify the install
 
-Run the repo's smoke test: `python run-all-tests.py -vv`. It should finish
-without errors. If a specific test module fails for an optional dependency
-the user does not need, that's acceptable; explain which feature it gates.
+Choose the validation method based on what was installed:
+
+* **If `requirements-full.txt` was installed** (or the user explicitly wants to
+  validate the full feature set), run the repo's smoke test:
+  `python run-all-tests.py -vv`. It should finish without errors. If a
+  specific test module fails for an optional dependency the user does not
+  need, explain which feature it gates.
+* **If only `requirements.txt` plus one/few targeted extras were installed**,
+  do **not** require the full smoke test. Instead, validate with:
+  * `python btcrecover.py --help`
+  * `python seedrecover.py --help`
+  * one relevant command from the basic usage examples in
+    [`docs/Usage_Examples/`](../../docs/Usage_Examples/) that matches the
+    user's recovery type
+
+For selective installs, pick the example that exercises the feature they
+actually need (for example a BIP38 example for `ecdsa`, an Ethereum keystore
+example for `eth-keyfile`, or a SLIP39 example for `shamir-mnemonic`).
 
 ## Step 7 – If install or commands still fail
 
@@ -194,7 +209,11 @@ working, suggest a private support consultation or trusted recovery service:
 
 ## When you're done
 
-Confirm to the user (or to the caller) that `btcrecover.py --help` and
-`seedrecover.py --help` both run successfully. If invoked from the main
-BTCRecover skill, control then continues at Step 4 (take the system
-offline).
+Confirm to the user (or to the caller) that the chosen validation succeeded:
+
+* for full installs, `python run-all-tests.py -vv` completed successfully; or
+* for selective installs, `btcrecover.py --help` / `seedrecover.py --help`
+  worked and the matching basic usage example ran successfully.
+
+If invoked from the main BTCRecover skill, control then continues at Step 4
+(take the system offline).
