@@ -92,10 +92,12 @@ It is always required.
 Prefer targeted installs (one package at a time) when possible.
 This mapping is based on [`docs/INSTALL.md`](../../docs/INSTALL.md) ("Wallet
 Python Package Requirements") and BTCRecover runtime dependency checks in
-`btcrseed.py` / `btcrpass.py`.
+[`btcrecover/btcrseed.py`](../../btcrecover/btcrseed.py) /
+[`btcrecover/btcrpass.py`](../../btcrecover/btcrpass.py). Keep this section in
+sync with those files when wallet dependency checks change.
 
 * **Bitcoin Core / Electrum / MultiBit / Blockchain.com / most standard BTC/ETH password recoveries** → no extra install after `requirements.txt`
-* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"` (quote the package spec in shells like `bash`/`zsh` that treat `[]` as glob characters)
+* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"` (quote this in shells like `bash`/`zsh` that glob `[]`; Windows CMD/PowerShell usually do not require quotes)
 * **BIP38 / block.io** → `pip install ecdsa`
 * **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
 * **Groestlcoin BIP39 recovery** → `pip install groestlcoin-hash`
