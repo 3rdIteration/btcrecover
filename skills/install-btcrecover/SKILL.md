@@ -95,7 +95,7 @@ Prefer targeted installs (one package at a time) when possible:
 * **BIP38 / block.io** → `pip install ecdsa`
 * **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
 * **Groestlcoin BIP39 recovery** → `pip install groestlcoin-hash`
-* **Cosmos / Polkadot / Solana / Tezos / Tron / Avalanche / Secret Network / Elrond** → `pip install py_crypto_hd_wallet`
+* **Cosmos / Polkadot / Solana / Tezos / Tron / Avalanche / Secret Network / Elrond** → `pip install py-crypto-hd-wallet`
 
 Use [`requirements-full.txt`](../../requirements-full.txt) when the recovery
 needs multiple coupled extras or build-sensitive packages (for example:
