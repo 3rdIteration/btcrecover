@@ -75,7 +75,8 @@ Detect the OS programmatically before giving instructions. Examples:
 
 ### 3a) Identify wallet type before installing extras
 
-Use the wallet type already collected in the main skill triage when available.
+Use the wallet type already collected in the main skill Step 1 triage when
+available.
 If it is not already known, ask now before installing anything beyond base:
 
 * "What wallet type / chain are you recovering (for example: Bitcoin Core,
@@ -94,7 +95,7 @@ Python Package Requirements") and BTCRecover runtime dependency checks in
 `btcrseed.py` / `btcrpass.py`.
 
 * **Bitcoin Core / Electrum / MultiBit / Blockchain.com / most standard BTC/ETH password recoveries** → no extra install after `requirements.txt`
-* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"` (quote the package spec on shells that glob `[]`)
+* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"` (quote the package spec in shells like `bash`/`zsh` that treat `[]` as glob characters)
 * **BIP38 / block.io** → `pip install ecdsa`
 * **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
 * **Groestlcoin BIP39 recovery** → `pip install groestlcoin-hash`
@@ -105,6 +106,10 @@ needs multiple coupled extras or build-sensitive packages (for example:
 Cardano, Helium, Ethereum validator seed recovery, MetaMask/BitGo paths), or
 when the wallet type is unclear and targeted installs are likely to miss
 dependencies.
+
+Here, "multiple coupled extras" means wallet types that depend on several
+inter-related packages that are commonly installed together, not just one
+standalone module.
 
 ## Step 4 – Install for the user's OS
 
