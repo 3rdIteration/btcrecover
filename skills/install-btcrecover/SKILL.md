@@ -1,6 +1,6 @@
 ---
 name: install-btcrecover
-description: Install BTCRecover on the user's machine (Windows, Linux, macOS, or Android/Termux), including the right requirements file for their recovery type and optional GPU acceleration. Detects the OS, checks whether BTCRecover is already runnable, and only installs what is needed. Invoke from the main BTCRecover recovery skill (Step 3) or any time a user needs BTCRecover installed before doing anything else.
+description: Install BTCRecover on the user's machine (Windows, Linux, macOS, or Android/Termux), always installing base requirements first and then adding wallet-type-specific extras (or full requirements when needed), plus optional GPU acceleration. Detects the OS, checks whether BTCRecover is already runnable, and only installs what is needed. Invoke from the main BTCRecover recovery skill (Step 3) or any time a user needs BTCRecover installed before doing anything else.
 ---
 
 # Install BTCRecover Skill
@@ -71,20 +71,36 @@ Detect the OS programmatically before giving instructions. Examples:
   `Darwin`.
 * Shell: `uname -a`, or check `$PREFIX` containing `com.termux` for Termux.
 
-## Step 3 – Pick the right requirements file
+## Step 3 – Choose dependency scope from wallet type (targeted mode)
 
-The repo has two requirements files:
+### 3a) Identify wallet type before installing extras
 
-* [`requirements.txt`](../../requirements.txt) – essential, enough for
-  Bitcoin / Ethereum and most clones, BIP39 BTC/ETH, and most wallet-password
-  recoveries.
-* [`requirements-full.txt`](../../requirements-full.txt) – adds packages for
-  Cardano, Cosmos, Polkadot, Solana, Stellar, Tezos, Tron, Helium, SLIP39,
-  Ethereum staking deposit, MetaMask, etc.
+Use the wallet type already collected in the main skill triage when available.
+If it is not already known, ask now before installing anything beyond base:
 
-Use `requirements-full.txt` **only** when the user's recovery actually needs
-one of the extra wallets. Otherwise stick to `requirements.txt`, which is
-much faster to install (especially on Termux).
+* "What wallet type / chain are you recovering (for example: Bitcoin Core,
+  Electrum, BIP38 key, Ethereum keystore, SLIP39, Cardano, Solana, etc.)?"
+
+### 3b) Always install base requirements first
+
+Install [`requirements.txt`](../../requirements.txt) for **every** recovery.
+It is always required.
+
+### 3c) After base install, add only the extra module(s) needed for that wallet
+
+Prefer targeted installs (one package at a time) when possible:
+
+* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"`
+* **BIP38 / block.io** → `pip install ecdsa`
+* **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
+* **Groestlcoin BIP39 recovery** → `pip install groestlcoin-hash`
+* **Cosmos / Polkadot / Solana / Tezos / Tron / Avalanche / Secret Network / Elrond** → `pip install py_crypto_hd_wallet`
+
+Use [`requirements-full.txt`](../../requirements-full.txt) when the recovery
+needs multiple coupled extras or build-sensitive packages (for example:
+Cardano, Helium, Ethereum validator seed recovery, MetaMask/BitGo paths), or
+when the wallet type is unclear and targeted installs are likely to miss
+dependencies.
 
 ## Step 4 – Install for the user's OS
 
@@ -93,8 +109,7 @@ much faster to install (especially on Termux).
 1. Install Python (from the Microsoft Store, 3.10–3.14 supported).
 2. `git clone https://github.com/3rdIteration/btcrecover/` (or download the
    master zip).
-3. `pip install -r requirements.txt` (add `-r requirements-full.txt` if the
-   recovery requires it).
+3. `pip install -r requirements.txt` (always).
 4. If on Python 3.14, install coincurve 20 first because coincurve 21 cannot
    currently build from source:
    `pip install coincurve==20.0.0` then `pip install -r requirements.txt`.
@@ -116,10 +131,10 @@ if the user will use the seedrecover GUI prompts.
 
 1. Install Homebrew (`brew.sh`), then:
    `brew install autoconf automake libffi libtool pkg-config python python-tk swig gsed`.
-2. For `requirements-full.txt`, also install Rust:
+2. If you plan to use `requirements-full.txt`, also install Rust:
    `curl https://sh.rustup.rs -sSf | sh` and restart the terminal.
-3. `pip3 install -r requirements.txt` (and `-r requirements-full.txt` only
-   if needed). If full requirements fail, also run
+3. `pip3 install -r requirements.txt` (always). If full requirements are
+   needed and fail, also run
    `export PYTHON=/opt/homebrew/bin/python3`.
 
 ### Android / Termux (experimental)
@@ -129,7 +144,7 @@ pkg install python-pip git autoconf automake build-essential libtool pkg-config 
 pip install -r requirements.txt
 ```
 
-For `requirements-full.txt` on Termux:
+If `requirements-full.txt` is needed on Termux:
 
 ```
 export ANDROID_API_LEVEL=24
@@ -141,6 +156,10 @@ pip install -r requirements-full.txt
 
 Warn the user that Termux is experimental, slow, and may overheat the
 phone.
+
+After base install, run the targeted extra package install chosen in Step 3c.
+Only use the full requirements flow above when Step 3c calls for
+`requirements-full.txt`.
 
 ## Step 5 – Optional GPU acceleration
 

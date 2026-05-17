@@ -151,13 +151,12 @@ from `./btcrecover` / `./btcrecover-master`), BTCRecover is already installed
 and you can skip ahead to Step 4.
 
 Otherwise, **delegate to the [`install-btcrecover`](skills/install-btcrecover/SKILL.md)
-sub-skill**. It detects the OS, picks the right requirements file
-(`requirements.txt` vs `requirements-full.txt` based on whether the recovery
-needs Cardano / Cosmos / Polkadot / Solana / Stellar / Tezos / Tron / SLIP39 /
-MetaMask / etc.), walks through the OS-specific install commands for Windows,
-Linux, macOS, and Android/Termux, covers the optional GPU build, and runs the
-`python run-all-tests.py -vv` smoke test. Resume here at Step 4 once it
-confirms both `--help` commands work.
+sub-skill**. It detects the OS, always installs `requirements.txt` first, then
+adds only wallet-type-specific extra modules when needed (or uses
+`requirements-full.txt` for multi-dependency wallet types), walks through the
+OS-specific install commands for Windows, Linux, macOS, and Android/Termux,
+covers the optional GPU build, and runs the `python run-all-tests.py -vv`
+smoke test. Resume here at Step 4 once it confirms both `--help` commands work.
 
 If they remain blocked because install steps or commands are not working, also
 suggest a private support consultation or trusted recovery service:
