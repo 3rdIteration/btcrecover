@@ -88,10 +88,13 @@ It is always required.
 
 ### 3c) After base install, add only the extra module(s) needed for that wallet
 
-Prefer targeted installs (one package at a time) when possible:
+Prefer targeted installs (one package at a time) when possible.
+This mapping is based on [`docs/INSTALL.md`](../../docs/INSTALL.md) ("Wallet
+Python Package Requirements") and BTCRecover runtime dependency checks in
+`btcrseed.py` / `btcrpass.py`.
 
 * **Bitcoin Core / Electrum / MultiBit / Blockchain.com / most standard BTC/ETH password recoveries** → no extra install after `requirements.txt`
-* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"`
+* **SLIP39 share recovery** → `pip install "shamir-mnemonic[cli]"` (quote the package spec on shells that glob `[]`)
 * **BIP38 / block.io** → `pip install ecdsa`
 * **Ethereum UTC/JSON keystore file recovery** → `pip install eth-keyfile`
 * **Groestlcoin BIP39 recovery** → `pip install groestlcoin-hash`
