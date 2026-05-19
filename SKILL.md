@@ -96,8 +96,22 @@ In order of preference (also see
    [`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
    This is the only option when the user has no address and no xpub.
 
-If the user has none of (1)–(4) and there is no AddressDB available for their
-chain, seed recovery is **not practical** – say so.
+When AddressDB is needed, first check whether a **pre-made AddressDB** is
+available at <https://cryptoguide.tips/btcrecover-addressdbs/> for the user's
+chain and approximate date range. If one is available, guide the user to
+download/unzip it and use `--addressdb` directly; do **not** imply they must
+download a full blockchain in that case.
+
+Do **not** proactively push AddressDB usage when the user already has a
+known-good, confidently remembered address (or an xpub). Reserve AddressDB
+fallback guidance for cases where they have no address/xpub, or are unsure
+their address is correct.
+
+If the user has none of (1)–(4), seed recovery is usually **not practical**.
+However, if they can still build an AddressDB for their chain (from blockchain
+data or from an address list such as Google BigQuery exports), recovery may
+still be practical — guide them through that route using
+[`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
 
 ### 1c. File-based (wallet password / passphrase) recoveries
 
@@ -300,7 +314,15 @@ placeholders is the practical upper limit; more is usually too slow.
 Also ask:
 
 * "Do you have one address from the wallet, or a master public key?" – needed
-  to validate guesses; otherwise an AddressDB is required.
+  to validate guesses. If they have a confident address or xpub, use that
+  first.
+* Only when they **don't have an address/xpub** or are **unsure the address is
+  correct**, check pre-made AddressDB availability at
+  <https://cryptoguide.tips/btcrecover-addressdbs/> for their chain/date range
+  and guide them to use it with `--addressdb` if available. If not available,
+  guide them to create one manually from blockchain data or an address list
+  (e.g., Google BigQuery), per
+  [`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
 * For BIP44 wallets, ask which coin/derivation path the wallet was on.
 
 ### 5c. Wallet-file recoveries → put the file in the working folder
