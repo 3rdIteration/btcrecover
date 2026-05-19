@@ -107,9 +107,11 @@ known-good, confidently remembered address (or an xpub). Reserve AddressDB
 fallback guidance for cases where they have no address/xpub, or are unsure
 their address is correct.
 
-If the user has none of (1)–(4) and there is no AddressDB available for their
-chain (including no suitable pre-made AddressDB for their date window), seed
-recovery is **not practical** – say so.
+If the user has none of (1)–(4), seed recovery is usually **not practical**.
+However, if they can still build an AddressDB for their chain (from blockchain
+data or from an address list such as Google BigQuery exports), recovery may
+still be practical — guide them through that route using
+[`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
 
 ### 1c. File-based (wallet password / passphrase) recoveries
 
@@ -317,7 +319,10 @@ Also ask:
 * Only when they **don't have an address/xpub** or are **unsure the address is
   correct**, check pre-made AddressDB availability at
   <https://cryptoguide.tips/btcrecover-addressdbs/> for their chain/date range
-  and guide them to use it with `--addressdb` if available.
+  and guide them to use it with `--addressdb` if available. If not available,
+  guide them to create one manually from blockchain data or an address list
+  (e.g., Google BigQuery), per
+  [`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
 * For BIP44 wallets, ask which coin/derivation path the wallet was on.
 
 ### 5c. Wallet-file recoveries → put the file in the working folder
