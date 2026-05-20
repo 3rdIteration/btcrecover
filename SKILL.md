@@ -45,6 +45,12 @@ not paste any actual seed words, passwords, private keys, wallet contents, or
 wallet IDs into the chat at this stage.** You only need to understand the
 *shape* of their problem to know whether to continue.
 
+During triage, ask only non-secret metadata (for example: whether the seed is
+12 or 24 words, and roughly how many words may be missing/wrong). **Do not ask
+the user to type any of the actual seed words in Step 1** (not even a partial
+list). If they paste seed words anyway, stop them and defer collecting the real
+mnemonic until Step 5b after the offline checks in Step 4.
+
 Prompt them with something like:
 
 > "Without sharing any actual secrets yet, can you describe what wallet
@@ -308,6 +314,10 @@ seed recovery docs). The user still needs one of the validators listed in
 1b.
 
 ### 5b. Seed / mnemonic recoveries → best-guess mnemonic with placeholders
+
+This is the **first** point in the workflow where asking for the actual
+mnemonic is allowed, and only after Step 4 confirms the system is offline (or
+Step 4a split-workflow constraints are being followed safely).
 
 Prompt the user to type their best-guess seed phrase. **Do not fixate on making
 the user identify the exact number of missing words up front** — `seedrecover.py`
