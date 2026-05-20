@@ -77,8 +77,14 @@ explain why before doing anything else.
   [`docs/BIP39_descrambling_seedlists.md`](docs/BIP39_descrambling_seedlists.md)),
   but only pursue this path when the user has explicitly asked for it.
   Descrambling a 24-word seed is generally infeasible.
-* One or two word typos within mnemonics are usually caught automatically
-* For BIP39 passphrase, the user needs to have a pretty close guess to the actual passphrase.
+* One or two word typos within mnemonics are usually caught automatically.
+* If a user reports errors like "invalid mnemonic", triage that first as a
+  likely seed-word issue (typo, wrong word, missing word, or wrong order) —
+  not as a BIP39 passphrase issue.
+* For a BIP39 passphrase ("25th word"), the usual symptom is different: the
+  mnemonic is accepted as valid, but derived wallets appear empty (no expected
+  addresses, balances, or transaction history). The user still needs a
+  reasonably close passphrase guess to recover.
 
 ### 1b. Seed-based recoveries need one of the following to validate guesses
 
