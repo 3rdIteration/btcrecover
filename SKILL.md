@@ -172,13 +172,32 @@ OS-specific install commands for Windows, Linux, macOS, and Android/Termux,
 covers the optional GPU build, and runs the `python run-all-tests.py -vv`
 smoke test. Resume here at Step 4 once it confirms both `--help` commands work.
 
+If the install sub-skill is unavailable or not loaded, do **not** proceed with
+partial "file-by-file" retrieval. Use this fallback and complete it before Step 4:
+
+1. Ensure the user has the **full repository** (`git clone` or official zip), not
+   a one-file-at-a-time copy.
+2. Use `docs/INSTALL.md` as the canonical install guide.
+3. Install base dependencies first: `pip install -r requirements.txt`.
+4. Add wallet-type-specific extras (or `requirements-full.txt` when needed).
+5. Validate install success with:
+   * `python btcrecover.py --help`
+   * `python seedrecover.py --help`
+   * plus `python run-all-tests.py -vv` for full installs.
+6. Do **not** tell the user to disconnect yet; only move to Step 4 after these
+   checks succeed.
+
 If they remain blocked because install steps or commands are not working, also
 suggest a private support consultation or trusted recovery service:
 <https://cryptoguide.tips/recovery-services-consultations/>.
 
 ---
 
-## Step 4 – Take the system offline (mandatory before secrets are entered)
+## Step 4 – Take the system offline (only after install is complete and validated)
+
+This step starts **only after Step 3 has finished successfully** (install done
+and validation complete). Keep the machine online during installation and
+testing so dependencies, docs, and commands can be verified first.
 
 **Before the user types or pastes any seed word, password, private key, or
 wallet file contents into anything, the system running BTCRecover must be

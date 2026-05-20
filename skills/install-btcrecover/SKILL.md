@@ -32,6 +32,9 @@ Before running any installation steps, clearly warn the user:
 * Automatic installs can execute commands the user does not fully review.
 * Encourage an offline/dedicated machine for wallet-recovery work whenever
   possible.
+* Clarify timing: installation, dependency downloads, and validation commands
+  are done while online first; the offline/disconnect step comes later in the
+  main skill right before any real secrets are entered.
 
 Then offer exactly two routes and let the user choose:
 
@@ -62,6 +65,10 @@ is already present and runnable in the current workspace:
    errors.
 4. If neither the current directory nor `./btcrecover` / `./btcrecover-master`
    is usable, continue with a fresh install below.
+
+Never "install" by fetching repository files one-by-one. Require a full
+repository checkout or official source archive so scripts, modules, docs, and
+requirements stay consistent.
 
 ## Step 2 – Detect the OS
 
