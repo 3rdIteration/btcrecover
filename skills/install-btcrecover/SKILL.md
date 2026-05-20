@@ -66,6 +66,10 @@ is already present and runnable in the current workspace:
 4. If neither the current directory nor `./btcrecover` / `./btcrecover-master`
    is usable, continue with a fresh install below.
 
+Never "install" by fetching repository files one-by-one. Require a full
+repository checkout or official source archive so scripts, modules, docs, and
+requirements stay consistent.
+
 ## Step 2 – Detect the OS
 
 Detect the OS programmatically before giving instructions. Examples:
