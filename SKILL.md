@@ -178,7 +178,11 @@ suggest a private support consultation or trusted recovery service:
 
 ---
 
-## Step 4 – Take the system offline (mandatory before secrets are entered)
+## Step 4 – Take the system offline (only after install is complete and validated)
+
+This step starts **only after Step 3 has finished successfully** (install done
+and validation complete). Keep the machine online during installation and
+testing so dependencies, docs, and commands can be verified first.
 
 **Before the user types or pastes any seed word, password, private key, or
 wallet file contents into anything, the system running BTCRecover must be

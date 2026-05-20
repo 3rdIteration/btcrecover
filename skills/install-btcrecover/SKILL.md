@@ -32,6 +32,9 @@ Before running any installation steps, clearly warn the user:
 * Automatic installs can execute commands the user does not fully review.
 * Encourage an offline/dedicated machine for wallet-recovery work whenever
   possible.
+* Clarify timing: installation, dependency downloads, and validation commands
+  are done while online first; the offline/disconnect step comes later in the
+  main skill right before any real secrets are entered.
 
 Then offer exactly two routes and let the user choose:
 
