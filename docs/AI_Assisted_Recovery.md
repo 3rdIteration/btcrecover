@@ -67,13 +67,14 @@ describe your situation.
 
 ### Tested local-model combinations (VS Code + Cline)
 
-* `qwen/qwen3.5-9b` (usable on CPU or 8 GB GPU like a 3070 with 35,000 context)
-* `qwen/qwen3.6-27b` (usable on 24 GB+ GPU)
+* `qwen/qwen3.6-27b` (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)
+* `qwen/qwen3.5-9b` (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)
+* `qwen/qwen3.5-4b` (Usable on just about any modern system, even without a GPU)
 
-Both work well with this skill and with running local commands. The 27b model
-is better overall, but the 9b model is still quite usable. 
+All three work well with the skills and with running local commands. The 27b model
+is **much** better overall, 9b is pretty good and 4b also works but will struggle to work out anything complex. 
 
-Local LLM Settings to watch:
+### Local LLM Settings to watch:
 * Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)
 * If you are using Cline, then enabling "Use Compact Prompt" will help it work **much better** as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)
 
