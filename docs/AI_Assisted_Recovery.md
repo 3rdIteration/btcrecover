@@ -68,17 +68,19 @@ describe your situation.
 ### Tested local-model combinations (VS Code + Cline)
 
 * `qwen/qwen3.6-27b` (Usable on 24GB+ GPU like a 3090, 4090 or 5090)
-* `qwen/qwen3.5-9b` (Usable on 8GB GPU like a 3070, full performance with 20,000 context, disable KV cache GPU offload for context of up to 90k but halving LLM performance)
+* `qwen/qwen3.5-9b` (Usable on 8GB GPU like a 3070, full performance with 20,000 context, 9b models tend to become forgetful beyond this anyway)
 * `qwen/qwen3.5-4b` (Usable on just about any modern system, but may be painfully slow without a GPU)
 
 The 27b model is **much** better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. **Anything below 4b parameters just gets stuck looping.**
 
 ### Local LLM Settings to watch:
-* Set context length to at least 20,000 regardless of model, more if better if you can fit it all in vram. (LMStudio has a good estimator for this) If you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)
-* If you are using Cline, then enabling "Use Compact Prompt" will help it work **much better** as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)
+* **Set context length to at least 20,000 regardless of model**, more is generally better for larger models. (You generally set this in your LMStudio or Ollama)
+* If you are using Cline, then enabling **"Use Compact Prompt" will help it work much better** as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)
 
-### Cloud Models (Claude Desktop or Claude Code)
+### Cloud Models (Claude, ChatGPT, etc)
+Simply put, large cloud models should have no issue with this at all.
 
+Tested with:
 * Claude Sonnet 4.6
 * Claude Haiku 4.5
 
@@ -87,11 +89,13 @@ level of reasoning.
 
 ---
 
-## Use with less capable agents (e.g. smaller 9b models)
+## Use with less capable agents (e.g. 9b and 4b models)
 
 Some smaller models struggle when asked to do the full multi-step recovery
-workflow in one go. Instead, run recovery as a sequence of short, explicit
-requests and only ask for one skill at a time.
+workflow in one go. (Though may work fine, so it's worth trying first) 
+
+If they get stuck, run recovery as a sequence of short, explicit
+requests and only ask for one skill at a time. 
 
 Recommended pattern:
 
