@@ -10,7 +10,7 @@ There are two approaches:
 For a chat bot, you can simply prompt with:
 **"Can you help me recover a wallet using https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"**
 
-Or if you ave downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
+Or if you have downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
 **"Can you help me recover a wallet using the Skill.md from this repository**
 
 BTCRecover ships with a [`SKILL.md`](https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md)
