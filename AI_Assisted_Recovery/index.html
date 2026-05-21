@@ -1757,10 +1757,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#cloud-models-claude-desktop" class="md-nav__link">
+  <a href="#local-llm-settings-to-watch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cloud Models (Claude Desktop)
+        Local LLM Settings to watch:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cloud-models-claude-desktop-or-claude-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cloud Models (Claude Desktop or Claude Code)
       
     </span>
   </a>
@@ -1769,6 +1780,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-with-less-capable-agents-eg-smaller-9b-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use with less capable agents (e.g. smaller 9b models)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1910,6 +1932,8 @@
 </ol>
 <p>For a chat bot, you can simply prompt with:
 <strong>"Can you help me recover a wallet using https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"</strong></p>
+<p>Or if you have downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
+<strong>"Can you help me recover a wallet using the Skill.md from this repository</strong></p>
 <p>BTCRecover ships with a <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>
 file at the root of the repository. It is a structured prompt that teaches an
 AI coding agent how to triage a wallet-recovery situation, install BTCRecover,
@@ -1958,18 +1982,67 @@ describe your situation.</p>
 <h2 id="tested-models">Tested models</h2>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
-<li><code>qwen/qwen3.5-9b</code> (usable on CPU or 8 GB GPU)</li>
-<li><code>qwen/qwen3.6-27b</code> (usable on 24 GB+ GPU)</li>
+<li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090, maybe on 16GB cards with )</li>
+<li><code>qwen/qwen3.5-9b</code> (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
+<li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
-<p>Both work well with this skill and with running local commands. The 27b model
-is better overall, but the 9b model is still quite usable.</p>
-<h3 id="cloud-models-claude-desktop">Cloud Models (Claude Desktop)</h3>
+<p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
+<h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
+<ul>
+<li>Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)</li>
+<li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</li>
+</ul>
+<h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
 <ul>
 <li>Claude Sonnet 4.6</li>
 <li>Claude Haiku 4.5</li>
 </ul>
 <p>Both work fine. Opus will have no problem at all but you shouldn't need that
 level of reasoning.</p>
+<hr />
+<h2 id="use-with-less-capable-agents-eg-smaller-9b-models">Use with less capable agents (e.g. smaller 9b models)</h2>
+<p>Some smaller models struggle when asked to do the full multi-step recovery
+workflow in one go. Instead, run recovery as a sequence of short, explicit
+requests and only ask for one skill at a time.</p>
+<p>Recommended pattern:</p>
+<ol>
+<li>Keep each prompt narrow (one outcome only).</li>
+<li>Wait for output, confirm it looks correct, then send the next prompt.</li>
+<li>Explicitly name the skill you want used (<code>install-btcrecover</code>,
+   <code>build-password-tokenlist</code>, <code>locate-wallet-file</code>).</li>
+<li>Do not mix online brainstorming with offline secret-entry steps in the same
+   prompt.</li>
+<li>For first-run command building, ask the agent not to over-specify tuning
+   flags (<code>--threads</code>, seed <code>--typos</code> / <code>--big-typos</code>) unless there is a clear
+   case requiring them.</li>
+</ol>
+<p>Example prompt sequence:</p>
+<ul>
+<li><strong>Main skill kickoff (triage only):</strong>
+  <em>"Use <code>SKILL.md</code>, run Step 1 triage only, and stop after you summarize what
+  recovery path I should use."</em></li>
+<li><strong>Install skill only:</strong>
+  <em>"Use the <code>install-btcrecover</code> skill only. Detect my OS, check if BTCRecover
+  is already runnable, and then give me only the exact next install commands."</em></li>
+<li><strong>Wallet file location skill only (if needed):</strong>
+  <em>"Use the <code>locate-wallet-file</code> skill only. Help me scan these folders and
+  return candidate wallet paths with matched fingerprint type, without printing
+  file contents."</em></li>
+<li><strong>Password/tokenlist skill only:</strong>
+  <em>"Use the <code>build-password-tokenlist</code> skill only. Help me create a tokenlist
+  from my remembered fragments and propose conservative typo flags for a first
+  run."</em></li>
+<li><strong>Command build only (main skill step):</strong>
+  <em>"Return to <code>SKILL.md</code> and do only Step 6: build the exact
+  <code>btcrecover.py</code>/<code>seedrecover.py</code> command with placeholders, keep defaults,
+  and do not add <code>--threads</code> or seed <code>--typos</code> / <code>--big-typos</code> unless I
+  explicitly ask for expansion, then stop."</em></li>
+<li><strong>Execution only (offline machine):</strong>
+  <em>"Now do only the run/monitor step with the command we already built; do not
+  redesign the tokenlist unless the run fails quickly."</em></li>
+</ul>
+<p>This staged approach usually improves reliability with lower-capability models
+and makes it easier for you to verify each step before continuing.</p>
 <hr />
 <h2 id="claude-code-anthropics-terminal-coding-agent">Claude Code (Anthropic's terminal coding agent)</h2>
 <p><a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> automatically
