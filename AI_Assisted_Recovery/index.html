@@ -1982,14 +1982,14 @@ describe your situation.</p>
 <h2 id="tested-models">Tested models</h2>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
-<li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090, maybe on 16GB cards with )</li>
-<li><code>qwen/qwen3.5-9b</code> (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
+<li><code>qwen/qwen3.6-27b</code> (Usable on 24GB+ GPU like a 3090, 4090 or 5090)</li>
+<li><code>qwen/qwen3.5-9b</code> (Usable on 8GB GPU like a 3070, full performance with 20,000 context, disable KV cache GPU offload for context of up to 90k but halving LLM performance)</li>
 <li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
 <p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
-<li>Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)</li>
+<li>Set context length to at least 20,000 regardless of model, if you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)</li>
 <li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</li>
 </ul>
 <h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
@@ -2190,9 +2190,9 @@ asks the agent to prompt you about this once your funds are safe.</p>
     
     <nav>
       
-        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
           
-          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
         </a>
       
         <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
@@ -2200,9 +2200,9 @@ asks the agent to prompt you about this once your funds are safe.</p>
           <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
         </a>
       
-        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
           
-          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rd Iteration">
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
         </a>
       
       
@@ -2229,7 +2229,7 @@ asks the agent to prompt you about this once your funds are safe.</p>
       
 <ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
     Page Contributors
-    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">3rd Iteration - </a></li></ul>
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li></ul>
 </ul>
 <footer class="md-footer">
   
