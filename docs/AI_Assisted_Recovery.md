@@ -102,6 +102,9 @@ Recommended pattern:
    `build-password-tokenlist`, `locate-wallet-file`).
 4. Do not mix online brainstorming with offline secret-entry steps in the same
    prompt.
+5. For first-run command building, ask the agent not to over-specify tuning
+   flags (`--threads`, seed `--typos` / `--big-typos`) unless there is a clear
+   case requiring them.
 
 Example prompt sequence:
 
@@ -121,7 +124,9 @@ Example prompt sequence:
   run."*
 * **Command build only (main skill step):**
   *"Return to `SKILL.md` and do only Step 6: build the exact
-  `btcrecover.py`/`seedrecover.py` command with placeholders, then stop."*
+  `btcrecover.py`/`seedrecover.py` command with placeholders, keep defaults,
+  and do not add `--threads` or seed `--typos` / `--big-typos` unless I
+  explicitly ask for expansion, then stop."*
 * **Execution only (offline machine):**
   *"Now do only the run/monitor step with the command we already built; do not
   redesign the tokenlist unless the run fails quickly."*

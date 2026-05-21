@@ -180,6 +180,11 @@ Rules:
 * 1–2 missing words: no `-` placeholders.
 * 3 missing words: use `-` placeholders in known missing positions.
 * First run should use seedrecover defaults; do not broaden immediately.
+* Do not manually add `--typos` or `--big-typos` for seed recoveries in normal
+  first runs.
+* Only consider manual seed typo flags when there are 3+ missing words with
+  known positions using placeholders, and only after the default pass is not
+  sufficient.
 * Ask for validator: confident address or xpub first.
 * Only if no reliable address/xpub, check pre-made AddressDB, then manual build.
 * For Bitcoin, do not require user to classify address type in triage.
@@ -205,6 +210,12 @@ Show command first, explain flags briefly, then run if user asks.
 
 If online/split mode, keep secret-bearing fields as placeholders and clearly
 mark substitutions user must do on offline/wallet-holding machine.
+Avoid extra tuning flags in initial commands:
+
+* Do not add `--threads` by default; BTCRecover auto-detects reasonable thread
+  usage for most cases.
+* For seed recoveries, leave off manual `--typos` / `--big-typos` unless the
+  narrow 3+ missing-known-position placeholder case truly needs expansion.
 
 ### Seed recovery shape
 
@@ -221,6 +232,8 @@ Keep first run conservative:
 
 * use defaults first,
 * keep `--addr-limit` at 10 unless user has strong reason to increase,
+* do not add manual seed typo flags (`--typos`, `--big-typos`) in normal first
+  runs,
 * widen only after initial run fails.
 
 ### Password recovery shape
