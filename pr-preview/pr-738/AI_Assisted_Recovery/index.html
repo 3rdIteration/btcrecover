@@ -1757,6 +1757,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#local-llm-settings-to-watch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local LLM Settings to watch:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cloud-models-claude-desktop-or-claude-code" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1971,14 +1982,17 @@ describe your situation.</p>
 <h2 id="tested-models">Tested models</h2>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
-<li><code>qwen/qwen3.5-9b</code> (usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
-<li><code>qwen/qwen3.6-27b</code> (usable on 24 GB+ GPU)</li>
+<li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)</li>
+<li><code>qwen/qwen3.5-9b</code> (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
+<li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, even without a GPU)</li>
 </ul>
-<p>Both work well with this skill and with running local commands. The 27b model
-is better overall, but the 9b model is still quite usable. </p>
-<p>Local LLM Settings to watch:
-* Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)
-* If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</p>
+<p>All three work well with the skills and with running local commands. The 27b model
+is <strong>much</strong> better overall, 9b is pretty good and 4b also works but will struggle to work out anything complex. </p>
+<h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
+<ul>
+<li>Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)</li>
+<li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</li>
+</ul>
 <h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
 <ul>
 <li>Claude Sonnet 4.6</li>
