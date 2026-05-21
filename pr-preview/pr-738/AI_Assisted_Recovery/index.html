@@ -1757,10 +1757,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#cloud-models-claude-desktop" class="md-nav__link">
+  <a href="#cloud-models-claude-desktop-or-claude-code" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cloud Models (Claude Desktop)
+        Cloud Models (Claude Desktop or Claude Code)
       
     </span>
   </a>
@@ -1971,12 +1971,15 @@ describe your situation.</p>
 <h2 id="tested-models">Tested models</h2>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
-<li><code>qwen/qwen3.5-9b</code> (usable on CPU or 8 GB GPU)</li>
+<li><code>qwen/qwen3.5-9b</code> (usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
 <li><code>qwen/qwen3.6-27b</code> (usable on 24 GB+ GPU)</li>
 </ul>
 <p>Both work well with this skill and with running local commands. The 27b model
-is better overall, but the 9b model is still quite usable.</p>
-<h3 id="cloud-models-claude-desktop">Cloud Models (Claude Desktop)</h3>
+is better overall, but the 9b model is still quite usable. </p>
+<p>Local LLM Settings to watch:
+* Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)
+* If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</p>
+<h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
 <ul>
 <li>Claude Sonnet 4.6</li>
 <li>Claude Haiku 4.5</li>
