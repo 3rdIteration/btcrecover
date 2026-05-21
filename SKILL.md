@@ -108,6 +108,11 @@ In order of preference (also see
    [`docs/Creating_and_Using_AddressDB.md`](docs/Creating_and_Using_AddressDB.md).
    This is the only option when the user has no address and no xpub.
 
+For Bitcoin seed/password recoveries, do **not** ask the user to classify the
+address as Legacy / Segwit / Native Segwit during triage. A known-good Bitcoin
+address is enough for validation, and BTCRecover will handle supported Bitcoin
+address types automatically.
+
 When AddressDB is needed, first check whether a **pre-made AddressDB** is
 available at <https://cryptoguide.tips/btcrecover-addressdbs/> for the user's
 chain and approximate date range. If one is available, guide the user to
@@ -357,6 +362,8 @@ Also ask:
 * "Do you have one address from the wallet, or a master public key?" – needed
   to validate guesses. If they have a confident address or xpub, use that
   first.
+  * For Bitcoin, don't ask them to identify the exact address type (Legacy /
+    Segwit / Native Segwit) — BTCRecover handles this automatically.
 * Only when they **don't have an address/xpub** or are **unsure the address is
   correct**, check pre-made AddressDB availability at
   <https://cryptoguide.tips/btcrecover-addressdbs/> for their chain/date range
