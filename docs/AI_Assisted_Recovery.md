@@ -69,7 +69,7 @@ describe your situation.
 
 * `qwen/qwen3.6-27b` (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)
 * `qwen/qwen3.5-9b` (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)
-* `qwen/qwen3.5-4b` (Usable on just about any modern system, even without a GPU)
+* `qwen/qwen3.5-4b` (Usable on just about any modern system, but may be painfully slow without a GPU)
 
 All three work well with the skills and with running local commands. The 27b model
 is **much** better overall, 9b is pretty good and 4b also works but will struggle to work out anything complex. 
