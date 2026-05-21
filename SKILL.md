@@ -430,7 +430,10 @@ generally not needed because BTCRecover's default derivation search is
 intentionally broad; only narrow paths when the user knows them. For a first
 attempt, keep seed typo flags at defaults (do not manually add `--typos` or
 `--big-typos`), and only add them if the user explicitly reports exactly three
-missing words with known positions.
+missing words with known positions. Also keep `--addr-limit` conservative on
+the first run (use `10` as the default starting point). Do not jump to large
+values like `100` unless the user has a concrete reason to do so (for example,
+they know the target address was generated much later).
 
 ### Password recovery shape (`btcrecover.py`)
 
@@ -457,7 +460,9 @@ use `--autosave autosave.bin` for long runs.
 Tell the user roughly how big the search is before starting (BTCRecover prints
 a count and ETA on startup; you can run with `--no-eta --listpass | wc -l` on
 a small subset to sanity-check size). If the ETA is unreasonable (days/weeks),
-help them trim the token/typo set rather than starting a doomed run.
+help them trim the token/typo set rather than starting a doomed run. The
+default-first initial run should usually complete within a few hours at most;
+if it does not find the seed/password, only then widen the search settings.
 
 ---
 
@@ -540,7 +545,7 @@ the maintainer can't merge what they never hear about.
 | Goal | Script | Key flags |
 | --- | --- | --- |
 | Wallet password / passphrase | `btcrecover.py` | `--wallet`, `--tokenlist` *or* `--passwordlist`, `--typos N --typos-insert %q --typos-replace %q --typos-delete` |
-| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic` (no `-` placeholders needed if ≤2 words missing; use `-` placeholders only for 3 missing words), `--addrs`/`--mpk`/`--addressdb`, `--addr-limit` |
+| BIP39 seed with up to 3 missing words | `seedrecover.py` | `--wallet-type bip39`, `--mnemonic` (no `-` placeholders needed if ≤2 words missing; use `-` placeholders only for 3 missing words), `--addrs`/`--mpk`/`--addressdb`, `--addr-limit 10` to start |
 | 12-word seed in wrong order | `seedrecover.py` | `--tokenlist` of the 12 words, plus an address or xpub |
 | SLIP39 shares | `seedrecover.py` | SLIP39 mode (see README "SLIP39") |
 | BIP38 encrypted private key | `btcrecover.py` | `--bip38-enc-privkey`, typos flags as above |
