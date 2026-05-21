@@ -1984,7 +1984,7 @@ describe your situation.</p>
 <ul>
 <li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)</li>
 <li><code>qwen/qwen3.5-9b</code> (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
-<li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, even without a GPU)</li>
+<li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
 <p>All three work well with the skills and with running local commands. The 27b model
 is <strong>much</strong> better overall, 9b is pretty good and 4b also works but will struggle to work out anything complex. </p>
@@ -2013,6 +2013,9 @@ requests and only ask for one skill at a time.</p>
    <code>build-password-tokenlist</code>, <code>locate-wallet-file</code>).</li>
 <li>Do not mix online brainstorming with offline secret-entry steps in the same
    prompt.</li>
+<li>For first-run command building, ask the agent not to over-specify tuning
+   flags (<code>--threads</code>, seed <code>--typos</code> / <code>--big-typos</code>) unless there is a clear
+   case requiring them.</li>
 </ol>
 <p>Example prompt sequence:</p>
 <ul>
@@ -2032,7 +2035,9 @@ requests and only ask for one skill at a time.</p>
   run."</em></li>
 <li><strong>Command build only (main skill step):</strong>
   <em>"Return to <code>SKILL.md</code> and do only Step 6: build the exact
-  <code>btcrecover.py</code>/<code>seedrecover.py</code> command with placeholders, then stop."</em></li>
+  <code>btcrecover.py</code>/<code>seedrecover.py</code> command with placeholders, keep defaults,
+  and do not add <code>--threads</code> or seed <code>--typos</code> / <code>--big-typos</code> unless I
+  explicitly ask for expansion, then stop."</em></li>
 <li><strong>Execution only (offline machine):</strong>
   <em>"Now do only the run/monitor step with the command we already built; do not
   redesign the tokenlist unless the run fails quickly."</em></li>
