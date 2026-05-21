@@ -346,8 +346,10 @@ abandon ability - about absorb - achieve acid acoustic acquire across act
 `seedrecover.py` will try all valid BIP39 candidates for each `-`. Three `-`
 placeholders is the practical upper limit; more is usually too slow. For the
 first run, prefer `seedrecover.py` defaults and do **not** add `--typos` or
-`--big-typos` manually unless the user explicitly says they have exactly three
-missing words **and** knows those exact positions.
+`--big-typos` manually. The only exception is when the user explicitly says
+they have exactly three missing words **and** knows those exact positions; even
+then, keep `-` placeholders as the primary mechanism and only add manual typo
+flags if the user explicitly asks to broaden beyond the default-first run.
 
 Also ask:
 
@@ -429,11 +431,13 @@ public key, or with `--addressdb <file.addrdb>` if using an AddressDB. Adjust
 generally not needed because BTCRecover's default derivation search is
 intentionally broad; only narrow paths when the user knows them. For a first
 attempt, keep seed typo flags at defaults (do not manually add `--typos` or
-`--big-typos`), and only add them if the user explicitly reports exactly three
-missing words with known positions. Also keep `--addr-limit` conservative on
-the first run (use `10` as the default starting point). Do not jump to large
-values like `100` unless the user has a concrete reason to do so (for example,
-they know the target address was generated much later).
+`--big-typos`). The only exception is when the user explicitly reports exactly
+three missing words with known positions; even then, use `-` placeholders first
+and add manual typo flags only if the user explicitly requests a broader pass.
+Also keep `--addr-limit` conservative on the first run (use `10` as the
+default starting point). Do not jump to large values like `100` unless the user
+has a concrete reason to do so (for example, they know the target address was
+generated much later).
 
 ### Password recovery shape (`btcrecover.py`)
 
