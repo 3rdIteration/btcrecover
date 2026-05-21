@@ -1932,7 +1932,7 @@
 </ol>
 <p>For a chat bot, you can simply prompt with:
 <strong>"Can you help me recover a wallet using https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"</strong></p>
-<p>Or if you ave downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
+<p>Or if you have downloaded and unzipped BTCRecover, you can select the folder using something like Claude and prompt:
 <strong>"Can you help me recover a wallet using the Skill.md from this repository</strong></p>
 <p>BTCRecover ships with a <a href="https://github.com/3rdIteration/btcrecover/blob/master/SKILL.md"><code>SKILL.md</code></a>
 file at the root of the repository. It is a structured prompt that teaches an
@@ -1987,7 +1987,7 @@ describe your situation.</p>
 <li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
 <p>All three work well with the skills and with running local commands. The 27b model
-is <strong>much</strong> better overall, 9b is pretty good and 4b also works but will struggle to work out anything complex. </p>
+is <strong>much</strong> better overall, 9b is pretty good and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
 <li>Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)</li>
