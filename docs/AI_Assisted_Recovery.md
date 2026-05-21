@@ -67,12 +67,11 @@ describe your situation.
 
 ### Tested local-model combinations (VS Code + Cline)
 
-* `qwen/qwen3.6-27b` (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)
+* `qwen/qwen3.6-27b` (Usable on 24 GB+ GPU like a 3090, 4090 or 5090, maybe on 16GB cards with )
 * `qwen/qwen3.5-9b` (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)
 * `qwen/qwen3.5-4b` (Usable on just about any modern system, but may be painfully slow without a GPU)
 
-All three work well with the skills and with running local commands. The 27b model
-is **much** better overall, 9b is pretty good and 4b muddles it's way through and will probably struggle to work out anything complex. **Anything below 4b parameters just gets stuck looping.**
+The 27b model is **much** better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. **Anything below 4b parameters just gets stuck looping.**
 
 ### Local LLM Settings to watch:
 * Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)
