@@ -344,7 +344,10 @@ abandon ability - about absorb - achieve acid acoustic acquire across act
 ```
 
 `seedrecover.py` will try all valid BIP39 candidates for each `-`. Three `-`
-placeholders is the practical upper limit; more is usually too slow.
+placeholders is the practical upper limit; more is usually too slow. For the
+first run, prefer `seedrecover.py` defaults and do **not** add `--typos` or
+`--big-typos` manually unless the user explicitly says they have exactly three
+missing words **and** knows those exact positions.
 
 Also ask:
 
@@ -416,7 +419,6 @@ python seedrecover.py \
     --mnemonic "<best-guess seed with - placeholders>" \
     --addrs <one or more known addresses> \
     --addr-limit 10 \
-    [--big-typos 3] \
     [--tokenlist seed_tokens.txt]    # for descrambling
 ```
 
@@ -425,7 +427,10 @@ public key, or with `--addressdb <file.addrdb>` if using an AddressDB. Adjust
 `--wallet-type` for the user's chain (e.g. `ethereum`, `cardano`, `solana`,
 …; see the README/Tutorial). Explicitly setting a specific derivation path is
 generally not needed because BTCRecover's default derivation search is
-intentionally broad; only narrow paths when the user knows them.
+intentionally broad; only narrow paths when the user knows them. For a first
+attempt, keep seed typo flags at defaults (do not manually add `--typos` or
+`--big-typos`), and only add them if the user explicitly reports exactly three
+missing words with known positions.
 
 ### Password recovery shape (`btcrecover.py`)
 
