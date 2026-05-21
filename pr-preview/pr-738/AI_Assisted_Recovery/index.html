@@ -1982,12 +1982,11 @@ describe your situation.</p>
 <h2 id="tested-models">Tested models</h2>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
-<li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090)</li>
+<li><code>qwen/qwen3.6-27b</code> (Usable on 24 GB+ GPU like a 3090, 4090 or 5090, maybe on 16GB cards with )</li>
 <li><code>qwen/qwen3.5-9b</code> (Usable on CPU or 8 GB GPU like a 3070 with 35,000 context)</li>
 <li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
-<p>All three work well with the skills and with running local commands. The 27b model
-is <strong>much</strong> better overall, 9b is pretty good and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
+<p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
 <li>Set context length to something like 35,000 regardless of model. (You generally set this in your LMStudio or Ollama)</li>
