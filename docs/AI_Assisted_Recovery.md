@@ -80,6 +80,49 @@ level of reasoning.
 
 ---
 
+## Use with less capable agents (e.g. smaller 9b models)
+
+Some smaller models struggle when asked to do the full multi-step recovery
+workflow in one go. Instead, run recovery as a sequence of short, explicit
+requests and only ask for one skill at a time.
+
+Recommended pattern:
+
+1. Keep each prompt narrow (one outcome only).
+2. Wait for output, confirm it looks correct, then send the next prompt.
+3. Explicitly name the skill you want used (`install-btcrecover`,
+   `build-password-tokenlist`, `locate-wallet-file`).
+4. Do not mix online brainstorming with offline secret-entry steps in the same
+   prompt.
+
+Example prompt sequence:
+
+* **Main skill kickoff (triage only):**
+  *"Use `SKILL.md`, run Step 1 triage only, and stop after you summarize what
+  recovery path I should use."*
+* **Install skill only:**
+  *"Use the `install-btcrecover` skill only. Detect my OS, check if BTCRecover
+  is already runnable, and then give me only the exact next install commands."*
+* **Wallet file location skill only (if needed):**
+  *"Use the `locate-wallet-file` skill only. Help me scan these folders and
+  return candidate wallet paths with matched fingerprint type, without printing
+  file contents."*
+* **Password/tokenlist skill only:**
+  *"Use the `build-password-tokenlist` skill only. Help me create a tokenlist
+  from my remembered fragments and propose conservative typo flags for a first
+  run."*
+* **Command build only (main skill step):**
+  *"Return to `SKILL.md` and do only Step 6: build the exact
+  `btcrecover.py`/`seedrecover.py` command with placeholders, then stop."*
+* **Execution only (offline machine):**
+  *"Now do only the run/monitor step with the command we already built; do not
+  redesign the tokenlist unless the run fails quickly."*
+
+This staged approach usually improves reliability with lower-capability models
+and makes it easier for you to verify each step before continuing.
+
+---
+
 ## Claude Code (Anthropic's terminal coding agent)
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) automatically
