@@ -1768,10 +1768,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#cloud-models-claude-desktop-or-claude-code" class="md-nav__link">
+  <a href="#cloud-models-claude-chatgpt-etc" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cloud Models (Claude Desktop or Claude Code)
+        Cloud Models (Claude, ChatGPT, etc)
       
     </span>
   </a>
@@ -1784,10 +1784,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#use-with-less-capable-agents-eg-smaller-9b-models" class="md-nav__link">
+  <a href="#use-with-less-capable-agents-eg-9b-and-4b-models" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Use with less capable agents (e.g. smaller 9b models)
+        Use with less capable agents (e.g. 9b and 4b models)
       
     </span>
   </a>
@@ -1983,27 +1983,28 @@ describe your situation.</p>
 <h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
 <ul>
 <li><code>qwen/qwen3.6-27b</code> (Usable on 24GB+ GPU like a 3090, 4090 or 5090)</li>
-<li><code>qwen/qwen3.5-9b</code> (Usable on 8GB GPU like a 3070, full performance with 20,000 context, disable KV cache GPU offload for context of up to 90k but halving LLM performance)</li>
+<li><code>qwen/qwen3.5-9b</code> (Usable on 8GB GPU like a 3070, full performance with 20,000 context, 9b models tend to become forgetful beyond this anyway)</li>
 <li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
 </ul>
 <p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
-<li>Set context length to at least 20,000 regardless of model, more if better if you can fit it all in vram. (LMStudio has a good estimator for this) If you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)</li>
-<li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)</li>
+<li><strong>Set context length to at least 20,000 regardless of model</strong>, more is generally better for larger models. (You generally set this in your LMStudio or Ollama)</li>
+<li>If you are using Cline, then enabling <strong>"Use Compact Prompt" will help it work much better</strong> as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)</li>
 </ul>
-<h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
-<ul>
-<li>Claude Sonnet 4.6</li>
-<li>Claude Haiku 4.5</li>
-</ul>
+<h3 id="cloud-models-claude-chatgpt-etc">Cloud Models (Claude, ChatGPT, etc)</h3>
+<p>Simply put, large cloud models should have no issue with this at all.</p>
+<p>Tested with:
+* Claude Sonnet 4.6
+* Claude Haiku 4.5</p>
 <p>Both work fine. Opus will have no problem at all but you shouldn't need that
 level of reasoning.</p>
 <hr />
-<h2 id="use-with-less-capable-agents-eg-smaller-9b-models">Use with less capable agents (e.g. smaller 9b models)</h2>
+<h2 id="use-with-less-capable-agents-eg-9b-and-4b-models">Use with less capable agents (e.g. 9b and 4b models)</h2>
 <p>Some smaller models struggle when asked to do the full multi-step recovery
-workflow in one go. Instead, run recovery as a sequence of short, explicit
-requests and only ask for one skill at a time.</p>
+workflow in one go. (Though may work fine, so it's worth trying first) </p>
+<p>If they get stuck, run recovery as a sequence of short, explicit
+requests and only ask for one skill at a time. </p>
 <p>Recommended pattern:</p>
 <ol>
 <li>Keep each prompt narrow (one outcome only).</li>
@@ -2190,11 +2191,6 @@ asks the agent to prompt you about this once your funds are safe.</p>
     
     <nav>
       
-        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
-          
-          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
-        </a>
-      
         <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
           
           <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
@@ -2203,6 +2199,11 @@ asks the agent to prompt you about this once your funds are safe.</p>
         <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
           
           <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
+        </a>
+      
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
+          
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
         </a>
       
       
@@ -2229,7 +2230,7 @@ asks the agent to prompt you about this once your funds are safe.</p>
       
 <ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
     Page Contributors
-    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li></ul>
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li></ul>
 </ul>
 <footer class="md-footer">
   
