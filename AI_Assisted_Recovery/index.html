@@ -1989,8 +1989,8 @@ describe your situation.</p>
 <p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
-<li>Set context length to at least 20,000 regardless of model, if you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)</li>
-<li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt include a bunch of stuff we don't need that just fills up the limited context of our local LLM. (Particularly noticable on less capable models and systems)</li>
+<li>Set context length to at least 20,000 regardless of model, more if better if you can fit it all in vram. (LMStudio has a good estimator for this) If you don't do this, your model will instantly forget the instructions in the skills, what you tell it, etc. (You generally set this in your LMStudio or Ollama)</li>
+<li>If you are using Cline, then enabling "Use Compact Prompt" will help it work <strong>much better</strong> as the default prompt includes about 10k tokens worth of stuff we don't need that just fills up the limited context and confuses our local LLM. (Particularly noticable on less capable models and systems)</li>
 </ul>
 <h3 id="cloud-models-claude-desktop-or-claude-code">Cloud Models (Claude Desktop or Claude Code)</h3>
 <ul>
