@@ -255,7 +255,7 @@ def load_scenarios(path: Path) -> list[dict[str, Any]]:
 
 def write_results(output_dir: Path, data: dict[str, Any]) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output_path = output_dir / f"skill_eval_{stamp}.json"
     output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return output_path
@@ -271,7 +271,7 @@ def main() -> int:
     try:
         scenarios = load_scenarios(scenarios_path)
         skill_bundle = load_skill_bundle(repo_root, args.skills)
-    except Exception as exc:  # pylint: disable=broad-except
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Failed to load inputs: {exc}", file=sys.stderr)
         return 1
 
@@ -293,7 +293,7 @@ def main() -> int:
                 max_turns=args.max_turns,
                 verbose=args.verbose,
             )
-        except Exception as exc:  # pylint: disable=broad-except
+        except (RuntimeError, json.JSONDecodeError, ValueError) as exc:
             print(f"Scenario failed ({scenario['id']}): {exc}", file=sys.stderr)
             result = {
                 "scenario_id": scenario["id"],
