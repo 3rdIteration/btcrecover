@@ -31,10 +31,63 @@ DEFAULT_OUTPUT_DIR = "skills/evaluation/results"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Evaluate skill quality for low-capability models using a judge/simulator model.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Per-model endpoint overrides:\n"
+            "  Use --candidate-base-url / --candidate-api-key for the model under test\n"
+            "  Use --judge-base-url     / --judge-api-key     for the judge/simulator model\n"
+            "  If the per-model flags are omitted they fall back to --base-url / --api-key,\n"
+            "  so a shared local LM Studio instance requires no extra flags.\n"
+            "\nExamples:\n"
+            "  # Both models on the same LM Studio instance (default)\n"
+            "  skill_eval_harness.py --candidate-model qwen2.5-7b --judge-model qwen3-27b\n"
+            "\n"
+            "  # Candidate on local LM Studio, judge on a remote/frontier API\n"
+            "  skill_eval_harness.py \\\n"
+            "    --candidate-model qwen2.5-7b \\\n"
+            "    --candidate-base-url http://127.0.0.1:1234/v1 \\\n"
+            "    --judge-model qwen3-27b \\\n"
+            "    --judge-base-url https://api.example.com/v1 \\\n"
+            "    --judge-api-key sk-..."
+        ),
     )
     parser.add_argument("--candidate-model", required=True, help="Model under test (e.g. qwen2.5-7b-instruct)")
     parser.add_argument("--judge-model", required=True, help="Judge+user simulator model (e.g. qwen3-27b)")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="OpenAI-compatible API base URL")
+
+    # Shared fallback endpoint (used when the per-model overrides are not set)
+    parser.add_argument(
+        "--base-url",
+        default=DEFAULT_BASE_URL,
+        help="Fallback OpenAI-compatible API base URL for both models (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--api-key",
+        default="lm-studio",
+        help="Fallback API key for both models (default: %(default)s)",
+    )
+
+    # Per-model endpoint overrides
+    parser.add_argument(
+        "--candidate-base-url",
+        default=None,
+        help="Base URL for the candidate model; overrides --base-url when set",
+    )
+    parser.add_argument(
+        "--candidate-api-key",
+        default=None,
+        help="API key for the candidate model; overrides --api-key when set",
+    )
+    parser.add_argument(
+        "--judge-base-url",
+        default=None,
+        help="Base URL for the judge model; overrides --base-url when set",
+    )
+    parser.add_argument(
+        "--judge-api-key",
+        default=None,
+        help="API key for the judge model; overrides --api-key when set",
+    )
+
     parser.add_argument(
         "--skills",
         nargs="+",
@@ -46,7 +99,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-turns", type=int, default=8, help="Hard stop for dialogue turns per scenario")
     parser.add_argument("--candidate-temperature", type=float, default=0.2)
     parser.add_argument("--judge-temperature", type=float, default=0.2)
-    parser.add_argument("--api-key", default="lm-studio", help="API key if endpoint requires one")
     parser.add_argument("--verbose", action="store_true", help="Print per-turn transcript to stdout")
     return parser.parse_args()
 
@@ -168,7 +220,8 @@ def build_judge_prompt(
 
 
 def run_scenario(
-    client: ChatClient,
+    candidate_client: ChatClient,
+    judge_client: ChatClient,
     candidate_model: str,
     judge_model: str,
     candidate_temperature: float,
@@ -187,14 +240,14 @@ def run_scenario(
 
     for turn_idx in range(1, scenario_turn_limit + 1):
         candidate_messages = [{"role": "system", "content": candidate_system}] + transcript
-        assistant_reply = client.chat_completion(
+        assistant_reply = candidate_client.chat_completion(
             model=candidate_model,
             messages=candidate_messages,
             temperature=candidate_temperature,
         ).strip()
         transcript.append({"role": "assistant", "content": assistant_reply})
 
-        judge_reply = client.chat_completion(
+        judge_reply = judge_client.chat_completion(
             model=judge_model,
             messages=build_judge_prompt(scenario, transcript, turn_idx),
             temperature=judge_temperature,
@@ -275,7 +328,15 @@ def main() -> int:
         print(f"Failed to load inputs: {exc}", file=sys.stderr)
         return 1
 
-    client = ChatClient(base_url=args.base_url, api_key=args.api_key)
+    # Build per-model clients, falling back to the shared --base-url / --api-key
+    candidate_client = ChatClient(
+        base_url=args.candidate_base_url or args.base_url,
+        api_key=args.candidate_api_key or args.api_key,
+    )
+    judge_client = ChatClient(
+        base_url=args.judge_base_url or args.base_url,
+        api_key=args.judge_api_key or args.api_key,
+    )
     candidate_system = candidate_system_prompt(skill_bundle)
 
     scenario_results = []
@@ -283,7 +344,8 @@ def main() -> int:
         print(f"Running scenario: {scenario['id']}")
         try:
             result = run_scenario(
-                client=client,
+                candidate_client=candidate_client,
+                judge_client=judge_client,
                 candidate_model=args.candidate_model,
                 judge_model=args.judge_model,
                 candidate_temperature=args.candidate_temperature,
@@ -308,10 +370,11 @@ def main() -> int:
     overall_score = sum(item["total_score"] for item in scenario_results)
     report = {
         "meta": {
-            "timestamp_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "base_url": args.base_url,
+            "timestamp_utc": dt.datetime.now(tz=dt.timezone.utc).isoformat(),
             "candidate_model": args.candidate_model,
+            "candidate_base_url": candidate_client.base_url,
             "judge_model": args.judge_model,
+            "judge_base_url": judge_client.base_url,
             "scenario_count": len(scenario_results),
             "overall_score": overall_score,
         },
