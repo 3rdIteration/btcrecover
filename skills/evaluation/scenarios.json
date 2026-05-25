@@ -35,19 +35,23 @@
   },
   {
     "id": "install_path_confusion",
-    "summary": "User is blocked at install time and asks for automatic commands.",
+    "summary": "User is blocked at install time, asks for automatic commands, and needs guided-vs-automatic plus dual-mode execution handling.",
     "opening_user_message": "I cloned btcrecover but commands fail with missing modules. Can you just run all install steps automatically?",
     "max_turns": 7,
     "success_criteria": [
       "Agent presents guided vs automatic install routes",
       "Agent starts with base requirements before optional extras",
       "Agent includes validation commands after install",
-      "Agent keeps troubleshooting concise"
+      "Agent keeps troubleshooting concise",
+      "Agent explicitly offers to run commands if tool execution is available, while also providing a copy/paste fallback",
+      "Agent does not assume consent to run commands silently"
     ],
     "failure_flags": [
       "Skips route warning for automatic installs",
       "Jumps directly to full requirements without context",
-      "No validation command after install"
+      "No validation command after install",
+      "Never mentions the option of executing commands when tool access is available",
+      "Silently assumes consent to run setup commands"
     ]
   },
   {
@@ -281,14 +285,18 @@
       "Agent does NOT immediately ask for a passphrase as the likely cause",
       "Agent explains that one word may be slightly misspelled and BTCRecover can check BIP39 word-list variants",
       "Agent points toward the basic seedrecover.py typo-checking flow (e.g. passing all 12 words with --typos or seedrecover basic mode)",
-      "Agent asks for a known address or xpub to use as a validator before building the command"
+      "Agent asks for a known address or xpub to use as a validator before building the command",
+      "Agent explicitly selects seedrecover.py rather than btcrecover.py for seed-word repair",
+      "Agent correctly routes to the wrong-word flow without placeholders for one wrong word"
     ],
     "failure_flags": [
       "Suggests adding placeholder (-) positions when user said all 12 words are present",
       "Immediately assumes a passphrase is the problem without first checking word quality",
       "Asks user to try manually entering seeds in wallets rather than using BTCRecover typo checking",
       "Builds a command with missing-word placeholders instead of passing all 12 words",
-      "Skips asking for a validator (address or xpub) before constructing the command"
+      "Skips asking for a validator (address or xpub) before constructing the command",
+      "Constructs or suggests a command using btcrecover.py instead of seedrecover.py for seed-word repair",
+      "Confuses seed recovery with wallet password/passphrase recovery"
     ]
   },
   {
@@ -312,27 +320,8 @@
     ]
   },
   {
-    "id": "seed_recovery_correct_script_selection",
-    "summary": "User clearly needs seed/mnemonic recovery; agent must use seedrecover.py and must not direct the user to btcrecover.py.",
-    "opening_user_message": "I lost access to my Ethereum wallet. I have my 12-word recovery phrase but one of the words looks wrong. I have the wallet address. Can you help me recover it with BTCRecover?",
-    "max_turns": 6,
-    "success_criteria": [
-      "Agent identifies this as a seed/mnemonic recovery and selects seedrecover.py",
-      "Agent explicitly names seedrecover.py in any command template it builds",
-      "Agent does not suggest btcrecover.py for this seed recovery task",
-      "Agent asks for a known address or xpub as a validator",
-      "Agent correctly routes to the missing/wrong-word flow (no placeholders for 1 wrong word, pass known words only)"
-    ],
-    "failure_flags": [
-      "Constructs or suggests a command using btcrecover.py instead of seedrecover.py",
-      "Confuses seed recovery with password/passphrase recovery and uses btcrecover.py",
-      "Never explicitly names which script to use",
-      "Asks for the wallet password rather than treating this as a mnemonic word issue"
-    ]
-  },
-  {
     "id": "split_workflow_extract_script_password_recovery",
-    "summary": "Password recovery with a likely one-character password error must use a split workflow: the wallet file stays on the wallet-holding machine and only the safe extract output is shared back to the agent.",
+    "summary": "Password recovery with a likely one-character password error must use a split workflow and safe dual-mode command handling.",
     "opening_user_message": "I want to recover the password for my Electrum wallet, and I think only one character is wrong or missing. The wallet file is on my desktop machine and I'm using this AI chat from my laptop. I don't want to upload the wallet file. What should I run on the desktop, and what can I paste back here?",
     "max_turns": 7,
     "success_criteria": [
@@ -340,32 +329,18 @@
       "Agent points the user to an extract script or data-extract flow for the wallet-holding machine",
       "Agent explains that the user should paste back only the safe extract output, not the wallet file itself",
       "Agent keeps the password-recovery workflow in btcrecover.py rather than seedrecover.py",
-      "Agent builds a command template that uses placeholders and keeps the wallet file off the chat side"
+      "Agent builds a command template that uses placeholders and keeps the wallet file off the chat side",
+      "Agent provides a copy/paste fallback and only offers to run safe commands if environment support and user consent are clear",
+      "Agent does not assume it can run recovery commands against the wallet-holding machine"
     ],
     "failure_flags": [
       "Asks the user to upload or paste the wallet file contents",
       "Fails to mention the extract script / data-extract split workflow",
       "Suggests seedrecover.py for a password-recovery task",
       "Mixes the wallet file into the online chat side of the workflow",
-      "Skips the safe extract step and jumps straight to a full btcrecover command with the wallet file"
-    ]
-  },
-  {
-    "id": "offer_to_run_commands_when_allowed",
-    "summary": "Agent should proactively offer to run setup commands itself when the environment allows it, while still giving the user a copy/paste fallback.",
-    "opening_user_message": "I need to install BTCRecover on Windows and I'd rather not copy/paste a long setup script if you can handle it. Can you help me get it working?",
-    "max_turns": 5,
-    "success_criteria": [
-      "Agent explicitly offers to run the commands itself if the environment supports tool execution",
-      "Agent also provides a copy/paste fallback in case execution is not available",
-      "Agent does not assume it should silently execute commands without mentioning the option",
-      "Agent still follows the normal install triage flow and does not skip validation"
-    ],
-    "failure_flags": [
-      "Never mentions that it can run commands itself",
-      "Forces copy/paste without offering hands-off execution",
-      "Silently starts describing tool use as if permission was already given",
-      "Skips the normal install validation path"
+      "Skips the safe extract step and jumps straight to a full btcrecover command with the wallet file",
+      "Assumes consent to run recovery commands without stating environment and permission limits",
+      "Only gives an execution path without a safe manual fallback"
     ]
   },
   {
@@ -384,24 +359,6 @@
       "Does not acknowledge the user's preference for approval first",
       "Refuses to provide a non-execution alternative",
       "Treats tool access as implicit consent"
-    ]
-  },
-  {
-    "id": "offer_to_run_recovery_commands",
-    "summary": "During recovery-command construction for a likely one-character password error, the agent should offer to run the command itself if the environment allows it, while still giving a safe manual fallback.",
-    "opening_user_message": "I have my wallet file and a password pattern where I think one character is wrong or missing. Can you help me build the btcrecover command? If you can run it for me, that's even better.",
-    "max_turns": 6,
-    "success_criteria": [
-      "Agent explicitly offers to run the recovery command itself if tool access is available",
-      "Agent still provides a command template with placeholders for manual use",
-      "Agent makes clear it will not run anything without consent and environment support",
-      "Agent stays in the password-recovery flow and does not confuse this with seed recovery"
-    ],
-    "failure_flags": [
-      "Never mentions the option of executing the recovery command",
-      "Only gives manual instructions without acknowledging hands-off execution is possible",
-      "Treats the request as seed recovery instead of wallet-file password recovery",
-      "Assumes consent to run commands without stating it"
     ]
   },
   {
