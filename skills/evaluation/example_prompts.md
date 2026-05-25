@@ -78,3 +78,37 @@ Run the same scenario file against multiple candidates and compare output JSON
 - OpenClaw 8B
 
 Keep judge model and judge endpoint fixed for consistent scoring.
+
+## 6) Batch JSON with disabled candidates and per-candidate model swapping
+
+Use `--suite-config` to queue candidates from JSON. Set `"enabled": false` to
+keep a candidate in the file without running it. Set
+`"same_system_swap_unload": true` on candidates that require explicit LM Studio
+unload/load swaps with the judge model.
+
+```json
+{
+  "shared": {
+    "scenarios": "skills/evaluation/scenarios.json",
+    "same_system_swap_unload": false
+  },
+  "candidates": [
+    {
+      "label": "qwen-small",
+      "candidate_model": "qwen2.5-7b-instruct",
+      "enabled": true
+    },
+    {
+      "label": "local-large-needs-swap",
+      "candidate_model": "qwen3-32b",
+      "same_system_swap_unload": true,
+      "same_system_swap_sleep_seconds": 4
+    },
+    {
+      "label": "parked-experiment",
+      "candidate_model": "experimental-model",
+      "enabled": false
+    }
+  ]
+}
+```

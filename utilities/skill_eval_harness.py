@@ -722,12 +722,26 @@ def load_suite_config(path: Path) -> dict[str, Any]:
         raise ValueError("Suite config must contain a non-empty 'runs' array.")
 
     runs: list[dict[str, Any]] = []
+    disabled_count = 0
     for idx, item in enumerate(runs_value, 1):
         if not isinstance(item, dict):
             raise ValueError(f"Suite run #{idx} must be a JSON object.")
+        enabled = item.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ValueError(f"Suite run #{idx} field 'enabled' must be a boolean when provided.")
+        if not enabled:
+            disabled_count += 1
+            continue
         candidate_model = item.get("candidate_model", item.get("model"))
         if not candidate_model:
             raise ValueError(f"Suite run #{idx} missing 'candidate_model'.")
+        same_system_swap_unload = item.get("same_system_swap_unload")
+        if same_system_swap_unload is None:
+            same_system_swap_unload = item.get("model_swap_required", item.get("requires_model_swap"))
+        if same_system_swap_unload is not None and not isinstance(same_system_swap_unload, bool):
+            raise ValueError(
+                f"Suite run #{idx} field 'same_system_swap_unload' must be a boolean when provided."
+            )
         runs.append(
             {
                 "candidate_model": str(candidate_model),
@@ -737,8 +751,12 @@ def load_suite_config(path: Path) -> dict[str, Any]:
                 "candidate_temperature": item.get("candidate_temperature"),
                 "label": item.get("label"),
                 "trial_count": item.get("trial_count"),
+                "same_system_swap_unload": same_system_swap_unload,
+                "same_system_swap_sleep_seconds": item.get("same_system_swap_sleep_seconds"),
             }
         )
+    if not runs:
+        raise ValueError("Suite config must contain at least one enabled run.")
 
     shared = payload.get("shared", {})
     if not isinstance(shared, dict):
@@ -757,6 +775,7 @@ def load_suite_config(path: Path) -> dict[str, Any]:
 
     return {
         "runs": runs,
+        "disabled_run_count": disabled_count,
         "shared": shared,
         "skill_roots": skill_roots,
     }
@@ -2510,10 +2529,12 @@ def main() -> int:
             apply_shared_overrides(args, suite_config["shared"])
             candidate_runs = suite_config["runs"]
             suite_skill_roots = suite_config.get("skill_roots")
+            disabled_run_count = int(suite_config.get("disabled_run_count", 0))
         except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
             print(f"Failed to load suite config: {exc}", file=sys.stderr)
             return 1
     else:
+        disabled_run_count = 0
         if not args.candidate_model:
             print("Missing --candidate-model (or provide --suite-config).", file=sys.stderr)
             return 1
@@ -2600,6 +2621,8 @@ def main() -> int:
         loaded = root_assets["loaded_skill_paths"]
         print(f"  - {root} ({len(loaded)} skill file(s))")
     print(f"[info] Candidate runs queued: {len(candidate_runs)}")
+    if disabled_run_count:
+        print(f"[info] Candidate runs disabled by suite config: {disabled_run_count}")
     print(f"[info] Trial count per run: {suite_trial_count}")
 
     run_plan: list[dict[str, Any]] = []
@@ -2653,6 +2676,16 @@ def main() -> int:
             if run_cfg.get("candidate_temperature") is not None
             else float(args.candidate_temperature)
         )
+        run_same_system_swap_unload = (
+            bool(run_cfg["same_system_swap_unload"])
+            if run_cfg.get("same_system_swap_unload") is not None
+            else bool(args.same_system_swap_unload)
+        )
+        run_same_system_swap_sleep_seconds = (
+            float(run_cfg["same_system_swap_sleep_seconds"])
+            if run_cfg.get("same_system_swap_sleep_seconds") is not None
+            else float(args.same_system_swap_sleep_seconds)
+        )
 
         candidate_api_key = _resolve_candidate_api_key(run_cfg, args, candidate_label)
 
@@ -2664,7 +2697,7 @@ def main() -> int:
             retry_delay=args.retry_delay,
         )
         same_system_swap_active = bool(
-            args.same_system_swap_unload
+            run_same_system_swap_unload
             and _same_system_host(candidate_client.base_url, judge_client.base_url)
         )
         default_candidate_system = candidate_system_prompt(
@@ -2680,6 +2713,7 @@ def main() -> int:
         print(f"  Candidate base  : {candidate_client.base_url}")
         print(f"  Skill root      : {skill_root}")
         print(f"  Trial           : {trial_index}/{trial_count}")
+        print(f"  Model swapping  : {'enabled' if run_same_system_swap_unload else 'disabled'}")
         print(f"{'=' * 72}")
 
         scenario_results = []
@@ -2838,8 +2872,8 @@ def main() -> int:
                     docker_sandbox=sandbox,
                     tool_max_calls=args.tool_max_calls,
                     tool_grace_turns=args.tool_grace_turns,
-                    same_system_swap_unload=args.same_system_swap_unload,
-                    same_system_swap_sleep_seconds=args.same_system_swap_sleep_seconds,
+                    same_system_swap_unload=run_same_system_swap_unload,
+                    same_system_swap_sleep_seconds=run_same_system_swap_sleep_seconds,
                     judge_response_max_attempts=args.judge_response_max_attempts,
                 )
             except (RuntimeError, json.JSONDecodeError, ValueError) as exc:
@@ -2967,8 +3001,8 @@ def main() -> int:
                 "candidate_base_url": candidate_client.base_url,
                 "candidate_temperature": candidate_temperature,
                 "candidate_switch_delay": args.candidate_switch_delay,
-                "same_system_swap_unload": bool(args.same_system_swap_unload),
-                "same_system_swap_sleep_seconds": float(args.same_system_swap_sleep_seconds),
+                "same_system_swap_unload": run_same_system_swap_unload,
+                "same_system_swap_sleep_seconds": run_same_system_swap_sleep_seconds,
                 "runner": args.runner,
                 "docker_image": args.docker_image if args.runner == "docker" else None,
                 "docker_host_working_folder": str(docker_host_working_folder) if args.runner == "docker" else None,
