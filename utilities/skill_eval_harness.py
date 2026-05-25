@@ -467,7 +467,7 @@ def parse_args() -> argparse.Namespace:
         "--docker-working-folder",
         default=".",
         help=(
-            "Host folder mounted into Docker sandbox. "
+            "Host folder copied into each Docker sandbox. "
             "Default is current working directory where the eval command is run."
         ),
     )
@@ -927,10 +927,6 @@ class DockerSandbox:
             "--rm",
             "--name",
             self.container_name,
-            "-v",
-            f"{self.host_working_folder}:{self.container_workdir}",
-            "-w",
-            self.container_workdir,
             self.image,
             "bash",
             "-lc",
@@ -944,8 +940,64 @@ class DockerSandbox:
         self.started = True
         if not self.keep_container:
             _ACTIVE_SANDBOX_CONTAINERS.add(self.container_name)
+        try:
+            self._copy_workspace_into_container()
+        except RuntimeError:
+            if not self.keep_container:
+                subprocess.run(
+                    ["docker", "rm", "-f", self.container_name],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                _ACTIVE_SANDBOX_CONTAINERS.discard(self.container_name)
+                self.started = False
+            raise
         self._known_networks = self._list_connected_networks()
         self._offline = len(self._known_networks) == 0
+
+    def _copy_workspace_into_container(self) -> None:
+        mkdir_cmd = [
+            "docker",
+            "exec",
+            self.container_name,
+            "bash",
+            "-lc",
+            f"mkdir -p {shlex.quote(self.container_workdir)}",
+        ]
+        mkdir_proc = subprocess.run(
+            mkdir_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if mkdir_proc.returncode != 0:
+            raise RuntimeError(
+                "Failed to prepare Docker workspace directory: "
+                f"{mkdir_proc.stderr.strip() or mkdir_proc.stdout.strip()}"
+            )
+
+        source = f"{self.host_working_folder}{os.sep}."
+        copy_cmd = [
+            "docker",
+            "cp",
+            source,
+            f"{self.container_name}:{self.container_workdir}",
+        ]
+        copy_proc = subprocess.run(
+            copy_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if copy_proc.returncode != 0:
+            raise RuntimeError(
+                "Failed to copy host workspace into Docker sandbox: "
+                f"{copy_proc.stderr.strip() or copy_proc.stdout.strip()}"
+            )
 
     def stop(self) -> None:
         if not self.started or self.keep_container:
@@ -1064,7 +1116,16 @@ class DockerSandbox:
         if not self.started:
             raise RuntimeError("Docker sandbox is not running.")
         effective_timeout = int(timeout or self.command_timeout)
-        cmd = ["docker", "exec", self.container_name, "bash", "-lc", command]
+        cmd = [
+            "docker",
+            "exec",
+            "-w",
+            self.container_workdir,
+            self.container_name,
+            "bash",
+            "-lc",
+            command,
+        ]
         try:
             proc = subprocess.run(
                 cmd,
@@ -2612,7 +2673,7 @@ def main() -> int:
     print(f"[info] Runner: {args.runner}")
     if args.runner == "docker":
         print(f"[info] Docker image: {args.docker_image}")
-        print(f"[info] Docker host working folder: {docker_host_working_folder}")
+        print(f"[info] Docker workspace source: {docker_host_working_folder}")
         print(f"[info] Docker container workdir: {args.docker_workdir_in_container}")
         print(f"[info] Docker lifecycle: {args.docker_lifecycle}")
     print(f"[info] Skill roots queued: {len(skill_roots)}")
@@ -2744,7 +2805,7 @@ def main() -> int:
                 keep_container=args.docker_keep_container,
             )
             print(f"  Docker sandbox image: {args.docker_image}")
-            print(f"  Docker sandbox mount: {docker_host_working_folder} -> {args.docker_workdir_in_container}")
+            print(f"  Docker sandbox copy: {docker_host_working_folder} -> {args.docker_workdir_in_container}")
             print("  Docker sandbox scope: trial (reused across scenarios)")
             trial_sandbox.start()
 
@@ -2854,7 +2915,7 @@ def main() -> int:
                         keep_container=args.docker_keep_container,
                     )
                     print(f"  Docker sandbox image: {args.docker_image}")
-                    print(f"  Docker sandbox mount: {docker_host_working_folder} -> {args.docker_workdir_in_container}")
+                    print(f"  Docker sandbox copy: {docker_host_working_folder} -> {args.docker_workdir_in_container}")
                     print("  Docker sandbox scope: scenario (fresh per scenario)")
                     sandbox.start()
 
