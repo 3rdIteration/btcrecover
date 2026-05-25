@@ -157,7 +157,7 @@
   {
     "id": "install_linux_externally_managed",
     "summary": "Ubuntu 23.04+ user hits PEP 668 externally-managed-environment error.",
-    "opening_user_message": "Running Ubuntu 23.10. I did the apt install step and now I try:\n\n$ pip3 install -r requirements.txt\nerror: externally-managed-environment\n\nx This environment is externally managed\n\u2570\u2500> To install Python packages system-wide, either use a virtual\n    environment or use the system package manager.\n    If you wish to override this, use: pip3 install --break-system-packages\n\nnote: If you believe this is a mistake, please contact your Python installation or OS distribution maintainers.\nhint: See PEP 668 for the precise meaning of this error.\n\nI just want to get this running, what's the fastest option?",
+    "opening_user_message": "Running Ubuntu 23.10. I did the apt install step and now I try:\n\n$ pip3 install -r requirements.txt\nerror: externally-managed-environment\n\nx This environment is externally managed\n╰─> To install Python packages system-wide, either use a virtual\n    environment or use the system package manager.\n    If you wish to override this, use: pip3 install --break-system-packages\n\nnote: If you believe this is a mistake, please contact your Python installation or OS distribution maintainers.\nhint: See PEP 668 for the precise meaning of this error.\n\nI just want to get this running, what's the fastest option?",
     "max_turns": 6,
     "success_criteria": [
       "Agent presents both venv and --break-system-packages options",
@@ -402,6 +402,126 @@
       "Only gives manual instructions without acknowledging hands-off execution is possible",
       "Treats the request as seed recovery instead of wallet-file password recovery",
       "Assumes consent to run commands without stating it"
+    ]
+  },
+  {
+    "id": "bip39_passphrase_25th_word_recovery",
+    "summary": "User has a valid seed but suspects a wrong BIP39 passphrase/25th word; agent must route to btcrecover.py passphrase recovery rather than seedrecover.py seed-word repair.",
+    "opening_user_message": "My 12-word seed restores fine, but the wallet is empty unless I use the right passphrase. I think my BIP39 passphrase / 25th word has one typo. I have a receiving address. Which btcrecover command should I use?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent recognises this as BIP39 passphrase/25th-word recovery, not seed-word recovery",
+      "Agent selects btcrecover.py with --bip39, not seedrecover.py",
+      "Agent asks for or uses a passwordlist/tokenlist of passphrase guesses",
+      "Agent includes a validator such as --addrs with conservative --addr-limit guidance",
+      "Agent keeps the real seed/passphrase as placeholders until offline/safe handling is established"
+    ],
+    "failure_flags": [
+      "Routes BIP39 passphrase recovery to seedrecover.py",
+      "Treats the passphrase typo as a missing/wrong seed word problem",
+      "Suggests '-' seed placeholders or seed typo flags for the passphrase",
+      "Builds a command without a validator address/xpub/addressdb",
+      "Asks for the real seed or passphrase in online chat"
+    ]
+  },
+  {
+    "id": "bip38_encrypted_private_key_recovery",
+    "summary": "User has a BIP38 encrypted paper-wallet private key and password guesses; agent must use the BIP38 btcrecover.py flow.",
+    "opening_user_message": "I found an old BIP38 encrypted paper wallet. It starts with 6P and I have a short list of likely passwords. I do not have a wallet file or seed phrase. Can BTCRecover help?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent identifies this as BIP38 encrypted private key recovery",
+      "Agent selects btcrecover.py with --bip38-enc-privkey",
+      "Agent uses a passwordlist or tokenlist for password guesses",
+      "Agent does not ask for a wallet file or seed phrase",
+      "Agent mentions --bip38-currency only when the key is for a non-Bitcoin coin"
+    ],
+    "failure_flags": [
+      "Routes the task to seedrecover.py",
+      "Asks the user to locate a wallet file or provide a mnemonic",
+      "Omits --bip38-enc-privkey from the command shape",
+      "Treats the encrypted private key as a raw private key repair task",
+      "Suggests unbounded brute force without a passwordlist/tokenlist"
+    ]
+  },
+  {
+    "id": "raw_private_key_repair_tokenlist",
+    "summary": "User has a damaged raw private key/WIF and known address; agent must use rawprivatekey repair with a tokenlist and validator.",
+    "opening_user_message": "I have an old Bitcoin private key backup, but two characters are smudged. I know the address it belongs to. I can describe the missing positions, but I don't want to paste the full key here. What workflow should I use?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent recognises this as raw private key repair, not wallet password or seed recovery",
+      "Agent selects btcrecover.py with --rawprivatekey",
+      "Agent recommends building a tokenlist/passwordlist with placeholders for damaged characters",
+      "Agent uses the known address as validator, or AddressDB only if no address is available",
+      "Agent avoids asking the user to paste the full private key in online chat"
+    ],
+    "failure_flags": [
+      "Routes the task to seedrecover.py",
+      "Asks for the full private key in chat before offline/safe separation",
+      "Builds a wallet-file password command with --wallet",
+      "Skips address or AddressDB validation",
+      "Omits --rawprivatekey from the command shape"
+    ]
+  },
+  {
+    "id": "seed_descrambling_tokenlist_flow",
+    "summary": "User has all 12 seed words but believes the order is scrambled; agent should use the --dsw tokenlist descrambling flow with practical limits.",
+    "opening_user_message": "I have all 12 words from my seed, but I wrote them in the wrong order. I also have a Bitcoin receiving address. How should I use BTCRecover for a descramble?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent recognises this as explicit seed descrambling because the user says order is wrong",
+      "Agent selects seedrecover.py with --dsw and a tokenlist of the words",
+      "Agent includes --mnemonic-length 12 and a validator address/xpub/addressdb",
+      "Agent explains 12-word descrambling is practical while larger/full 24-word descrambling is usually not",
+      "Agent does not use normal missing-word defaults as the primary workflow"
+    ],
+    "failure_flags": [
+      "Says not to descramble even though user explicitly states order is wrong",
+      "Routes the task to btcrecover.py password recovery",
+      "Builds a command without --dsw or tokenlist flow",
+      "Asks for the real seed words in online chat rather than placeholders/offline handling",
+      "Claims 24-word full descrambling is generally practical without strong anchors"
+    ]
+  },
+  {
+    "id": "slip39_share_repair_flow",
+    "summary": "User has a damaged SLIP39 share; agent must distinguish SLIP39 share repair from BIP39 seed/passphrase recovery.",
+    "opening_user_message": "One word in my Shamir / SLIP39 recovery share is unreadable. I still have the other shares needed for the wallet. Can BTCRecover fix the damaged share?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent identifies this as SLIP39 share repair",
+      "Agent selects seedrecover.py with --slip39 for the damaged share",
+      "Agent does not treat the share as a normal BIP39 seed phrase",
+      "Agent asks only for non-secret structure details until offline/safe handling is established",
+      "Agent mentions installing the SLIP39 targeted extra if the dependency is missing"
+    ],
+    "failure_flags": [
+      "Routes the task to btcrecover.py BIP39 passphrase recovery",
+      "Treats the SLIP39 share as a standard BIP39 mnemonic",
+      "Asks for the full quorum of real shares in online chat",
+      "Builds a command without --slip39",
+      "Claims BTCRecover cannot help with damaged SLIP39 shares"
+    ]
+  },
+  {
+    "id": "blockchain_legacy_recovery_mnemonic",
+    "summary": "User has an old Blockchain.info legacy recovery mnemonic that recovers a wallet password; agent must use the blockchainpasswordv3 seedrecover flow, not BIP39 seed recovery.",
+    "opening_user_message": "I have an old Blockchain.info recovery phrase from years ago. It is 17 words and I was told it recovers my old wallet password, not a modern seed wallet. What BTCRecover mode is this?",
+    "max_turns": 6,
+    "success_criteria": [
+      "Agent recognises this as a Blockchain.info legacy recovery mnemonic, not BIP39",
+      "Agent selects seedrecover.py with --wallet-type blockchainpasswordv3",
+      "Agent includes --mnemonic-length matching the word count",
+      "Agent explains it recovers the old wallet password and does not derive wallet addresses like BIP39",
+      "Agent does not require an address/xpub validator for this checksum/password recovery flow"
+    ],
+    "failure_flags": [
+      "Treats the phrase as a standard BIP39 seed",
+      "Routes the task to btcrecover.py --bip39 passphrase recovery",
+      "Requires a receiving address or xpub before acknowledging the correct workflow",
+      "Builds a command without --wallet-type blockchainpasswordv3",
+      "Claims the phrase should be used directly in a modern wallet app"
     ]
   }
 ]

@@ -8,7 +8,7 @@ description: Build a BTCRecover passwordlist or tokenlist with practical typo se
 Use this for:
 
 * `btcrecover.py` password/passphrase recovery (including BIP38).
-* `seedrecover.py` BIP39 passphrase (25th-word) recovery.
+* `btcrecover.py --bip39` BIP39 passphrase (25th-word) recovery.
 
 Docs:
 

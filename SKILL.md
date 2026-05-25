@@ -30,6 +30,12 @@ Script routing quick card:
 
 * Seed words/mnemonic/SLIP39 => `seedrecover.py`.
 * Wallet-file password/passphrase/BIP38 => `btcrecover.py`.
+* BIP39 passphrase / "25th word" => `btcrecover.py --bip39` with
+  `--mnemonic`, `--passwordlist` or `--tokenlist`, and validator.
+* Raw private key repair => `btcrecover.py --rawprivatekey`; use guesses in a
+  tokenlist/passwordlist plus address or AddressDB.
+* Blockchain.com legacy recovery mnemonic => `seedrecover.py --wallet-type
+  blockchainpasswordv3`; it is not a BIP39 wallet seed.
 * Split workflow with wallet file kept off-agent => extract script +
   `btcrecover.py --data-extract`.
 * If uncertain, ask one disambiguation question before building commands.
@@ -66,8 +72,9 @@ Example prompt:
 * If 1–2 words are missing: do not use `-` placeholders; pass known words only.
 * If 3 words are missing: use `-` placeholders at missing positions.
 * Do not suggest descrambling unless the user explicitly says order is wrong.
-* 12-word descrambling can be attempted with tokenlist flow; 24-word
-  descrambling is generally impractical.
+* 12-word descrambling can be attempted with `--dsw` tokenlist flow.
+* 24-word full descrambling is generally impractical; only consider token/group
+  flows when the user knows ordered word groups or strong anchors.
 * If user reports "invalid mnemonic", triage as seed-word quality/order issue
   first (not passphrase first).
 
@@ -207,8 +214,10 @@ It should return:
 1. file path (`--passwordlist` or `--tokenlist` input), and
 2. typo flags.
 
-For BIP39 passphrase (25th word), same skill output is used with seedrecover
-passphrase arguments.
+For BIP39 passphrase/25th-word recovery: build the passwordlist or tokenlist
+here, then use `btcrecover.py --bip39` with the mnemonic, validator, and
+passwordlist/tokenlist. Do not route BIP39 passphrase recovery to
+`seedrecover.py`.
 
 ### 5b) Seed/mnemonic material
 
@@ -308,6 +317,21 @@ python btcrecover.py \
 
 Use typo flags from build-password-tokenlist sub-skill. Start conservatively,
 then expand if first pass fails.
+
+Special command shapes from usage examples:
+
+* BIP39 passphrase:
+  `python btcrecover.py --bip39 --mnemonic "<seed>" --addrs <address> --addr-limit 10 --passwordlist passwords.txt`
+* BIP38:
+  `python btcrecover.py --bip38-enc-privkey <encrypted-key> --passwordlist passwords.txt`
+* Raw private key repair:
+  `python btcrecover.py --rawprivatekey --addrs <address> --wallet-type <coin> --tokenlist keys.txt`
+* Descrambling:
+  `python seedrecover.py --dsw --mnemonic-length 12 --tokenlist words.txt --addrs <address> --wallet-type bip39`
+* SLIP39 share repair:
+  `python seedrecover.py --slip39 --mnemonic "<damaged share>"`
+* Blockchain.com legacy recovery mnemonic:
+  `python seedrecover.py --wallet-type blockchainpasswordv3 --mnemonic "<legacy words>" --mnemonic-length <count>`
 
 Before long runs, sanity-check candidate count/ETA. If ETA is excessive,
 reduce token/typo space before launching.
