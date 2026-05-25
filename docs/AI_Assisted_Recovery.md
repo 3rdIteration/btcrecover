@@ -89,6 +89,37 @@ level of reasoning.
 
 ---
 
+## Benchmarking models with `skill_eval_harness.py`
+
+If you want a repeatable way to estimate how well a model follows `SKILL.md`,
+use the local evaluation harness in `utilities/skill_eval_harness.py`.
+
+Typical one-off run:
+
+```bash
+python utilities/skill_eval_harness.py \
+  --candidate-model qwen3.5-9b \
+  --candidate-base-url http://127.0.0.1:1234/v1 \
+  --judge-model qwen/qwen3.6-27b
+```
+
+For repeatability, use `--suite-config` and queue multiple candidate runs using
+the same judge/scenario set. You can also test the same candidate against
+multiple `skill_roots` in one batch.
+
+After a few passes, compare these fields from each results JSON:
+
+* `meta.overall_score`
+* `meta.overall_score_percent.of_theoretical_max`
+* `meta.overall_score_percent.of_executed_turn_ceiling`
+* per-scenario `total_score` and `violation_tags`
+
+Those numbers make it easier to see whether a model is actually improving on
+script selection, safety sequencing, install handling, and split-workflow rules
+instead of relying on single-chat impressions.
+
+---
+
 ## Use with less capable agents (e.g. 9b and 4b models)
 
 Some smaller models struggle when asked to do the full multi-step recovery
