@@ -24,6 +24,11 @@ Offer exactly two routes:
 1. Guided (recommended): user runs copy/paste commands, you debug.
 2. Automatic (higher risk): agent runs commands if user explicitly accepts.
 
+When command execution may be available, use this explicit wording:
+
+> "You have two options: (a) I can run these install commands for you here if
+> you say 'go ahead', or (b) you can copy and paste them and run them yourself."
+
 Also clarify timing: install/validation happens online first; offline switch
 happens later before real secrets are used.
 
@@ -44,6 +49,14 @@ Never install from piecemeal file downloads; require full repo checkout/zip.
 ## Step 2 – Detect OS
 
 Detect before commands (`platform.system()`, `uname`, or Termux indicators).
+Use the matching shell syntax only:
+
+* Linux/macOS/Termux: `python3`, `pip3`, POSIX paths, `ping -c`.
+* Windows PowerShell: `python`, `py -m pip` if needed, Windows paths,
+  `ping -n`.
+
+If a command fails, do not repeat it unchanged. Diagnose the error, adjust the
+route, or ask the user for the missing detail.
 
 ## Step 3 – Dependency scope selection
 
@@ -103,6 +116,9 @@ Install required Homebrew packages from `docs/INSTALL.md`, then install base
 requirements. If full requirements flow needs Rust, install it first.
 Do not rely on restricted system Python for package installs; use Homebrew
 Python path for normal setup.
+System Python on macOS is intentionally restricted from installing third-party
+packages; use Homebrew Python or a virtual environment rather than treating this
+as a BTCRecover bug.
 
 ### Termux (experimental)
 

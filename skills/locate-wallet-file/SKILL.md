@@ -10,6 +10,15 @@ Use this when the user cannot find wallet files or suspects renamed files.
 Safety: scanning can be guided online as long as file contents are not pasted
 into chat and never leave the user's machine.
 
+Before any local scan, explicitly offer both modes:
+
+> "You have two options: (a) I can run the scan commands for you here if you
+> say 'go ahead', or (b) you can copy and paste them and run them yourself."
+
+Use OS-matching commands only (POSIX paths for Linux/macOS/Termux; PowerShell
+paths and syntax for Windows). If a scan command fails, do not repeat it
+unchanged; diagnose the error or narrow the scan path.
+
 ## When to invoke
 
 * User does not know wallet location.

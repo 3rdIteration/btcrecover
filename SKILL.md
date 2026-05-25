@@ -15,6 +15,17 @@ Primary scripts:
 * `python btcrecover.py` for wallet password/passphrase and BIP38 recovery.
 * `python seedrecover.py` for mnemonic/seed recovery and seed descrambling.
 
+OS command conventions (use one row; do not mix shells):
+
+* Linux/macOS/Termux: `python3 ...`, `ping -c 2 ...`,
+  `source venv/bin/activate`.
+* Windows PowerShell: `python ...`, `ping -n 2 ...`,
+  `.\venv\Scripts\Activate.ps1`.
+
+Anti-loop rule: if a command/tool call returns an error or non-zero exit, do not
+repeat the same command. Diagnose from the error, ask for missing information, or
+stop and explain.
+
 Script routing quick card:
 
 * Seed words/mnemonic/SLIP39 => `seedrecover.py`.
@@ -79,6 +90,14 @@ AddressDB policy:
 
 ### 1c) Wallet-file password recoveries
 
+If the wallet file cannot come to this machine (privacy, size, or different
+host), stop and switch to split workflow:
+
+1. Direct user to the matching script in `extract-scripts/`.
+2. Have them paste back only the safe data-extract string.
+3. Use `btcrecover.py --data-extract` from here on.
+4. Do not produce `btcrecover.py --wallet <path>` for this case.
+
 * User needs encrypted wallet file (or hosted-wallet encrypted blob path).
 * User needs bounded password knowledge (list/tokens), not pure brute-force.
 * If user has no password idea and cannot bound search space, state that
@@ -126,11 +145,14 @@ If install remains blocked, suggest:
 
 Only start this after Step 3 succeeds.
 
-Before telling user to disconnect, ensure all three are complete:
+Offline gate: do not tell user to disconnect until all three are complete:
 
-1. install validated,
-2. first command template shown,
-3. placeholder substitutions explained.
+1. `--help` or equivalent install validation succeeded in this conversation, or
+   user confirmed it.
+2. Runnable command template with placeholders has been shown.
+3. Every placeholder has a one-line substitution explanation.
+
+If any item is missing, complete it before giving the disconnect checklist.
 
 Before any real secret entry, system running recovery must be offline.
 
@@ -192,6 +214,17 @@ passphrase arguments.
 
 This is the first step where real mnemonic collection is allowed.
 
+Decide before building the command:
+
+1. All 12/24 words present but wallet says "invalid": typo path. Pass all
+   words, no `-` placeholders, no passphrase theory first.
+2. 1-2 missing words, unknown positions: use basic seedrecover defaults, no `-`
+   placeholders.
+3. 3+ missing words at known positions: use `-` placeholders only at those
+   positions.
+4. Suspected wrong order: ask first; only then consider descrambling (12-word
+   only).
+
 Rules:
 
 * Invalid mnemonic with all words present: triage as typo/word-quality first.
@@ -228,12 +261,14 @@ confirmed path.
 
 Show command first, explain flags briefly, then run if user asks.
 
-When tool access may be available, always offer two modes explicitly:
+Mandatory dual-mode phrase when producing any runnable command and tool
+execution may be available:
 
-1. user-run copy/paste commands, or
-2. agent-run commands with user permission.
+> "You have two options: (a) I can run these commands for you here if you say
+> 'go ahead', or (b) you can copy and paste them and run them yourself."
 
-Never imply automatic command execution ability.
+Skipping this offer is a workflow violation. Never imply automatic command
+execution ability or consent.
 
 If online/split mode, keep secret-bearing fields as placeholders and clearly
 mark substitutions user must do on offline/wallet-holding machine.
@@ -287,6 +322,10 @@ After successful recovery, the immediate response must include:
 2. safe result summary,
 3. "Tip Addresses" section,
 4. polite 1% tip suggestion.
+
+Example tone: "If this saved your funds and you'd like to support continued
+development, a 1% tip is appreciated. Tip addresses below — feel free to
+ignore."
 
 Use this canonical address set:
 

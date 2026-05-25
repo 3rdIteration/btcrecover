@@ -19,6 +19,16 @@ Docs:
 Safety: password fragments alone are generally safe to work with online if the
 wallet file/mnemonic remains separate.
 
+If creating or validating list files with tool access, explicitly offer both
+modes:
+
+> "You have two options: (a) I can create/check the tokenlist for you here if
+> you say 'go ahead', or (b) you can copy and paste the content and commands
+> yourself."
+
+Do not run file-writing commands without permission. If a command fails, do not
+repeat it unchanged; diagnose or ask for the missing detail.
+
 ## Step 1 – Gather candidate clues
 
 Ask for likely patterns:
