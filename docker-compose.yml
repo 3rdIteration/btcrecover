@@ -1,0 +1,46 @@
+# BTCRecover Docker Compose
+#
+# Usage:
+#   Basic requirements (Bitcoin/Ethereum wallets):
+#     docker compose up btcrecover
+#     docker compose run --rm btcrecover python btcrecover.py --help
+#
+#   Full requirements (all wallet types):
+#     docker compose up btcrecover-full
+#     docker compose run --rm btcrecover-full python btcrecover.py --help
+#
+#   Run tests:
+#     docker compose run --rm btcrecover python run-all-tests.py -vv
+#
+#   Interactive shell:
+#     docker compose run --rm btcrecover bash
+
+services:
+  # Basic version - Bitcoin/Ethereum wallet recovery
+  btcrecover:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS: basic
+    image: btcrecover:basic
+    volumes:
+      # Mount a local directory for wallet files and output
+      - ./data:/btcrecover/data
+    working_dir: /btcrecover
+    stdin_open: true
+    tty: true
+
+  # Full version - All wallet types including Solana, Cosmos, Polkadot, etc.
+  btcrecover-full:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS: full
+    image: btcrecover:full
+    volumes:
+      - ./data:/btcrecover/data
+    working_dir: /btcrecover
+    stdin_open: true
+    tty: true
