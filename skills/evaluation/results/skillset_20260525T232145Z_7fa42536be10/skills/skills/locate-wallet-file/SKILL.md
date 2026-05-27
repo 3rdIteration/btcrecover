@@ -31,12 +31,6 @@ unchanged; diagnose the error or narrow the scan path.
 2. Suspected wallet software/chain if known.
 3. Permission to read files in those paths.
 
-Hard rule: do not emit any `btcrecover.py` or `seedrecover.py` command for a
-wallet-file path until this skill has returned a confirmed file path. If the
-user asks for the recovery command first, stop and complete the locate step.
-If no candidate is found, do not invent a placeholder `--wallet` path; report
-the locations scanned and the next places to try.
-
 ## Fingerprint-first identification
 
 Do not rely on filenames. Use internal signatures validated against samples in

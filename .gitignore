@@ -22,3 +22,4 @@ docs/Benchmarks.md
 /.venv
 *-venv*
 /.vscode
+*batch_eval_suite*.json

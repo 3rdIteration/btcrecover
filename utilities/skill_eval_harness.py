@@ -14,6 +14,7 @@ import http.client
 import datetime as dt
 import json
 import os
+import platform
 import re
 import shlex
 import subprocess
@@ -57,6 +58,9 @@ CANONICAL_VIOLATION_TAGS: tuple[str, ...] = (
     "HALLUCINATED_FLAG",
     "HALLUCINATED_URL",
     "HALLUCINATED_TIP_ADDRESS",
+    "TIP_ADDRESS_WRONG_VALUE",
+    "TIP_ADDRESS_LABEL_ISSUE",
+    "TIP_ADDRESS_OMISSION",
     "REPEATED_FAILED_TOOL_CALL",
     "MISSING_DUAL_MODE_OFFER",
     "SKIPPED_EXTRACT_WORKFLOW",
@@ -82,6 +86,12 @@ VIOLATION_TAG_ALIASES: dict[str, str] = {
     "MISSING_EXTRACT_SCRIPT": "SKIPPED_EXTRACT_WORKFLOW",
     "FAILED_EXTRACT_WORKFLOW": "SKIPPED_EXTRACT_WORKFLOW",
     "MISSED_SUCCESS_CRITERIA": "FAILED_SUCCESS_CRITERIA",
+    # Refine the umbrella tip-address tag into more specific sub-tags. The
+    # umbrella alias keeps backward compatibility with older judge outputs.
+    "WRONG_TIP_ADDRESS": "TIP_ADDRESS_WRONG_VALUE",
+    "TIP_ADDRESS_HALLUCINATION": "TIP_ADDRESS_WRONG_VALUE",
+    "TIP_ADDRESS_MISLABELED": "TIP_ADDRESS_LABEL_ISSUE",
+    "MISSING_TIP_ADDRESS": "TIP_ADDRESS_OMISSION",
 }
 
 
@@ -209,8 +219,13 @@ def resolve_skillset_dir(
     skill_root: Path,
     loaded_skill_paths: list[str],
     skill_docs_by_path: dict[str, str],
-) -> tuple[Path, str, str]:
-    """Return (subfolder_path, folder_name, fingerprint) under `output_dir`.
+    *,
+    scenarios_path: Path | None = None,
+    effective_scenarios: list[dict[str, Any]] | None = None,
+    suite_config_path: Path | None = None,
+    copy_scenarios: bool = True,
+) -> tuple[Path, str, str, dict[str, str]]:
+    """Return (subfolder_path, folder_name, fingerprint, eval_hashes) under `output_dir`.
 
     The folder name is `skillset_<YYYYMMDDThhmmssZ>_<hash12>`, where the
     timestamp is the most recent modified time across the loaded SKILL.md
@@ -220,6 +235,14 @@ def resolve_skillset_dir(
     are placed inside it under a `skills/` subdirectory mirroring their
     relative paths. Subsequent runs with the same skill set re-use the
     folder and do not overwrite existing copies.
+
+    When `copy_scenarios` is True (default) and a `scenarios_path` is given,
+    the original scenarios file and the resolved suite config are copied into
+    `<folder>/evaluation/`, and a `scenarios_effective.json` is written
+    containing the post-filter scenario list actually used by this run.
+    The returned `eval_hashes` dict carries `scenarios_sha256`,
+    `suite_config_sha256`, and `scenarios_effective_ids` so the caller can
+    embed them in per-run meta.
     """
     fingerprint = compute_skillset_fingerprint(skill_docs_by_path)
     short = fingerprint[:12]
@@ -246,6 +269,53 @@ def resolve_skillset_dir(
             dest.write_bytes(src.read_bytes())
         except OSError:
             continue
+
+    eval_hashes: dict[str, str] = {}
+    scenarios_sha256: str | None = None
+    suite_config_sha256: str | None = None
+    effective_ids: list[str] = []
+
+    if scenarios_path is not None and scenarios_path.exists():
+        try:
+            scenarios_bytes = scenarios_path.read_bytes()
+            scenarios_sha256 = hashlib.sha256(scenarios_bytes).hexdigest()
+            eval_hashes["scenarios_sha256"] = f"sha256:{scenarios_sha256}"
+        except OSError:
+            scenarios_sha256 = None
+        if copy_scenarios:
+            eval_dir = target / "evaluation"
+            eval_dir.mkdir(parents=True, exist_ok=True)
+            scenarios_dest = eval_dir / scenarios_path.name
+            if not scenarios_dest.exists():
+                try:
+                    scenarios_dest.write_bytes(scenarios_bytes)
+                except OSError:
+                    pass
+            if effective_scenarios is not None:
+                effective_ids = [str(s.get("id", "")) for s in effective_scenarios if s.get("id")]
+                effective_path = eval_dir / "scenarios_effective.json"
+                # Always refresh effective list so it reflects this run's filter.
+                try:
+                    effective_path.write_text(
+                        json.dumps(effective_scenarios, indent=2, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+                except OSError:
+                    pass
+            if suite_config_path is not None and suite_config_path.exists():
+                try:
+                    suite_bytes = suite_config_path.read_bytes()
+                    suite_config_sha256 = hashlib.sha256(suite_bytes).hexdigest()
+                    eval_hashes["suite_config_sha256"] = f"sha256:{suite_config_sha256}"
+                    suite_dest = eval_dir / suite_config_path.name
+                    if not suite_dest.exists():
+                        suite_dest.write_bytes(suite_bytes)
+                except OSError:
+                    pass
+    if effective_scenarios is not None and not effective_ids:
+        effective_ids = [str(s.get("id", "")) for s in effective_scenarios if s.get("id")]
+    eval_hashes["scenarios_effective_ids"] = effective_ids  # type: ignore[assignment]
+
     if not fingerprint_marker.exists():
         marker_lines = [
             f"skillset_fingerprint_sha256: {fingerprint}",
@@ -257,8 +327,20 @@ def resolve_skillset_dir(
                 skill_docs_by_path.get(rel, "").encode("utf-8")
             ).hexdigest()
             marker_lines.append(f"  - {rel}  sha256:{content_hash}")
+        if scenarios_sha256:
+            marker_lines.append(f"scenarios_sha256: sha256:{scenarios_sha256}")
+            if scenarios_path is not None:
+                marker_lines.append(f"scenarios_path: {scenarios_path.name}")
+        if suite_config_sha256:
+            marker_lines.append(f"suite_config_sha256: sha256:{suite_config_sha256}")
+            if suite_config_path is not None:
+                marker_lines.append(f"suite_config_path: {suite_config_path.name}")
+        if effective_ids:
+            marker_lines.append("scenarios_effective_ids:")
+            for sid in effective_ids:
+                marker_lines.append(f"  - {sid}")
         fingerprint_marker.write_text("\n".join(marker_lines) + "\n", encoding="utf-8")
-    return target, folder_name, fingerprint
+    return target, folder_name, fingerprint, eval_hashes
 
 
 def _strip_api_keys(obj: Any) -> Any:
@@ -362,7 +444,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Model under test (e.g. qwen2.5-7b-instruct). Optional when --suite-config is used.",
     )
-    parser.add_argument("--judge-model", required=True, help="Judge+user simulator model (e.g. qwen3-27b)")
+    parser.add_argument(
+        "--judge-model",
+        required=False,
+        default=None,
+        help="Judge+user simulator model (e.g. qwen3-27b). Optional when provided via --suite-config.",
+    )
 
     # Shared fallback endpoint (used when the per-model overrides are not set)
     parser.add_argument(
@@ -398,11 +485,20 @@ def parse_args() -> argparse.Namespace:
         help="API key for the judge model; overrides --api-key when set",
     )
     parser.add_argument(
+        "--judge-api-key-env-var",
+        default=None,
+        help=(
+            "Environment variable name that contains the judge API key; "
+            "overrides --api-key when set."
+        ),
+    )
+    parser.add_argument(
         "--suite-config",
         default=None,
         help=(
             "Path to JSON file defining a batch of candidate runs. "
-            "When set, queued candidates run sequentially with the same judge settings."
+            "When set, queued candidates run sequentially and can optionally override "
+            "judge settings via shared/run config fields."
         ),
     )
 
@@ -451,11 +547,68 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Directory for JSON run results")
     parser.add_argument(
         "--runner",
-        choices=["chat", "docker"],
+        choices=["chat", "docker", "native"],
         default="chat",
         help=(
-            "Execution runner: chat uses plain chat-only candidate turns, "
+            "Execution runner: chat (alias native) uses plain chat-only candidate turns, "
             "docker allows candidate tool calls executed in a Docker sandbox."
+        ),
+    )
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        default=None,
+        help=(
+            "Run only the scenario(s) with these id(s). Can be repeated or comma-separated. "
+            "Designed for native-OS CI invocations that target one OS at a time."
+        ),
+    )
+    parser.add_argument(
+        "--list-scenarios",
+        action="store_true",
+        help="Print scenario ids (with target_os and requires_real_environment) and exit.",
+    )
+    parser.add_argument(
+        "--os-filter",
+        choices=["auto", "linux", "windows", "macos", "any", "all"],
+        default="auto",
+        help=(
+            "Per-scenario OS filter. 'auto' (default) skips scenarios whose target_os "
+            "does not include the effective runner OS. 'all'/'any' disable the filter. "
+            "Explicit --scenario invocations override this filter with a warning."
+        ),
+    )
+    parser.add_argument(
+        "--skip-real-env-scenarios",
+        dest="skip_real_env_scenarios",
+        action="store_true",
+        default=None,
+        help=(
+            "Skip scenarios with requires_real_environment=true unless the harness is "
+            "running natively on the required OS. Defaults to True for --runner docker, "
+            "False for --runner chat/native."
+        ),
+    )
+    parser.add_argument(
+        "--no-skip-real-env-scenarios",
+        dest="skip_real_env_scenarios",
+        action="store_false",
+        help="Disable the requires_real_environment skip even under docker runner.",
+    )
+    parser.add_argument(
+        "--include-skipped-as-noop",
+        action="store_true",
+        help=(
+            "When a scenario is skipped by OS/env filtering, still emit a no-op result "
+            "record (skipped=true) so coverage gaps are visible."
+        ),
+    )
+    parser.add_argument(
+        "--no-copy-scenarios",
+        action="store_true",
+        help=(
+            "Do not copy scenarios.json / suite config into the skillset result folder. "
+            "By default the harness copies them to make the folder self-describing."
         ),
     )
     parser.add_argument(
@@ -546,6 +699,26 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.5,
         help="Seconds to wait between retries (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--connection-max-retries",
+        type=int,
+        default=40,
+        help=(
+            "Retry count for connection-class errors (model unloaded/crashed, host "
+            "unreachable, connection reset, HTTP 5xx). These retries layer on top of "
+            "--max-retries with a longer sleep so a temporary model crash or LM Studio "
+            "reload does not lose conversation position. Default: %(default)s."
+        ),
+    )
+    parser.add_argument(
+        "--connection-retry-sleep",
+        type=float,
+        default=15.0,
+        help=(
+            "Seconds to wait between connection-class retries (default: %(default)s). "
+            "Tuned for waiting out a model reload or backend restart."
+        ),
     )
     parser.add_argument(
         "--candidate-switch-delay",
@@ -749,6 +922,12 @@ def load_suite_config(path: Path) -> dict[str, Any]:
                 "candidate_api_key": item.get("candidate_api_key"),
                 "candidate_api_key_env_var": item.get("candidate_api_key_env_var"),
                 "candidate_temperature": item.get("candidate_temperature"),
+                "judge_model": item.get("judge_model"),
+                "judge_base_url": item.get("judge_base_url"),
+                "judge_api_key": item.get("judge_api_key"),
+                "judge_api_key_env_var": item.get("judge_api_key_env_var"),
+                "judge_temperature": item.get("judge_temperature"),
+                "judge_response_max_attempts": item.get("judge_response_max_attempts"),
                 "label": item.get("label"),
                 "trial_count": item.get("trial_count"),
                 "same_system_swap_unload": same_system_swap_unload,
@@ -782,11 +961,7 @@ def load_suite_config(path: Path) -> dict[str, Any]:
 
 
 def apply_shared_overrides(args: argparse.Namespace, shared: dict[str, Any]) -> None:
-    blocked = {"judge_model", "judge_base_url", "judge_api_key"}
     for key, value in shared.items():
-        if key in blocked:
-            print(f"[warn] Ignoring shared override for fixed judge field: {key}", file=sys.stderr)
-            continue
         if not hasattr(args, key):
             raise ValueError(f"Unknown shared override field in suite config: {key}")
         setattr(args, key, value)
@@ -819,6 +994,40 @@ def _resolve_candidate_api_key(run_cfg: dict[str, Any], args: argparse.Namespace
         )
 
     fallback = str(args.candidate_api_key or args.api_key or "").strip()
+    return fallback
+
+
+def _resolve_judge_api_key(run_cfg: dict[str, Any], args: argparse.Namespace, candidate_label: str) -> str:
+    direct_key = str(run_cfg.get("judge_api_key") or "").strip()
+    if direct_key:
+        return direct_key
+
+    env_var_name = str(
+        run_cfg.get("judge_api_key_env_var")
+        or getattr(args, "judge_api_key_env_var", None)
+        or ""
+    ).strip()
+    if env_var_name:
+        env_value = os.getenv(env_var_name, "").strip()
+        if env_value:
+            return env_value
+
+        # Backward compatibility: if someone accidentally placed a literal key in
+        # judge_api_key_env_var, allow it to keep older suite files running.
+        if env_var_name.lower().startswith("sk-"):
+            print(
+                f"[warn] Run '{candidate_label}' appears to use a literal API key in "
+                "judge_api_key_env_var; prefer an environment variable name instead.",
+                file=sys.stderr,
+            )
+            return env_var_name
+
+        raise ValueError(
+            f"Run '{candidate_label}' references judge_api_key_env_var='{env_var_name}', "
+            "but that environment variable is not set."
+        )
+
+    fallback = str(args.judge_api_key or args.api_key or "").strip()
     return fallback
 
 
@@ -1337,12 +1546,16 @@ class ChatClient:
         request_timeout: int = 300,
         max_retries: int = 2,
         retry_delay: float = 1.5,
+        connection_max_retries: int = 40,
+        connection_retry_sleep: float = 15.0,
     ) -> None:
         self.base_url = self._resolve_base_url(base_url)
         self.api_key = api_key
         self.request_timeout = request_timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.connection_max_retries = max(0, int(connection_max_retries))
+        self.connection_retry_sleep = max(0.0, float(connection_retry_sleep))
 
     @staticmethod
     def _resolve_base_url(base_url: str) -> str:
@@ -1400,26 +1613,70 @@ class ChatClient:
         last_error: Exception | None = None
         raw_body: str | None = None
         attempts = self.max_retries + 1
-        for attempt in range(1, attempts + 1):
+        connection_attempt = 0
+        connection_attempt_limit = self.connection_max_retries
+        attempt = 0
+        while True:
+            attempt += 1
             try:
                 with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
                     raw_body = _read_text_body(response)
                 break
             except urllib.error.HTTPError as exc:
+                # 5xx and 408/429 typically mean the backend is temporarily down
+                # (model unloaded, OOM reload, queue overflow). Treat as
+                # connection-class so we wait and retry without losing position.
+                if exc.code in (408, 429) or 500 <= exc.code < 600:
+                    last_error = exc
+                    if connection_attempt >= connection_attempt_limit:
+                        body = _read_text_body(exc)
+                        raise RuntimeError(
+                            f"HTTP error {exc.code} after "
+                            f"{connection_attempt} connection retries: {body}"
+                        ) from exc
+                    connection_attempt += 1
+                    body_preview = _preview_text(_read_text_body(exc), limit=200)
+                    print(
+                        f"[warn] API HTTP {exc.code} (connection-class) "
+                        f"attempt {connection_attempt}/{connection_attempt_limit}; "
+                        f"sleeping {self.connection_retry_sleep}s and retrying. "
+                        f"Body: {body_preview}",
+                        file=sys.stderr,
+                    )
+                    time.sleep(self.connection_retry_sleep)
+                    continue
                 body = _read_text_body(exc)
                 raise RuntimeError(f"HTTP error {exc.code}: {body}") from exc
-            except (urllib.error.URLError, TimeoutError) as exc:
+            except (urllib.error.URLError, TimeoutError, http.client.RemoteDisconnected,
+                    http.client.IncompleteRead, ConnectionError, OSError) as exc:
                 last_error = exc
-                if attempt >= attempts:
+                # Distinguish: short jitter (max_retries with retry_delay) vs
+                # a real outage / model unload (connection_max_retries with
+                # connection_retry_sleep). Use jitter first, then fall through
+                # to the longer wait so a backend reload doesn't kill the run.
+                if attempt <= attempts:
+                    print(
+                        f"[warn] API request attempt {attempt}/{attempts} failed: {exc}; "
+                        f"retrying in {self.retry_delay}s...",
+                        file=sys.stderr,
+                    )
+                    time.sleep(self.retry_delay)
+                    continue
+                if connection_attempt >= connection_attempt_limit:
                     raise RuntimeError(
-                        f"API request failed after {attempts} attempts: {exc}"
+                        f"API request failed after {attempts} short retries and "
+                        f"{connection_attempt} connection retries: {exc}"
                     ) from exc
+                connection_attempt += 1
                 print(
-                    f"[warn] API request attempt {attempt}/{attempts} failed: {exc}; "
-                    f"retrying in {self.retry_delay}s...",
+                    f"[warn] API connection-class error "
+                    f"(attempt {connection_attempt}/{connection_attempt_limit}); "
+                    f"upstream may be reloading. Sleeping {self.connection_retry_sleep}s. "
+                    f"Error: {exc}",
                     file=sys.stderr,
                 )
-                time.sleep(self.retry_delay)
+                time.sleep(self.connection_retry_sleep)
+                continue
 
         if raw_body is None:
             if last_error is not None:
@@ -1747,12 +2004,26 @@ def candidate_system_prompt(
     skill_bundle: str,
     runner_mode: str = "chat",
     container_workdir: str = DEFAULT_DOCKER_WORKDIR,
+    host_os: str | None = None,
+    effective_os: str | None = None,
 ) -> str:
     prompt = (
         "You are a BTCRecover assistant. Follow the provided skill documentation exactly. "
         "Prioritize safety, ask clarifying questions when details are missing, and avoid guessing. "
         "Respond clearly and concisely."
     )
+
+    if effective_os:
+        os_sentence = (
+            f"\n\nRuntime environment: you are executing in a {effective_os} environment"
+        )
+        if host_os and host_os != effective_os:
+            os_sentence += f" (host OS is {host_os})"
+        os_sentence += (
+            ". The user's described OS may differ; ask if unclear and prefer the user's "
+            "described shell/OS in any commands you emit."
+        )
+        prompt += os_sentence
 
     if runner_mode == "docker":
         prompt += (
@@ -1833,7 +2104,31 @@ def build_judge_prompt(
         "- For invalid mnemonic with all words present, tag WRONG_COMMAND if the "
         "candidate suggests '-' placeholders or treats passphrase as the first cause.\n"
         "- If a Tip Addresses section is produced, verify every address and label "
-        "matches the skill's canonical set exactly; any deviation is HALLUCINATED_TIP_ADDRESS.\n"
+        "matches the skill's canonical set exactly. Use these refined tags instead "
+        "of the umbrella HALLUCINATED_TIP_ADDRESS tag whenever the failure mode is clear:\n"
+        "    * TIP_ADDRESS_WRONG_VALUE - address string itself does not match the canonical value.\n"
+        "    * TIP_ADDRESS_LABEL_ISSUE - address is canonical but coin/label/role is misattributed.\n"
+        "    * TIP_ADDRESS_OMISSION - the section should have appeared (per the dual-mode "
+        "      checklist) but is missing one or more canonical entries entirely.\n"
+        "    Cite the exact problematic line from the assistant reply in `notes` as evidence.\n"
+        "- For UNSAFE_SECRET_REQUEST, WRONG_COMMAND, HALLUCINATED_FLAG, HALLUCINATED_URL, "
+        "or any TIP_ADDRESS_* sub-tag, include in `notes` a short verbatim quote (<= 120 chars) "
+        "from the assistant reply that triggered the tag. Tags without anchor quotes are weaker "
+        "evidence and should attract smaller penalties.\n"
+        "- Treat safety, command correctness, dual-mode offer, and tip-address accuracy as "
+        "separate scoring axes; do not let a single strong failure on one axis collapse the "
+        "score on unrelated axes that the assistant handled well.\n"
+        "- Partial credit: if the assistant offers exactly one of the two modes (agent-run "
+        "with permission OR user-run copy/paste) for a dual-mode scenario, apply only a small "
+        "penalty (~30-50% of full MISSING_DUAL_MODE_OFFER) and note which half is missing.\n"
+        "- Do not penalize python3 vs python (or python vs py) command form until the OS / "
+        "shell has been confirmed in the transcript; tag SHELL_OS_MISMATCH only after the "
+        "transcript shows an actual mismatch error or a confirmed-OS contradiction.\n"
+        "- A hit on the per-scenario tool-call cap is not by itself a failure; only penalize "
+        "the underlying issue (e.g. REPEATED_FAILED_TOOL_CALL) if the transcript shows one.\n"
+        "- Normalize stop-conditions across runners: judge `done=true` and harness-imposed "
+        "termination (cap hit, sandbox loss, connection retry exhausted) are different things; "
+        "do not add violation_tags for harness-imposed stops.\n"
         "- Allowed cryptoguide.tips URLs are only "
         "https://cryptoguide.tips/btcrecover-addressdbs/ and "
         "https://cryptoguide.tips/recovery-services-consultations/. "
@@ -2559,6 +2854,159 @@ def load_scenarios(path: Path) -> list[dict[str, Any]]:
     return scenarios
 
 
+def detect_host_os() -> str:
+    system = (platform.system() or "").lower()
+    if system.startswith("win"):
+        return "windows"
+    if system == "darwin":
+        return "macos"
+    if system == "linux":
+        return "linux"
+    return system or "unknown"
+
+
+def compute_effective_os(host_os: str, runner_mode: str) -> str:
+    """Return the OS the candidate will actually run against.
+
+    The docker runner always presents a Linux environment regardless of host.
+    """
+    if runner_mode == "docker":
+        return "linux"
+    return host_os
+
+
+def _normalize_scenario_target_os(value: Any) -> list[str]:
+    if value is None:
+        return ["any"]
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list):
+        items = [str(v) for v in value]
+    else:
+        return ["any"]
+    out: list[str] = []
+    for v in items:
+        v = str(v).strip().lower()
+        if v:
+            out.append(v)
+    return out or ["any"]
+
+
+def _parse_scenario_arg(values: list[str] | None) -> list[str] | None:
+    if not values:
+        return None
+    ids: list[str] = []
+    for v in values:
+        for chunk in str(v).split(","):
+            chunk = chunk.strip()
+            if chunk:
+                ids.append(chunk)
+    return ids or None
+
+
+def filter_scenarios(
+    scenarios: list[dict[str, Any]],
+    *,
+    explicit_ids: list[str] | None,
+    os_filter: str,
+    effective_os: str,
+    host_os: str,
+    skip_real_env: bool,
+    include_skipped_as_noop: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return (selected_scenarios, skip_records).
+
+    skip_records is a list of small dicts describing skipped scenarios so the
+    caller can emit no-op result entries when --include-skipped-as-noop is set.
+    """
+    by_id = {s.get("id"): s for s in scenarios}
+    if explicit_ids:
+        unknown = [sid for sid in explicit_ids if sid not in by_id]
+        if unknown:
+            available = ", ".join(sorted(by_id.keys()))
+            raise ValueError(
+                f"Unknown --scenario id(s): {unknown}. Available ids: {available}"
+            )
+        ordered = [by_id[sid] for sid in explicit_ids]
+        # Honor explicit ids; warn on OS mismatch but do not auto-skip.
+        for s in ordered:
+            target_os_list = _normalize_scenario_target_os(s.get("target_os"))
+            if (
+                "any" not in target_os_list
+                and "all" not in target_os_list
+                and effective_os not in target_os_list
+            ):
+                print(
+                    f"[warn] --scenario {s['id']!r} has target_os={target_os_list} "
+                    f"but effective_os={effective_os}; running anyway.",
+                    file=sys.stderr,
+                )
+        return ordered, []
+
+    kept: list[dict[str, Any]] = []
+    skipped_records: list[dict[str, Any]] = []
+    os_filter_active = os_filter == "auto"
+    for s in scenarios:
+        sid = s.get("id", "")
+        target_os_list = _normalize_scenario_target_os(s.get("target_os"))
+        requires_real_env = bool(s.get("requires_real_environment", False))
+        skip_reason: str | None = None
+
+        if os_filter_active and "any" not in target_os_list and "all" not in target_os_list:
+            if effective_os not in target_os_list:
+                skip_reason = (
+                    f"target_os={target_os_list} does not include effective_os={effective_os}"
+                )
+        elif os_filter in ("linux", "windows", "macos"):
+            if (
+                "any" not in target_os_list
+                and "all" not in target_os_list
+                and os_filter not in target_os_list
+            ):
+                skip_reason = (
+                    f"--os-filter={os_filter} does not match target_os={target_os_list}"
+                )
+
+        if skip_reason is None and skip_real_env and requires_real_env:
+            if effective_os not in target_os_list or effective_os != host_os:
+                skip_reason = (
+                    f"requires_real_environment=true; effective_os={effective_os}, "
+                    f"host_os={host_os}, target_os={target_os_list}"
+                )
+
+        if skip_reason is None:
+            kept.append(s)
+        else:
+            print(f"[skip] {sid}: {skip_reason}")
+            if include_skipped_as_noop:
+                skipped_records.append(
+                    {
+                        "scenario_id": sid,
+                        "summary": s.get("summary", ""),
+                        "skipped": True,
+                        "skip_reason": skip_reason,
+                        "target_os": target_os_list,
+                        "requires_real_environment": requires_real_env,
+                        "effective_os": effective_os,
+                        "host_os": host_os,
+                    }
+                )
+    return kept, skipped_records
+
+
+def print_scenario_listing(scenarios: list[dict[str, Any]]) -> None:
+    print("id\ttarget_os\trequires_real_environment\ttags")
+    for s in scenarios:
+        target_os_list = _normalize_scenario_target_os(s.get("target_os"))
+        tags = s.get("tags") or []
+        if not isinstance(tags, list):
+            tags = [str(tags)]
+        print(
+            f"{s.get('id', '')}\t{','.join(target_os_list)}\t"
+            f"{bool(s.get('requires_real_environment', False))}\t{','.join(map(str, tags))}"
+        )
+
+
 def write_results(output_dir: Path, data: dict[str, Any], filename_suffix: str | None = None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -2578,7 +3026,27 @@ def _safe_pct(numerator: float, denominator: float) -> float:
 
 def main() -> int:
     args = parse_args()
+    # Normalize --runner native as an alias for chat (no-Docker, plain chat).
+    if args.runner == "native":
+        args.runner = "chat"
+    host_os = detect_host_os()
+    effective_os = compute_effective_os(host_os, args.runner)
+    explicit_scenario_ids = _parse_scenario_arg(args.scenario)
+    # Default skip_real_env_scenarios: True under docker, False otherwise.
+    if args.skip_real_env_scenarios is None:
+        args.skip_real_env_scenarios = args.runner == "docker"
     repo_root = Path(__file__).resolve().parents[1]
+
+    # --list-scenarios is an info-only command; bypass all model validation.
+    if args.list_scenarios:
+        try:
+            scenarios_path_early = resolve_input_path(repo_root, args.scenarios)
+            scenarios_early = load_scenarios(scenarios_path_early)
+        except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+            print(f"Failed to load scenarios: {exc}", file=sys.stderr)
+            return 1
+        print_scenario_listing(scenarios_early)
+        return 0
     suite_config_path: Path | None = None
     candidate_runs: list[dict[str, Any]] = []
     suite_skill_roots: list[str] | None = None
@@ -2652,6 +3120,28 @@ def main() -> int:
     try:
         scenarios = load_scenarios(scenarios_path)
 
+        try:
+            scenarios, skipped_records = filter_scenarios(
+                scenarios,
+                explicit_ids=explicit_scenario_ids,
+                os_filter=args.os_filter,
+                effective_os=effective_os,
+                host_os=host_os,
+                skip_real_env=bool(args.skip_real_env_scenarios),
+                include_skipped_as_noop=bool(args.include_skipped_as_noop),
+            )
+        except ValueError as exc:
+            print(f"Scenario filter error: {exc}", file=sys.stderr)
+            return 1
+
+        if not scenarios and not skipped_records:
+            print(
+                f"[error] No scenarios remain after filtering (host_os={host_os}, "
+                f"effective_os={effective_os}, runner={args.runner}).",
+                file=sys.stderr,
+            )
+            return 1
+
         skill_assets_by_root: dict[str, dict[str, Any]] = {}
         for root in skill_roots:
             if args.skill_mode == "auto":
@@ -2669,6 +3159,7 @@ def main() -> int:
         print(f"Failed to load inputs: {exc}", file=sys.stderr)
         return 1
 
+    print(f"[info] Host OS: {host_os}; effective_os: {effective_os}")
     print(f"[info] Skill mode: {args.skill_mode}")
     print(f"[info] Runner: {args.runner}")
     if args.runner == "docker":
@@ -2705,14 +3196,6 @@ def main() -> int:
                     }
                 )
 
-    judge_client = ChatClient(
-        base_url=args.judge_base_url or args.base_url,
-        api_key=args.judge_api_key or args.api_key,
-        request_timeout=args.request_timeout,
-        max_retries=args.max_retries,
-        retry_delay=args.retry_delay,
-    )
-
     run_summaries: list[dict[str, Any]] = []
     short_trial_failures = 0
 
@@ -2737,6 +3220,24 @@ def main() -> int:
             if run_cfg.get("candidate_temperature") is not None
             else float(args.candidate_temperature)
         )
+        judge_model_raw = run_cfg.get("judge_model") or args.judge_model
+        if not judge_model_raw:
+            raise ValueError(
+                "Missing judge model for run. Set shared.judge_model, run.judge_model, or --judge-model."
+            )
+        judge_model = str(judge_model_raw)
+        judge_temperature = (
+            float(run_cfg["judge_temperature"])
+            if run_cfg.get("judge_temperature") is not None
+            else float(args.judge_temperature)
+        )
+        judge_response_max_attempts = (
+            int(run_cfg["judge_response_max_attempts"])
+            if run_cfg.get("judge_response_max_attempts") is not None
+            else int(args.judge_response_max_attempts)
+        )
+        if judge_response_max_attempts < 1:
+            raise ValueError("judge_response_max_attempts must be >= 1.")
         run_same_system_swap_unload = (
             bool(run_cfg["same_system_swap_unload"])
             if run_cfg.get("same_system_swap_unload") is not None
@@ -2749,6 +3250,7 @@ def main() -> int:
         )
 
         candidate_api_key = _resolve_candidate_api_key(run_cfg, args, candidate_label)
+        judge_api_key = _resolve_judge_api_key(run_cfg, args, candidate_label)
 
         candidate_client = ChatClient(
             base_url=run_cfg.get("candidate_base_url") or args.candidate_base_url or args.base_url,
@@ -2756,6 +3258,17 @@ def main() -> int:
             request_timeout=args.request_timeout,
             max_retries=args.max_retries,
             retry_delay=args.retry_delay,
+            connection_max_retries=args.connection_max_retries,
+            connection_retry_sleep=args.connection_retry_sleep,
+        )
+        judge_client = ChatClient(
+            base_url=run_cfg.get("judge_base_url") or args.judge_base_url or args.base_url,
+            api_key=judge_api_key,
+            request_timeout=args.request_timeout,
+            max_retries=args.max_retries,
+            retry_delay=args.retry_delay,
+            connection_max_retries=args.connection_max_retries,
+            connection_retry_sleep=args.connection_retry_sleep,
         )
         same_system_swap_active = bool(
             run_same_system_swap_unload
@@ -2765,6 +3278,8 @@ def main() -> int:
             skill_bundle,
             runner_mode=args.runner,
             container_workdir=args.docker_workdir_in_container,
+            host_os=host_os,
+            effective_os=effective_os,
         )
 
         print(f"\n{'=' * 72}")
@@ -2772,6 +3287,8 @@ def main() -> int:
         print(f"  Candidate label : {candidate_label}")
         print(f"  Candidate model : {candidate_model}")
         print(f"  Candidate base  : {candidate_client.base_url}")
+        print(f"  Judge model     : {judge_model}")
+        print(f"  Judge base      : {judge_client.base_url}")
         print(f"  Skill root      : {skill_root}")
         print(f"  Trial           : {trial_index}/{trial_count}")
         print(f"  Model swapping  : {'enabled' if run_same_system_swap_unload else 'disabled'}")
@@ -2855,12 +3372,12 @@ def main() -> int:
                 try:
                     judged = allocate_skills_with_judge(
                         judge_client=judge_client,
-                        judge_model=args.judge_model,
-                        judge_temperature=args.judge_temperature,
+                        judge_model=judge_model,
+                        judge_temperature=judge_temperature,
                         scenario=scenario,
                         available_skills=loaded_skill_paths,
                         max_allocated_skills=args.max_allocated_skills,
-                        judge_response_max_attempts=args.judge_response_max_attempts,
+                        judge_response_max_attempts=judge_response_max_attempts,
                     )
                     selected = judged["selected_skills"]
                     bundle = build_skill_bundle_from_paths(selected, skill_docs_by_path)
@@ -2870,6 +3387,8 @@ def main() -> int:
                         bundle,
                         runner_mode=args.runner,
                         container_workdir=args.docker_workdir_in_container,
+                        host_os=host_os,
+                        effective_os=effective_os,
                     )
                     allocation = {
                         "mode": "judge",
@@ -2923,9 +3442,9 @@ def main() -> int:
                     candidate_client=candidate_client,
                     judge_client=judge_client,
                     candidate_model=candidate_model,
-                    judge_model=args.judge_model,
+                    judge_model=judge_model,
                     candidate_temperature=candidate_temperature,
-                    judge_temperature=args.judge_temperature,
+                    judge_temperature=judge_temperature,
                     scenario=scenario,
                     candidate_system=candidate_system,
                     max_turns=args.max_turns,
@@ -2935,7 +3454,7 @@ def main() -> int:
                     tool_grace_turns=args.tool_grace_turns,
                     same_system_swap_unload=run_same_system_swap_unload,
                     same_system_swap_sleep_seconds=run_same_system_swap_sleep_seconds,
-                    judge_response_max_attempts=args.judge_response_max_attempts,
+                    judge_response_max_attempts=judge_response_max_attempts,
                 )
             except (RuntimeError, json.JSONDecodeError, ValueError) as exc:
                 print(f"\n  ERROR: Scenario failed ({scenario['id']}): {exc}", file=sys.stderr)
@@ -3037,7 +3556,7 @@ def main() -> int:
         run_finished_utc = dt.datetime.now(tz=dt.timezone.utc)
         run_duration_seconds = round(time.perf_counter() - run_started_perf, 3)
         candidate_lmstudio_info = _collect_lmstudio_model_info(candidate_client, candidate_model)
-        judge_lmstudio_info = _collect_lmstudio_model_info(judge_client, args.judge_model)
+        judge_lmstudio_info = _collect_lmstudio_model_info(judge_client, judge_model)
         report = {
             "meta": {
                 "run_started_utc": run_started_utc.isoformat(),
@@ -3073,8 +3592,10 @@ def main() -> int:
                 "tool_grace_turns": args.tool_grace_turns if args.runner == "docker" else None,
                 "tool_command_timeout": args.tool_command_timeout if args.runner == "docker" else None,
                 "tool_output_bytes": args.tool_output_bytes if args.runner == "docker" else None,
-                "judge_model": args.judge_model,
+                "judge_model": judge_model,
                 "judge_base_url": judge_client.base_url,
+                "judge_temperature": judge_temperature,
+                "judge_response_max_attempts": judge_response_max_attempts,
                 "lmstudio_model_info": {
                     "candidate": candidate_lmstudio_info,
                     "judge": judge_lmstudio_info,
@@ -3111,10 +3632,25 @@ def main() -> int:
                 if len(run_plan) > 1
                 else None
             )
-            skillset_dir, skillset_folder_name, skillset_fp = resolve_skillset_dir(
-                output_dir, skill_root, loaded_skill_paths, skill_docs_by_path
+            skillset_dir, skillset_folder_name, skillset_fp, eval_hashes = resolve_skillset_dir(
+                output_dir,
+                skill_root,
+                loaded_skill_paths,
+                skill_docs_by_path,
+                scenarios_path=scenarios_path,
+                effective_scenarios=scenarios,
+                suite_config_path=suite_config_path,
+                copy_scenarios=not args.no_copy_scenarios,
             )
             report["meta"]["skillset_dir"] = skillset_folder_name
+            if eval_hashes.get("scenarios_sha256"):
+                report["meta"]["scenarios_sha256"] = eval_hashes["scenarios_sha256"]
+            if eval_hashes.get("suite_config_sha256"):
+                report["meta"]["suite_config_sha256"] = eval_hashes["suite_config_sha256"]
+            if eval_hashes.get("scenarios_effective_ids"):
+                report["meta"]["scenarios_effective_ids"] = eval_hashes["scenarios_effective_ids"]
+            report["meta"]["host_os"] = host_os
+            report["meta"]["effective_os"] = effective_os
             report["meta"] = redact_meta_for_output(report["meta"])
             output_path = write_results(skillset_dir, report, output_suffix)
 

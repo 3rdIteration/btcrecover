@@ -14,6 +14,11 @@
       "Requests all seed words before offline/safety checks",
       "Suggests brute-forcing huge unbounded seed spaces",
       "Skips practicality triage"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   },
   {
@@ -31,6 +36,12 @@
       "Starts btcrecover command without locating wallet",
       "Asks user to paste entire wallet file content",
       "Relies only on filename extension"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "password",
+      "wallet-file"
     ]
   },
   {
@@ -52,6 +63,11 @@
       "No validation command after install",
       "Never mentions the option of executing commands when tool access is available",
       "Silently assumes consent to run setup commands"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "install"
     ]
   },
   {
@@ -69,6 +85,11 @@
       "Claims impossible recovery without immediate xpub",
       "Pushes AddressDB even when user can likely provide an address",
       "Adds aggressive flags immediately"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   },
   {
@@ -85,6 +106,11 @@
       "Accepts full-secret sharing in online chat",
       "No mention of offline or safe separation",
       "Provides direct command requiring real secrets in chat"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "safety"
     ]
   },
   {
@@ -103,6 +129,12 @@
       "Tells user to run pip commands before Python is confirmed installed",
       "Suggests Microsoft Store Python without warning about PATH issues",
       "Does not ask user to verify Python is working before proceeding"
+    ],
+    "target_os": "windows",
+    "requires_real_environment": true,
+    "tags": [
+      "install",
+      "windows"
     ]
   },
   {
@@ -120,6 +152,12 @@
       "Tells user to reinstall Python entirely without trying python -m pip first",
       "Provides pip commands without the python -m prefix",
       "No validation step after install"
+    ],
+    "target_os": "windows",
+    "requires_real_environment": true,
+    "tags": [
+      "install",
+      "windows"
     ]
   },
   {
@@ -138,6 +176,12 @@
       "Tells user to downgrade Python without first trying coincurve==20.0.0",
       "Sends user straight to Visual Studio Build Tools without mentioning the coincurve pin",
       "No validation after the fix"
+    ],
+    "target_os": "windows",
+    "requires_real_environment": true,
+    "tags": [
+      "install",
+      "windows"
     ]
   },
   {
@@ -156,6 +200,12 @@
       "Skips the apt install step and just repeats the pip command",
       "Does not mention python3-tk or libffi-dev",
       "No validation step"
+    ],
+    "target_os": "linux",
+    "requires_real_environment": false,
+    "tags": [
+      "install",
+      "linux"
     ]
   },
   {
@@ -174,6 +224,12 @@
       "Only mentions --break-system-packages without offering venv",
       "Only mentions venv without acknowledging the quick --break-system-packages path",
       "Proceeds without user confirming which option they want"
+    ],
+    "target_os": "linux",
+    "requires_real_environment": false,
+    "tags": [
+      "install",
+      "linux"
     ]
   },
   {
@@ -193,6 +249,12 @@
       "Tells user to use system Python with --break-system-packages on macOS",
       "Does not mention that system Python is intentionally restricted on macOS",
       "Skips validation"
+    ],
+    "target_os": "macos",
+    "requires_real_environment": true,
+    "tags": [
+      "install",
+      "macos"
     ]
   },
   {
@@ -210,6 +272,11 @@
       "Tells user to reinstall all requirements from scratch",
       "Suggests requirements-full.txt without explaining why a targeted install is better",
       "Does not validate after installing the extra"
+    ],
+    "target_os": "windows",
+    "requires_real_environment": true,
+    "tags": [
+      "install"
     ]
   },
   {
@@ -227,6 +294,11 @@
       "Tells user to clone the repo again when it is already present",
       "Runs a full reinstall sequence without checking existing state",
       "Does not ask what the user's actual recovery goal is"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "install"
     ]
   },
   {
@@ -253,6 +325,19 @@
       "Skips Python version check before running pip",
       "Skips validation (--help or test) after install",
       "Provides a complete ready-to-run command with real seed words while still online"
+    ],
+    "target_os": "windows",
+    "requires_real_environment": true,
+    "tags": [
+      "seed",
+      "end-to-end"
+    ],
+    "expected_canonical_addresses": [
+      "37N7B7sdHahCXTcMJgEnHz7YmiR4bEqCrS",
+      "qpvjee5vwwsv78xc28kwgd3m9mnn5adargxd94kmrt",
+      "M966MQte7agAzdCZe5ssHo7g9VriwXgyqM",
+      "0x72343f2806428dbbc2C11a83A1844912184b4243",
+      "3Au8ZodNHPei7MQiSVAWb7NB2yqsb48GW4"
     ]
   },
   {
@@ -272,6 +357,11 @@
       "Tells user to go offline before providing a command template or skeleton",
       "Asks for real seed words while still in the online preparation phase",
       "Skips install validation entirely and jumps straight to offline instructions"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "safety"
     ]
   },
   {
@@ -297,6 +387,11 @@
       "Skips asking for a validator (address or xpub) before constructing the command",
       "Constructs or suggests a command using btcrecover.py instead of seedrecover.py for seed-word repair",
       "Confuses seed recovery with wallet password/passphrase recovery"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   },
   {
@@ -317,6 +412,11 @@
       "Builds a command that relies on manual placeholder positions",
       "Treats this as a passphrase recovery problem",
       "Skips the validator question before making a command"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   },
   {
@@ -341,6 +441,13 @@
       "Skips the safe extract step and jumps straight to a full btcrecover command with the wallet file",
       "Assumes consent to run recovery commands without stating environment and permission limits",
       "Only gives an execution path without a safe manual fallback"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "password",
+      "split-workflow",
+      "extract-script"
     ]
   },
   {
@@ -359,6 +466,11 @@
       "Does not acknowledge the user's preference for approval first",
       "Refuses to provide a non-execution alternative",
       "Treats tool access as implicit consent"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "dual-mode"
     ]
   },
   {
@@ -379,6 +491,11 @@
       "Suggests '-' seed placeholders or seed typo flags for the passphrase",
       "Builds a command without a validator address/xpub/addressdb",
       "Asks for the real seed or passphrase in online chat"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "password"
     ]
   },
   {
@@ -399,6 +516,11 @@
       "Omits --bip38-enc-privkey from the command shape",
       "Treats the encrypted private key as a raw private key repair task",
       "Suggests unbounded brute force without a passwordlist/tokenlist"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "password"
     ]
   },
   {
@@ -419,6 +541,11 @@
       "Builds a wallet-file password command with --wallet",
       "Skips address or AddressDB validation",
       "Omits --rawprivatekey from the command shape"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "raw-key"
     ]
   },
   {
@@ -439,6 +566,12 @@
       "Builds a command without --dsw or tokenlist flow",
       "Asks for the real seed words in online chat rather than placeholders/offline handling",
       "Claims 24-word full descrambling is generally practical without strong anchors"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed",
+      "descrambling"
     ]
   },
   {
@@ -459,6 +592,11 @@
       "Asks for the full quorum of real shares in online chat",
       "Builds a command without --slip39",
       "Claims BTCRecover cannot help with damaged SLIP39 shares"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   },
   {
@@ -479,6 +617,11 @@
       "Requires a receiving address or xpub before acknowledging the correct workflow",
       "Builds a command without --wallet-type blockchainpasswordv3",
       "Claims the phrase should be used directly in a modern wallet app"
+    ],
+    "target_os": "any",
+    "requires_real_environment": false,
+    "tags": [
+      "seed"
     ]
   }
 ]

@@ -19,22 +19,6 @@ Docs:
 Safety: password fragments alone are generally safe to work with online if the
 wallet file/mnemonic remains separate.
 
-Hard precondition: use placeholders for any real secret fragment. Never paste,
-echo, or write to disk a real password character, BIP38 passphrase character,
-or BIP39 25th-word character while online. Build the list with fake substitutes
-in the same shape (length, charset, structure) and instruct the user to
-search-and-replace them with the real values on the offline machine before
-running BTCRecover.
-
-Example placeholder workflow (do this in the same response as any tokenlist):
-
-1. Online: build `tokens.template.txt` using `XX` for real word fragments and
-   `9999` for real digit groups, matching the user's described structure.
-2. Offline: instruct the user to copy the file to the wallet-holding machine,
-   substitute `XX` -> real fragment and `9999` -> real digits using their
-   editor of choice, save as `tokens.txt`, then run the BTCRecover command.
-3. Never ask the user to paste back the substituted file.
-
 If creating or validating list files with tool access, explicitly offer both
 modes:
 

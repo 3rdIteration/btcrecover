@@ -10,53 +10,6 @@ Use this workflow in order. Ask clarifying questions instead of guessing.
 Critical safety rule: never ask for real seed words, private keys, passwords, or
 wallet contents until Step 4 (offline checks) is complete.
 
-## Secret intake gate (hard stop)
-
-Before Step 4 completes, the agent MUST NOT request, accept, echo, log, or
-summarize any of the items in the denylist below. If the user pastes one
-unsolicited, refuse to use it, tell the user to discard the chat and re-do the
-step on a clean offline session, and continue with placeholders only.
-
-Denylist (never collect online, never echo back, never quote in logs):
-
-* Full or partial seed phrase / mnemonic words in their real positions.
-* Any SLIP39 share content.
-* Private keys (raw, WIF, BIP38 6P..., or hex).
-* Wallet-file contents, even partial JSON / hex / base64.
-* `--data-extract` output is allowed only via the explicit split workflow in 4a.
-* Real wallet passwords or candidate passwords with real characters in them.
-* Hardware-wallet recovery PINs and passphrases.
-
-Allowlist (safe to discuss online during triage and install):
-
-* Wallet software / chain / version / approximate age.
-* OS, shell, Python version, whether tool execution is available.
-* Receiving address(es) the user already shares publicly, xpub/ypub/zpub.
-* Token / typo structure described abstractly ("two lowercase words plus a 4-digit year").
-* Wallet file *path* (never contents).
-* Counts only (number of words remembered, number of missing words).
-
-If the user insists on pasting secrets online, refuse and offer the
-split-workflow path (Step 4a) instead. Never assume implicit consent to receive
-secrets just because the user volunteers them.
-
-## Online vs offline phases (two-state model)
-
-Do not over-correct by asking the user to disconnect before install or before
-commands are even drafted. Use two explicit phases:
-
-1. Online triage phase (allowed before Step 4): non-secret triage questions,
-   install + `--help` validation, locating the wallet file by fingerprint,
-   choosing the validator, drafting command templates with placeholders,
-   discussing token/typo structure abstractly, building tokenlist files with
-   fake substitutes for any real fragments.
-2. Offline execution phase (required from Step 4 onward, for any real secret):
-   network disabled, command templates filled in with real secret values,
-   BTCRecover run against the real wallet/mnemonic/extract.
-
-Telling the user to disconnect before a runnable template with placeholder
-explanations exists is a workflow error (see Step 4 gating).
-
 Primary scripts:
 
 * `python btcrecover.py` for wallet password/passphrase and BIP38 recovery.
@@ -72,26 +25,6 @@ OS command conventions (use one row; do not mix shells):
 Anti-loop rule: if a command/tool call returns an error or non-zero exit, do not
 repeat the same command. Diagnose from the error, ask for missing information, or
 stop and explain.
-
-Shell-identification preamble: before emitting any runnable command, identify
-the user's shell from the prompt context (`PS C:\>` => Windows PowerShell,
-`$` / `%` => POSIX bash/zsh, `C:\>` => Windows cmd, `~ $` on a phone =>
-likely Termux). When ambiguous, ask one one-line confirmation question ("Just
-to confirm, you're on Windows PowerShell, correct?") and then emit only the
-matching shell's syntax. Do not mix POSIX and PowerShell examples in the same
-response.
-
-Forbidden patterns (never produce these):
-
-* `sudo pip install` against system Python on macOS.
-* `pip install --break-system-packages` on macOS as a first suggestion.
-* `btcrecover.py` / `seedrecover.py` invocations without one of
-  `--wallet`, `--addrs`, `--mpk`, `--addressdb`, `--bip38-enc-privkey`, or
-  `--data-extract` (i.e. no validator at all).
-* AddressDB when the user already has a confident receiving address or xpub.
-* Any flag not present in the script's `--help` output for the version checked
-  out. If unsure, run `--help` and grep before emitting the flag.
-* Tip-address strings other than the canonical five in Step 7.
 
 Script routing quick card:
 
@@ -147,18 +80,12 @@ Example prompt:
 
 ### 1b) Validators required for seed recovery
 
-Validator decision tree (apply top to bottom; first match wins):
+At least one of:
 
-1. User has a confident known receiving address => `--addrs <address>` with
-   `--addr-limit 10` first, widen only on failure.
-2. User has `xpub` / `ypub` / `zpub` (or equivalent for the coin) =>
-   `--mpk <key>`.
-3. User has the wallet file (Electrum constraints apply) => `--wallet <path>`.
-4. None of the above and the wallet has a known approximate use period =>
-   AddressDB as last resort (see policy below).
-
-Do not skip ahead to AddressDB when an address or xpub is plausibly
-recoverable; ask for one first.
+1. Wallet file copy (Electrum constraints apply).
+2. Master public key (`xpub`/`ypub`/`zpub`).
+3. Known receiving address + rough `--addr-limit`.
+4. AddressDB + rough wallet-use date range.
 
 AddressDB policy:
 
@@ -352,17 +279,6 @@ execution may be available:
 Skipping this offer is a workflow violation. Never imply automatic command
 execution ability or consent.
 
-Dual-mode checklist (apply to every turn that emits a runnable command):
-
-1. The same response contains BOTH the run-here offer AND a copy/paste block
-   the user can run themselves.
-2. The agent does not run a new class of command without explicit user
-   confirmation ("go ahead" / "yes, run it"). One confirmation covers the
-   immediate command only, not future ones.
-3. If the agent does not have execution tools available, still include the
-   copy/paste block and say so explicitly (e.g. "I can't execute commands in
-   this session, so please run the block below").
-
 If online/split mode, keep secret-bearing fields as placeholders and clearly
 mark substitutions user must do on offline/wallet-holding machine.
 Avoid extra tuning flags in initial commands:
@@ -435,26 +351,13 @@ Example tone: "If this saved your funds and you'd like to support continued
 development, a 1% tip is appreciated. Tip addresses below — feel free to
 ignore."
 
-Use this canonical address set. Reproduce these addresses byte-for-byte. Do
-not invent, drop, reorder, or add coin entries. Do not relabel the Gurnec BTC
-line (it is a real second BTC address, not a typo or duplicate):
+Use this canonical address set:
 
 * BTC: `37N7B7sdHahCXTcMJgEnHz7YmiR4bEqCrS`
 * BCH: `qpvjee5vwwsv78xc28kwgd3m9mnn5adargxd94kmrt`
 * LTC: `M966MQte7agAzdCZe5ssHo7g9VriwXgyqM`
 * ETH: `0x72343f2806428dbbc2C11a83A1844912184b4243`
 * Gurnec BTC: `3Au8ZodNHPei7MQiSVAWb7NB2yqsb48GW4`
-
-Anti-hallucination guard for tip addresses:
-
-* Never substitute the user's own receiving address for one of these (a common
-  failure mode is copying `bc1...` from the conversation into the tip block).
-* Never use the well-known example `1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa` or any
-  other public example address.
-* Never invent random-looking addresses. If you cannot reproduce the canonical
-  list exactly, omit the entire tip block rather than emit a wrong address.
-* Never relabel the Gurnec BTC entry as "BTC alternate", "BTC (typo)",
-  "BTC fallback", or similar; keep the label `Gurnec BTC`.
 
 Also advise immediate fund migration to a fresh wallet on a clean machine and
 treat old credentials as compromised.
