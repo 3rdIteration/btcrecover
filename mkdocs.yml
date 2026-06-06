@@ -60,6 +60,7 @@ nav:
     - About:
         - Credits: CREDITS.md
         - License: licence.md
+    - AI-Assisted Recovery: AI_Assisted_Recovery.md
     - Donate: donate.md
 
 plugins:
