@@ -1,0 +1,172 @@
+{
+  "shared": {
+    "skill_mode": "explicit",
+    "skills": [
+      "SKILL.md",
+      "skills/seedrecover/SKILL.md",
+      "skills/btcrecover-password/SKILL.md",
+      "skills/install-btcrecover/SKILL.md",
+      "skills/install-btcrecover/windows/SKILL.md",
+      "skills/install-btcrecover/linux/SKILL.md",
+      "skills/install-btcrecover/macos/SKILL.md",
+      "skills/install-btcrecover/termux/SKILL.md",
+      "skills/build-password-tokenlist/SKILL.md",
+      "skills/locate-wallet-file/SKILL.md"
+    ],
+    "scenarios": "utilities/skill_eval/scenarios.json",
+    "output_dir": "utilities/skill_eval/results",
+    "runner": "docker",
+    "docker_image": "ubuntu:24.04",
+    "docker_working_folder": ".",
+    "docker_workdir_in_container": "/workspace",
+    "docker_lifecycle": "trial",
+    "tool_max_calls": 50,
+    "tool_grace_turns": 2,
+    "tool_command_timeout": 30,
+    "tool_output_bytes": 12000,
+    "skill_allocation_mode": "static",
+    "max_turns": 8,
+    "candidate_temperature": 0.2,
+    "judge_temperature": 0.2,
+    "request_timeout": 600,
+    "max_retries": 2,
+    "retry_delay": 1.5,
+    "candidate_switch_delay": 360,
+    "trial_count": 1,
+    "judges": [
+      {
+        "enabled": false,
+        "lead": true,
+        "label": "deepseek-v4-pro (lead)",
+        "model": "deepseek-v4-pro",
+        "base_url": "https://api.deepseek.com/v1",
+        "api_key": "REDACTED",
+        "temperature": 0.2,
+        "weight": 1.5
+      },
+      {
+        "enabled": true,
+        "lead": true,
+        "label": "deepseek-v4-flash",
+        "model": "deepseek-v4-flash",
+        "base_url": "https://api.deepseek.com/v1",
+        "api_key": "REDACTED",
+        "temperature": 0.2,
+        "weight": 1.0
+      },
+      {
+        "enabled": false,
+        "lead": false,
+        "label": "qwen3.6-27b-local",
+        "model": "qwen3.6-27b-mtp@q5_k_xl",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "temperature": 0.2,
+        "weight": 1.0,
+        "same_system_swap_unload": true
+      },
+      {
+        "enabled": false,
+        "lead": true,
+        "label": "qwen3.5-9b",
+        "model": "qwen3.5-9b",
+        "base_url": "http://127.0.0.1:1234/v1",
+        "temperature": 0.2,
+        "weight": 1.0,
+        "same_system_swap_unload": true
+      }
+    ]
+  },
+  "runs": [
+    {
+      "enabled": true,
+      "label": "deepseek-v4-flash",
+      "candidate_model": "deepseek-v4-flash",
+      "candidate_base_url": "https://api.deepseek.com/v1",
+      "candidate_api_key": "REDACTED"
+    },
+    {
+      "enabled": true,
+      "label": "deepseek-v4-pro",
+      "candidate_model": "deepseek-v4-pro",
+      "candidate_base_url": "https://api.deepseek.com/v1",
+      "candidate_api_key": "REDACTED"
+    },
+    {
+      "enabled": false,
+      "label": "qwen3.5-2b",
+      "candidate_model": "qwen3.5-2b",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "qwen3.5-4b",
+      "candidate_model": "qwen3.5-4b",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "qwen3.5-9b",
+      "candidate_model": "qwen3.5-9b",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "qwen3.5-27b",
+      "candidate_model": "qwen3.6-27b-mtp@q5_k_xl",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "gemma-4-31b",
+      "candidate_model": "google/gemma-4-31b",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "ministral-3-14b-reasoning",
+      "candidate_model": "mistralai/ministral-3-14b-reasoning",
+      "candidate_base_url": "http://127.0.0.1:1234/v1",
+      "same_system_swap_unload": true
+    },
+    {
+      "enabled": false,
+      "label": "Claude Haiku 4.5",
+      "candidate_model": "claude-haiku-4.5",
+      "candidate_base_url": "http://127.0.0.1:59402/v1",
+      "candidate_api_key": "copilottoken"
+    },
+    {
+      "enabled": false,
+      "label": "GPT 5 Mini",
+      "candidate_model": "gpt-5-mini",
+      "candidate_base_url": "http://127.0.0.1:59402/v1",
+      "candidate_api_key": "copilottoken",
+      "judges": [
+        {
+          "enabled": true,
+          "lead": true,
+          "label": "deepseek-v4-pro (lead, per-run override)",
+          "model": "deepseek-v4-pro",
+          "base_url": "https://api.deepseek.com/v1",
+          "api_key": "REDACTED",
+          "temperature": 0.2,
+          "weight": 1.0
+        },
+        {
+          "enabled": true,
+          "label": "deepseek-v4-flash (panelist, per-run override)",
+          "model": "deepseek-v4-flash",
+          "base_url": "https://api.deepseek.com/v1",
+          "api_key": "REDACTED",
+          "temperature": 0.2,
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

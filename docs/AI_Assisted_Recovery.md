@@ -92,19 +92,21 @@ level of reasoning.
 ## Benchmarking models with `skill_eval_harness.py`
 
 If you want a repeatable way to estimate how well a model follows `SKILL.md`,
-use the local evaluation harness in `utilities/skill_eval_harness.py`.
+use the local evaluation harness in `utilities/skill_eval/`. See
+`utilities/skill_eval/README.md` for full setup and options.
 
 Typical one-off run:
 
 ```bash
-python utilities/skill_eval_harness.py \
+python utilities/skill_eval/skill_eval_harness.py \
   --candidate-model qwen3.5-9b \
   --candidate-base-url http://127.0.0.1:1234/v1 \
   --judge-model qwen/qwen3.6-27b
 ```
 
-For repeatability, use `--suite-config` and queue multiple candidate runs using
-the same judge/scenario set. You can also test the same candidate against
+For repeatability, use `--suite-config` (start from
+`utilities/skill_eval/example_suite.json`) and queue multiple candidate runs
+using the same judge/scenario set. You can also test the same candidate against
 multiple `skill_roots` in one batch.
 
 After a few passes, compare these fields from each results JSON:

@@ -10,10 +10,20 @@ Use this when the user cannot find wallet files or suspects renamed files.
 Safety: scanning can be guided online as long as file contents are not pasted
 into chat and never leave the user's machine.
 
-Before any local scan, explicitly offer both modes:
+**Execution mode (see triage Step 6):** before any local scan, decide whether you
+can run commands — yes in a sandbox/agent session, no in a plain chat — don't
+default to "I can't" without checking. Offer on every response that contains a
+runnable scan command:
 
-> "You have two options: (a) I can run the scan commands for you here if you
-> say 'go ahead', or (b) you can copy and paste them and run them yourself."
+* Can run **AND** the sandbox OS matches the user's machine → offer both:
+  > "I can run the scan commands for you here if you say 'go ahead', or you can
+  > copy and paste them and run them yourself."
+* Can't run, **OR** the sandbox OS differs from the user's machine → copy/paste
+  only — this is correct, not a missing offer:
+  > "I can't run these for you in this session, so copy and paste the block below
+  > and run it yourself."
+
+Do not first offer to run commands and then later say you cannot.
 
 Use OS-matching commands only (POSIX paths for Linux/macOS/Termux; PowerShell
 paths and syntax for Windows). If a scan command fails, do not repeat it

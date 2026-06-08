@@ -1,7 +1,0 @@
-skillset_fingerprint_sha256: d25fdf940e1255c0dc2f18142c55834ec5e9f176d37d1da6bfd76def693705d1
-skillset_latest_mtime_utc: 2026-05-22T20:33:10.916247+00:00
-loaded_skill_files:
-  - SKILL.md  sha256:a3e1dce3cb2b043398b7f6796396a6b0cd98b915028c802eface174073fa23cc
-  - skills/build-password-tokenlist/SKILL.md  sha256:3ffa679fe42c103f5d0e0c11461661e2ec16829e95e21230de341785f3a27554
-  - skills/install-btcrecover/SKILL.md  sha256:aadf701e33c4a9e8ffa7c27d3ba7ca54c8fe823c1d352aa2bac527f672eb65a8
-  - skills/locate-wallet-file/SKILL.md  sha256:3f0663b10904d020bf3af857966b9ab58fa732bee5713a95fdd533086cfdbf0a

@@ -1,261 +1,39 @@
 ---
 name: install-btcrecover
-description: Install BTCRecover on Windows/Linux/macOS/Termux with a safe route selection, base requirements first, wallet-targeted extras, and validation. Use from main skill Step 3 or when user asks for install help.
+description: Routes to the OS-specific BTCRecover installation skill. Detect the OS first, then load the matching sub-skill.
 ---
 
-# Install BTCRecover Skill
-
-Use this when BTCRecover is not already runnable.
-
-Primary docs: `docs/INSTALL.md`.
-
-## When to invoke
-
-* Main recovery flow needs installation before command construction.
-* User asks to install BTCRecover.
-* Prior install attempt failed.
-
-## Step 0 – Safety warning and route choice
-
-Warn user that fully automatic AI-driven installs are higher risk.
-
-Offer exactly two routes:
-
-1. Guided (recommended): user runs copy/paste commands, you debug.
-2. Automatic (higher risk): agent runs commands if user explicitly accepts.
-
-When command execution may be available, use this explicit wording:
-
-> "You have two options: (a) I can run these install commands for you here if
-> you say 'go ahead', or (b) you can copy and paste them and run them yourself."
-
-Also clarify timing: install/validation happens online first; offline switch
-happens later before real secrets are used.
-
-## Step 1 – Check for existing runnable install
-
-Before cloning/installing, check current workspace:
-
-1. If directory contains `btcrecover.py` and `seedrecover.py`, use it.
-2. Else check `./btcrecover` and `./btcrecover-master`.
-3. Run:
-   * `python btcrecover.py --help`
-   * `python seedrecover.py --help`
-
-If both work, do not reinstall unless dependency errors appear.
-
-Never install from piecemeal file downloads; require full repo checkout/zip.
-
-## Step 2 – Detect OS and shell
-
-Identify both the OS and the exact shell before emitting any command. Read the
-user's prompt format and any pasted error message:
-
-* `PS C:\Users\...>` => Windows PowerShell.
-* `C:\Users\...>` => Windows cmd.exe (rare; prefer to ask user to switch to
-  PowerShell).
-* `$` / `%` with POSIX paths and `Activate.ps1`-less venv => Linux or macOS
-  bash/zsh; ask which OS.
-* Termux indicators (e.g. `~ $` on Android, `pkg` available) => Termux.
-
-If the shell is ambiguous, ask one one-line confirmation question (e.g. "You're
-on Windows PowerShell, correct?") and wait. Do not emit POSIX and PowerShell
-examples in the same response.
-
-Use the matching shell syntax only:
-
-* Linux/macOS/Termux: `python3`, `pip3`, POSIX paths, `ping -c`,
-  `source venv/bin/activate`.
-* Windows PowerShell: `python`, `py -m pip` if needed, Windows paths,
-  `ping -n`, `.\venv\Scripts\Activate.ps1`.
-
-If a command fails, do not repeat it unchanged. Diagnose the error, adjust the
-route, or ask the user for the missing detail.
-
-## Canonical command table
-
-Use these exact templates per OS/shell. Do not mix rows. Substitute only the
-placeholder folder names.
-
-### Windows PowerShell
-
-```powershell
-# Clone
-git clone https://github.com/3rdIteration/btcrecover.git
-cd btcrecover
-
-# Virtual environment (recommended)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-
-# Base requirements
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-
-# Validate
-python btcrecover.py --help
-python seedrecover.py --help
-
-# Coincurve build failure remediation (Python 3.14 source-build path)
-python -m pip install coincurve==20.0.0
-python -m pip install -r requirements.txt
-```
-
-### macOS (zsh/bash, Homebrew Python)
-
-```bash
-# Prereqs
-brew install python git
-
-# Clone
-git clone https://github.com/3rdIteration/btcrecover.git
-cd btcrecover
-
-# Virtual environment (REQUIRED on macOS; do not install into system Python)
-python3 -m venv venv
-source venv/bin/activate
-
-# Base requirements
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
-
-# Validate
-python3 btcrecover.py --help
-python3 seedrecover.py --help
-```
-
-`--break-system-packages` is NOT a first suggestion on macOS; use a venv. If
-requirements-full is needed and Rust is missing, `brew install rust` first.
-
-### Linux (Debian/Ubuntu bash)
-
-```bash
-# Prereqs
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv python3-tk libffi-dev git
-
-# Clone
-git clone https://github.com/3rdIteration/btcrecover.git
-cd btcrecover
-
-# Virtual environment (preferred; avoids externally-managed-environment)
-python3 -m venv venv
-source venv/bin/activate
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
-
-# Validate
-python3 btcrecover.py --help
-python3 seedrecover.py --help
-```
-
-If the user explicitly rejects a venv and hits `externally-managed-environment`,
-offer two options and ask which they want before proceeding:
-
-1. Recommended: create the venv (commands above).
-2. Bypass: `python3 -m pip install --break-system-packages -r requirements.txt`
-   (acknowledge the warning and the risk to system packages).
-
-## Supported flags appendix
-
-Do not invent flags. Before suggesting a flag not shown in this skill or the
-templates above, run `python btcrecover.py --help` (or the seedrecover
-equivalent) in the current install and grep for the flag string. If the flag
-is not in the actual `--help` output of the checked-out version, do not use
-it.
-
-## Step 3 – Dependency scope selection
-
-### 3a) Identify wallet type first
-
-If unknown, ask which wallet/chain they are recovering.
-
-### 3b) Always install base requirements first
-
-Always install:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3c) Add targeted extras by wallet type
-
-After base install, add only needed extras when possible:
-
-* Standard Bitcoin Core/Electrum/MultiBit/most common flows: no extra package.
-* SLIP39: `pip install "shamir-mnemonic[cli]"`
-* BIP38/block.io: `pip install ecdsa`
-* Ethereum UTC/JSON keystore: `pip install eth-keyfile`
-* Groestlcoin BIP39: `pip install groestlcoin-hash`
-* Cosmos/Polkadot/Solana/Tezos/Tron/Avalanche/Secret/Elrond:
-  `pip install py-crypto-hd-wallet`
-
-Use `requirements-full.txt` for multi-package/brittle wallet stacks or unclear
-wallet type.
-
-## Step 4 – OS install commands
-
-### Windows
-
-1. Install supported Python.
-2. Clone repo.
-3. Install base requirements.
-4. If Python 3.14 source-build path fails for coincurve, install
-   `coincurve==20.0.0` then re-run requirements.
-
-### Linux (Debian/Ubuntu pattern)
-
-```bash
-sudo apt install python3 python3-pip python3-tk libffi-dev
-git clone https://github.com/3rdIteration/btcrecover/
-cd btcrecover
-pip3 install -r requirements.txt
-```
-
-Use venv or `--break-system-packages` if needed.
-If `externally-managed-environment` appears, present both options and ask user
-which route they want before proceeding.
-
-### macOS
-
-Install required Homebrew packages from `docs/INSTALL.md`, then install base
-requirements. If full requirements flow needs Rust, install it first.
-Do not rely on restricted system Python for package installs; use Homebrew
-Python path for normal setup.
-System Python on macOS is intentionally restricted from installing third-party
-packages; use Homebrew Python or a virtual environment rather than treating this
-as a BTCRecover bug.
-
-### Termux (experimental)
-
-Install required toolchain/libs from `docs/INSTALL.md`.
-For full requirements on Termux, ensure `libsodium` is installed and set
-`SODIUM_INSTALL=system` before `pip install -r requirements-full.txt`.
-
-## Step 5 – Optional GPU mode
-
-Only suggest GPU acceleration for large password searches and supported targets.
-See `docs/GPU_Acceleration.md`.
-
-## Step 6 – Validate install
-
-Choose validation by install scope:
-
-* Full requirements/full feature validation:
-  `python run-all-tests.py -vv`
-* Selective install (base + targeted extras):
-  * `python btcrecover.py --help`
-  * `python seedrecover.py --help`
-  * one matching basic usage example from `docs/Usage_Examples/`
-
-## Step 7 – If still blocked
-
-If install or basic commands still fail, suggest trusted support:
-`https://cryptoguide.tips/recovery-services-consultations/`.
-
-## Done criteria
-
-Report one of:
-
-* full validation succeeded (`run-all-tests.py -vv`), or
-* selective validation succeeded (`--help` commands + matching example).
+# Install BTCRecover — OS Router
+
+**There is no PyPI package — never `pip install btcrecover`.** BTCRecover is
+installed by cloning/downloading the full repository
+(`git clone https://github.com/3rdIteration/btcrecover.git`) and then installing
+its `requirements.txt` into a virtual environment. Never install from piecemeal
+file downloads.
+
+**Pick the OS from the environment you are actually in — do not ask when you can
+tell.**
+
+* **Sandbox / agent session:** the sandbox IS the user's machine. Detect its OS and
+  load the matching sub-skill WITHOUT asking. It is normally Linux:
+  ```bash
+  uname -a
+  cat /etc/os-release   # e.g. Ubuntu -> load the linux sub-skill
+  ```
+* **Plain chat (no sandbox):** the OS is whatever the user describes. Read shell cues
+  from their pasted prompt (below) and load the matching sub-skill; ask one short
+  confirmation question only if it is still ambiguous.
+
+Load the matching sub-skill:
+
+* Windows PowerShell: `load_skill("skills/install-btcrecover/windows/SKILL.md")`
+* Linux/Ubuntu/Debian: `load_skill("skills/install-btcrecover/linux/SKILL.md")`
+* macOS: `load_skill("skills/install-btcrecover/macos/SKILL.md")`
+* Termux (Android): `load_skill("skills/install-btcrecover/termux/SKILL.md")`
+
+Shell identification cues (from prompt or user description):
+
+* `PS C:\>` or `C:\>` => Windows; use PowerShell skill.
+* `$` / `%` with POSIX paths, `apt`/`apt-get` available => Linux.
+* `brew` available or `/opt/homebrew` path => macOS.
+* `pkg` available or `~ $` on phone => Termux.

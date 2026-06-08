@@ -23,3 +23,7 @@ docs/Benchmarks.md
 *-venv*
 /.vscode
 *batch_eval_suite*.json
+/skills/evaluation/configs
+# skill-eval harness run output (regenerated locally, not tracked)
+/utilities/skill_eval/results/
+/.claude
