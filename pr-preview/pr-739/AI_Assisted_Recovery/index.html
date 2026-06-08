@@ -2013,15 +2013,17 @@ level of reasoning.</p>
 <hr />
 <h2 id="benchmarking-models-with-skill_eval_harnesspy">Benchmarking models with <code>skill_eval_harness.py</code></h2>
 <p>If you want a repeatable way to estimate how well a model follows <code>SKILL.md</code>,
-use the local evaluation harness in <code>utilities/skill_eval_harness.py</code>.</p>
+use the local evaluation harness in <code>utilities/skill_eval/</code>. See
+<code>utilities/skill_eval/README.md</code> for full setup and options.</p>
 <p>Typical one-off run:</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>utilities/skill_eval_harness.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>utilities/skill_eval/skill_eval_harness.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--candidate-model<span class="w"> </span>qwen3.5-9b<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--candidate-base-url<span class="w"> </span>http://127.0.0.1:1234/v1<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--judge-model<span class="w"> </span>qwen/qwen3.6-27b
 </code></pre></div>
-<p>For repeatability, use <code>--suite-config</code> and queue multiple candidate runs using
-the same judge/scenario set. You can also test the same candidate against
+<p>For repeatability, use <code>--suite-config</code> (start from
+<code>utilities/skill_eval/example_suite.json</code>) and queue multiple candidate runs
+using the same judge/scenario set. You can also test the same candidate against
 multiple <code>skill_roots</code> in one batch.</p>
 <p>After a few passes, compare these fields from each results JSON:</p>
 <ul>
