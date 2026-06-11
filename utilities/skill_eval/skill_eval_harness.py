@@ -16,11 +16,13 @@ import ipaddress
 import json
 import os
 import platform
+import queue
 import re
 import shlex
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -976,6 +978,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--verbose", action="store_true", help="Print per-turn transcript to stdout")
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        default=False,
+        help="Never offer to resume an interrupted run; always start a fresh run.",
+    )
     return parser.parse_args()
 
 
@@ -5298,6 +5306,100 @@ def write_results(output_dir: Path, data: dict[str, Any], filename_suffix: str |
     return output_path
 
 
+def _find_resumable_runs(skillset_dir: Path, candidate_label: str) -> dict[str, list[dict[str, Any]]]:
+    """Scan skillset_dir for checkpoint files belonging to candidate_label.
+
+    Returns a mapping of run_id -> sorted list of checkpoint result dicts.
+    Only checkpoints whose ``candidate_label`` field matches are included.
+    Fingerprint equivalence is guaranteed implicitly: all files in a given
+    skillset_dir share the same content-addressed fingerprint by construction.
+    """
+    runs: dict[str, list[dict[str, Any]]] = {}
+    for cp_path in sorted(skillset_dir.glob("skill_eval_*_checkpoint_*.json")):
+        try:
+            data = json.loads(cp_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if data.get("candidate_label") != candidate_label:
+            continue
+        cp_run_id = str(data.get("run_id", "")).strip()
+        if not cp_run_id:
+            continue
+        runs.setdefault(cp_run_id, []).append(data)
+    for run_id_key in runs:
+        runs[run_id_key].sort(key=lambda d: d.get("scenario_id", ""))
+    return runs
+
+
+def _prompt_resume(
+    resumable: dict[str, list[dict[str, Any]]],
+    candidate_label: str,
+    timeout: int = 60,
+) -> str | None:
+    """Interactively ask the user which interrupted run to resume.
+
+    Returns the chosen run_id, or None to start fresh. Runner mode (docker/chat)
+    is not stored in checkpoints so the user is responsible for ensuring the
+    current invocation matches the original run's mode.
+
+    If the user does not respond within *timeout* seconds the prompt automatically
+    defaults to starting a fresh run (returns None).
+    """
+    print(f"\n[resume] Incomplete checkpoint set(s) found for candidate '{candidate_label}':")
+    run_ids = sorted(resumable.keys())
+    for i, run_id_opt in enumerate(run_ids, 1):
+        completed_ids = [d["scenario_id"] for d in resumable[run_id_opt]]
+        print(
+            f"  [{i}] run_id={run_id_opt}  "
+            f"({len(completed_ids)} scenario(s) completed: {', '.join(completed_ids)})"
+        )
+    print("  [0] Start a fresh run")
+    note = (
+        "Note: checkpoint files do not record the runner mode (docker/chat). "
+        "Ensure this invocation uses the same mode as the original run."
+    )
+    print(f"  {note}")
+    default = "1" if len(run_ids) == 1 else "0"
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            print(f"\n[resume] No response after {timeout}s — starting a fresh run.")
+            return None
+        answer_q: queue.Queue[str | None] = queue.Queue()
+
+        def _reader(q: queue.Queue[str | None] = answer_q, secs: int = max(1, int(remaining))) -> None:
+            try:
+                q.put(input(
+                    f"Resume which run? [0-{len(run_ids)}] "
+                    f"(default {default}, auto-start in {secs}s): "
+                ))
+            except (EOFError, KeyboardInterrupt):
+                q.put(None)
+
+        _t = threading.Thread(target=_reader, daemon=True)
+        _t.start()
+        try:
+            raw = answer_q.get(timeout=max(0.0, deadline - time.monotonic()))
+        except queue.Empty:
+            print(f"\n[resume] No response after {timeout}s — starting a fresh run.")
+            return None
+        if raw is None:
+            print()
+            return None
+        choice = raw.strip() if raw.strip() else default
+        try:
+            n = int(choice)
+        except ValueError:
+            print("  Please enter a number.")
+            continue
+        if n == 0:
+            return None
+        if 1 <= n <= len(run_ids):
+            return run_ids[n - 1]
+        print(f"  Please enter a number between 0 and {len(run_ids)}.")
+
+
 def _safe_pct(numerator: float, denominator: float) -> float:
     if denominator == 0:
         return 0.0
@@ -5803,8 +5905,52 @@ def main() -> int:
                 f"Check permissions or run chown. Error: {_we}"
             ) from _we
 
+        # --- Resume detection ---
+        # Scan for orphaned checkpoint files from a previous interrupted run of the
+        # same candidate against the same skillset (fingerprint match is implicit:
+        # all files share the same skillset_dir).  Skipped when --no-resume is set
+        # or when stdin is not a TTY (e.g. piped/batch invocations).
+        _resumed_results: dict[str, dict[str, Any]] = {}
+        if not args.no_resume and sys.stdin.isatty():
+            _resumable = _find_resumable_runs(skillset_dir, candidate_label)
+            if _resumable:
+                _chosen_run_id = _prompt_resume(_resumable, candidate_label)
+                if _chosen_run_id is not None:
+                    run_id = _chosen_run_id
+                    for _cp in _resumable[_chosen_run_id]:
+                        _resumed_results[_cp["scenario_id"]] = _cp
+                    print(
+                        f"[resume] Resuming run_id={run_id}, "
+                        f"skipping {len(_resumed_results)} already-completed scenario(s)."
+                    )
+
         for scenario_idx, scenario in enumerate(scenarios, 1):
             pause_checkpoint()  # honor a pause requested between scenarios
+
+            # Resume: replay a previously completed scenario from its checkpoint
+            # rather than re-running it against the model.
+            if scenario["id"] in _resumed_results:
+                _cp_result = _resumed_results[scenario["id"]]
+                scenario_results.append(_cp_result)
+                _cp_bounds = _cp_result.get("score_bounds", {})
+                if not _cp_result.get("excluded_from_scoring"):
+                    theoretical_max_total += int(_cp_bounds.get("theoretical_max", 0))
+                    theoretical_min_total += int(_cp_bounds.get("theoretical_min", 0))
+                    executed_turn_ceiling_total += int(_cp_bounds.get("executed_turn_ceiling", 0))
+                _merge_usage(run_usage["candidate"], _cp_result.get("token_usage", {}).get("candidate", _new_usage()))
+                _merge_usage(run_usage["judge"], _cp_result.get("token_usage", {}).get("judge", _new_usage()))
+                _merge_usage(run_usage["combined"], _cp_result.get("token_usage", {}).get("combined", _new_usage()))
+                _update_usage_peak(run_usage_peak["candidate"], _cp_result.get("token_usage_peak", {}).get("candidate", _new_usage_peak()))
+                _update_usage_peak(run_usage_peak["judge"], _cp_result.get("token_usage_peak", {}).get("judge", _new_usage_peak()))
+                _update_usage_peak(run_usage_peak["combined"], _cp_result.get("token_usage_peak", {}).get("combined", _new_usage_peak()))
+                _cp_canonical = _cp_result.get("canonical_total_score", _cp_result.get("total_score", 0))
+                _cp_panel = _cp_result.get("panel_total_score", _cp_result.get("total_score", 0))
+                print(f"\n{'#' * 72}")
+                print(f"  Scenario {scenario_idx}/{total_scenarios}: {scenario['id']}  [RESUMED from checkpoint]")
+                print(f"  => canonical={_cp_canonical}  panel={_cp_panel}")
+                print(f"{'#' * 72}")
+                continue
+
             if args.runner == "docker":
                 active_sandbox = trial_sandbox
                 if active_sandbox is not None:
