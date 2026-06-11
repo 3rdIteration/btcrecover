@@ -65,13 +65,38 @@ describe your situation.
 
 ## Tested models
 
-### Tested local-model combinations (VS Code + Cline)
+### Tested local-models
 
-* `qwen/qwen3.6-27b` (Usable on 24GB+ GPU like a 3090, 4090 or 5090)
-* `qwen/qwen3.5-9b` (Usable on 8GB GPU like a 3070, full performance with 20,000 context, 9b models tend to become forgetful beyond this anyway)
-* `qwen/qwen3.5-4b` (Usable on just about any modern system, but may be painfully slow without a GPU)
+These results were generated using the evaluation harness in the [`utilities/skill_eval/`](https://github.com/3rdIteration/btcrecover/tree/master/utilities/skill_eval) folder.
 
-The 27b model is **much** better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. **Anything below 4b parameters just gets stuck looping.**
+#### Chat Mode Performance
+| Model | Avg % Ceiling | Typical Range (±1σ) |
+| :--- | :---: | :---: |
+| **qwen3.6-27b** | 70.9% | 67.5% – 74.4% |
+| **gemma-4-31b** | 67.5% | 61.2% – 73.7% |
+| **gemma-4-26b-a4b** | 57.6% | 53.6% – 61.5% |
+| **gemma-4-12b** | 54.2% | 49.2% – 59.2% |
+| **qwen3.5-9b** | 52.4% | 47.6% – 57.2% |
+| **gemma-4-e4b** | 30.8% | 27.9% – 33.7% |
+
+#### Docker Mode (Tool-use) Performance
+| Model | Avg % Ceiling | Typical Range (±1σ) |
+| :--- | :---: | :---: |
+| **gemma-4-31b** | 65.0% | 60.7% – 69.3% |
+| **qwen3.6-27b** | 58.4% | 52.3% – 64.6% |
+| **gemma-4-12b** | 51.7% | 44.8% – 58.5% |
+| **qwen3.5-9b** | 47.5% | 43.1% – 51.9% |
+| **gemma-4-26b-a4b** | 39.9% | 34.9% – 44.9% |
+| **gemma-4-e4b** | 33.4% | 29.1% – 37.8% |
+
+* `gemma-4-31b` (Top performer overall - recommended if you have the VRAM)
+* `qwen/qwen3.6-27b` (Excellent for chat/triage; usable on 24GB+ GPU like a 3090, 4090 or 5090)
+* `qwen/qwen3.5-9b` / `gemma-4-12b` (Mid-tier; 9b usable on 8GB GPU like a 3070)
+* `qwen/qwen3.5-4b` / `gemma-4-e4b` (Low-tier; usable on most modern systems, but likely to struggle with complex logic)
+
+Performance varies significantly by model size: the 31b/27b models are significantly more reliable for end-to-end recovery. Models in the 9b-12b range are often usable but can be inconsistent. Models below 9b (like 4b or e4b) often struggle to follow the full multi-step workflow and typically require the "staged approach" described below. **Anything below 4b parameters just gets stuck looping.**
+
+It's also worth saying that this is one use case where MoE models seem to work well in chat (Asking it for commands to run and tips for using the tool) but struggle with tool use. (Where the LLM runs the commands for you)
 
 ### Local LLM Settings to watch:
 * **Set context length to at least 20,000 regardless of model**, more is generally better for larger models. (You generally set this in your LMStudio or Ollama)
@@ -86,6 +111,39 @@ Tested with:
 
 Both work fine. Opus will have no problem at all but you shouldn't need that
 level of reasoning.
+
+---
+
+## Benchmarking models with `skill_eval_harness.py`
+
+If you want a repeatable way to estimate how well a model follows `SKILL.md`,
+use the local evaluation harness in `utilities/skill_eval/`. See
+`utilities/skill_eval/README.md` for full setup and options.
+
+Typical one-off run:
+
+```bash
+python utilities/skill_eval/skill_eval_harness.py \
+  --candidate-model qwen3.5-9b \
+  --candidate-base-url http://127.0.0.1:1234/v1 \
+  --judge-model qwen/qwen3.6-27b
+```
+
+For repeatability, use `--suite-config` (start from
+`utilities/skill_eval/example_suite.json`) and queue multiple candidate runs
+using the same judge/scenario set. You can also test the same candidate against
+multiple `skill_roots` in one batch.
+
+After a few passes, compare these fields from each results JSON:
+
+* `meta.overall_score`
+* `meta.overall_score_percent.of_theoretical_max`
+* `meta.overall_score_percent.of_executed_turn_ceiling`
+* per-scenario `total_score` and `violation_tags`
+
+Those numbers make it easier to see whether a model is actually improving on
+script selection, safety sequencing, install handling, and split-workflow rules
+instead of relying on single-chat impressions.
 
 ---
 

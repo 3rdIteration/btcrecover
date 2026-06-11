@@ -19,3 +19,11 @@ batch_seeds.txt.progress
 batch_seeds.txt
 .cache/
 docs/Benchmarks.md
+/.venv
+*-venv*
+/.vscode
+*batch_eval_suite*.json
+/skills/evaluation/configs
+# skill-eval harness run output (regenerated locally, not tracked)
+/utilities/skill_eval/results/
+/.claude
