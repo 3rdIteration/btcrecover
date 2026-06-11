@@ -1746,13 +1746,41 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tested-local-model-combinations-vs-code-cline" class="md-nav__link">
+  <a href="#tested-local-models" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tested local-model combinations (VS Code + Cline)
+        Tested local-models
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Tested local-models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#chat-mode-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat Mode Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docker-mode-tool-use-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker Mode (Tool-use) Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1991,13 +2019,100 @@ system / custom-instructions message if the product supports it), then
 describe your situation.</p>
 <hr />
 <h2 id="tested-models">Tested models</h2>
-<h3 id="tested-local-model-combinations-vs-code-cline">Tested local-model combinations (VS Code + Cline)</h3>
+<h3 id="tested-local-models">Tested local-models</h3>
+<p>These results were generated using the evaluation harness in the <a href="https://github.com/3rdIteration/btcrecover/tree/master/utilities/skill_eval"><code>utilities/skill_eval/</code></a> folder.</p>
+<h4 id="chat-mode-performance">Chat Mode Performance</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Model</th>
+<th style="text-align: center;">Avg % Ceiling</th>
+<th style="text-align: center;">Typical Range (±1σ)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>qwen3.6-27b</strong></td>
+<td style="text-align: center;">70.9%</td>
+<td style="text-align: center;">67.5% – 74.4%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-31b</strong></td>
+<td style="text-align: center;">67.5%</td>
+<td style="text-align: center;">61.2% – 73.7%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-26b-a4b</strong></td>
+<td style="text-align: center;">57.6%</td>
+<td style="text-align: center;">53.6% – 61.5%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-12b</strong></td>
+<td style="text-align: center;">54.2%</td>
+<td style="text-align: center;">49.2% – 59.2%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>qwen3.5-9b</strong></td>
+<td style="text-align: center;">52.4%</td>
+<td style="text-align: center;">47.6% – 57.2%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-e4b</strong></td>
+<td style="text-align: center;">30.8%</td>
+<td style="text-align: center;">27.9% – 33.7%</td>
+</tr>
+</tbody>
+</table>
+<h4 id="docker-mode-tool-use-performance">Docker Mode (Tool-use) Performance</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Model</th>
+<th style="text-align: center;">Avg % Ceiling</th>
+<th style="text-align: center;">Typical Range (±1σ)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-31b</strong></td>
+<td style="text-align: center;">65.0%</td>
+<td style="text-align: center;">60.7% – 69.3%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>qwen3.6-27b</strong></td>
+<td style="text-align: center;">58.4%</td>
+<td style="text-align: center;">52.3% – 64.6%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-12b</strong></td>
+<td style="text-align: center;">51.7%</td>
+<td style="text-align: center;">44.8% – 58.5%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>qwen3.5-9b</strong></td>
+<td style="text-align: center;">47.5%</td>
+<td style="text-align: center;">43.1% – 51.9%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-26b-a4b</strong></td>
+<td style="text-align: center;">39.9%</td>
+<td style="text-align: center;">34.9% – 44.9%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>gemma-4-e4b</strong></td>
+<td style="text-align: center;">33.4%</td>
+<td style="text-align: center;">29.1% – 37.8%</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li><code>qwen/qwen3.6-27b</code> (Usable on 24GB+ GPU like a 3090, 4090 or 5090)</li>
-<li><code>qwen/qwen3.5-9b</code> (Usable on 8GB GPU like a 3070, full performance with 20,000 context, 9b models tend to become forgetful beyond this anyway)</li>
-<li><code>qwen/qwen3.5-4b</code> (Usable on just about any modern system, but may be painfully slow without a GPU)</li>
+<li><code>gemma-4-31b</code> (Top performer overall - recommended if you have the VRAM)</li>
+<li><code>qwen/qwen3.6-27b</code> (Excellent for chat/triage; usable on 24GB+ GPU like a 3090, 4090 or 5090)</li>
+<li><code>qwen/qwen3.5-9b</code> / <code>gemma-4-12b</code> (Mid-tier; 9b usable on 8GB GPU like a 3070)</li>
+<li><code>qwen/qwen3.5-4b</code> / <code>gemma-4-e4b</code> (Low-tier; usable on most modern systems, but likely to struggle with complex logic)</li>
 </ul>
-<p>The 27b model is <strong>much</strong> better overall, 9b will mostly work and 4b muddles it's way through and will probably struggle to work out anything complex. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
+<p>Performance varies significantly by model size: the 31b/27b models are significantly more reliable for end-to-end recovery. Models in the 9b-12b range are often usable but can be inconsistent. Models below 9b (like 4b or e4b) often struggle to follow the full multi-step workflow and typically require the "staged approach" described below. <strong>Anything below 4b parameters just gets stuck looping.</strong></p>
+<p>It's also worth saying that this is one use case where MoE models seem to work well in chat (Asking it for commands to run and tips for using the tool) but struggle with tool use. (Where the LLM runs the commands for you)</p>
 <h3 id="local-llm-settings-to-watch">Local LLM Settings to watch:</h3>
 <ul>
 <li><strong>Set context length to at least 20,000 regardless of model</strong>, more is generally better for larger models. (You generally set this in your LMStudio or Ollama)</li>
@@ -2227,9 +2342,9 @@ asks the agent to prompt you about this once your funds are safe.</p>
     
     <nav>
       
-        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
           
-          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
         </a>
       
         <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
@@ -2237,9 +2352,9 @@ asks the agent to prompt you about this once your funds are safe.</p>
           <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
         </a>
       
-        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
           
-          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
         </a>
       
       
@@ -2266,7 +2381,7 @@ asks the agent to prompt you about this once your funds are safe.</p>
       
 <ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
     Page Contributors
-    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li></ul>
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li></ul>
 </ul>
 <footer class="md-footer">
   
