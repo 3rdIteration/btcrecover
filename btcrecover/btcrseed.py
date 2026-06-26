@@ -964,9 +964,10 @@ class WalletBlockchainLegacyMnemonic(BlockChainPassword):
         # Accept both legacy wordlists so one wallet type can handle v2 and v3/4/5/6 seeds.
         v2_words = tuple(map(str, load_wordlist("blockchainpassword_words_v2", "en")))
         v3_words = tuple(map(str, load_wordlist("blockchainpassword_words_v3", "en")))
-        self._words = tuple(dict.fromkeys(v2_words + v3_words))
-        self._num_words = len(self._words)
-        self._word_to_id = {word: idx for idx, word in enumerate(self._words)}
+        # Assign to the class so id_to_word (a @classmethod) can find it.
+        WalletBlockchainLegacyMnemonic._words = tuple(dict.fromkeys(v2_words + v3_words))
+        self._num_words = len(WalletBlockchainLegacyMnemonic._words)
+        self._word_to_id = {word: idx for idx, word in enumerate(WalletBlockchainLegacyMnemonic._words)}
         self._v3word_to_id = {word: idx for idx, word in enumerate(v3_words)}
         self._last_attempted_wallet_classes = ()
         super(WalletBlockchainLegacyMnemonic, self).__init__(loading)
