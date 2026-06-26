@@ -44,7 +44,7 @@ jobs:
         run: |
           /entrypoint.sh pkg install -y nodejs-lts
           ln -sf ${PREFIX}/bin /__e/node20/bin
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: fix permissions
         run: chown -R 1000:1000 .
       - name: Install dependencies
@@ -89,7 +89,7 @@ jobs:
         run: |
           /entrypoint.sh pkg install -y nodejs-lts
           ln -sf ${PREFIX}/bin /__e/node20/bin
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: fix permissions
         run: chown -R 1000:1000 .
       - name: Install dependencies

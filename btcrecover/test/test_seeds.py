@@ -660,6 +660,14 @@ class TestRecoveryFromCheckSum(unittest.TestCase):
         mnemonic = build_mnemonic(2, b"amb-2-0")
         self.blockchain_auto_tester(mnemonic, {"BlockChainPasswordV2", "BlockChainPasswordV3"})
 
+    def test_blockchain_legacy_mnemonic_id_to_word(self):
+        # Regression test: id_to_word is a @classmethod that reads the class-level _words.
+        # WalletBlockchainLegacyMnemonic must set _words on its class, not just as an instance attr.
+        wallet = btcrseed.WalletBlockchainLegacyMnemonic.create_from_params()
+        word = wallet.id_to_word(0)
+        self.assertIsInstance(word, str)
+        self.assertTrue(len(word) > 0)
+
 is_sha3_loadable = None
 def can_load_keccak():
     global is_sha3_loadable
