@@ -149,7 +149,7 @@ If you mostly know your recovery seed/mnemonic (12-24 recovery words), but think
 
 ## Wallet Scanning ##
 
-Not sure where your wallet files are? `walletfinder.py` can scan directories to locate supported wallet files and mnemonic seed phrases. It has two modes: **Wallet Mode** auto-detects BTCRecover-supported wallet formats, while **Mnemonic Mode** scans text files for BIP39/SLIP39/Electrum wordlist words. See **[WalletFinder Usage Examples](docs/Usage_Examples/basic_wallet_scanning.md)** for details and examples.
+Not sure where your wallet files are? `walletfinder.py` can scan directories to locate supported wallet files, mnemonic seed phrases, and private keys. It has two modes: **Wallet Mode** auto-detects BTCRecover-supported wallet formats, while **Text Mode** (`--text-mode`) scans text files for BIP39/SLIP39/Electrum wordlist words with checksum validation, plus WIF/BIP38/BIP32 private keys. Only checksum-valid seeds are shown by default; use `--debug` to see all matches including those that fail checksum. See **[WalletFinder Usage Examples](docs/Usage_Examples/basic_wallet_scanning.md)** for details and examples.
 
 ## Audible Alerts ##
 

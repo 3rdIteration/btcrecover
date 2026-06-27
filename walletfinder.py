@@ -279,30 +279,36 @@ def scan_private_keys(content):
 
 
 def load_mnemonic_wordlists():
-    """Load all mnemonic wordlists into named sets.
+    """Load all mnemonic wordlists into named sets and ordered lists.
 
-    Returns a dict mapping wordlist name to set of lowercase words.
+    Returns a tuple (wordlist_sets, wordlist_ordered):
+      - wordlist_sets: dict mapping name to set of lowercase words (for fast lookup)
+      - wordlist_ordered: dict mapping name to list of lowercase words in canonical order (for checksums)
     """
     wordlists_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'btcrecover', 'wordlists'
     )
-    result = {}
+    result_sets = {}
+    result_ordered = {}
 
     def load_file(name, filename):
         filepath = os.path.join(wordlists_dir, filename)
         if not os.path.isfile(filepath):
-            return set()
-        words = set()
+            return set(), []
+        words_set = set()
+        words_list = []
         try:
             with open(filepath, encoding='utf-8-sig') as f:
                 for line in f:
                     word = line.strip().lower()
                     if word and not word.startswith('#'):
-                        words.add(word)
+                        words_set.add(word)
+                        words_list.append(word)
         except Exception:
             pass
-        result[name] = words
-        return words
+        result_sets[name] = words_set
+        result_ordered[name] = words_list
+        return words_set, words_list
 
     load_file('BIP39 English', 'bip39-en.txt')
     load_file('Electrum Legacy / Blockchain v2', 'electrum1-en.txt')
@@ -310,11 +316,142 @@ def load_mnemonic_wordlists():
 
     try:
         from shamir_mnemonic import wordlist as sw
-        result['SLIP39'] = set(w.lower() for w in sw.WORDLIST)
+        slip39_set = set(w.lower() for w in sw.WORDLIST)
+        result_sets['SLIP39'] = slip39_set
+        result_ordered['SLIP39'] = [w.lower() for w in sw.WORDLIST]
     except Exception:
         pass
 
-    return result
+    return result_sets, result_ordered
+
+
+# ---------------------------------------------------------------------------
+# Checksum validation for mnemonic types
+# ---------------------------------------------------------------------------
+
+def _verify_bip39_checksum(words, wordlist):
+    """Verify BIP39 checksum for a list of words.
+
+    Valid lengths: 12, 15, 18, 21, 24.
+    Returns True if checksum is valid, False otherwise.
+    """
+    if len(words) not in (12, 15, 18, 21, 24):
+        return False
+    try:
+        import hashlib
+        word_to_binary = {w: "{:011b}".format(i) for i, w in enumerate(wordlist)}
+        bit_string = "".join(word_to_binary[w] for w in words)
+        cksum_len_in_bits = len(words) // 3
+        entropy_bytes = bytearray()
+        for i in range(0, len(bit_string) - cksum_len_in_bits, 8):
+            entropy_bytes.append(int(bit_string[i:i+8], 2))
+        cksum_int = int(bit_string[-cksum_len_in_bits:], 2)
+        return ord(hashlib.sha256(entropy_bytes).digest()[:1]) >> (8 - cksum_len_in_bits) == cksum_int
+    except Exception:
+        return False
+
+
+def _verify_electrum_legacy_checksum(words, wordlist):
+    """Verify Electrum Legacy / Blockchain v2 checksum for a list of words.
+
+    Valid lengths: 1-13 and 24.
+    Returns True if checksum is valid, False otherwise.
+    """
+    if len(words) not in list(range(1, 14)) + [24]:
+        return False
+    try:
+        import hashlib
+        import hmac
+        word_to_id = {w: i for i, w in enumerate(wordlist)}
+        ids = [word_to_id[w] for w in words]
+        # The last 4 bits of the first word's ID encode the checksum
+        test_digest = hmac.new(
+            "Seed version".encode(), " ".join(words).encode(), hashlib.sha512
+        ).digest()[0]
+        return test_digest in (1, 16)
+    except Exception:
+        return False
+
+
+def _verify_blockchain_v3_checksum(words):
+    """Verify Blockchain v3/v4/v5/v6 checksum for a list of words.
+
+    First 3 words encode version+checksum, remaining words are payload.
+    Valid lengths: multiples of 3 (at least 3).
+    Returns True if checksum is valid, False otherwise.
+    """
+    if len(words) < 3 or len(words) % 3 != 0:
+        return False
+    try:
+        import hashlib
+        wordlist_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'btcrecover', 'wordlists',
+            'blockchainpassword_words_v3-en.txt'
+        )
+        v3_words = []
+        with open(wordlist_path, encoding='utf-8-sig') as f:
+            for line in f:
+                w = line.strip().lower()
+                if w and not w.startswith('#'):
+                    v3_words.append(w)
+
+        wordlist_v2_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'btcrecover', 'wordlists',
+            'electrum1-en.txt'
+        )
+        v2_words = []
+        with open(wordlist_v2_path, encoding='utf-8-sig') as f:
+            for line in f:
+                w = line.strip().lower()
+                if w and not w.startswith('#'):
+                    v2_words.append(w)
+
+        v2_word_to_id = {w: i for i, w in enumerate(v2_words)}
+
+        seedwords = [w for w in words[:3]]
+        try:
+            v2_ids = [v2_word_to_id[sw] for sw in seedwords]
+        except KeyError:
+            return False
+
+        checksum = (v2_ids[0] << 16) | (v2_ids[1] << 8) | v2_ids[2]
+        version = (checksum >> 24) & 0xFF
+        if version not in (3, 4, 5, 6):
+            return False
+
+        body_words = words[3:]
+        body_v2_ids = []
+        for w in body_words:
+            try:
+                body_v2_ids.append(v2_word_to_id[w])
+            except KeyError:
+                return False
+
+        str_bytes = bytearray()
+        for i in range(0, len(body_v2_ids), 3):
+            chunk = (body_v2_ids[i] << 16) | (body_v2_ids[i + 1] << 8) | body_v2_ids[i + 2]
+            str_bytes.extend(chunk.to_bytes(4, 'big'))
+
+        str_bytes = bytearray([b for b in str_bytes if b != 0])
+        restored_checksum_bytes = version.to_bytes(1, 'big') + hashlib.sha256(str_bytes).digest()[:3]
+        restored_checksum = int.from_bytes(restored_checksum_bytes, 'big')
+        return checksum == restored_checksum
+    except Exception:
+        return False
+
+
+def _verify_slip39_checksum(words):
+    """Verify SLIP39 checksum for a list of words.
+
+    Uses the shamir_mnemonic library if available.
+    Returns True if checksum is valid, False otherwise.
+    """
+    try:
+        from shamir_mnemonic.share import Share
+        Share.from_mnemonic(" ".join(words))
+        return True
+    except Exception:
+        return False
 
 
 def check_sequential(tokens, wordset, min_seq):
@@ -359,19 +496,20 @@ def check_scattered(tokens, wordset):
     return matched
 
 
-def scan_text_mode(folder, depth, min_seq, min_scat):
+def scan_text_mode(folder, depth, min_seq, min_scat, debug=False):
     """Scan directory for files containing mnemonic words or private keys.
 
     Returns a list of dicts with keys: path, size, findings.
     Each finding has: wordlist/ key_type, sequential/scattered_count/keys, type ('mnemonic' or 'private_key').
+    Sequential matches include checksum_valid flag when validated.
     """
     results = []
     files_scanned = 0
-    wordlists = load_mnemonic_wordlists()
+    wordlist_sets, wordlist_ordered = load_mnemonic_wordlists()
 
     print("Scanning for mnemonic words and private keys in: {}".format(folder))
     print("Wordlists loaded:")
-    for name, wset in wordlists.items():
+    for name, wset in wordlist_sets.items():
         print("  {}: {} words".format(name, len(wset)))
     print()
 
@@ -400,16 +538,31 @@ def scan_text_mode(folder, depth, min_seq, min_scat):
         tokens = content.split()
         findings = []
 
-        # Mnemonic word detection
-        for wname, wset in wordlists.items():
+        # Mnemonic word detection with checksum validation
+        for wname, wset in wordlist_sets.items():
             seq_matches = check_sequential(tokens, wset, min_seq)
             scattered = check_scattered(tokens, wset)
             scat_count = len(scattered)
 
-            if seq_matches or scat_count >= min_scat:
+            # Validate checksums for sequential matches at valid lengths
+            validated_matches = []
+            ordered_list = wordlist_ordered.get(wname, [])
+            for start, length, words in seq_matches:
+                checksum_valid = False
+                if 'BIP39' in wname and ordered_list:
+                    checksum_valid = _verify_bip39_checksum(words, ordered_list)
+                elif ('Electrum' in wname or 'Blockchain v2' in wname) and ordered_list:
+                    checksum_valid = _verify_electrum_legacy_checksum(words, ordered_list)
+                elif 'Blockchain v3' in wname:
+                    checksum_valid = _verify_blockchain_v3_checksum(words)
+                elif 'SLIP39' in wname:
+                    checksum_valid = _verify_slip39_checksum(words)
+                validated_matches.append((start, length, words, checksum_valid))
+
+            if validated_matches or scat_count >= min_scat:
                 findings.append({
                     'wordlist': wname,
-                    'sequential': seq_matches,
+                    'sequential': validated_matches,
                     'scattered_count': scat_count,
                     'type': 'mnemonic',
                 })
@@ -504,24 +657,57 @@ def _truncate_key(key, max_display=24):
     return key[:16] + '...' + key[-8:]
 
 
-def print_text_results(results, files_scanned):
-    """Print text mode scan results (mnemonics and private keys)."""
+def print_text_results(results, files_scanned, debug=False):
+    """Print text mode scan results (mnemonics and private keys).
+
+    When debug is False:
+      - Sequential matches are not printed.
+      - Files with only non-checksum-valid sequential matches are suppressed.
+    """
     if not results:
         print("No mnemonic or private key matches found.")
         return
 
     for r in results:
+        # Check if this file has any meaningful results (checksum-valid sequential, keys)
+        has_meaningful = False
+        for f in r['findings']:
+            if f.get('type') == 'mnemonic':
+                for match in f['sequential']:
+                    checksum_valid = match[3] if len(match) > 3 else False
+                    if checksum_valid:
+                        has_meaningful = True
+                        break
+            elif f.get('type') == 'private_key':
+                has_meaningful = True
+
+        if not has_meaningful and not debug:
+            continue
+
         print("{} ({} bytes)".format(r['path'], r['size']))
         for f in r['findings']:
             if f.get('type') == 'mnemonic':
+                seq_matches = f['sequential']
+                # Show sequential matches only in debug mode, or if checksum-valid
+                show_seq = []
+                for match in seq_matches:
+                    length = match[1]
+                    words = match[2]
+                    checksum_valid = match[3] if len(match) > 3 else False
+                    if debug or checksum_valid:
+                        show_seq.append((length, words, checksum_valid))
+
+                if not show_seq and f['scattered_count'] == 0:
+                    continue
+
                 print("  [Mnemonic: {}]".format(f['wordlist']))
-                if f['sequential']:
-                    for start, length, words in f['sequential']:
-                        display_words = ' '.join(words[:12])
-                        if len(words) > 12:
-                            display_words += ' ...'
-                        print("    Sequential match ({} words): {}".format(
-                            length, display_words))
+                for length, words, checksum_valid in show_seq:
+                    display_words = ' '.join(words[:12])
+                    if len(words) > 12:
+                        display_words += ' ...'
+                    tag = " (checksum valid)" if checksum_valid else ""
+                    print("    Sequential match ({} words): {}{}".format(
+                        length, display_words, tag))
                 if f['scattered_count'] > 0:
                     print("    Scattered unique matches: {}".format(f['scattered_count']))
 
@@ -580,12 +766,13 @@ def parse_arguments(args=None):
 
     parser.add_argument(
         '--debug', action='store_true',
-        help='Show detection reason for each matched wallet (helps identify false positives).')
+        help='In wallet mode: show detection reasons. In text mode: show all sequential matches '
+             '(including checksum-invalid ones) and files with no valid results.')
 
     text_group = parser.add_argument_group('text mode options')
     text_group.add_argument(
-        '--min-sequential', type=int, metavar='N', default=6,
-        help='Minimum consecutive wordlist words in a file to report (default: 6).')
+        '--min-sequential', type=int, metavar='N', default=12,
+        help='Minimum consecutive wordlist words in a file to report (default: 12).')
     text_group.add_argument(
         '--min-scattered', type=int, metavar='N', default=12,
         help='Minimum unique wordlist words in a file to report (default: 12).')
@@ -620,9 +807,9 @@ def main():
 
     if text_mode:
         results, files_scanned = scan_text_mode(
-            folder, depth, args.min_sequential, args.min_scattered)
+            folder, depth, args.min_sequential, args.min_scattered, debug=args.debug)
         print()
-        print_text_results(results, files_scanned)
+        print_text_results(results, files_scanned, debug=args.debug)
     else:
         results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug)
         print()
