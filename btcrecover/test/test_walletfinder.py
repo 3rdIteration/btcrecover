@@ -32,6 +32,12 @@ if __name__ == '__main__':
 
 # Import walletfinder functions for direct testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+import sys, os
+# Add repo root to path so we can import walletfinder from the test module
+repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 import walletfinder
 
 
