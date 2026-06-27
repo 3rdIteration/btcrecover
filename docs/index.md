@@ -10,6 +10,10 @@ For wallet password or passphrase recovery, it is primarily useful if you have a
 ## Getting Started
 Your best bet is to follow the [Installing BTCRecover guide](INSTALL.md), then read the "Quick Start" for the recovery type you want. [(Or look at some usage examples)](UsageExamples.md)
 
+## Wallet Scanning
+
+Not sure where your wallet files are? `walletfinder.py` can scan directories to locate supported wallet files and mnemonic seed phrases. It has two modes: **Wallet Mode** auto-detects BTCRecover-supported wallet formats, while **Mnemonic Mode** scans text files for BIP39/SLIP39/Electrum wordlist words. See **[WalletFinder Usage Examples](Usage_Examples/basic_wallet_scanning.md)** for details and examples.
+
 ## Getting Support
 
 If you need help, [your best bet is to look at my BTCRecover playlist on YouTube](https://www.youtube.com/playlist?list=PL7rfJxwogDzmd1IanPrmlTg3ewAIq-BZJ) and ask a question in the comments section for any of video closest to your situation.
