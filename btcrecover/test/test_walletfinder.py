@@ -465,6 +465,10 @@ class TestArgumentParsing(unittest.TestCase):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--min-scattered', '20'])
         self.assertEqual(args.min_scattered, 20)
 
+    def test_debug_flag(self):
+        args = walletfinder.parse_arguments(['--folder', '/tmp', '--debug'])
+        self.assertTrue(args.debug)
+
 
 if __name__ == '__main__':
     unittest.main()

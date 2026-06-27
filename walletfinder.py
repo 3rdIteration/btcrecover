@@ -62,10 +62,10 @@ def walk_directory(folder, max_depth, current_depth=0):
             yield str(entry)
 
 
-def scan_wallet_mode(folder, depth):
+def scan_wallet_mode(folder, depth, debug=False):
     """Scan directory for wallet files using btcrecover's load_wallet().
 
-    Returns a list of dicts with keys: path, type, confidence.
+    Returns a list of dicts with keys: path, type, confidence, (and reason if debug).
     """
     results = []
     files_scanned = 0
@@ -78,11 +78,14 @@ def scan_wallet_mode(folder, depth):
         try:
             wallet_obj = load_wallet(filepath)
             wtype = get_wallet_type_name(wallet_obj)
-            results.append({
+            result = {
                 'path': filepath,
                 'type': wtype,
-                'confidence': 'definite',
-            })
+                'confidence': getattr(wallet_obj, 'detection_confidence', 'definite'),
+            }
+            if debug:
+                result['reason'] = getattr(wallet_obj, 'detection_reason', None)
+            results.append(result)
         except (Exception, SystemExit):
             pass
 
@@ -233,8 +236,13 @@ def print_wallet_results(results, files_scanned):
         print("No wallet files found.")
         return
 
+    show_reason = any(r.get('reason') for r in results)
+
     for r in results:
-        print("{}  [{}] {}".format(r['type'], r['confidence'], r['path']))
+        line = "{}  [{}] {}".format(r['type'], r['confidence'], r['path'])
+        if show_reason and r.get('reason'):
+            line += "\n    Detection: {}".format(r['reason'])
+        print(line)
 
     print()
     print("Summary:")
@@ -297,6 +305,10 @@ def parse_arguments(args=None):
         '--depth', type=int, metavar='N', default=None,
         help='Maximum recursion depth (default: unlimited).')
 
+    parser.add_argument(
+        '--debug', action='store_true',
+        help='Show detection reason for each matched wallet (helps identify false positives).')
+
     mnemo_group = parser.add_argument_group('mnemonic mode options')
     mnemo_group.add_argument(
         '--min-sequential', type=int, metavar='N', default=6,
@@ -324,7 +336,7 @@ def main():
         print()
         print_mnemonic_results(results, files_scanned)
     else:
-        results, files_scanned = scan_wallet_mode(folder, depth)
+        results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug)
         print()
         print_wallet_results(results, files_scanned)
 
