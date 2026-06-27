@@ -20,6 +20,7 @@ import compatibility_check
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -147,6 +148,136 @@ def scan_wallet_mode(folder, depth, debug=False):
     return results, files_scanned
 
 
+# ---------------------------------------------------------------------------
+# Private key detection patterns
+# ---------------------------------------------------------------------------
+
+# Base58 alphabet character class (excludes 0, O, I, l to avoid confusion)
+B58 = r'[1-9A-HJ-NP-Za-km-z]'
+
+# Raw WIF private keys:
+#   Uncompressed: 5 + 50 Base58 chars = 51 total
+#   Compressed K/L: K or L + 51 Base58 chars = 52 total
+#   Testnet compressed c: c + 51 Base58 chars = 52 total
+RAW_WIF_PATTERN = re.compile(
+    r'(?<![A-Za-z0-9])'
+    r'(?:'
+        rf'5{B58}{{50}}'                                # uncompressed 5... (51 total)
+        rf'|K{B58}{{51}}'                               # compressed K... (52 total)
+        rf'|L{B58}{{51}}'                               # compressed L... (52 total)
+        rf'|c{B58}{{51}}'                               # testnet c... (52 total)
+    r')'
+    r'(?![A-Za-z0-9])',
+    re.ASCII
+)
+
+# BIP38 encrypted private keys: 6Pn + 54 base58 chars = 58 total
+BIP38_PATTERN = re.compile(
+    rf'(?<![A-Za-z0-9])6P{B58}{{57}}(?![A-Za-z0-9])',
+    re.ASCII
+)
+
+# BIP32 extended private keys: prefix (4 chars) + 107 base58 = 111 total
+# SLIP-0132 registered prefixes: xprv, yprv, Yprv, zprv, Zprv, tprv, uprv, Uprv, vprv, Vprv
+BIP32_XPRV_PATTERN = re.compile(
+    rf'(?<![A-Za-z0-9])(?:xprv|yprv|Yprv|zprv|Zprv|tprv|uprv|Uprv|vprv|Vprv){B58}{{107}}(?![A-Za-z0-9])',
+    re.ASCII
+)
+
+# BIP32 extended public keys: prefix (4 chars) + 106 or 107 base58 = ~110-111 total
+# SLIP-0132 registered prefixes: xpub, ypub, Ypub, zpub, Zpub, tpub, upub, Upub, vpub, Vpub
+BIP32_XPUB_PATTERN = re.compile(
+    rf'(?<![A-Za-z0-9])(?:xpub|ypub|Ypub|zpub|Zpub|tpub|upub|Upub|vpub|Vpub){B58}{{106,107}}(?![A-Za-z0-9])',
+    re.ASCII
+)
+
+
+def _classify_wif(key):
+    """Return a human-readable label for a raw WIF key."""
+    if key.startswith('5'):
+        return 'Bitcoin (uncompressed)'
+    elif key[0] in ('K', 'L') and len(key) == 52:
+        return 'Bitcoin (compressed)'
+    elif key[0] == 'c':
+        return 'Testnet'
+    return 'Unknown network'
+
+
+def _classify_xprv(key):
+    """Return a human-readable label for an extended private key."""
+    prefix = key[:4]
+    labels = {
+        'xprv': 'Bitcoin mainnet (legacy)',
+        'yprv': 'Bitcoin mainnet (nested segwit)',
+        'Yprv': 'Bitcoin mainnet (multisig nested segwit)',
+        'zprv': 'Bitcoin mainnet (native segwit)',
+        'tprv': 'Testnet (legacy)',
+        'uprv': 'Testnet (nested segwit)',
+    }
+    return labels.get(prefix, prefix)
+
+
+def _classify_xpub(key):
+    """Return a human-readable label for an extended public key."""
+    prefix = key[:4]
+    labels = {
+        'xpub': 'Bitcoin mainnet (legacy)',
+        'ypub': 'Bitcoin mainnet (nested segwit)',
+        'zpub': 'Bitcoin mainnet (native segwit)',
+        'tpub': 'Testnet (legacy)',
+        'upub': 'Testnet (nested segwit)',
+    }
+    return labels.get(prefix, prefix)
+
+
+def scan_private_keys(content):
+    """Scan extracted text content for private keys.
+
+    Returns a dict with keys: raw_wif, bip38, xprv, xpub.
+    Each value is a list of dicts with 'key' and 'network' fields.
+    """
+    findings = {
+        'raw_wif': [],
+        'bip38': [],
+        'xprv': [],
+        'xpub': [],
+    }
+
+    for match in RAW_WIF_PATTERN.finditer(content):
+        key = match.group(0)
+        findings['raw_wif'].append({
+            'key': key,
+            'network': _classify_wif(key),
+        })
+
+    for match in BIP38_PATTERN.finditer(content):
+        findings['bip38'].append({
+            'key': match.group(0),
+            'network': 'BIP38 encrypted',
+        })
+
+    for match in BIP32_XPRV_PATTERN.finditer(content):
+        key = match.group(0)
+        findings['xprv'].append({
+            'key': key,
+            'network': _classify_xprv(key),
+        })
+
+    for match in BIP32_XPUB_PATTERN.finditer(content):
+        key = match.group(0)
+        findings['xpub'].append({
+            'key': key,
+            'network': _classify_xpub(key),
+        })
+
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Mnemonic/seed phrase detection (unchanged logic, now part of text mode)
+# ---------------------------------------------------------------------------
+
+
 def load_mnemonic_wordlists():
     """Load all mnemonic wordlists into named sets.
 
@@ -228,17 +359,17 @@ def check_scattered(tokens, wordset):
     return matched
 
 
-def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
-    """Scan directory for files containing mnemonic words.
+def scan_text_mode(folder, depth, min_seq, min_scat):
+    """Scan directory for files containing mnemonic words or private keys.
 
     Returns a list of dicts with keys: path, size, findings.
-    Each finding has: wordlist, sequential (list), scattered_count.
+    Each finding has: wordlist/ key_type, sequential/scattered_count/keys, type ('mnemonic' or 'private_key').
     """
     results = []
     files_scanned = 0
     wordlists = load_mnemonic_wordlists()
 
-    print("Scanning for mnemonic words in: {}".format(folder))
+    print("Scanning for mnemonic words and private keys in: {}".format(folder))
     print("Wordlists loaded:")
     for name, wset in wordlists.items():
         print("  {}: {} words".format(name, len(wset)))
@@ -269,6 +400,7 @@ def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
         tokens = content.split()
         findings = []
 
+        # Mnemonic word detection
         for wname, wset in wordlists.items():
             seq_matches = check_sequential(tokens, wset, min_seq)
             scattered = check_scattered(tokens, wset)
@@ -279,7 +411,46 @@ def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
                     'wordlist': wname,
                     'sequential': seq_matches,
                     'scattered_count': scat_count,
+                    'type': 'mnemonic',
                 })
+
+        # Private key detection
+        key_findings = scan_private_keys(content)
+        total_keys_found = (len(key_findings['raw_wif']) + len(key_findings['bip38']) +
+                           len(key_findings['xprv']) + len(key_findings['xpub']))
+
+        if total_keys_found > 0:
+            key_type_findings = []
+            for wif_entry in key_findings['raw_wif']:
+                key_type_findings.append({
+                    'key': wif_entry['key'],
+                    'network': wif_entry['network'],
+                    'type': 'private_key',
+                })
+            for bip38_entry in key_findings['bip38']:
+                key_type_findings.append({
+                    'key': bip38_entry['key'],
+                    'network': bip38_entry['network'],
+                    'type': 'private_key',
+                })
+            for xprv_entry in key_findings['xprv']:
+                key_type_findings.append({
+                    'key': xprv_entry['key'],
+                    'network': xprv_entry['network'],
+                    'type': 'private_key',
+                })
+            for xpub_entry in key_findings['xpub']:
+                key_type_findings.append({
+                    'key': xpub_entry['key'],
+                    'network': xpub_entry['network'],
+                    'type': 'private_key',
+                })
+
+            findings.append({
+                'keys': key_type_findings,
+                'total_keys': total_keys_found,
+                'type': 'private_key',
+            })
 
         if findings:
             results.append({
@@ -289,6 +460,11 @@ def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
             })
 
     return results, files_scanned
+
+
+# ---------------------------------------------------------------------------
+# Result printing
+# ---------------------------------------------------------------------------
 
 
 def print_wallet_results(results, files_scanned):
@@ -321,46 +497,82 @@ def print_wallet_results(results, files_scanned):
             print("    {}: {}".format(wtype, count))
 
 
-def print_mnemonic_results(results, files_scanned):
-    """Print mnemonic scan results."""
+def _truncate_key(key, max_display=24):
+    """Truncate a key string for display purposes."""
+    if len(key) <= max_display:
+        return key
+    return key[:16] + '...' + key[-8:]
+
+
+def print_text_results(results, files_scanned):
+    """Print text mode scan results (mnemonics and private keys)."""
     if not results:
-        print("No mnemonic matches found.")
+        print("No mnemonic or private key matches found.")
         return
 
     for r in results:
         print("{} ({} bytes)".format(r['path'], r['size']))
         for f in r['findings']:
-            print("  [{}]".format(f['wordlist']))
-            if f['sequential']:
-                for start, length, words in f['sequential']:
-                    print("    Sequential match ({} words): {}".format(
-                        length, ' '.join(words)))
-            if f['scattered_count'] > 0:
-                print("    Scattered unique matches: {}".format(f['scattered_count']))
+            if f.get('type') == 'mnemonic':
+                print("  [Mnemonic: {}]".format(f['wordlist']))
+                if f['sequential']:
+                    for start, length, words in f['sequential']:
+                        display_words = ' '.join(words[:12])
+                        if len(words) > 12:
+                            display_words += ' ...'
+                        print("    Sequential match ({} words): {}".format(
+                            length, display_words))
+                if f['scattered_count'] > 0:
+                    print("    Scattered unique matches: {}".format(f['scattered_count']))
 
-    print()
+            elif f.get('type') == 'private_key':
+                key_types = {}
+                for entry in f['keys']:
+                    net = entry['network']
+                    if net not in key_types:
+                        key_types[net] = []
+                    key_types[net].append(entry['key'])
+
+                for network, keys in sorted(key_types.items()):
+                    print("  [Private Key: {}]".format(network))
+                    for key in keys[:5]:
+                        truncated = _truncate_key(key)
+                        print("    {}".format(truncated))
+                    if len(keys) > 5:
+                        print("    ... and {} more".format(len(keys) - 5))
+
+        print()
+
     print("Summary:")
     print("  Files scanned: {}".format(files_scanned))
     print("  Matches found: {}".format(len(results)))
 
 
+# ---------------------------------------------------------------------------
+# CLI argument parsing
+# ---------------------------------------------------------------------------
+
+
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser(
         prog='walletfinder',
-        description='Scan directories for supported wallet files and mnemonic phrases.',
+        description='Scan directories for supported wallet files, mnemonic phrases, and private keys.',
     )
 
     parser.add_argument(
         '--folder', metavar='DIR', required=True,
-        help='Directory to scan recursively for wallet/mnemonic files.')
+        help='Directory to scan recursively for wallet/mnemonic/key files.')
 
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
-        '--wallet-mode', action='store_true', default=True,
-        help='Scan for wallet files using btcrecover auto-detection (default).')
+        '--wallet-mode', action='store_true', default=False,
+        help='Scan for wallet files using btcrecover auto-detection.')
     mode_group.add_argument(
-        '--mnemonic-mode', action='store_true',
-        help='Scan for files containing mnemonic seed words.')
+        '--text-mode', action='store_true',
+        help='Scan for mnemonic phrases and private keys (WIF, BIP38, BIP32 extended keys).')
+    mode_group.add_argument(
+        '--mnemonic-mode', action='store_true', dest='mnemonic_mode_compat',
+        help=argparse.SUPPRESS)
 
     parser.add_argument(
         '--depth', type=int, metavar='N', default=None,
@@ -370,15 +582,27 @@ def parse_arguments(args=None):
         '--debug', action='store_true',
         help='Show detection reason for each matched wallet (helps identify false positives).')
 
-    mnemo_group = parser.add_argument_group('mnemonic mode options')
-    mnemo_group.add_argument(
+    text_group = parser.add_argument_group('text mode options')
+    text_group.add_argument(
         '--min-sequential', type=int, metavar='N', default=6,
-        help='Minimum consecutive wordlist words to report (default: 6).')
-    mnemo_group.add_argument(
+        help='Minimum consecutive wordlist words in a file to report (default: 6).')
+    text_group.add_argument(
         '--min-scattered', type=int, metavar='N', default=12,
         help='Minimum unique wordlist words in a file to report (default: 12).')
 
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    
+    # Set wallet_mode based on whether text mode was explicitly requested
+    text_requested = args.text_mode or getattr(args, 'mnemonic_mode_compat', False)
+    if not text_requested:
+        args.wallet_mode = True
+    
+    return args
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 
 def main():
@@ -391,11 +615,14 @@ def main():
 
     depth = args.depth
 
-    if args.mnemonic_mode:
-        results, files_scanned = scan_mnemonic_mode(
+    # Determine which mode to use (text-mode is default, mnemonic-mode is backward compat alias)
+    text_mode = args.text_mode or getattr(args, 'mnemonic_mode_compat', False)
+
+    if text_mode:
+        results, files_scanned = scan_text_mode(
             folder, depth, args.min_sequential, args.min_scattered)
         print()
-        print_mnemonic_results(results, files_scanned)
+        print_text_results(results, files_scanned)
     else:
         results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug)
         print()

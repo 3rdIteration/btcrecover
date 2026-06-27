@@ -289,6 +289,15 @@ class TestWalletScan(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
 
+def can_use_textract():
+    """Check if textract is available for document extraction tests."""
+    try:
+        import textract  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 class TestMnemonicScan(unittest.TestCase):
     """Test mnemonic scanning functionality."""
 
@@ -298,7 +307,7 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.txt")
             with open(testfile, 'w') as f:
                 f.write("abandon ability about absorb abstract absurd abuse access accident account\n")
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
             bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
@@ -316,7 +325,7 @@ class TestMnemonicScan(unittest.TestCase):
                          "abuse", "access", "accident", "account", "accurate", "across"]
                 for w in words:
                     f.write(w + " hello ")
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
             bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
@@ -331,7 +340,7 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.txt")
             with open(testfile, 'w') as f:
                 f.write("hello world foo bar baz\n")
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 0)
         finally:
             shutil.rmtree(tmpdir)
@@ -342,7 +351,7 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.txt")
             with open(testfile, 'w') as f:
                 f.write("like just love know never want time out there make look eye\n")
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
             electrum_findings = [f for f in findings if 'Electrum' in f['wordlist']]
@@ -357,7 +366,7 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.txt")
             with open(testfile, 'w') as f:
                 f.write("duckling enlarge academic academic agency result length solution fridge kidney coal piece\n")
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
             slip39_findings = [f for f in findings if 'SLIP39' in f['wordlist']]
@@ -371,7 +380,7 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.bin")
             with open(testfile, 'wb') as f:
                 f.write(b'\x00\x01\x02\x03' * 100)
-            results, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results), 0)
         finally:
             shutil.rmtree(tmpdir)
@@ -383,7 +392,7 @@ class TestMnemonicScan(unittest.TestCase):
                 testfile = os.path.join(tmpdir, "test{}.txt".format(i))
                 with open(testfile, 'w') as f:
                     f.write("abandon ability about absorb abstract absurd\n")
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(scanned, 3)
             self.assertEqual(len(results), 3)
         finally:
@@ -397,8 +406,8 @@ class TestMnemonicScan(unittest.TestCase):
                 f.write("abandon ability about absorb abstract absurd\n")
             with open(os.path.join(tmpdir, "sub", "b.txt"), 'w') as f:
                 f.write("abandon ability about absorb abstract absurd\n")
-            results_depth0, _ = walletfinder.scan_mnemonic_mode(tmpdir, 0, 6, 12)
-            results_unlimited, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results_depth0, _ = walletfinder.scan_text_mode(tmpdir, 0, 6, 12)
+            results_unlimited, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results_depth0), 1)
             self.assertEqual(len(results_unlimited), 2)
         finally:
@@ -410,8 +419,8 @@ class TestMnemonicScan(unittest.TestCase):
             testfile = os.path.join(tmpdir, "test.txt")
             with open(testfile, 'w') as f:
                 f.write("abandon ability about\n")
-            results_low, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 3, 12)
-            results_high, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results_low, _ = walletfinder.scan_text_mode(tmpdir, None, 3, 12)
+            results_high, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results_low), 1)
             self.assertEqual(len(results_high), 0)
         finally:
@@ -425,13 +434,99 @@ class TestMnemonicScan(unittest.TestCase):
                 words = ["abandon", "ability", "about", "absorb", "abstract"]
                 for w in words:
                     f.write(w + " ")
-            results_low, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 5)
-            results_high, _ = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results_low, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 5)
+            results_high, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertEqual(len(results_low), 1)
             self.assertEqual(len(results_high), 0)
         finally:
             shutil.rmtree(tmpdir)
 
+    def test_scan_mnemonic_mode_includes_documents(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "notes.txt")
+            with open(testfile, 'w') as f:
+                f.write("abandon ability about absorb abstract absurd\n")
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_docx(self):
+        try:
+            import docx2txt
+        except ImportError:
+            self.skipTest("requires python-docx2txt for .docx support")
+        tmpdir = tempfile.mkdtemp()
+        try:
+            import docx
+            doc = docx.Document()
+            doc.add_paragraph("Here are my secret words: abandon ability about absorb abstract absurd abuse access accident account accurate across")
+            testfile = os.path.join(tmpdir, "secrets.docx")
+            doc.save(testfile)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_xlsx(self):
+        try:
+            import xlrd
+        except ImportError:
+            self.skipTest("requires xlrd for .xlsx support")
+        tmpdir = tempfile.mkdtemp()
+        try:
+            from openpyxl import Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.append(["My secret words:", "abandon", "ability", "about", "absorb", "abstract", "absurd"])
+            testfile = os.path.join(tmpdir, "secrets.xlsx")
+            wb.save(testfile)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_csv(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "words.csv")
+            with open(testfile, 'w') as f:
+                f.write("word1,word2,word3\nabandon,ability,about\nabsorb,abstract,absurd\n")
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_json(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "data.json")
+            with open(testfile, 'w') as f:
+                f.write('{"notes": "abandon ability about absorb abstract absurd"}\n')
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
 
 def can_use_textract():
     """Check if textract is available for document extraction tests."""
@@ -521,21 +616,21 @@ class TestTextractIntegration(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir)
 
-    def test_scan_mnemonic_mode_includes_documents(self):
+    def test_scan_text_mode_includes_documents(self):
         tmpdir = tempfile.mkdtemp()
         try:
             # Create a plain text file with mnemonic words
             testfile = os.path.join(tmpdir, "notes.txt")
             with open(testfile, 'w') as f:
                 f.write("abandon ability about absorb abstract absurd\n")
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertGreaterEqual(scanned, 1)
             self.assertEqual(len(results), 1)
         finally:
             shutil.rmtree(tmpdir)
 
     @unittest.skipUnless(can_use_textract(), "requires textract")
-    def test_scan_mnemonic_mode_with_docx(self):
+    def test_scan_text_mode_with_docx(self):
         try:
             import docx2txt
         except ImportError:
@@ -548,7 +643,7 @@ class TestTextractIntegration(unittest.TestCase):
             doc.add_paragraph("Here are my secret words: abandon ability about absorb abstract absurd abuse access accident account accurate across")
             testfile = os.path.join(tmpdir, "secrets.docx")
             doc.save(testfile)
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertGreaterEqual(scanned, 1)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
@@ -558,7 +653,7 @@ class TestTextractIntegration(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
     @unittest.skipUnless(can_use_textract(), "requires textract")
-    def test_scan_mnemonic_mode_with_xlsx(self):
+    def test_scan_text_mode_with_xlsx(self):
         try:
             import xlrd
         except ImportError:
@@ -572,7 +667,7 @@ class TestTextractIntegration(unittest.TestCase):
             ws.append(["My secret words:", "abandon", "ability", "about", "absorb", "abstract", "absurd"])
             testfile = os.path.join(tmpdir, "secrets.xlsx")
             wb.save(testfile)
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertGreaterEqual(scanned, 1)
             self.assertEqual(len(results), 1)
             findings = results[0]['findings']
@@ -582,13 +677,13 @@ class TestTextractIntegration(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
     @unittest.skipUnless(can_use_textract(), "requires textract")
-    def test_scan_mnemonic_mode_with_csv(self):
+    def test_scan_text_mode_with_csv(self):
         tmpdir = tempfile.mkdtemp()
         try:
             testfile = os.path.join(tmpdir, "words.csv")
             with open(testfile, 'w') as f:
                 f.write("word1,word2,word3\nabandon,ability,about\nabsorb,abstract,absurd\n")
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertGreaterEqual(scanned, 1)
             findings = results[0]['findings']
             bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
@@ -597,13 +692,13 @@ class TestTextractIntegration(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
     @unittest.skipUnless(can_use_textract(), "requires textract")
-    def test_scan_mnemonic_mode_with_json(self):
+    def test_scan_text_mode_with_json(self):
         tmpdir = tempfile.mkdtemp()
         try:
             testfile = os.path.join(tmpdir, "data.json")
             with open(testfile, 'w') as f:
                 f.write('{"notes": "abandon ability about absorb abstract absurd"}\n')
-            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            results, scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
             self.assertGreaterEqual(scanned, 1)
             findings = results[0]['findings']
             bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
@@ -632,14 +727,13 @@ class TestArgumentParsing(unittest.TestCase):
         args = walletfinder.parse_arguments(['--folder', '/tmp'])
         self.assertEqual(args.folder, '/tmp')
 
-    def test_wallet_mode_default(self):
-        args = walletfinder.parse_arguments(['--folder', '/tmp'])
-        self.assertTrue(args.wallet_mode)
-        self.assertFalse(args.mnemonic_mode)
+    def test_text_mode_flag(self):
+        args = walletfinder.parse_arguments(['--folder', '/tmp', '--text-mode'])
+        self.assertTrue(args.text_mode)
 
-    def test_mnemonic_mode_flag(self):
+    def test_mnemonic_mode_backward_compat(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--mnemonic-mode'])
-        self.assertTrue(args.mnemonic_mode)
+        self.assertFalse(args.wallet_mode)
 
     def test_depth_argument(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--depth', '3'])
@@ -656,6 +750,132 @@ class TestArgumentParsing(unittest.TestCase):
     def test_debug_flag(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--debug'])
         self.assertTrue(args.debug)
+
+
+class TestPrivateKeyDetection(unittest.TestCase):
+    """Test private key detection patterns (WIF, BIP38, BIP32 extended keys)."""
+
+    def test_raw_wif_compressed_k(self):
+        content = "key KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73Nd2Mcv1"
+        findings = walletfinder.scan_private_keys(content)
+        self.assertEqual(len(findings['raw_wif']), 1)
+        self.assertIn('Bitcoin (compressed)', findings['raw_wif'][0]['network'])
+
+    def test_raw_wif_compressed_l(self):
+        content = "secret L5G7mhJQeWtJQnh8n4FEgNhpvbKJTi8LqXWEjE2RWKBz1PAUvyst"
+        findings = walletfinder.scan_private_keys(content)
+        self.assertEqual(len(findings['raw_wif']), 1)
+
+    def test_raw_wif_testnet_c(self):
+        content = "testnet cN9spWsvaxA8taS7DFMxnk1yJD2gaF2PX1npuTpy3vuZFJdwavaw"
+        findings = walletfinder.scan_private_keys(content)
+        self.assertEqual(len(findings['raw_wif']), 1)
+        self.assertIn('Testnet', findings['raw_wif'][0]['network'])
+
+    def test_xprv_mainnet_legacy(self):
+        content = "extended xprv9s21ZrQH143K24MoUenttLtWQNeeDZvsczTUeCMmb85Mn2qbbmZbpre8QrhSVGRvnYEg3HHxoTKFp5eMqxH41JR99qVKioE3zbhwXAQpWM6"
+        findings = walletfinder.scan_private_keys(content)
+        self.assertEqual(len(findings['xprv']), 1)
+
+    def test_xpub_mainnet_legacy(self):
+        content = "extended xpub661MyMwAqRbcEYSGagKuFUqExQV8d2eizDP5SamP9TcLeqAk9JsrNexcG3qiaSaXCGgfwjQtUD4iRXC9jcmbmA1Jfqoha836vTbBHB564e1"
+        findings = walletfinder.scan_private_keys(content)
+        self.assertEqual(len(findings['xpub']), 1)
+
+    def test_scan_text_mode_finds_wif(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "keys.txt")
+            with open(testfile, 'w') as f:
+                f.write("My private key is KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73Nd2Mcv1\n")
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            key_findings = [f for f in findings if f['type'] == 'private_key']
+            self.assertGreaterEqual(len(key_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_scan_text_mode_finds_xprv(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "keys.txt")
+            with open(testfile, 'w') as f:
+                f.write("xprv9s21ZrQH143K24MoUenttLtWQNeeDZvsczTUeCMmb85Mn2qbbmZbpre8QrhSVGRvnYEg3HHxoTKFp5eMqxH41JR99qVKioE3zbhwXAQpWM6\n")
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            key_findings = [f for f in findings if f['type'] == 'private_key']
+            self.assertGreaterEqual(len(key_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_scan_text_mode_mixed_content(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "mixed.txt")
+            with open(testfile, 'w') as f:
+                f.write("abandon ability about absorb abstract absurd\n")
+                f.write("KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73Nd2Mcv1\n")
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            mnemonic_findings = [f for f in findings if f['type'] == 'mnemonic']
+            key_findings = [f for f in findings if f['type'] == 'private_key']
+            self.assertGreaterEqual(len(mnemonic_findings), 1)
+            self.assertGreaterEqual(len(key_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+
+class TestKeyClassification(unittest.TestCase):
+    """Test key classification helper functions."""
+
+    def test_classify_wif_uncompressed_5(self):
+        self.assertEqual(walletfinder._classify_wif('5HpHagT65TZzG1PH3CSu63k8DbpvD8s5ip4nEB3kEsreAbuatmU'), 'Bitcoin (uncompressed)')
+
+    def test_classify_wif_compressed_k(self):
+        self.assertEqual(walletfinder._classify_wif('KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73Nd2Mcv1'), 'Bitcoin (compressed)')
+
+    def test_classify_wif_testnet_c(self):
+        self.assertEqual(walletfinder._classify_wif('cN9spWsvaxA8taS7DFMxnk1yJD2gaF2PX1npuTpy3vuZFJdwavaw'), 'Testnet')
+
+    def test_classify_xprv_mainnet_legacy(self):
+        self.assertEqual(walletfinder._classify_xprv('xprv9s21ZrQH143K24MoUenttLtWQNeeDZvsczTUeCMmb85Mn2qbbmZbpre8QrhSVGRvnYEg3HHxoTKFp5eMqxH41JR99qVKioE3zbhwXAQpWM6'), 'Bitcoin mainnet (legacy)')
+
+    def test_classify_xprv_nested_segwit(self):
+        self.assertEqual(walletfinder._classify_xprv('yprvABrGsX5C9jansMYvK1aX6Rz1aLo6ABvNY6yhRbFey8TEq8eprRjASvJGS4f2VB5rCBMUnktXG7fohNFvZeh4oY6k2BBkJi3YGKmaugUee3V'), 'Bitcoin mainnet (nested segwit)')
+
+    def test_classify_xprv_native_segwit(self):
+        self.assertEqual(walletfinder._classify_xprv('zprvAWgYBBk7JR8Giek39NN9JX5WkJwY6ousTDVvCz9YM8q7tEU475tj4yxQTGccV5jmbpUHYEV5in2MaesVHM75bmnLtWtAtcs2Y3qEJLhfqvg'), 'Bitcoin mainnet (native segwit)')
+
+    def test_classify_xpub_mainnet_legacy(self):
+        self.assertEqual(walletfinder._classify_xpub('xpub661MyMwAqRbcEYSGagKuFUqExQV8d2eizDP5SamP9TcLeqAk9JsrNexcG3qiaSaXCGgfwjQtUD4iRXC9jcmbmA1Jfqoha836vTbBHB564e1'), 'Bitcoin mainnet (legacy)')
+
+    def test_classify_xpub_nested_segwit(self):
+        self.assertEqual(walletfinder._classify_xpub('ypub6QqdH2c5z7965qdPR37XTZvk8NdaZeeDuKuJDyfGXTzDhvyyPy3QzickHFoJaMESbuoUhD1SvsRGJooiTKBcZPguYBW8A2rbCBepfpmmuNw'), 'Bitcoin mainnet (nested segwit)')
+
+    def test_classify_xpub_native_segwit(self):
+        self.assertEqual(walletfinder._classify_xpub('zpub6jftahH18ngZw8pWFPu9ff2FJLn2WGdipSRX1NZ9uUN6m2oCedCycnGtJTktaFtN1YvHSgc1PXmpC6RHB1bdMdNWQXCYjwg5TuiU4LsNS9b'), 'Bitcoin mainnet (native segwit)')
+
+
+class TestTruncateKey(unittest.TestCase):
+    """Test key truncation for display."""
+
+    def test_short_key_not_truncated(self):
+        result = walletfinder._truncate_key("abc")
+        self.assertEqual(result, "abc")
+
+    def test_long_key_truncated(self):
+        result = walletfinder._truncate_key("xprv" + "1" * 107)
+        self.assertEqual(len(result), 27)
+        self.assertTrue(result.startswith('xprv'))
+        self.assertIn('...', result)
+
+    def test_wif_key_truncated(self):
+        result = walletfinder._truncate_key("KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73Nd2Mcv1")
+        self.assertEqual(len(result), 27)
+        self.assertIn('...', result)
 
 
 if __name__ == '__main__':
