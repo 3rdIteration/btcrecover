@@ -29,6 +29,61 @@ from btcrecover.btcrpass import load_wallet, MAX_WALLET_FILE_SIZE
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', '.mypy_cache', '.pytest_cache'}
 MAX_MNEMONIC_FILE_SIZE = 16 * 1024
 
+# File extensions that textract can extract text from (without leading dot)
+TEXTRACT_SUPPORTED_EXTENSIONS = {
+    'csv', 'tsv', 'tab', 'doc', 'docx', 'eml', 'epub', 'gif',
+    'jpg', 'jpeg', 'json', 'html', 'htm', 'mp3', 'msg', 'odt',
+    'ogg', 'pdf', 'png', 'pptx', 'ps', 'rtf', 'tiff', 'tif', 'txt', 'wav',
+    'xls', 'xlsx',
+}
+
+# Cache for textract import (only attempt once)
+_textract_module = None
+TEXTRACT_AVAILABLE = False
+
+
+def _try_import_textract():
+    """Lazily import textract, caching the result."""
+    global _textract_module, TEXTRACT_AVAILABLE
+    if _textract_module is not None:
+        return _textract_module
+    try:
+        import textract as _t
+        _textract_module = _t
+        TEXTRACT_AVAILABLE = True
+    except ImportError:
+        _textract_module = False
+    return _textract_module
+
+
+def read_file_with_textract(filepath, max_size):
+    """Read text from a file, using textract for supported document formats.
+
+    For binary documents (docx, pdf, pptx, xlsx, epub, odt, rtf, etc.) uses textract.
+    Falls back to direct UTF-8 reading for all other files.
+    Returns the extracted text as a string, or None if extraction fails.
+    """
+    ext = filepath.rsplit('.', 1)[-1].lower() if '.' in os.path.basename(filepath) else ''
+
+    # Try textract first for document formats (it handles all supported types)
+    if ext in TEXTRACT_SUPPORTED_EXTENSIONS:
+        try:
+            textract_mod = _try_import_textract()
+            if textract_mod:
+                extracted = textract_mod.process(filepath, encoding='utf-8')
+                if isinstance(extracted, bytes):
+                    extracted = extracted.decode('utf-8', errors='ignore')
+                return extracted[:max_size]
+        except Exception:
+            pass
+
+    # Fallback: try direct UTF-8 reading for all files (plain text and unknown formats)
+    try:
+        with open(filepath, encoding='utf-8', errors='ignore') as f:
+            return f.read(max_size)
+    except Exception:
+        return None
+
 
 def get_wallet_type_name(wallet_obj):
     """Extract wallet type name from a loaded wallet object."""
@@ -189,6 +244,14 @@ def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
         print("  {}: {} words".format(name, len(wset)))
     print()
 
+    if not TEXTRACT_AVAILABLE:
+        _try_import_textract()
+        if not TEXTRACT_AVAILABLE:
+            print("[WARNING] textract is not installed. Document file support (docx, pdf, xlsx, etc.) "
+                  "is limited. Plain text files will still be scanned normally.")
+            print("         Install textract for full document scanning: pip3 install textract")
+            print()
+
     for filepath in walk_directory(Path(folder), depth):
         try:
             fsize = os.path.getsize(filepath)
@@ -198,10 +261,8 @@ def scan_mnemonic_mode(folder, depth, min_seq, min_scat):
         if fsize > MAX_MNEMONIC_FILE_SIZE:
             continue
 
-        try:
-            with open(filepath, encoding='utf-8', errors='ignore') as f:
-                content = f.read(MAX_MNEMONIC_FILE_SIZE)
-        except Exception:
+        content = read_file_with_textract(filepath, MAX_MNEMONIC_FILE_SIZE)
+        if content is None:
             continue
 
         files_scanned += 1

@@ -433,6 +433,194 @@ class TestMnemonicScan(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
 
+def can_use_textract():
+    """Check if textract is available for document extraction tests."""
+    try:
+        import textract  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+class TestTextractIntegration(unittest.TestCase):
+    """Test textract-based document scanning functionality."""
+
+    def test_read_file_plain_text(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "test.txt")
+            with open(testfile, 'w') as f:
+                f.write("abandon ability about absorb abstract absurd\n")
+            content = walletfinder.read_file_with_textract(testfile, 16384)
+            self.assertIsNotNone(content)
+            self.assertIn("abandon", content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_read_file_json(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "test.json")
+            with open(testfile, 'w') as f:
+                f.write('{"mnemonic": "abandon ability about absorb abstract absurd"}\n')
+            content = walletfinder.read_file_with_textract(testfile, 16384)
+            self.assertIsNotNone(content)
+            self.assertIn("abandon", content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_read_file_html(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "test.html")
+            with open(testfile, 'w') as f:
+                f.write('<html><body>abandon ability about absorb abstract absurd</body></html>\n')
+            content = walletfinder.read_file_with_textract(testfile, 16384)
+            self.assertIsNotNone(content)
+            self.assertIn("abandon", content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_read_file_unsupported_extension_without_textract(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Without textract, .docx falls back to raw UTF-8 reading (returns binary garbage)
+            testfile = os.path.join(tmpdir, "test.docx")
+            with open(testfile, 'wb') as f:
+                f.write(b'\x00\x01\x02\x03' * 100)
+            content = walletfinder.read_file_with_textract(testfile, 16384)
+            # Falls back to reading raw bytes as text (with errors='ignore')
+            self.assertIsNotNone(content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_read_file_unknown_extension(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Unknown extensions without textract should still fall back to UTF-8 reading
+            testfile = os.path.join(tmpdir, "test.xyz")
+            with open(testfile, 'w') as f:
+                f.write("abandon ability about absorb abstract absurd\n")
+            content = walletfinder.read_file_with_textract(testfile, 16384)
+            self.assertIsNotNone(content)
+            self.assertIn("abandon", content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_read_file_plain_text_fallback(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Plain text extensions should always work without textract
+            for ext in ('txt', 'csv', 'json', 'html', 'htm'):
+                testfile = os.path.join(tmpdir, "test.{}".format(ext))
+                with open(testfile, 'w') as f:
+                    f.write("abandon ability about absorb abstract absurd\n")
+                content = walletfinder.read_file_with_textract(testfile, 16384)
+                self.assertIsNotNone(content, "Failed for .{} extension".format(ext))
+                self.assertIn("abandon", content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_scan_mnemonic_mode_includes_documents(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Create a plain text file with mnemonic words
+            testfile = os.path.join(tmpdir, "notes.txt")
+            with open(testfile, 'w') as f:
+                f.write("abandon ability about absorb abstract absurd\n")
+            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_docx(self):
+        try:
+            import docx2txt
+        except ImportError:
+            self.skipTest("requires python-docx2txt for .docx support")
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Create a real .docx file with mnemonic words
+            import docx
+            doc = docx.Document()
+            doc.add_paragraph("Here are my secret words: abandon ability about absorb abstract absurd abuse access accident account accurate across")
+            testfile = os.path.join(tmpdir, "secrets.docx")
+            doc.save(testfile)
+            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_xlsx(self):
+        try:
+            import xlrd
+        except ImportError:
+            self.skipTest("requires xlrd for .xlsx support")
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Create a real .xlsx file with mnemonic words
+            from openpyxl import Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.append(["My secret words:", "abandon", "ability", "about", "absorb", "abstract", "absurd"])
+            testfile = os.path.join(tmpdir, "secrets.xlsx")
+            wb.save(testfile)
+            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            self.assertEqual(len(results), 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_csv(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "words.csv")
+            with open(testfile, 'w') as f:
+                f.write("word1,word2,word3\nabandon,ability,about\nabsorb,abstract,absurd\n")
+            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    @unittest.skipUnless(can_use_textract(), "requires textract")
+    def test_scan_mnemonic_mode_with_json(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            testfile = os.path.join(tmpdir, "data.json")
+            with open(testfile, 'w') as f:
+                f.write('{"notes": "abandon ability about absorb abstract absurd"}\n')
+            results, scanned = walletfinder.scan_mnemonic_mode(tmpdir, None, 6, 12)
+            self.assertGreaterEqual(scanned, 1)
+            findings = results[0]['findings']
+            bip39_findings = [f for f in findings if 'BIP39' in f['wordlist']]
+            self.assertGreaterEqual(len(bip39_findings), 1)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_textract_supported_extensions_set(self):
+        expected = {
+            'csv', 'tsv', 'tab', 'doc', 'docx', 'eml', 'epub', 'gif',
+            'jpg', 'jpeg', 'json', 'html', 'htm', 'mp3', 'msg', 'odt',
+            'ogg', 'pdf', 'png', 'pptx', 'ps', 'rtf', 'tiff', 'tif', 'txt', 'wav',
+            'xls', 'xlsx',
+        }
+        self.assertEqual(walletfinder.TEXTRACT_SUPPORTED_EXTENSIONS, expected)
+
+
 class TestArgumentParsing(unittest.TestCase):
     """Test CLI argument parsing."""
 
