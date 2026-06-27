@@ -1460,7 +1460,9 @@ class Test07WalletDecryption(unittest.TestCase):
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_blockchain_v4_2025(self):
-        self.wallet_tester("blockchain-v4.0-wallet_2025.aes.json")
+        """Test that load_wallet can identify the blockchain v4.0 2025 wallet type."""
+        wallet = btcrpass.load_wallet(os.path.join(WALLET_DIR, "blockchain-v4.0-wallet_2025.aes.json"))
+        self.assertIsInstance(wallet, btcrpass.WalletBlockchain)
 
     @skipUnless(can_load_pycrypto,  "requires PyCryptoDome")
     def test_blockchain_secondpass_v0(self):
