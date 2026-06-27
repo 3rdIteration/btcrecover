@@ -1753,22 +1753,56 @@ Summary:
 - Ethereum keystore files
 - Coinomi wallet private keys
 - And many more</p>
-<h2 id="mnemonic-mode">Mnemonic Mode</h2>
-<p>Mnemonic mode scans text files for words from common seed wordlists. It detects two patterns:
+<h2 id="mnemonic-mode-text-mode">Mnemonic Mode (Text Mode)</h2>
+<p>Mnemonic mode scans text files for words from common seed wordlists and private keys (WIF, BIP38, BIP32 extended keys). It detects two patterns:
 - <strong>Sequential matches</strong>: N or more wordlist words appearing consecutively in file text (e.g., <code>"abandon ability about absorb abstract absurd"</code>)
 - <strong>Scattered matches</strong>: N unique wordlist words found anywhere in a file</p>
 <h3 id="basic-usage_1">Basic Usage</h3>
-<p>Scan for mnemonic phrases with default thresholds (6 sequential, 12 scattered):
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search --mnemonic-mode
+<p>Scan for mnemonic phrases with default thresholds (12 sequential, 12 scattered):
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search --text-mode
 </code></pre></div></p>
 <p>Customize detection thresholds:
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --mnemonic-mode --min-sequential 4 --min-scattered 8
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --min-sequential 4 --min-scattered 8
 </code></pre></div></p>
 <p>Limit depth and lower thresholds for quick checks:
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder . --mnemonic-mode --depth 1 --min-sequential 3 --min-scattered 6
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder . --text-mode --depth 1 --min-sequential 3 --min-scattered 6
 </code></pre></div></p>
+<h3 id="checksum-validation">Checksum Validation</h3>
+<p>When a sequential match reaches a valid seed length for its type, BTCRecover validates the checksum to confirm it's a real seed phrase rather than random words:</p>
+<table>
+<thead>
+<tr>
+<th>Wordlist</th>
+<th>Valid Lengths</th>
+<th>Checksum Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BIP39 English</td>
+<td>12, 15, 18, 21, 24</td>
+<td>SHA-256 of entropy bits</td>
+</tr>
+<tr>
+<td>Electrum Legacy / Blockchain v2</td>
+<td>1–13, 24</td>
+<td>HMAC-SHA512 first byte</td>
+</tr>
+<tr>
+<td>Blockchain v3/v4/v5/v6</td>
+<td>Multiples of 3 (min 3)</td>
+<td>Version + SHA-256 of payload</td>
+</tr>
+<tr>
+<td>SLIP39</td>
+<td>Variable (4+ words)</td>
+<td>Shamir share CRC validation</td>
+</tr>
+</tbody>
+</table>
+<p>By default, only <strong>checksum-valid</strong> sequential matches are displayed. Files with no checksum-valid results and no private keys are suppressed from output. Use <code>--debug</code> to see all sequential matches including those that fail checksum validation.</p>
 <h3 id="example-output_1">Example Output</h3>
-<div class="highlight"><pre><span></span><code>Scanning for mnemonic words in: C:\Users\You\Documents
+<div class="highlight"><pre><span></span><code>Scanning for mnemonic words and private keys in: C:\Users\You\Documents
 Wordlists loaded:
   BIP39 English: 2048 words
   Electrum Legacy / Blockchain v2: 1626 words
@@ -1776,17 +1810,24 @@ Wordlists loaded:
   SLIP39: 1024 words
 
 C:\Users\You\Documents\wallet_notes.txt (512 bytes)
-  [BIP39 English]
-    Sequential match (12 words): abandon ability about absorb abstract absurd abuse access accident account accurate across
+  [Mnemonic: BIP39 English]
+    Sequential match (12 words): abandon ability about absorb abstract absurd abuse access accident account accurate across (checksum valid)
     Scattered unique matches: 18
-  [Blockchain v3]
-    Sequential match (12 words): abandon ability about absorb abstract absurd abuse access accident account accurate across
-    Scattered unique matches: 20
 
 Summary:
   Files scanned: 42
   Matches found: 1
 </code></pre></div>
+<h3 id="debug-mode">Debug Mode</h3>
+<p>With <code>--debug</code>, all sequential matches are shown (including those that fail checksum), and files with only non-checksum-valid results are included in output. This is useful for finding partial seeds, notes with fragments, or identifying false positives:</p>
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --debug
+</code></pre></div>
+<p>Example debug output showing a sequential match without valid checksum:
+<div class="highlight"><pre><span></span><code>C:\Users\You\Documents\notes.txt (256 bytes)
+  [Mnemonic: BIP39 English]
+    Sequential match (15 words): abandon ability about absorb abstract absurd abuse access accident account accurate across act action
+    Scattered unique matches: 24
+</code></pre></div></p>
 <h3 id="wordlists-checked">Wordlists Checked</h3>
 <ul>
 <li><strong>BIP39 English</strong> (2048 words) - Used by most hardware wallets and BIP39-compliant software wallets</li>
@@ -1795,7 +1836,7 @@ Summary:
 <li><strong>Blockchain v3</strong> (65,590 words) - Modern Blockchain.com wallet recovery phrases</li>
 </ul>
 <h3 id="thresholds-explained">Thresholds Explained</h3>
-<p><code>--min-sequential N</code> controls how many consecutive wordlist words must appear in a row to trigger a match. A standard 12-word BIP39 seed will produce a sequential run of 12. Lowering this threshold (e.g., <code>--min-sequential 4</code>) can help find partial seeds or notes where only fragments are recorded.</p>
+<p><code>--min-sequential N</code> controls how many consecutive wordlist words must appear in a row to trigger a match. A standard 12-word BIP39 seed will produce a sequential run of 12. The default is 12, which filters out most false positives from casual text. Lowering this threshold (e.g., <code>--min-sequential 4</code>) can help find partial seeds or notes where only fragments are recorded.</p>
 <p><code>--min-scattered N</code> controls how many unique wordlist words must appear anywhere in a file to trigger a match. This catches files that contain wallet data with embedded mnemonics, exported seed lists, or notes with multiple phrases scattered throughout.</p>
 <h2 id="exclusions-and-limits">Exclusions and Limits</h2>
 <p>Both modes automatically exclude:
@@ -1808,13 +1849,25 @@ Summary:
 <li><strong>Scan your entire home directory</strong> with a limited depth to find wallets you forgot about:
   <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~ --depth 3
 </code></pre></div></li>
-<li><strong>Check backup folders</strong> before deleting them:
-  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Desktop/backup --mnemonic-mode --min-scattered 6
+<li><strong>Check backup folders</strong> for mnemonic seeds before deleting them:
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Desktop/backup --text-mode
 </code></pre></div></li>
 <li><strong>Quick check of a single folder</strong> without deep recursion:
   <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ./wallets --depth 0
 </code></pre></div></li>
+<li><strong>Find partial seeds and fragments</strong> by lowering the sequential threshold with debug output:
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --min-sequential 4 --debug
+</code></pre></div></li>
+<li><strong>Scan for private keys</strong> (WIF, BIP38, extended keys) alongside mnemonics:
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Documents --text-mode
+</code></pre></div></li>
 </ul>
+<h2 id="private-key-detection">Private Key Detection</h2>
+<p>Text mode also scans for Bitcoin private keys in various formats:
+- <strong>WIF</strong> (Wallet Import Format): Compressed (<code>K...</code>, <code>L...</code>), uncompressed (<code>5...</code>), and testnet (<code>c...</code>)
+- <strong>BIP38</strong>: Encrypted paper wallet keys (<code>6P...</code>)
+- <strong>BIP32 Extended Keys</strong>: Both private (<code>xprv</code>, <code>yprv</code>, <code>zprv</code>, etc.) and public (<code>xpub</code>, <code>ypub</code>, <code>zpub</code>, etc.)</p>
+<p>Private key detection uses regex pattern matching with length validation. All detected keys pass Base58Check format requirements by construction of the patterns.</p>
 
 
 
