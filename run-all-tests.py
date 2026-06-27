@@ -69,9 +69,10 @@ if __name__ == "__main__":
 
     is_coincurve_loadable = test_passwords.can_load_coincurve()
     if is_coincurve_loadable:
-        from btcrecover.test     import test_seeds
+        from btcrecover.test     import test_seeds, test_walletfinder
         from btcrecover.btcrseed import full_version
     else:
+        from btcrecover.test     import test_walletfinder
         from btcrecover.btcrpass import full_version
 
     # Add two new arguments to those already provided by main()
@@ -244,6 +245,10 @@ if __name__ == "__main__":
         accumulate_results(results)
     else:
         print("\nwarning: skipping seed recovery tests (can't find prerequisite coincurve)")
+
+    print("\n** Testing walletfinder **")
+    results = main(test_walletfinder, exit=False, buffer= not args.no_buffer).result
+    accumulate_results(results)
 
     print("\n\n*** Full Results ***")
     if has_green:
