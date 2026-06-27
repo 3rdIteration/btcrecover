@@ -190,6 +190,14 @@ class TestWalletScan(unittest.TestCase):
         self.assertGreater(scanned, 0)
 
     def test_bitcoincore_detected(self):
+        # Debug: print WALLET_DIR and check if it exists
+        import os as _os
+        print(f"\nDEBUG WALLET_DIR: {WALLET_DIR}")
+        print(f"DEBUG WALLET_DIR exists: {_os.path.isdir(WALLET_DIR)}")
+        if _os.path.isdir(WALLET_DIR):
+            files = list(_os.listdir(WALLET_DIR))[:5]
+            print(f"DEBUG First 5 files: {files}")
+        
         results, _ = walletfinder.scan_wallet_mode(WALLET_DIR, None)
         btc_core = [r for r in results if 'bitcoincore-wallet.dat' in r['path']]
         self.assertEqual(len(btc_core), 1)
