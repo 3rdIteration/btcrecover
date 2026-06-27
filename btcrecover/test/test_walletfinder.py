@@ -51,7 +51,7 @@ def can_detect_wallet(filename):
     try:
         from btcrecover.btcrpass import load_wallet
         return load_wallet(filepath) is not None
-    except Exception:
+    except (Exception, SystemExit):
         return False
 
 
