@@ -32,11 +32,16 @@ if __name__ == '__main__':
 
 # Import walletfinder functions for direct testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-import sys, os
-# Add repo root to path so we can import walletfinder from the test module
-repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+
+
+def can_load_shamir_mnemonic():
+    """Check if shamir_mnemonic package is available for SLIP39 support."""
+    try:
+        from shamir_mnemonic import wordlist as sw  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
 
 import walletfinder
 
@@ -323,6 +328,7 @@ class TestMnemonicScan(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir)
 
+    @unittest.skipUnless(can_load_shamir_mnemonic(), "requires shamir-mnemonic")
     def test_slip39_detection(self):
         tmpdir = tempfile.mkdtemp()
         try:
