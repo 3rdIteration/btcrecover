@@ -73,6 +73,15 @@ def scan_wallet_mode(folder, depth):
     print("Scanning for wallet files in: {}".format(folder))
     print()
 
+    # Debug: check if we can import btcrpass
+    try:
+        from btcrecover.btcrpass import load_wallet, get_wallet_type_name, MAX_WALLET_FILE_SIZE
+        print(f"DEBUG: Successfully imported btcrpass components")
+        print(f"DEBUG: MAX_WALLET_FILE_SIZE = {MAX_WALLET_FILE_SIZE}")
+    except Exception as e:
+        print(f"DEBUG: Failed to import btcrpass: {e}")
+        return results, files_scanned
+
     for filepath in walk_directory(Path(folder), depth):
         if os.path.getsize(filepath) > MAX_WALLET_FILE_SIZE:
             continue
