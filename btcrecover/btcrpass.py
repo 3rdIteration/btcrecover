@@ -2348,69 +2348,101 @@ class WalletBlockchain(object):
     @classmethod
     def load_from_filename(cls, wallet_filename):
         with open(wallet_filename) as wallet_file:
-            data, iter_count = cls._parse_encrypted_blockchain_wallet(wallet_file.read(MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k
+            data, iter_count, reason = cls._parse_encrypted_blockchain_wallet(wallet_file.read(MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k
         self = cls(iter_count, loading=True)
+        self.detection_reason = reason
+        # v2+ wallets have valid JSON structure (definite); v0 wallets are heuristic (possible)
+        self.detection_confidence = "definite" if iter_count else "possible"
         self._salt_and_iv     = data[:16]    # only need the salt_and_iv plus
         self._encrypted_block = data[16:32]  # the first 16-byte encrypted block
         self._encrypted_wallet = data
         return self
 
-    # Parse the contents of an encrypted blockchain wallet (v0 - v3) or config file returning two
-    # values in a tuple: (encrypted_data_blob, iter_count) where iter_count == 0 for v0 wallets
+    # Parse the contents of an encrypted blockchain wallet (v0 - v3) or config file returning three
+    # values in a tuple: (encrypted_data_blob, iter_count, detection_reason)
+    # detection_reason explains why the file was matched as a Blockchain wallet
     @staticmethod
     def _parse_encrypted_blockchain_wallet(data):
         iter_count = 0
+        reason_parts = []
 
         while True:  # "loops" exactly once; only here so we've something to break out of
             # Most blockchain files (except v0.0 wallets) are JSON encoded; try to parse it as such
             try:
                 data = json.loads(data)
-            except ValueError: break
+                reason_parts.append("valid JSON")
+            except ValueError:
+                reason_parts.append("not valid JSON, treating as v0 raw data")
+                break
 
             # Config files have no version attribute; they encapsulate the wallet file plus some detrius
             if "version" not in data:
+                reason_parts.append("no version field, checking for payload field")
                 try:
                     data = data["payload"]  # extract the wallet file from the config
+                    reason_parts.append("found payload field")
                 except KeyError:
                     raise ValueError("Can't find either version nor payload attributes in Blockchain file")
                 try:
                     data = json.loads(data)  # try again to parse a v2.0/v3.0 JSON-encoded wallet file
-                except ValueError: break
+                    reason_parts.append("payload is valid JSON")
+                except ValueError:
+                    reason_parts.append("payload is not JSON, treating as v0 raw data")
+                    break
 
             # Extract what's needed from a v2.0/3.0/4 wallet file
             if data["version"] > 4:
                 raise NotImplementedError("Unsupported Blockchain wallet version " + str(data["version"]))
+            reason_parts.append("version: " + str(data["version"]))
             iter_count = data["pbkdf2_iterations"]
             if not isinstance(iter_count, int) or iter_count < 1:
                 raise ValueError("Invalid Blockchain pbkdf2_iterations " + str(iter_count))
+            reason_parts.append("pbkdf2_iterations: " + str(iter_count))
             data = data["payload"]
 
             break
 
         # Either the encrypted data was extracted from the "payload" field above, or
         # this is a v0.0 wallet file whose entire contents consist of the encrypted data
+
+        # For v0 wallets, verify the raw content is valid base64 (with optional
+        # backslash escaping present in some exported wallets). This rules out
+        # non-wallet files (Python source, docs, etc.) that happen to contain
+        # base64-decodable substrings but are not actual blockchain wallets.
+        if not iter_count:  # v0 path - data is raw file content or config payload
+            b64_alphabet = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=')
+            ws_chars = set(' \t\n\r\x0b\x0c')
+            bad = [c for c in data if c not in b64_alphabet and c not in ws_chars]
+            if bad and not all(c == '\\' for c in bad):
+                raise ValueError("Doesn't look like an encrypted Blockchain wallet (contains non-base64 characters: " +
+                                 ''.join(sorted(set(bad))[:10]) + ")")
+            if bad:
+                reason_parts.append("backslash chars stripped")
+
         try:
             data = base64.b64decode(data)
+            reason_parts.append("base64 decoded")
         except TypeError as e:
             raise ValueError("Can't base64-decode Blockchain wallet: "+str(e))
         if len(data) < 32:
             raise ValueError("Encrypted Blockchain data is too short")
-        #Used to check if the length of the decrypted data was divisible by 16, but this wasn't actually true for all v0 wallets
-        #if len(data) % 16 != 0:
-        #    raise ValueError("Encrypted Blockchain data length is not divisible by the encryption blocksize (16)")
+        reason_parts.append("decoded length: " + str(len(data)) + " bytes")
 
         # If this is (possibly) a v0.0 (a.k.a. v1) wallet file, check that the encrypted data
         # looks random, otherwise this could be some other type of base64-encoded file such
         # as a MultiBit key file (it should be safe to skip this test for v2.0+ wallets)
         if not iter_count:  # if this is a v0.0 wallet
             # The likelihood of of finding a valid encrypted blockchain wallet (even at its minimum length
-            # of about 500 bytes) with less than 7.4 bits of entropy per byte is less than 1 in 10^6
+            # of about 500 bytes) with less than 7.4 bits of entropy per byte is less than 1 in 10^4
             # (decreased test below to 7.0 after being shown a wallet with 7.0 entropy bits)
             entropy_bits = est_entropy_bits(data)
             if entropy_bits < 7.0:
                 raise ValueError("Doesn't look random enough to be an encrypted Blockchain wallet (only {:.1f} bits of entropy per byte)".format(entropy_bits))
+            reason_parts.append("entropy: {:.1f} bits/byte".format(entropy_bits))
+            reason_parts.append("wallet type: v0")
 
-        return data, iter_count  # iter_count == 0 for v0 wallets
+        reason = ", ".join(reason_parts)
+        return data, iter_count, reason  # iter_count == 0 for v0 wallets
 
     # Import extracted Blockchain file data necessary for main password checking
     @classmethod
@@ -2706,7 +2738,7 @@ class WalletBlockchainSecondpass(WalletBlockchain):
 
         try:
             # Assuming the wallet is encrypted, get the encrypted data
-            data, iter_count = cls._parse_encrypted_blockchain_wallet(data)
+            data, iter_count, _ = cls._parse_encrypted_blockchain_wallet(data)
         except ValueError as e:
             # This is the one error to expect and ignore which occurs when the wallet isn't encrypted
             if e.args[0] == "Can't find either version nor payload attributes in Blockchain file":

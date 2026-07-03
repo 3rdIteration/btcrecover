@@ -28,6 +28,10 @@ The commands given can be pretty much copy/pasted as-is to allow you to recreate
 
 [Multi-GPU Accelerated Recovery using Vast.ai](Example_Multi-GPU_with_vastai.md) (Demonstrates use of the vast.ai service with wallet extracts and also arguments required for mutli-gpu accelerated recovery of Blockchain.com and Bitcoin Core Wallets)
 
+## Wallet Scanning
+
+[WalletFinder - Scanning for Wallet Files and Mnemonic Phrases](basic_wallet_scanning.md) (Demonstrates using `walletfinder.py` to locate supported wallet files and mnemonic seed phrases hidden in directories, with configurable depth limiting and detection thresholds)
+
 ## AddressDB Creation
 
 
