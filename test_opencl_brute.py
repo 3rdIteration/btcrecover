@@ -3,7 +3,6 @@
 import sys
 import hashlib
 import hmac
-import scrypt
 import functools, operator
 from lib.opencl_brute import opencl
 from lib.opencl_brute.opencl_information import opencl_information
@@ -190,7 +189,7 @@ def scrypt_test(scrypt_opencl_algos, passwords, N_value=15, r_value=3, p_value=1
         print("Testing sCrypt")
     correct_res = []
     for pwd in passwords:
-        v = scrypt.hash(pwd, hex_salt, 1 << N_value, 1 << r_value, 1 << p_value, desired_key_length)
+        v = hashlib.scrypt(pwd, salt=hex_salt, n=1 << N_value, r=r_value, p=p_value, dklen=desired_key_length)
         correct_res.append(v)
     ctx=scrypt_opencl_algos.cl_scrypt_init(N_value, forceAltKernel)
     clResult = scrypt_opencl_algos.cl_scrypt(ctx,passwords,N_value,r_value,p_value,desired_key_length,hex_salt)
