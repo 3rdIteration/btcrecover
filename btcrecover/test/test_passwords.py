@@ -91,6 +91,17 @@ def skipUnless(condition_func, reason):
         return skip_or_test
     return decorator
 
+# Inverse of skipUnless above; also takes a function returning a bool instead of just a bool
+def skipIf(condition_func, reason):
+    assert callable(condition_func)
+    def decorator(test_func):
+        def skip_or_test(self):
+            if condition_func():
+                self.skipTest(reason)
+            test_func(self)
+        return skip_or_test
+    return decorator
+
 
 class GeneratorTester(unittest.TestCase):
 
@@ -1164,6 +1175,25 @@ def is_pocl_platform():
         return cl.get_platforms()[0].name.startswith("Portable Computing Language")
     except Exception:
         return False
+
+def has_amd_unified_memory_gpu():
+    """Detect AMD APU with unified memory (>32GB reported VRAM)."""
+    if not has_any_opencl_devices():
+        return False
+    try:
+        import pyopencl as cl
+        for platform in cl.get_platforms():
+            for device in platform.get_devices():
+                vendor_lower = device.vendor.lower()
+                if ("amd" in vendor_lower or "advanced micro devices" in vendor_lower) and device.global_mem_size > 32 * (1 << 30):
+                    return True
+    except Exception:
+        pass
+    return False
+
+def has_scrypt_opencl_support():
+    """sCrypt OpenCL is not supported on AMD unified memory GPUs."""
+    return has_any_opencl_devices() and not has_amd_unified_memory_gpu()
 
 class Test07WalletDecryption(unittest.TestCase):
 
@@ -3335,9 +3365,9 @@ class Test11BIP38WalletDecryption(unittest.TestCase):
         btcrecover.opencl_helpers.init_opencl_contexts(wallet)
 
         correct_pw = tstr("btcr-test-password")
-        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
             (tstr("btcr-wrong-password-1"), tstr("btcr-wrong-password-2"))), (False, 2))
-        self.assertEqual(wallet._return_verified_password_or_false_cpu(
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
             (tstr("btcr-wrong-password-3"), correct_pw, tstr("btcr-wrong-password-4"))), (correct_pw, 2))
 
     @skipUnless(can_load_ecdsa, "requires ecdsa")
@@ -3345,7 +3375,7 @@ class Test11BIP38WalletDecryption(unittest.TestCase):
         self.bip38_tester_cpu('6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx')
 
     @skipUnless(can_load_ecdsa, "requires ecdsa")
-    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(has_scrypt_opencl_support, "requires OpenCL with sCrypt support (not supported on AMD unified memory)")
     def test_bip38_bitcoin_opencl_brute(self):
         self.bip38_tester_opencl('6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx')
 
@@ -3355,7 +3385,7 @@ class Test11BIP38WalletDecryption(unittest.TestCase):
                               bip38_network='litecoin')
 
     @skipUnless(can_load_ecdsa, "requires ecdsa")
-    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(has_scrypt_opencl_support, "requires OpenCL with sCrypt support (not supported on AMD unified memory)")
     def test_bip38_litecoin_opencl_brute(self):
         self.bip38_tester_opencl('6PfVHSTbgRNDaSwddBNgx2vMhMuNdiwRWjFgMGcJPb6J2pCG32SuL3vo6q',
                                  bip38_network='litecoin')
@@ -3366,7 +3396,7 @@ class Test11BIP38WalletDecryption(unittest.TestCase):
                               bip38_network='dash')
 
     @skipUnless(can_load_ecdsa, "requires ecdsa")
-    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(has_scrypt_opencl_support, "requires OpenCL with sCrypt support (not supported on AMD unified memory)")
     def test_bip38_dash_opencl_brute(self):
         self.bip38_tester_opencl('6PnZC9Snn1DHyvfEq9UKUmZwonqpfaWav6vRiSVNXXLUEDAuikZTxBUTEA',
                                  bip38_network='dash')

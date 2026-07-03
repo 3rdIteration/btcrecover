@@ -27,6 +27,22 @@ except:
 import btcrecover.btcrpass
 
 
+def _has_amd_unified_memory_gpu(platform_num):
+    # AMD APUs with unified memory report system RAM as VRAM but can't run some
+    # kernels correctly (sCrypt hangs, PBKDF2-SHA256 saltlist silently returns
+    # wrong results). No discrete AMD GPU exceeds 32GB VRAM, so anything above
+    # that is unified memory.
+    try:
+        devices = pyopencl.get_platforms()[platform_num].get_devices()
+        return any(
+            ("amd" in d.vendor.lower() or "advanced micro devices" in d.vendor.lower())
+            and d.global_mem_size > 32 * (1 << 30)
+            for d in devices
+        )
+    except Exception:
+        return False
+
+
 def auto_select_opencl_platform(loaded_wallet):
     best_device_worksize = 0
     best_score_sofar = -1
@@ -139,10 +155,16 @@ def init_opencl_contexts(loaded_wallet, openclDevice=0):
         return
 
     # Password recovery for BIP38 wallet, load sCrypt context with a custom kernel
-    elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP38:
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletBIP38 or type(loaded_wallet).__name__ == "WalletBIP38":
         loaded_wallet.opencl_context_scrypt = loaded_wallet.opencl_algo.cl_scrypt_init(
             14, "sCrypt_Bip38fork.cl"
         )
+        return
+
+    # SLIP39 Passphrase recovery uses Shamir secret sharing + custom KDF, which
+    # cannot be expressed as PBKDF2. Disable OpenCL to fall back to CPU.
+    elif type(loaded_wallet) is btcrecover.btcrpass.WalletSLIP39:
+        loaded_wallet.opencl_algo = -1
         return
 
     # Password recovery for Electrum28 Wallet files
@@ -176,9 +198,14 @@ def init_opencl_contexts(loaded_wallet, openclDevice=0):
     # Password recovery for Metamask wallets
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletMetamask:
         if not loaded_wallet._mobileWallet:
+            # Use the salt-aware pbkdf2 init (which selects the optimised
+            # pbkdf2_sha256_32.cl kernel). The generic sha256 + pbkdf2.cl kernel
+            # miscompiles on AMD RDNA integrated GPUs (returns all-zero digests),
+            # whereas the optimised kernel is correct everywhere. Matches the
+            # approach used by WalletDogechain above.
             loaded_wallet.opencl_context_pbkdf2_sha256 = (
-                loaded_wallet.opencl_algo.cl_pbkdf2_saltlist_init(
-                    "sha256", len(b""), 32
+                loaded_wallet.opencl_algo.cl_pbkdf2_init(
+                    "sha256", len(loaded_wallet.salt), 32
                 )
             )
         else:

@@ -4092,7 +4092,13 @@ class WalletBIP38(object):
         passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
 
         if not self.ec_multiplied:
-            clResult = self.opencl_algo.cl_scrypt(self.opencl_context_scrypt, passwords, 14, 3, 3, 64, self.salt)
+            try:
+                clResult = self.opencl_algo.cl_scrypt(self.opencl_context_scrypt, passwords, 14, 3, 3, 64, self.salt)
+            except Exception as e:
+                # OpenCL buffer allocation can fail under memory pressure (e.g. multiple workers).
+                # Fall back to CPU verification for this batch instead of crashing.
+                print(f"Warning: OpenCL sCrypt failed ({type(e).__name__}: {e}), falling back to CPU", file=sys.stderr)
+                return self._return_verified_password_or_false_cpu(arg_passwords)
             passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
             results = zip(passwords, clResult)
             for count, (password, scrypthash) in enumerate(results, 1):
@@ -4101,7 +4107,11 @@ class WalletBIP38(object):
                     print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
         else:
-            clPrefactors = self.opencl_algo.cl_scrypt(self.opencl_context_scrypt, passwords, 14, 3, 3, 32, self.salt)
+            try:
+                clPrefactors = self.opencl_algo.cl_scrypt(self.opencl_context_scrypt, passwords, 14, 3, 3, 32, self.salt)
+            except Exception as e:
+                print(f"Warning: OpenCL sCrypt failed ({type(e).__name__}: {e}), falling back to CPU", file=sys.stderr)
+                return self._return_verified_password_or_false_cpu(arg_passwords)
             passpoints = map(lambda p: prefactor_to_passpoint(p, self.has_lotsequence_flag, self.enc_privkey), clPrefactors)
             encseedbs = map(lambda p: l_scrypt(p, self.enc_privkey[0:12], 1024, 1, 1, 64), passpoints)
             passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
@@ -9233,7 +9243,12 @@ def password_repeats_generator(password_base, min_typos = 0):
 # Simply forwards calls on to the return_verified_password_or_false()
 # member function of the currently loaded global wallet
 def return_verified_password_or_false(passwords):
-    return loaded_wallet.return_verified_password_or_false(passwords)
+    try:
+        return loaded_wallet.return_verified_password_or_false(passwords)
+    except Exception as e:
+        # pyopencl exceptions contain unpicklable _ErrorRecord objects.
+        # Convert to a plain RuntimeError so it can cross process boundaries.
+        raise RuntimeError(f"Worker error: {type(e).__name__}: {e}") from None
 
 # Init function for the password verifying worker processes:
 #   (re-)loads the wallet & mode (should only be necessary on Windows),

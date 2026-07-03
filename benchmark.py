@@ -347,6 +347,28 @@ def _get_opencl_info():
     return None
 
 
+def _has_amd_unified_memory_gpu():
+    """Detect AMD APU with unified memory (>32GB reported VRAM).
+
+    sCrypt OpenCL kernels cannot allocate contiguous buffers on these devices,
+    so BIP38 benchmarks should skip OpenCL mode.
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c",
+             "import sys; "
+             "import pyopencl as cl; "
+             "found = any("
+             "('amd' in d.vendor.lower() or 'advanced micro devices' in d.vendor.lower()) and d.global_mem_size > 32 * (1 << 30) "
+             "for p in cl.get_platforms() for d in p.get_devices()); "
+             "sys.stdout.write('yes' if found else 'no')"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return result.stdout.strip() == "yes"
+    except Exception:
+        return False
+
+
 def run_benchmark(cmd, duration, label, cwd=None):
     """Run a single benchmark command and return the results.
 
@@ -582,7 +604,7 @@ def get_password_benchmarks():
         "label": "SLIP39 Passphrase",
         "category": "password",
         "supports_gpu": False,
-        "supports_opencl": True,
+        "supports_opencl": False,  # SLIP39 uses Shamir + custom KDF, not PBKDF2
         "cmd_builder": lambda: _build_slip39_passphrase_cmd(),
     })
 
