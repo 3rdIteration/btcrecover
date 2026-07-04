@@ -50,8 +50,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(SCRIPT_DIR, "btcrecover", "test", "test-wallets")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
 
-# Maximum seconds to wait for the search phase to begin (some wallets like
-# scrypt-based ones have slow pre-start benchmarks)
+# Extra seconds (on top of the test duration) allowed for a subprocess to
+# reach and finish its measured run. This covers slow one-off setup such as
+# first-time OpenCL kernel compilation, which can take a while on integrated
+# GPUs / APUs. Overridable with --startup-timeout.
 SEARCH_PHASE_TIMEOUT = 120
 
 
@@ -365,6 +367,49 @@ def _has_amd_unified_memory_gpu():
         return False
 
 
+def _thread_args():
+    """Return the ``--threads`` argument list for a benchmark command.
+
+    By default we pass *nothing*, so btcrecover applies its own auto-detected
+    default worker count for each mode/wallet -- which is the behaviour we want
+    to measure (e.g. all logical cores on CPU, but only 2 workers for a Bitcoin
+    Core OpenCL run, and a VRAM-limited count for OpenCL seed recovery).  A
+    thread count is only forced when the user explicitly asks for one via
+    ``benchmark.py --threads`` (surfaced through BTCR_BENCHMARK_THREADS).
+    """
+    override = os.environ.get("BTCR_BENCHMARK_THREADS")
+    if override:
+        return ["--threads", override]
+    return []
+
+
+def _kill_process_tree(proc):
+    """Forcibly terminate *proc* and all of its descendants.
+
+    ``Popen.kill()`` only terminates the direct child on Windows, orphaning
+    the multiprocessing worker processes btcrecover spawns.  Those orphans
+    keep their OpenCL contexts (and GPU memory) alive, which then hangs every
+    subsequent OpenCL benchmark.  Kill the whole tree so a single hung test
+    cannot poison the ones that follow.
+    """
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True, timeout=15,
+            )
+        else:
+            try:
+                os.killpg(os.getpgid(proc.pid), 9)
+            except Exception:
+                proc.kill()
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
 def run_benchmark(cmd, duration, label, cwd=None):
     """Run a single benchmark command and return the results.
 
@@ -395,6 +440,12 @@ def run_benchmark(cmd, duration, label, cwd=None):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
 
+        popen_kwargs = {}
+        if os.name != "nt":
+            # Start the child in its own process group so _kill_process_tree
+            # can reap all of its multiprocessing workers via killpg.
+            popen_kwargs["start_new_session"] = True
+
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -402,6 +453,7 @@ def run_benchmark(cmd, duration, label, cwd=None):
             text=True,
             cwd=cwd,
             env=env,
+            **popen_kwargs,
         )
 
         # -- Reader thread: pumps stdout lines into a shared list ----------
@@ -428,8 +480,11 @@ def run_benchmark(cmd, duration, label, cwd=None):
         try:
             proc.wait(timeout=total_timeout)
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=10)
+            _kill_process_tree(proc)
+            try:
+                proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                pass
 
         reader.join(timeout=10)
 
@@ -468,8 +523,8 @@ def run_benchmark(cmd, duration, label, cwd=None):
     except Exception as e:
         print(f" ERROR: {e}")
         try:
-            proc.kill()
-            proc.wait()
+            _kill_process_tree(proc)
+            proc.wait(timeout=15)
         except Exception:
             pass
         return None
@@ -625,7 +680,6 @@ def get_password_benchmarks():
 
 def _build_password_cmd(wallet_path, extra_args):
     """Build the command for a password recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
         sys.executable, "btcrecover.py",
         "--performance",
@@ -633,7 +687,7 @@ def _build_password_cmd(wallet_path, extra_args):
         "--no-eta",
         "--no-dupchecks",
         "--dsw",
-        "--threads", threads,
+        *_thread_args(),
     ]
     cmd.extend(extra_args)
     return cmd
@@ -641,7 +695,6 @@ def _build_password_cmd(wallet_path, extra_args):
 
 def _build_bip39_passphrase_cmd():
     """Build the command for a BIP39 passphrase recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     return [
         sys.executable, "btcrecover.py",
         "--performance",
@@ -651,13 +704,12 @@ def _build_bip39_passphrase_cmd():
         "--no-eta",
         "--no-dupchecks",
         "--dsw",
-        "--threads", threads,
+        *_thread_args(),
     ]
 
 
 def _build_slip39_passphrase_cmd():
     """Build the command for a SLIP39 passphrase recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     return [
         sys.executable, "btcrecover.py",
         "--performance",
@@ -670,13 +722,12 @@ def _build_slip39_passphrase_cmd():
         "--no-eta",
         "--no-dupchecks",
         "--dsw",
-        "--threads", threads,
+        *_thread_args(),
     ]
 
 
 def _build_bip38_cmd():
     """Build the command for a BIP38 encrypted private key benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     return [
         sys.executable, "btcrecover.py",
         "--performance",
@@ -684,13 +735,12 @@ def _build_bip38_cmd():
         "--no-eta",
         "--no-dupchecks",
         "--dsw",
-        "--threads", threads,
+        *_thread_args(),
     ]
 
 
 def _build_rawprivatekey_cmd():
     """Build the command for a raw private key recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     return [
         sys.executable, "btcrecover.py",
         "--performance",
@@ -699,7 +749,7 @@ def _build_rawprivatekey_cmd():
         "--no-eta",
         "--no-dupchecks",
         "--dsw",
-        "--threads", threads,
+        *_thread_args(),
     ]
 
 
@@ -767,7 +817,6 @@ def get_seed_benchmarks():
 
 def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path=None, address=None):
     """Build the command for a seed recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     cmd = [
         sys.executable, "seedrecover.py",
         "--performance",
@@ -777,7 +826,7 @@ def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path=None, address=None)
         "--dsw",
         "--no-eta",
         "--no-dupchecks",
-        "--threads", threads,
+        *_thread_args(),
     ]
     if address:
         cmd.extend(["--addr-limit", "1", "--addrs", address])
@@ -788,7 +837,6 @@ def _build_seed_cmd(wallet_type, mnemonic_length, bip32_path=None, address=None)
 
 def _build_slip39_seed_cmd():
     """Build the command for a SLIP39 seed share recovery benchmark."""
-    threads = os.environ.get("BTCR_BENCHMARK_THREADS", str(os.cpu_count() or 1))
     return [
         sys.executable, "seedrecover.py",
         "--performance",
@@ -797,7 +845,7 @@ def _build_slip39_seed_cmd():
         "--dsw",
         "--no-eta",
         "--no-dupchecks",
-        "--threads", threads,
+        *_thread_args(),
     ]
 
 
@@ -845,7 +893,11 @@ def run_all_benchmarks(args):
     if args.opencl_devices:
         opencl_args["devices"] = args.opencl_devices
 
-    threads = args.threads if args.threads else os.cpu_count() or 1
+    # When the user doesn't force a thread count we let btcrecover auto-detect
+    # its own per-mode/per-wallet default, so record "auto" rather than a made-up
+    # number that wouldn't reflect what actually ran (e.g. OpenCL runs use far
+    # fewer workers than CPU cores).
+    threads = args.threads if args.threads else "auto"
 
     results = {
         "metadata": {
@@ -896,8 +948,14 @@ def run_all_benchmarks(args):
                 print(f"  Skipping (failed to build command)")
                 continue
 
-            # Tell the subprocess to stop itself after the desired duration
+            # Tell the subprocess to stop itself after the desired duration.
             cmd.extend(["--performance-duration", str(args.duration)])
+
+            # Skip the pre-start verification benchmark: it adds up to 30s per
+            # test and is pointless here (--performance already measures raw
+            # throughput). It can also stall for a long time on slow OpenCL
+            # devices while the first kernel compiles.
+            cmd.append("--skip-pre-start")
 
             # Modify command for GPU/OpenCL mode
             # --enable-gpu is only for password recovery (Bitcoin Core only)
@@ -1001,6 +1059,7 @@ def print_summary(results):
 
 
 def main():
+    global SEARCH_PHASE_TIMEOUT
     parser = argparse.ArgumentParser(
         description="BTCRecover Benchmarking Tool - Test recovery speed for various wallet types",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1013,7 +1072,6 @@ Examples:
   %(prog)s --duration 60           Run each test for 60 seconds
   %(prog)s --wallet-type seed      Only test seed recovery
   %(prog)s --wallet-type password  Only test password recovery
-  %(prog)s --threads 4             Use 4 worker threads
   %(prog)s --global-ws 8192        GPU benchmarks with custom work size
   %(prog)s --opencl-workgroup-size 1024  OpenCL with custom workgroup
   %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
@@ -1051,11 +1109,19 @@ Examples:
     )
     parser.add_argument(
         "--threads", type=int, default=None,
-        help="Number of worker threads to use (default: number of CPU cores)"
+        help="Force a worker thread count for every test. By default this is "
+             "left unset so btcrecover auto-detects its own per-mode/per-wallet "
+             "default (which is what the benchmark is meant to measure)."
     )
     parser.add_argument(
         "--comment", type=str, default=None,
         help="Optional free-form note to include in benchmark metadata"
+    )
+    parser.add_argument(
+        "--startup-timeout", type=int, default=SEARCH_PHASE_TIMEOUT, metavar="SECONDS",
+        help="Extra seconds beyond --duration to allow for subprocess startup / "
+             "first-time OpenCL kernel compilation before a test is killed "
+             f"(default: {SEARCH_PHASE_TIMEOUT}). Raise this on slow GPUs/APUs."
     )
 
     # GPU acceleration arguments (password recovery)
@@ -1094,11 +1160,14 @@ Examples:
     if args.threads:
         os.environ["BTCR_BENCHMARK_THREADS"] = str(args.threads)
 
+    # Apply the (possibly overridden) startup timeout used by run_benchmark
+    SEARCH_PHASE_TIMEOUT = args.startup_timeout
+
     print("BTCRecover Benchmarking Tool")
     print(f"{'=' * 60}")
     print(f"Duration per test: {args.duration} seconds")
     print(f"Wallet types:      {args.wallet_type}")
-    print(f"Threads:           {args.threads if args.threads else 'auto (CPU cores)'}")
+    print(f"Threads:           {args.threads if args.threads else 'auto (btcrecover default)'}")
     print(f"GPU benchmarks:    {'Yes' if args.gpu else 'No'}")
     print(f"OpenCL benchmarks: {'Yes' if args.opencl else 'No'}")
     if args.comment:

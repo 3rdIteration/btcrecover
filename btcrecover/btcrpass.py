@@ -28,6 +28,13 @@ disable_security_warnings = True
 
 BIP39_OPENCL_MEMORY_PER_THREAD_BYTES = 2 * 1024 ** 3  # ~2 GiB per worker
 
+# On AMD APUs with unified memory the driver reports (a large share of) system
+# RAM as "VRAM". Budgeting one ~2 GiB GPU worker per 2 GiB of that would try to
+# claim all of system memory at once -- and each worker also needs CPU-side RAM
+# for itself -- so only spend this fraction of the reported memory on GPU
+# workers and leave the remainder as headroom for the OS and the workers.
+OPENCL_UNIFIED_MEMORY_BUDGET_FRACTION = 0.5
+
 # Import modules included in standard libraries
 import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle, gc, \
        time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip
@@ -7319,7 +7326,18 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                         total_vram_bytes += device.global_mem_size
 
                 if total_vram_bytes:
-                    threads_by_vram = total_vram_bytes // BIP39_OPENCL_MEMORY_PER_THREAD_BYTES
+                    # Unified-memory APUs over-report usable memory (it's shared
+                    # system RAM), so only budget a fraction of it for GPU workers.
+                    is_unified_memory = btcrecover.opencl_helpers._has_amd_unified_memory_gpu(
+                        loaded_wallet.opencl_platform
+                    )
+                    memory_budget_bytes = total_vram_bytes
+                    if is_unified_memory:
+                        memory_budget_bytes = int(
+                            total_vram_bytes * OPENCL_UNIFIED_MEMORY_BUDGET_FRACTION
+                        )
+
+                    threads_by_vram = memory_budget_bytes // BIP39_OPENCL_MEMORY_PER_THREAD_BYTES
                     if threads_by_vram == 0:
                         threads_by_vram = 1
                     recommended_threads = min(logical_cpu_cores, threads_by_vram)
@@ -7327,17 +7345,19 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
                         recommended_threads = 1
 
                     if recommended_threads < args.threads:
-                        total_vram_gb = total_vram_bytes / (1024 ** 3)
+                        budget_gb = memory_budget_bytes / (1024 ** 3)
                         per_thread_gb = (
                             BIP39_OPENCL_MEMORY_PER_THREAD_BYTES / (1024 ** 3)
                         )
+                        memory_kind = "unified" if is_unified_memory else "GPU"
                         print(
-                            "OpenCL: Defaulting to {} worker {} based on {:.2f} GB of GPU memory (~{:.1f} GB per thread)".format(
+                            "OpenCL: Defaulting to {} worker {} based on {:.2f} GB of usable {} memory (~{:.1f} GB per thread)".format(
                                 recommended_threads,
                                 "threads"
                                 if recommended_threads != 1
                                 else "thread",
-                                total_vram_gb,
+                                budget_gb,
+                                memory_kind,
                                 per_thread_gb,
                             )
                         )
