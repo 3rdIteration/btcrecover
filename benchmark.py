@@ -348,11 +348,7 @@ def _get_opencl_info():
 
 
 def _has_amd_unified_memory_gpu():
-    """Detect AMD APU with unified memory (>32GB reported VRAM).
-
-    sCrypt OpenCL kernels cannot allocate contiguous buffers on these devices,
-    so BIP38 benchmarks should skip OpenCL mode.
-    """
+    """Detect AMD APU with unified memory (>32GB reported VRAM)."""
     try:
         result = subprocess.run(
             [sys.executable, "-c",
@@ -563,30 +559,29 @@ def get_password_benchmarks():
     benchmarks = []
     wallet_dir = WALLET_DIR
 
-    # Each entry: (label, wallet_file, extra_args)
-    # Each entry: (label, wallet_file, extra_args, supports_gpu)
-    # supports_gpu indicates whether --enable-gpu is supported for this wallet type
+    # Each entry: (label, wallet_file, extra_args, supports_gpu, supports_opencl)
     wallet_tests = [
-        ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", [], True),
-        ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", [], True),
-        ("Electrum 2.8+ Passphrase", "electrum28-wallet", [], False),
-        ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", [], False),
-        ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", [], False),
-        ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", [], False),
-        ("MultiBit Classic", "multibit-wallet.key", [], False),
-        ("MultiBit HD", "mbhd.wallet.aes", [], False),
-        ("MetaMask (Chrome)", "metamask/nkbihfbeogaeaoehlefnkodbefgpgknn", [], False),
-        ("Coinomi (Android)", "coinomi.wallet.android", [], False),
-        ("Ethereum Keystore (scrypt)", "utc-keystore-v3-scrypt-myetherwallet.json", [], False),
+        ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", [], True, True),
+        ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", [], True, True),
+        ("Electrum 2.8+ Passphrase", "electrum28-wallet", [], False, True),
+        ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", [], False, False),  # v0 doesn't support OpenCL
+        ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", [], False, True),
+        ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", [], False, True),
+        ("MultiBit Classic", "multibit-wallet.key", [], False, True),
+        ("MultiBit HD", "mbhd.wallet.aes", [], False, False),  # WalletMultiBitHD doesn't support OpenCL
+        ("MetaMask (Chrome)", "metamask/nkbihfbeogaeaoehlefnkodbefgpgknn", [], False, True),
+        ("Coinomi (Android)", "coinomi.wallet.android", [], False, False),
+        ("Ethereum Keystore (scrypt)", "utc-keystore-v3-scrypt-myetherwallet.json", [], False, False),
     ]
 
-    for label, wallet_file, extra_args, supports_gpu in wallet_tests:
+    for label, wallet_file, extra_args, supports_gpu, supports_opencl in wallet_tests:
         wallet_path = os.path.join(wallet_dir, wallet_file)
         if os.path.exists(wallet_path):
             benchmarks.append({
                 "label": label,
                 "category": "password",
                 "supports_gpu": supports_gpu,
+                "supports_opencl": supports_opencl,
                 "cmd_builder": lambda wp=wallet_path, ea=extra_args: _build_password_cmd(wp, ea),
             })
 
@@ -759,10 +754,11 @@ def get_seed_benchmarks():
         ),
     })
 
-    # SLIP39 Seed Share recovery
+    # SLIP39 Seed Share recovery (uses Shamir + custom KDF, not PBKDF2)
     benchmarks.append({
         "label": "SLIP39 Seed Share",
         "category": "seed",
+        "supports_opencl": False,
         "cmd_builder": lambda: _build_slip39_seed_cmd(),
     })
 
@@ -906,7 +902,7 @@ def run_all_benchmarks(args):
             # Modify command for GPU/OpenCL mode
             # --enable-gpu is only for password recovery (Bitcoin Core only)
             # --enable-opencl is for seed recovery AND some password types
-            #   (BIP39 Passphrase, SLIP39 Passphrase, BIP38)
+            #   (BIP39 Passphrase, BIP38, wallet files that support OpenCL)
             if mode == "gpu" and bench["category"] == "password":
                 if not bench.get("supports_gpu"):
                     print(f"  Skipping (GPU not supported for this wallet type)")
@@ -914,6 +910,9 @@ def run_all_benchmarks(args):
                 cmd.append("--enable-gpu")
                 _append_gpu_args(cmd, gpu_args)
             elif mode == "opencl" and bench["category"] == "seed":
+                if not bench.get("supports_opencl", True):
+                    print(f"  Skipping (OpenCL not supported for this wallet type)")
+                    continue
                 cmd.append("--enable-opencl")
                 _append_opencl_args(cmd, opencl_args)
             elif mode == "opencl" and bench.get("supports_opencl"):
