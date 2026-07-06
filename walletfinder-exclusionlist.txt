@@ -1,0 +1,40 @@
+# walletfinder-exclusionlist.txt
+#
+# Path substrings that walletfinder.py skips while scanning. Each non-comment line is
+# matched against every scanned file's path *relative to the scan root*, so these
+# repo-relative entries only skip BTCRecover's own test wallets and example seed/key
+# files when the repository itself is scanned (e.g. `python walletfinder.py --folder .`);
+# they do not exclude unrelated folders elsewhere on your system.
+#
+# Regenerate after adding/removing files in the repo with:
+#     python walletfinder.py --update-exclusions
+# You may also add your own substrings by hand; they are preserved on regeneration.
+
+btcrecover/test/
+docs/Benchmarks.md
+docs/Benchmarks.md.template
+docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/firstcombination_bip39.txt
+docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_bip39.txt
+docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_electrum.txt
+docs/Usage_Examples/2020-05-08_Recovering_Blockchain_Wallet_Passwords/wallet.aes.json
+docs/Usage_Examples/basic_seed_recoveries.md
+lib/bitcoinlib/mnemonic.py
+lib/bitcoinlib/networks.py
+lib/bitcoinlib/tools/sign_raw.py
+lib/bitcoinlib_mod/README.rst
+lib/bitcoinlib_mod/docs/_static/manuals.command-line-wallet.rst
+lib/bitcoinlib_mod/examples/encoding.py
+lib/bitcoinlib_mod/examples/keys.py
+lib/bitcoinlib_mod/examples/mnemonic.py
+lib/bitcoinlib_mod/examples/transactions.py
+lib/bitcoinlib_mod/examples/wallet_multisig_3of5.py
+lib/bitcoinlib_mod/examples/wallets.py
+lib/bitcoinlib_mod/examples/wallets_segwit_testnet.py
+lib/bitcoinlib_mod/mnemonic.py
+lib/bitcoinlib_mod/networks.py
+lib/bitcoinlib_mod/tests/bip38_protected_key_tests.json
+lib/bitcoinlib_mod/tests/electrum_keys.json
+lib/bitcoinlib_mod/tests/mnemonics_tests.json
+lib/bitcoinlib_mod/tests/test_mnemonic.py
+lib/bitcoinlib_mod/tools/sign_raw.py
+utilities/cardano_address_derivation.py

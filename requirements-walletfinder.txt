@@ -1,0 +1,48 @@
+# Requirements for walletfinder.py (bundled with BTCRecover -- BTCRecover itself is NOT a
+# pip package; you just download/unzip the repo and run the script with Python).
+#
+# walletfinder.py has two modes:
+#   * Text Mode (default) -- scans files for seed phrases (BIP39/SLIP39/Electrum/Blockchain)
+#                            and private keys (WIF, BIP38, BIP32 extended keys)
+#   * Wallet Mode         -- btcrecover.btcrpass.load_wallet() auto-detects wallet FILES
+#                            (--wallet-mode)
+#
+# ---------------------------------------------------------------------------------------
+# FULL wallet-type coverage (recommended)
+# ---------------------------------------------------------------------------------------
+# For load_wallet() to detect AND load *every* wallet type BTCRecover supports (Bitcoin
+# Core, Blockchain.com, Electrum, MetaMask, MultiBit, Ethereum keystores, Coinomi, BIP38
+# keys, SLIP39, the various py_crypto_hd_wallet coins, address-database wallets, etc.), the
+# same package set as full BTCRecover support is required. It is pulled in directly here so
+# the pins stay in sync with the main project (this is a larger, slower build):
+-r requirements-full.txt
+#
+# (requirements-full.txt already includes shamir-mnemonic, which Text Mode also uses for
+# SLIP39 seed-phrase detection and checksum validation.)
+#
+# ---------------------------------------------------------------------------------------
+# Lightweight alternative (common wallets only)
+# ---------------------------------------------------------------------------------------
+# If you only need the common wallet types (Bitcoin Core, Blockchain.com, Electrum,
+# MultiBit, MetaMask, ...) plus Text Mode, you can comment out the "-r requirements-full.txt"
+# line above and uncomment the following much smaller/faster subset instead:
+#
+#   coincurve==20.0.0; platform_machine == 'aarch64'
+#   coincurve>=20.0.0,<22; platform_machine != 'aarch64'
+#   protobuf~=5.29.6
+#   pycryptodome~=3.23.0
+#   shamir-mnemonic==0.3.0
+#
+# ---------------------------------------------------------------------------------------
+# Optional: full document scanning in Text Mode
+# ---------------------------------------------------------------------------------------
+# By default Text Mode scans plain-text files only. To also extract and scan text from
+# document formats (docx, pdf, xlsx, pptx, odt, rtf, epub, ...), install textract. It is
+# kept separate because its build dependencies can be difficult to install on some
+# platforms, and plain-text files are always scanned without it:
+#   pip3 install textract
+#
+# Optionally also install pypdf. It is a lightweight PDF fallback: some PDFs (e.g. paper
+# wallets with custom font encodings) extract as garbled text under textract's pdfminer
+# engine, and pypdf recovers them. Not required, but recommended if you scan PDFs:
+#   pip3 install pypdf
