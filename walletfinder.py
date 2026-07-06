@@ -124,6 +124,7 @@ def _print_progress(current, total=None, current_dir=""):
     """Print a single-line progress indicator with a spinning cursor.
 
     Updates in-place by using carriage return to overwrite the line.
+    Uses ASCII-safe characters for Windows console compatibility.
     """
     spinners = ['|', '/', '-', '\\']
     spinner_idx = current % 4
@@ -135,10 +136,12 @@ def _print_progress(current, total=None, current_dir=""):
         pct = min(int(current / total * 100), 100)
         bar_len = 20
         filled = int(bar_len * current / total)
-        bar = '█' * filled + '░' * (bar_len - filled)
-        line = f"\r[{spinner}] Scanning: {pct}% [{bar}] {current}/{total}  Dir: {truncated_dir}"
+        bar = '#' * filled + '-' * (bar_len - filled)
+        line = "\r[{}] Scanning: {}% [{}] {}/{}  Dir: {}".format(
+            spinner, pct, bar, current, total, truncated_dir)
     else:
-        line = f"\r[{spinner}] Scanning: {current} files checked  Dir: {truncated_dir}"
+        line = "\r[{}] Scanning: {} files checked  Dir: {}".format(
+            spinner, current, truncated_dir)
 
     # Pad to clear previous line content
     max_len = 120
@@ -184,11 +187,15 @@ def walk_directory(folder, max_depth, current_depth=0, skip_test_wallets=True):
 
     try:
         entries = sorted(folder.iterdir())
-    except PermissionError:
+    except (PermissionError, FileNotFoundError, OSError):
         return
 
     for entry in entries:
-        if entry.is_dir():
+        try:
+            is_dir = entry.is_dir()
+        except OSError:
+            continue
+        if is_dir:
             if entry.name.startswith('.') and entry.name != '.':
                 continue
             if entry.name in EXCLUDED_DIRS:
@@ -203,69 +210,140 @@ def walk_directory(folder, max_depth, current_depth=0, skip_test_wallets=True):
             yield str(entry)
 
 
-def scan_wallet_mode(folder, depth, debug=False, skip_test_wallets=True):
+def scan_wallet_mode(folder, depth, debug=False, skip_test_wallets=True, statusbar=True):
     """Scan directory for wallet files using btcrecover's load_wallet().
 
     Returns a list of dicts with keys: path, type, confidence, (and reason if debug).
+    
+    When statusbar is True (default), uses a two-pass approach: first counts eligible files,
+    then scans them with a progress bar. When statusbar is False, scans immediately without
+    the initial discovery pass.
     """
     results = []
     files_scanned = 0
 
-    # First pass: count total eligible files for progress bar
-    total_files = 0
-    all_files = []
-    for filepath in walk_directory(Path(folder), depth, skip_test_wallets=skip_test_wallets):
-        try:
-            if os.path.getsize(filepath) <= MAX_WALLET_FILE_SIZE:
-                all_files.append(filepath)
-                total_files += 1
-        except OSError:
-            pass
+    if statusbar:
+        # First pass: count total eligible files for progress bar (with spinner)
+        total_files = 0
+        all_files = []
+        spinners = ['|', '/', '-', '\\']
+        disc_count = 0
+        for filepath in walk_directory(Path(folder), depth, skip_test_wallets=skip_test_wallets):
+            try:
+                if os.path.getsize(filepath) <= MAX_WALLET_FILE_SIZE:
+                    all_files.append(filepath)
+                    total_files += 1
+            except OSError:
+                pass
+            # Show discovery spinner every 500 files
+            disc_count += 1
+            if disc_count % 500 == 0:
+                spinner_idx = disc_count % 4
+                sys.stdout.write("\r[{}] Discovering files... {}".format(spinners[spinner_idx], total_files))
+                sys.stdout.flush()
+        _clear_progress_line()
 
-    # Second pass: scan files with progress indicator
-    for i, filepath in enumerate(all_files):
-        files_scanned += 1
+        # Second pass: scan files with progress indicator
+        for i, filepath in enumerate(all_files):
+            files_scanned += 1
 
-        # Extract current directory being scanned (last 2-3 levels for readability)
-        try:
-            path_parts = Path(filepath).parts
-            if len(path_parts) > 3:
-                current_dir = os.sep.join(path_parts[-3:])
-            else:
+            # Extract current directory being scanned (last 2-3 levels for readability)
+            try:
+                path_parts = Path(filepath).parts
+                if len(path_parts) > 3:
+                    current_dir = os.sep.join(path_parts[-3:])
+                else:
+                    current_dir = filepath
+            except Exception:
                 current_dir = filepath
-        except Exception:
-            current_dir = filepath
 
-        _print_progress(files_scanned, total_files, current_dir)
+            _print_progress(files_scanned, total_files, current_dir)
 
-        try:
-            wallet_obj = load_wallet(filepath)
-            wtype = get_wallet_type_name(wallet_obj)
-            result = {
-                'path': filepath,
-                'type': wtype,
-                'confidence': getattr(wallet_obj, 'detection_confidence', 'definite'),
-            }
-            if debug:
-                result['reason'] = getattr(wallet_obj, 'detection_reason', None)
-            results.append(result)
-        except ValueError as e:
-            # Capture unencrypted wallets so the filepath is reported in results
-            error_msg = str(e).lower()
-            if "not encrypted" in error_msg or "unencrypted" in error_msg:
+            try:
+                wallet_obj = load_wallet(filepath)
+                wtype = get_wallet_type_name(wallet_obj)
                 result = {
                     'path': filepath,
-                    'type': 'Unencrypted',
-                    'confidence': 'definite',
-                    'reason': 'Wallet is not encrypted (contains exposed private keys)',
+                    'type': wtype,
+                    'confidence': getattr(wallet_obj, 'detection_confidence', 'definite'),
                 }
+                if debug:
+                    result['reason'] = getattr(wallet_obj, 'detection_reason', None)
                 results.append(result)
-            # All other ValueErrors are silently ignored
-        except (Exception, SystemExit):
-            pass
+            except ValueError as e:
+                # Capture unencrypted wallets so the filepath is reported in results
+                error_msg = str(e).lower()
+                if "not encrypted" in error_msg or "unencrypted" in error_msg:
+                    result = {
+                        'path': filepath,
+                        'type': 'Unencrypted',
+                        'confidence': 'definite',
+                        'reason': 'Wallet is not encrypted (contains exposed private keys)',
+                    }
+                    results.append(result)
+                # All other ValueErrors are silently ignored
+            except (Exception, SystemExit):
+                pass
 
-    # Clear the progress line and print a newline
-    _clear_progress_line()
+        # Clear the progress line and print a newline
+        _clear_progress_line()
+    else:
+        # No statusbar: scan files directly without counting first, but still show current directory
+        spinners = ['|', '/', '-', '\\']
+        for filepath in walk_directory(Path(folder), depth, skip_test_wallets=skip_test_wallets):
+            try:
+                if os.path.getsize(filepath) > MAX_WALLET_FILE_SIZE:
+                    continue
+            except OSError:
+                continue
+
+            files_scanned += 1
+
+            # Show current directory being scanned (single-line updating display)
+            try:
+                path_parts = Path(filepath).parts
+                if len(path_parts) > 3:
+                    current_dir = os.sep.join(path_parts[-3:])
+                else:
+                    current_dir = filepath
+            except Exception:
+                current_dir = filepath
+
+            truncated_dir = _truncate_path(current_dir)
+            spinner_idx = files_scanned % 4
+            line = "\r[{}] Scanning: {} files  Dir: {}".format(spinners[spinner_idx], files_scanned, truncated_dir)
+            max_len = 120
+            if len(line) < max_len:
+                line += ' ' * (max_len - len(line))
+            sys.stdout.write(line)
+            sys.stdout.flush()
+
+            try:
+                wallet_obj = load_wallet(filepath)
+                wtype = get_wallet_type_name(wallet_obj)
+                result = {
+                    'path': filepath,
+                    'type': wtype,
+                    'confidence': getattr(wallet_obj, 'detection_confidence', 'definite'),
+                }
+                if debug:
+                    result['reason'] = getattr(wallet_obj, 'detection_reason', None)
+                results.append(result)
+            except ValueError as e:
+                error_msg = str(e).lower()
+                if "not encrypted" in error_msg or "unencrypted" in error_msg:
+                    result = {
+                        'path': filepath,
+                        'type': 'Unencrypted',
+                        'confidence': 'definite',
+                        'reason': 'Wallet is not encrypted (contains exposed private keys)',
+                    }
+                    results.append(result)
+            except (Exception, SystemExit):
+                pass
+
+        # Clear the scanning line
+        _clear_progress_line()
 
     return results, files_scanned
 
@@ -903,6 +981,9 @@ def parse_arguments(args=None):
     scan_group.add_argument(
         '--no-skip-test-wallets', action='store_true', default=False,
         help="Do not automatically skip test wallet directories (e.g., btcrecover/test/test-wallets/).")
+    scan_group.add_argument(
+        '--no-statusbar', action='store_true', default=False,
+        help="Skip the file discovery phase and start scanning immediately without a progress bar.")
 
     args = parser.parse_args(args)
 
@@ -939,8 +1020,10 @@ def main():
         print()
         print_text_results(results, files_scanned, debug=args.debug)
     else:
+        statusbar = not args.no_statusbar
         results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug,
-                                                  skip_test_wallets=skip_test_wallets)
+                                                  skip_test_wallets=skip_test_wallets,
+                                                  statusbar=statusbar)
         print()
         print_wallet_results(results, files_scanned)
 
