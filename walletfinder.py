@@ -28,6 +28,9 @@ from btcrecover.btcrpass import load_wallet, MAX_WALLET_FILE_SIZE
 
 
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', '.mypy_cache', '.pytest_cache'}
+
+# Directories automatically skipped (test wallets bundled with BTCRecover)
+AUTO_SKIP_DIRS = {'test-wallets', 'test_wallets'}
 MAX_MNEMONIC_FILE_SIZE = 16 * 1024
 
 # File extensions that textract can extract text from (without leading dot)
@@ -91,7 +94,86 @@ def get_wallet_type_name(wallet_obj):
     return type(wallet_obj).__name__
 
 
-def walk_directory(folder, max_depth, current_depth=0):
+# ---------------------------------------------------------------------------
+# Path truncation helpers
+# ---------------------------------------------------------------------------
+
+def _truncate_path_component(name, max_len=8):
+    """Truncate a single path component (directory or filename).
+
+    Shows first 4 chars + '...' + last 4 chars when longer than max_len.
+    Short names are returned unchanged.
+    """
+    if len(name) <= max_len:
+        return name
+    return name[:4] + '...' + name[-4:]
+
+
+def _truncate_path(path_str, component_max=8):
+    """Truncate each component of a path for compact display."""
+    parts = Path(path_str).parts
+    truncated = [_truncate_path_component(p, component_max) for p in parts]
+    return os.sep.join(truncated)
+
+
+# ---------------------------------------------------------------------------
+# Progress indicator
+# ---------------------------------------------------------------------------
+
+def _print_progress(current, total=None, current_dir=""):
+    """Print a single-line progress indicator with a spinning cursor.
+
+    Updates in-place by using carriage return to overwrite the line.
+    """
+    spinners = ['|', '/', '-', '\\']
+    spinner_idx = current % 4
+    spinner = spinners[spinner_idx]
+
+    truncated_dir = _truncate_path(current_dir)
+
+    if total and total > 0:
+        pct = min(int(current / total * 100), 100)
+        bar_len = 20
+        filled = int(bar_len * current / total)
+        bar = '█' * filled + '░' * (bar_len - filled)
+        line = f"\r[{spinner}] Scanning: {pct}% [{bar}] {current}/{total}  Dir: {truncated_dir}"
+    else:
+        line = f"\r[{spinner}] Scanning: {current} files checked  Dir: {truncated_dir}"
+
+    # Pad to clear previous line content
+    max_len = 120
+    if len(line) < max_len:
+        line += ' ' * (max_len - len(line))
+
+    sys.stdout.write(line)
+    sys.stdout.flush()
+
+
+def _clear_progress_line():
+    """Clear the progress indicator line."""
+    sys.stdout.write("\r" + " " * 120 + "\r")
+    sys.stdout.flush()
+
+
+# ---------------------------------------------------------------------------
+# Test-wallet directory helpers
+# ---------------------------------------------------------------------------
+
+def _is_test_wallet_dir(dir_path):
+    """Check if a directory is a test wallet directory that should be auto-skipped.
+
+    Matches directories named 'test-wallets' or 'test_wallets' anywhere in the path,
+    typically found under btcrecover/test/ within the BTCRecover installation.
+    """
+    name = dir_path.name.lower()
+    if name in AUTO_SKIP_DIRS:
+        parent = dir_path.parent
+        if parent.name.lower() == 'test':
+            return True
+    return False
+
+
+def walk_directory(folder, max_depth, current_depth=0, skip_test_wallets=True):
     """Walk directory tree with depth limiting and exclusion filtering.
 
     Yields (filepath,) for each file found.
@@ -111,14 +193,17 @@ def walk_directory(folder, max_depth, current_depth=0):
                 continue
             if entry.name in EXCLUDED_DIRS:
                 continue
+            # Auto-skip test wallet directories
+            if skip_test_wallets and _is_test_wallet_dir(entry):
+                continue
             if max_depth is not None and current_depth >= max_depth:
                 continue
-            yield from walk_directory(entry, max_depth, current_depth + 1)
+            yield from walk_directory(entry, max_depth, current_depth + 1, skip_test_wallets)
         elif entry.is_file():
             yield str(entry)
 
 
-def scan_wallet_mode(folder, depth, debug=False):
+def scan_wallet_mode(folder, depth, debug=False, skip_test_wallets=True):
     """Scan directory for wallet files using btcrecover's load_wallet().
 
     Returns a list of dicts with keys: path, type, confidence, (and reason if debug).
@@ -126,10 +211,32 @@ def scan_wallet_mode(folder, depth, debug=False):
     results = []
     files_scanned = 0
 
-    for filepath in walk_directory(Path(folder), depth):
-        if os.path.getsize(filepath) > MAX_WALLET_FILE_SIZE:
-            continue
+    # First pass: count total eligible files for progress bar
+    total_files = 0
+    all_files = []
+    for filepath in walk_directory(Path(folder), depth, skip_test_wallets=skip_test_wallets):
+        try:
+            if os.path.getsize(filepath) <= MAX_WALLET_FILE_SIZE:
+                all_files.append(filepath)
+                total_files += 1
+        except OSError:
+            pass
+
+    # Second pass: scan files with progress indicator
+    for i, filepath in enumerate(all_files):
         files_scanned += 1
+
+        # Extract current directory being scanned (last 2-3 levels for readability)
+        try:
+            path_parts = Path(filepath).parts
+            if len(path_parts) > 3:
+                current_dir = os.sep.join(path_parts[-3:])
+            else:
+                current_dir = filepath
+        except Exception:
+            current_dir = filepath
+
+        _print_progress(files_scanned, total_files, current_dir)
 
         try:
             wallet_obj = load_wallet(filepath)
@@ -142,8 +249,23 @@ def scan_wallet_mode(folder, depth, debug=False):
             if debug:
                 result['reason'] = getattr(wallet_obj, 'detection_reason', None)
             results.append(result)
+        except ValueError as e:
+            # Capture unencrypted wallets so the filepath is reported in results
+            error_msg = str(e).lower()
+            if "not encrypted" in error_msg or "unencrypted" in error_msg:
+                result = {
+                    'path': filepath,
+                    'type': 'Unencrypted',
+                    'confidence': 'definite',
+                    'reason': 'Wallet is not encrypted (contains exposed private keys)',
+                }
+                results.append(result)
+            # All other ValueErrors are silently ignored
         except (Exception, SystemExit):
             pass
+
+    # Clear the progress line and print a newline
+    _clear_progress_line()
 
     return results, files_scanned
 
@@ -777,13 +899,18 @@ def parse_arguments(args=None):
         '--min-scattered', type=int, metavar='N', default=12,
         help='Minimum unique wordlist words in a file to report (default: 12).')
 
+    scan_group = parser.add_argument_group('scan options')
+    scan_group.add_argument(
+        '--no-skip-test-wallets', action='store_true', default=False,
+        help="Do not automatically skip test wallet directories (e.g., btcrecover/test/test-wallets/).")
+
     args = parser.parse_args(args)
-    
+
     # Set wallet_mode based on whether text mode was explicitly requested
     text_requested = args.text_mode or getattr(args, 'mnemonic_mode_compat', False)
     if not text_requested:
         args.wallet_mode = True
-    
+
     return args
 
 
@@ -804,6 +931,7 @@ def main():
 
     # Determine which mode to use (text-mode is default, mnemonic-mode is backward compat alias)
     text_mode = args.text_mode or getattr(args, 'mnemonic_mode_compat', False)
+    skip_test_wallets = not args.no_skip_test_wallets
 
     if text_mode:
         results, files_scanned = scan_text_mode(
@@ -811,7 +939,8 @@ def main():
         print()
         print_text_results(results, files_scanned, debug=args.debug)
     else:
-        results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug)
+        results, files_scanned = scan_wallet_mode(folder, depth, debug=args.debug,
+                                                  skip_test_wallets=skip_test_wallets)
         print()
         print_wallet_results(results, files_scanned)
 

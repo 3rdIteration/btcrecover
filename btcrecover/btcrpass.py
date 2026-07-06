@@ -1260,10 +1260,10 @@ class WalletBitcoinj(object):
     def load_from_filename(cls, wallet_filename):
         with open(wallet_filename, "rb") as wallet_file:
             filedata = wallet_file.read(MAX_WALLET_FILE_SIZE)  # up to 64M, typical size is a few k
-        return cls._load_from_filedata(filedata)
+        return cls._load_from_filedata(filedata, filename=wallet_filename)
 
     @classmethod
-    def _load_from_filedata(cls, filedata):
+    def _load_from_filedata(cls, filedata, filename=None):
         try:
             from . import bitcoinj_pb2
         except ModuleNotFoundError:
@@ -1274,12 +1274,16 @@ class WalletBitcoinj(object):
         pb_wallet.ParseFromString(bytes(filedata))
 
         if pb_wallet.encryption_type == bitcoinj_pb2.Wallet.UNENCRYPTED:
-            print("\nWallet Not Encrypted, Contains the following Private Keys")
+            if filename:
+                print("\nWallet Not Encrypted (File: {})".format(filename))
+            else:
+                print("\nWallet Not Encrypted")
+            print("Contains the following Private Keys:")
             for key in pb_wallet.key:
                 from lib.cashaddress import base58
                 privkey_wif = base58.b58encode_check(bytes([0x80]) + key.secret_bytes + bytes([0x1]))
                 print(privkey_wif)
-                print()
+            print()
             raise ValueError("bitcoinj wallet is not encrypted")
         if pb_wallet.encryption_type != bitcoinj_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
             raise NotImplementedError("Unsupported bitcoinj encryption type "+str(pb_wallet.encryption_type))
@@ -1299,7 +1303,10 @@ class WalletBitcoinj(object):
                     self._scrypt_p    = pb_wallet.encryption_parameters.p
                     self.pb_wallet_filedata = filedata
                     return self
-                print("Warning: ignoring encrypted key of unexpected length ("+str(encrypted_len)+")", file=sys.stderr)
+                if filename:
+                    print("Warning: {} - ignoring encrypted key of unexpected length ({})".format(filename, encrypted_len), file=sys.stderr)
+                else:
+                    print("Warning: ignoring encrypted key of unexpected length ("+str(encrypted_len)+")", file=sys.stderr)
 
         raise ValueError("No encrypted keys found in bitcoinj wallet")
 
@@ -1417,7 +1424,7 @@ class WalletCoinomi(WalletBitcoinj):
         return False
 
     @classmethod
-    def _load_from_filedata(cls, filedata):
+    def _load_from_filedata(cls, filedata, filename=None):
         try:
             from . import coinomi_pb2
         except ModuleNotFoundError:
@@ -1427,7 +1434,7 @@ class WalletCoinomi(WalletBitcoinj):
         pb_wallet = coinomi_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(filedata))
         if pb_wallet.encryption_type == coinomi_pb2.Wallet.UNENCRYPTED:
-            raise ValueError("Coinomi wallet is not encrypted")
+            raise ValueError("Coinomi wallet is not encrypted" + (f" ({filename})" if filename else ""))
         if pb_wallet.encryption_type != coinomi_pb2.Wallet.ENCRYPTED_SCRYPT_AES:
             raise NotImplementedError("Unsupported Coinomi wallet encryption type "+str(pb_wallet.encryption_type))
         if not pb_wallet.HasField("encryption_parameters"):
@@ -1934,7 +1941,7 @@ class WalletElectrum2(WalletElectrum):
                             return self
 
                 else:
-                    print("Warning: found unsupported keystore type " + keystore_type, file=sys.stderr)
+                    print("Warning: {} - found unsupported keystore type {}".format(wallet_filename, keystore_type), file=sys.stderr)
 
             # Electrum 2.7+ multisig or 2fa wallet
             for i in itertools.count(1):
@@ -1945,7 +1952,7 @@ class WalletElectrum2(WalletElectrum):
                     xprv = x.get("xprv")
                     if xprv: break
                 else:
-                    print("Warning: found unsupported key type " + x_type, file=sys.stderr)
+                    print("Warning: {} - found unsupported key type {}".format(wallet_filename, x_type), file=sys.stderr)
             if xprv: break
 
             # Electrum 2.0 - 2.6.4 wallet with imported loose private keys
