@@ -529,12 +529,32 @@ class opencl_interface:
         devices = cl.get_platforms()[self.platform_number].get_devices()
         wgSize = 0
         for device in devices:
+            # AMD APUs with unified memory report the whole system RAM as
+            # global_mem_size (e.g. 100+ GB). Sizing the scrypt working set to
+            # that would try to allocate tens of GB of contiguous buffers, which
+            # fails (MEM_OBJECT_ALLOCATION_FAILURE) or locks the machine up.
+            amd_unified = (
+                ("amd" in device.vendor.lower() or "advanced micro devices" in device.vendor.lower())
+                and device.global_mem_size > 32 * (1 << 30)
+            )
+            effective_mem = device.global_mem_size
+            if amd_unified:
+                # No discrete AMD GPU exceeds 32GB VRAM, so this is unified memory.
+                effective_mem = min(effective_mem, 4 * (1 << 30))
+
             # Actually adjust based on invMemoryDensity!
             N_blocks_bytes = (1 << N_value) * BLOCK_LEN_BYTES // self.inv_memory_density
             memoryForOneCore = BLOCK_LEN_BYTES * 2 + N_blocks_bytes  # input, output & V
 
             ## ! Restrict to 98% of avaiable memory
-            coresOnDevice = int(0.98 * device.global_mem_size) // memoryForOneCore
+            coresOnDevice = int(0.98 * effective_mem) // memoryForOneCore
+
+            if amd_unified:
+                # Cap the number of concurrent cores so a single scrypt V-buffer
+                # stays ~1GB. Larger allocations risk locking up unified memory,
+                # and throughput plateaus here anyway (the iGPU is already
+                # saturated), so this is both safe and near-optimal.
+                coresOnDevice = min(coresOnDevice, 64)
             percentUsage = (
                 100 * memoryForOneCore * coresOnDevice / device.global_mem_size
             )
