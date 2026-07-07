@@ -1725,10 +1725,11 @@
 <div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search
 </code></pre></div>
 <h3 id="optional-document-scanning-mnemonic-mode">Optional: Document Scanning (Mnemonic Mode)</h3>
-<p>Mnemonic Mode scans <strong>plain-text files out of the box</strong> with no extra dependencies. To also extract and scan text from binary document formats — <code>docx</code>, <code>pdf</code>, <code>xlsx</code>, <code>pptx</code>, <code>odt</code>, <code>rtf</code>, <code>epub</code>, and similar — install <a href="https://pypi.org/project/textract/"><code>textract</code></a>:</p>
-<div class="highlight"><pre><span></span><code>pip3 install textract
+<p>Mnemonic Mode scans <strong>plain-text files out of the box</strong> with no extra dependencies. To also extract and scan text from binary document formats — <code>docx</code>, <code>pdf</code>, <code>xlsx</code>, <code>pptx</code>, <code>odt</code>, <code>rtf</code>, <code>epub</code>, and similar — install <a href="https://pypi.org/project/textract/"><code>textract</code></a> (and optionally <a href="https://pypi.org/project/pypdf/"><code>pypdf</code></a>):</p>
+<div class="highlight"><pre><span></span><code>pip3 install textract pypdf
 </code></pre></div>
 <p>With <code>textract</code> installed, Mnemonic Mode will look for seed phrases and private keys inside those document formats as well. Without it, only plain-text files are scanned and the script prints a one-time warning noting that document support is limited. Note that <code>textract</code> has heavy build dependencies and can be tricky to install on some platforms, which is why it is kept separate from <code>requirements-walletfinder.txt</code>.</p>
+<p><code>pypdf</code> is an optional, lightweight extra used only as a <strong>PDF fallback</strong>: some PDFs (e.g. paper wallets that use custom font encodings) extract as garbled single characters under <code>textract</code>'s <code>pdfminer</code> engine, and <code>pypdf</code> recovers the text in those cases. It is not required, but recommended if you are scanning PDFs.</p>
 <h2 id="default-scan-both-modes">Default: Scan Both Modes</h2>
 <p>Running the script with no mode flag scans for <strong>both</strong> wallet files and seed phrases/private keys in a <strong>single pass</strong> over the directory — the tree is walked once and each file is read at most once, then handed to both detectors:</p>
 <div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search
