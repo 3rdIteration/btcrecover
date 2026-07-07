@@ -1711,17 +1711,45 @@
 
 
 <h1 id="walletfinder-scanning-for-wallet-files-and-mnemonic-phrases">WalletFinder - Scanning for Wallet Files and Mnemonic Phrases</h1>
-<p><code>walletfinder.py</code> is a utility script included with BTCRecover that helps you locate wallet files and mnemonic seed phrases hidden in directories on your computer. It has two operating modes: <strong>Wallet Mode</strong> (auto-detects supported wallet file formats) and <strong>Mnemonic Mode</strong> (scans text files for BIP39, SLIP39, Electrum Legacy, or Blockchain wordlist words).</p>
+<p><code>walletfinder.py</code> is a utility script included with BTCRecover that helps you locate wallet files and mnemonic seed phrases hidden in directories on your computer. It has two scanning modes: <strong>Wallet Mode</strong> (auto-detects supported wallet file formats) and <strong>Mnemonic Mode</strong> (scans text files and documents for BIP39, SLIP39, Electrum Legacy, or Blockchain wordlist words, plus private keys).</p>
+<p><strong>By default <code>walletfinder.py</code> runs <em>both</em> modes</strong> — in a single pass over the directory it scans each file for wallet formats <em>and</em> for seed phrases/private keys (each file is read at most once). Use <code>--skip-text-mode</code> to scan for wallet files only, or <code>--skip-wallet-mode</code> to scan text/documents only.</p>
 <h2 id="installation">Installation</h2>
-<p><code>walletfinder.py</code> is included in the BTCRecover repository root. No additional installation is required beyond having BTCRecover set up. If you have BTCRecover installed via pip, the script will be available on your PATH as <code>walletfinder</code>.</p>
-<h2 id="wallet-mode-default">Wallet Mode (Default)</h2>
-<p>Wallet mode uses BTCRecover's built-in wallet auto-detection to scan a directory recursively for supported wallet files. It reports each detected file with its type and confidence level.</p>
-<h3 id="basic-usage">Basic Usage</h3>
-<p>Scan a single folder:
+<p><code>walletfinder.py</code> is included in the BTCRecover repository root. BTCRecover is <strong>not</strong> a pip package — you use it by <a href="../../INSTALL/">downloading and unzipping the repository</a> (there is no <code>pip install btcrecover</code>), then running the scripts directly with Python. See the <a href="../../INSTALL/">main installation guide</a> for setting up Python itself.</p>
+<p>A dedicated requirements file for the script is included:</p>
+<div class="highlight"><pre><span></span><code>pip3 install -r requirements-walletfinder.txt
+</code></pre></div>
+<p>For <strong>Wallet Mode</strong> to be able to detect <em>and load every wallet type BTCRecover supports</em>, <code>walletfinder.py</code> needs the full BTCRecover dependency set, so <code>requirements-walletfinder.txt</code> pulls in <code>requirements-full.txt</code> (this is a larger, slower build). It also installs <code>shamir-mnemonic</code>, which <strong>Mnemonic Mode</strong> uses for SLIP39 seed-phrase detection.</p>
+<p>If you get an error similar to <strong>error: externally-managed-environment</strong>, add <code>--break-system-packages</code> to the command (i.e. <code>pip3 install -r requirements-walletfinder.txt --break-system-packages</code>).</p>
+<p><strong>Lightweight alternative (common wallets only):</strong> if you only care about the common wallet types (Bitcoin Core, Blockchain.com, Electrum, MultiBit, MetaMask, …) plus Mnemonic Mode, <code>requirements-walletfinder.txt</code> contains a commented-out minimal subset (just <code>coincurve</code>, <code>protobuf</code>, <code>pycryptodome</code>, and <code>shamir-mnemonic</code>). Comment out the <code>-r requirements-full.txt</code> line and uncomment that subset for a much smaller/faster install. Note that some wallet types (e.g. certain Ethereum keystores, SLIP39 device wallets, and various altcoin wallets) may then be skipped in Wallet Mode.</p>
+<p>Once the requirements are installed, run the script with Python from the repository root, for example:</p>
 <div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search
+</code></pre></div>
+<h3 id="optional-document-scanning-mnemonic-mode">Optional: Document Scanning (Mnemonic Mode)</h3>
+<p>Mnemonic Mode scans <strong>plain-text files out of the box</strong> with no extra dependencies. To also extract and scan text from binary document formats — <code>docx</code>, <code>pdf</code>, <code>xlsx</code>, <code>pptx</code>, <code>odt</code>, <code>rtf</code>, <code>epub</code>, and similar — install <a href="https://pypi.org/project/textract/"><code>textract</code></a>:</p>
+<div class="highlight"><pre><span></span><code>pip3 install textract
+</code></pre></div>
+<p>With <code>textract</code> installed, Mnemonic Mode will look for seed phrases and private keys inside those document formats as well. Without it, only plain-text files are scanned and the script prints a one-time warning noting that document support is limited. Note that <code>textract</code> has heavy build dependencies and can be tricky to install on some platforms, which is why it is kept separate from <code>requirements-walletfinder.txt</code>.</p>
+<h2 id="default-scan-both-modes">Default: Scan Both Modes</h2>
+<p>Running the script with no mode flag scans for <strong>both</strong> wallet files and seed phrases/private keys in a <strong>single pass</strong> over the directory — the tree is walked once and each file is read at most once, then handed to both detectors:</p>
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search
+</code></pre></div>
+<p>The output is split into two sections, <code>=== Wallet file scan ===</code> followed by <code>=== Text / seed-phrase &amp; private-key scan ===</code>. To run just one mode, add <code>--skip-text-mode</code> (wallet files only) or <code>--skip-wallet-mode</code> (text/documents only) as shown below. (Because the two modes use different file-size limits — 64 MiB for wallet files, 16 KB for text — a given file may be scanned by one mode and not the other.)</p>
+<h3 id="about-the-progress-display">About the Progress Display</h3>
+<p>While scanning, <code>walletfinder.py</code> shows a single, continuously-updating status line with a spinner, a progress bar, and the directory/file currently being checked. To keep that line on one row in the terminal, long paths are <strong>abbreviated for display only</strong>:</p>
+<ul>
+<li>Paths up to 60 characters are shown in full.</li>
+<li>Longer paths have each folder/file name shortened to its first 3 and last 3 characters joined by <code>..</code> (for example <code>Documents</code> → <code>Doc..nts</code>).</li>
+<li>If the path is still very long after that, every component is shortened aggressively to its first and last character joined by a single <code>.</code> (for example <code>Documents</code> → <code>D.s</code>), producing lines like <code>C.\U.s\y.y\O.C\Y.e\...</code>.</li>
+</ul>
+<p>This truncation is purely cosmetic — it only affects the live progress line. It does <strong>not</strong> change which files are scanned, and the <strong>full, untruncated paths</strong> are always used in the final results and summary.</p>
+<h2 id="wallet-mode">Wallet Mode</h2>
+<p>Wallet mode uses BTCRecover's built-in wallet auto-detection to scan a directory recursively for supported wallet files. It reports each detected file with its type and confidence level. Use <code>--skip-text-mode</code> to scan for wallet files <em>only</em>.</p>
+<h3 id="basic-usage">Basic Usage</h3>
+<p>Scan a single folder for wallet files only:
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search --skip-text-mode
 </code></pre></div></p>
 <p>Limit recursion depth (e.g., only 2 levels deep):
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Documents --depth 2
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Documents --skip-text-mode --depth 2
 </code></pre></div></p>
 <h3 id="example-output">Example Output</h3>
 <div class="highlight"><pre><span></span><code>Scanning for wallet files in: C:\Users\You\Documents
@@ -1753,20 +1781,33 @@ Summary:
 - Ethereum keystore files
 - Coinomi wallet private keys
 - And many more</p>
+<p>At the start of a wallet scan, <code>walletfinder.py</code> prints the full list of wallet file types it will check (e.g. <code>Wallet file types checked (22): WalletBitcoinCore, WalletBlockchain, …</code>). A few types need an optional Python module in order to load; if one is missing, a warning is shown so you know that type could be skipped, along with the command to install it — for example:</p>
+<div class="highlight"><pre><span></span><code>[WARNING] Module missing: BitGo wallets may not be detected/loaded (pip3 install sjcl).
+[WARNING] Module missing: Toast wallets may not be detected/loaded (pip3 install PyNaCl).
+</code></pre></div>
+<p>Installing the full requirements (<code>pip3 install -r requirements-walletfinder.txt</code>) provides every module, so these warnings normally only appear if you used the lightweight subset.</p>
 <h2 id="mnemonic-mode-text-mode">Mnemonic Mode (Text Mode)</h2>
 <p>Mnemonic mode scans text files for words from common seed wordlists and private keys (WIF, BIP38, BIP32 extended keys). It detects two patterns:
 - <strong>Sequential matches</strong>: N or more wordlist words appearing consecutively in file text (e.g., <code>"abandon ability about absorb abstract absurd"</code>)
 - <strong>Scattered matches</strong>: N unique wordlist words found anywhere in a file</p>
 <h3 id="basic-usage_1">Basic Usage</h3>
-<p>Scan for mnemonic phrases with default thresholds (12 sequential, 12 scattered):
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search --text-mode
+<p>Scan for mnemonic phrases only (skip wallet-file detection) with default thresholds (12 sequential, 12 scattered):
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search --skip-wallet-mode
 </code></pre></div></p>
 <p>Customize detection thresholds:
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --min-sequential 4 --min-scattered 8
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --skip-wallet-mode --min-sequential 4 --min-scattered 8
 </code></pre></div></p>
 <p>Limit depth and lower thresholds for quick checks:
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder . --text-mode --depth 1 --min-sequential 3 --min-scattered 6
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder . --skip-wallet-mode --depth 1 --min-sequential 3 --min-scattered 6
 </code></pre></div></p>
+<h3 id="numbered-and-bulleted-seed-lists">Numbered and Bulleted Seed Lists</h3>
+<p>Seeds are often written as a numbered or bulleted list, one word per line:</p>
+<div class="highlight"><pre><span></span><code>1. drift
+2. speed
+3. come
+...
+</code></pre></div>
+<p>Sequential detection treats list markers — plain numbers (<code>1</code>, <code>12)</code>, <code>3.</code>) and pure-punctuation bullets (<code>-</code>, <code>*</code>) — as <strong>non-breaking separators</strong>, so the words above still count as one consecutive run of 12 and are validated by checksum. Only the wordlist words count toward the run length.</p>
 <h3 id="checksum-validation">Checksum Validation</h3>
 <p>When a sequential match reaches a valid seed length for its type, BTCRecover validates the checksum to confirm it's a real seed phrase rather than random words:</p>
 <table>
@@ -1800,7 +1841,7 @@ Summary:
 </tr>
 </tbody>
 </table>
-<p>By default, only <strong>checksum-valid</strong> sequential matches are displayed. Files with no checksum-valid results and no private keys are suppressed from output. Use <code>--debug</code> to see all sequential matches including those that fail checksum validation.</p>
+<p>By default, only <strong>checksum-valid</strong> sequential matches are displayed. Files whose only signal is a <strong>scattered</strong> match (unique wordlist words found spread through the file, with no checksum-valid sequential run) and no private keys are suppressed from the per-file output, because scattered words alone can't be validated and are a common source of false positives. Use <code>--debug</code> to see all sequential matches (including those that fail checksum) and scattered-only files.</p>
 <h3 id="example-output_1">Example Output</h3>
 <div class="highlight"><pre><span></span><code>Scanning for mnemonic words and private keys in: C:\Users\You\Documents
 Wordlists loaded:
@@ -1820,7 +1861,7 @@ Summary:
 </code></pre></div>
 <h3 id="debug-mode">Debug Mode</h3>
 <p>With <code>--debug</code>, all sequential matches are shown (including those that fail checksum), and files with only non-checksum-valid results are included in output. This is useful for finding partial seeds, notes with fragments, or identifying false positives:</p>
-<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --debug
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --skip-wallet-mode --debug
 </code></pre></div>
 <p>Example debug output showing a sequential match without valid checksum:
 <div class="highlight"><pre><span></span><code>C:\Users\You\Documents\notes.txt (256 bytes)
@@ -1842,24 +1883,35 @@ Summary:
 <p>Both modes automatically exclude:
 - Hidden directories (<code>.git</code>, <code>.venv</code>, etc.)
 - Build artifacts (<code>node_modules</code>, <code>__pycache__</code>)
-- Files larger than 16 KB (mnemonic mode) or wallet file size limit (wallet mode)</p>
+- Files larger than 16 KB (mnemonic mode) or wallet file size limit (wallet mode)
+- Paths listed in <code>walletfinder-exclusionlist.txt</code> (see below)</p>
 <p>Use <code>--depth N</code> to control how deep the scan recurses into subdirectories. A depth of <code>0</code> scans only the top-level folder; <code>1</code> includes one level of subdirectories, and so on. Omit <code>--depth</code> for unlimited recursion.</p>
+<h3 id="exclusion-list-walletfinder-exclusionlisttxt">Exclusion List (<code>walletfinder-exclusionlist.txt</code>)</h3>
+<p>BTCRecover's own repository contains test wallets and example seed/key files (under <code>btcrecover/test/</code>, <code>docs/</code>, <code>lib/</code>, and others) that would otherwise be reported when you scan the repo itself with <code>python walletfinder.py --folder .</code>. To keep that scan clean, <code>walletfinder.py</code> reads a bundled <code>walletfinder-exclusionlist.txt</code> and skips any file whose path matches one of its entries.</p>
+<p>Each non-comment line is a <strong>path substring</strong> matched against a scanned file's path <strong>relative to the scan root</strong>. Because the entries are repo-relative (e.g. <code>btcrecover/test/</code>, <code>docs/Benchmarks.md</code>), they only take effect when the repository itself is scanned — they do <strong>not</strong> exclude unrelated folders elsewhere on your system, and they do <strong>not</strong> blanket-exclude by file type (your own <code>.py</code> or <code>.md</code> files are still scanned). You can also add your own substrings by hand.</p>
+<p>If you add, remove, or rename repo files containing example seeds/keys, regenerate the list with:</p>
+<div class="highlight"><pre><span></span><code>python walletfinder.py --update-exclusions
+</code></pre></div>
+<p>This rescans the repository and merges any newly-matching files into <code>walletfinder-exclusionlist.txt</code> (existing and hand-added entries are preserved).</p>
+<blockquote>
+<p><strong>Note on suppressed matches:</strong> in Mnemonic Mode the summary reports <code>Matches found</code> (files actually shown) and, separately, <code>Suppressed matches (viewable if running with --debug)</code> — files that only had a weak <em>scattered</em> signal with no checksum-valid seed or private key. These are hidden by default (source code and prose often contain a dozen stray wordlist words); rerun with <code>--debug</code> to see them.</p>
+</blockquote>
 <h2 id="tips">Tips</h2>
 <ul>
 <li><strong>Scan your entire home directory</strong> with a limited depth to find wallets you forgot about:
   <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~ --depth 3
 </code></pre></div></li>
-<li><strong>Check backup folders</strong> for mnemonic seeds before deleting them:
-  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Desktop/backup --text-mode
+<li><strong>Check backup folders</strong> for mnemonic seeds before deleting them (text/documents only):
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Desktop/backup --skip-wallet-mode
 </code></pre></div></li>
 <li><strong>Quick check of a single folder</strong> without deep recursion:
   <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ./wallets --depth 0
 </code></pre></div></li>
 <li><strong>Find partial seeds and fragments</strong> by lowering the sequential threshold with debug output:
-  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --text-mode --min-sequential 4 --debug
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Notes --skip-wallet-mode --min-sequential 4 --debug
 </code></pre></div></li>
 <li><strong>Scan for private keys</strong> (WIF, BIP38, extended keys) alongside mnemonics:
-  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Documents --text-mode
+  <div class="highlight"><pre><span></span><code>python walletfinder.py --folder ~/Documents --skip-wallet-mode
 </code></pre></div></li>
 </ul>
 <h2 id="private-key-detection">Private Key Detection</h2>
