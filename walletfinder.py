@@ -19,6 +19,7 @@
 import compatibility_check
 
 import argparse
+import fnmatch
 import hashlib
 import os
 import re
@@ -47,10 +48,52 @@ signal.signal(signal.SIGINT, _handle_sigint)
 
 EXCLUDED_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', '.mypy_cache', '.pytest_cache'}
 
-# Path-substring exclusion list (bundled with BTCRecover) used to skip the repository's own
-# test wallets and example seed/key files when scanning the repo (e.g. `--folder .`). See
-# load_exclusions() and update_exclusion_list().
+# OS pseudo/hardware filesystems that are never worth scanning and can hang or loop the walk.
+# Matched by *absolute* path (see _is_system_dir), so a project folder that merely happens to
+# be named 'dev' or 'run' under the scan root is unaffected. Windows problem folders are
+# already handled by the per-operation timeouts.
+if sys.platform.startswith('linux'):
+    # Device nodes and kernel interfaces: reading them can block indefinitely (tty devices)
+    # or expose enormous pseudo-files (/proc/kcore).
+    SYSTEM_EXCLUDED_DIRS = frozenset({'/proc', '/sys', '/dev', '/run'})
+elif sys.platform == 'darwin':
+    # /dev devices; /System is the sealed OS volume whose Data firmlink would double-scan
+    # everything already reachable via /Users etc.; /private/var/vm is swap.
+    SYSTEM_EXCLUDED_DIRS = frozenset({'/dev', '/System', '/private/var/vm'})
+else:
+    SYSTEM_EXCLUDED_DIRS = frozenset()
+
+
+def _is_system_dir(path):
+    """True if path is (or is inside) an OS pseudo/hardware filesystem never worth scanning."""
+    if not SYSTEM_EXCLUDED_DIRS:
+        return False
+    p = os.path.abspath(str(path))
+    return any(p == d or p.startswith(d + os.sep) for d in SYSTEM_EXCLUDED_DIRS)
+
+
+def _is_symlink(path):
+    """Return True if `path` is a symbolic link, False on any error.
+
+    Used to avoid descending into symlinked directories while walking. Following them
+    risks infinite loops (e.g. Linux ``/proc/<pid>/root`` points back at ``/``) and
+    double-scanning; like ``os.walk(followlinks=False)`` we do not recurse through them.
+    """
+    try:
+        return os.path.islink(str(path))
+    except OSError:
+        return False
+
+# Path-pattern exclusion list (bundled with BTCRecover) used to skip common false-positive
+# system/application files as well as the repository's own test wallets and example seed/key
+# files when scanning the repo (e.g. `--folder .`). See load_exclusions() and
+# update_exclusion_list().
 EXCLUSIONLIST_FILENAME = 'walletfinder-exclusionlist.txt'
+
+# Marker line inside the exclusion list: everything above it is hand-curated and preserved
+# verbatim by --update-exclusions; only the (repo-relative) entries below it are regenerated.
+EXCLUSIONLIST_AUTO_MARKER = ("# --- Entries below this marker are managed by "
+                             "`python walletfinder.py --update-exclusions`. ---")
 
 # Text-mode file-size limits. Plain files are read directly, so a small cap avoids scanning
 # large logs/data. Documents (pdf, docx, xlsx, ...) are extracted with textract: the file can be
@@ -89,6 +132,15 @@ def _try_import_textract():
     return _textract_module
 
 
+def _is_pypdf_available():
+    """Return True if pypdf is installed (used for the PDF custom-font-encoding fallback)."""
+    try:
+        import pypdf  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def _extract_pdf_text_pypdf(filepath):
     """Extract text from a PDF using pypdf (handles custom font encodings better than pdfminer)."""
     global _pypdf_warning_shown
@@ -97,8 +149,8 @@ def _extract_pdf_text_pypdf(filepath):
     except ImportError:
         if not _pypdf_warning_shown:
             _pypdf_warning_shown = True
-            print("[WARNING] A PDF needed the pypdf fallback (custom font encoding), but pypdf is "
-                  "not installed, so its text could not be scanned.")
+            print("[WARNING] A PDF needed pypdf to extract its text (textract missing or produced "
+                  "garbled output), but pypdf is not installed, so its text could not be scanned.")
             print("         Install pypdf to scan these PDFs: pip3 install pypdf")
             print()
         return None
@@ -283,13 +335,61 @@ def _timed_operation(func, args=(), timeout=10):
 # Progress indicator
 # ---------------------------------------------------------------------------
 
+# When stdout is redirected, plain milestone lines replace the in-place progress display;
+# one line per this many items keeps a large scan's log output to a handful of lines.
+_MILESTONE_INTERVAL = 10000
+
+
+def _progress_enabled():
+    """True when stdout is a real terminal. In-place '\\r' progress rewrites only make
+    sense on a TTY; when stdout is redirected to a file or pipe every rewrite would be
+    appended verbatim (hundreds of MB on a large scan), so they are suppressed and
+    replaced by occasional plain milestone lines."""
+    try:
+        return sys.stdout.isatty()
+    except Exception:
+        return False
+
+
+def _print_scan_status(count, path, noun="items"):
+    """Write the single-line 'Scanning: N ...' status used by the no-statusbar scans.
+
+    On a TTY this rewrites one line in place; when stdout is redirected it prints a plain
+    newline-terminated milestone every _MILESTONE_INTERVAL items instead.
+    """
+    if not _progress_enabled():
+        # flush so the line appears immediately when the file is followed with tail -f
+        if count % _MILESTONE_INTERVAL == 0:
+            print("Scanning: {} {} checked...".format(count, noun), flush=True)
+        return
+    spinners = ['|', '/', '-', '\\']
+    display_path = _format_path_for_display(path)
+    line = "\r[{}] Scanning: {} {}  Path: {}".format(
+        spinners[count % 4], count, noun, display_path)
+    max_len = 120
+    if len(line) < max_len:
+        line += ' ' * (max_len - len(line))
+    sys.stdout.write(line)
+    sys.stdout.flush()
+
+
 def _print_progress(current, total=None, filepath=""):
     """Print a single-line progress indicator with a spinning cursor.
 
     Updates in-place by using carriage return to overwrite the line.
     Uses ASCII-safe characters for Windows console compatibility.
     Displays full absolute path when <= 60 chars, otherwise truncates components.
+    When stdout is not a terminal, prints a plain milestone line every
+    _MILESTONE_INTERVAL candidates (and at completion) instead.
     """
+    if not _progress_enabled():
+        # flush so the line appears immediately when the file is followed with tail -f
+        if current % _MILESTONE_INTERVAL == 0 or (total and current == total):
+            if total:
+                print("Scanned {}/{} candidates...".format(current, total), flush=True)
+            else:
+                print("Scanned {} files...".format(current), flush=True)
+        return
     spinners = ['|', '/', '-', '\\']
     spinner_idx = current % 4
     spinner = spinners[spinner_idx]
@@ -317,7 +417,9 @@ def _print_progress(current, total=None, filepath=""):
 
 
 def _clear_progress_line():
-    """Clear the progress indicator line."""
+    """Clear the progress indicator line (no-op when stdout is not a terminal)."""
+    if not _progress_enabled():
+        return
     sys.stdout.write("\r" + " " * 120 + "\r")
     sys.stdout.flush()
 
@@ -336,6 +438,12 @@ def _make_discovery_reporter(interval=0.2):
 
     def report(dir_path):
         state['count'] += 1
+        if not _progress_enabled():
+            # Redirected output: a plain milestone line instead of the in-place display,
+            # flushed so it appears immediately when the file is followed with tail -f.
+            if state['count'] % _MILESTONE_INTERVAL == 0:
+                print("Discovering... {} dirs".format(state['count']), flush=True)
+            return
         now = time.monotonic()
         if now - state['last'] < interval:
             return
@@ -357,23 +465,25 @@ def _make_discovery_reporter(interval=0.2):
 # ---------------------------------------------------------------------------
 
 def load_exclusions():
-    """Load path-substring exclusions from the bundled walletfinder-exclusionlist.txt.
+    """Load path exclusion patterns from the bundled walletfinder-exclusionlist.txt.
 
-    Returns a list of normalized (forward-slash) substrings. Blank lines and lines starting
-    with '#' are ignored. Missing file -> empty list. Each entry is matched against a scanned
-    file's path *relative to the scan root* (see _is_excluded), so the entries (repo-relative
-    paths like 'btcrecover/test/') only skip the repository's own files when the repo is scanned
-    and won't accidentally exclude a user's unrelated folders.
+    Returns a list of normalized (forward-slash, casefolded) patterns. Blank lines and lines
+    starting with '#' are ignored, as is an inline ' # comment' after an entry. Missing
+    file -> empty list. Each entry is matched against a scanned file's path *relative to the
+    scan root* (see _is_excluded): entries without wildcards are plain substrings, while
+    entries containing '*' or '?' are shell-style globs. Repo-relative entries like
+    'btcrecover/test/' therefore only skip the repository's own files when the repo is
+    scanned, and won't accidentally exclude a user's unrelated folders.
     """
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), EXCLUSIONLIST_FILENAME)
     exclusions = []
     try:
         with open(path, encoding='utf-8') as f:
             for line in f:
-                line = line.strip()
+                line = re.sub(r'\s+#.*$', '', line).strip()  # strip inline comments
                 if not line or line.startswith('#'):
                     continue
-                exclusions.append(line.replace('\\', '/'))
+                exclusions.append(line.replace('\\', '/').casefold())
     except OSError:
         pass
     return exclusions
@@ -388,12 +498,41 @@ def _relative_norm(path_str, root):
     return rel.replace('\\', '/')
 
 
-def _is_excluded(path_str, root, exclusions):
-    """True if path_str (relative to root) contains any exclusion substring."""
+def _exclusion_matches(pattern, rel):
+    """True if one exclusion pattern matches the casefolded, /-normalized relative path.
+
+    Patterns containing '*' or '?' are shell-style globs (fnmatch, where '*' also crosses
+    '/'), matched against the whole relative path either from its start or from any
+    directory boundary; a glob ending in '/' matches everything beneath that directory,
+    and a glob with no '/' is additionally matched against the basename alone. All other
+    patterns match as plain substrings anywhere in the relative path.
+    """
+    if '*' in pattern or '?' in pattern:
+        # A directory glob like 'bitcoinlib*/examples/' must match the files beneath it,
+        # not just the directory itself, so match its whole subtree.
+        variants = (pattern, pattern + '*') if pattern.endswith('/') else (pattern,)
+        for pat in variants:
+            if fnmatch.fnmatchcase(rel, pat) or fnmatch.fnmatchcase(rel, '*/' + pat):
+                return True
+        if '/' not in pattern:
+            return fnmatch.fnmatchcase(rel.rsplit('/', 1)[-1], pattern)
+        return False
+    return pattern in rel
+
+
+def _is_excluded(path_str, root, exclusions, is_dir=False):
+    """True if path_str (relative to root) matches any exclusion pattern.
+
+    Matching is case-insensitive. Directories are matched with a trailing '/' appended so
+    directory patterns like 'site-packages/' prune the walk instead of testing every file
+    beneath them.
+    """
     if not exclusions:
         return False
-    rel = _relative_norm(path_str, root)
-    return any(ex in rel for ex in exclusions)
+    rel = _relative_norm(path_str, root).casefold()
+    if is_dir:
+        rel += '/'
+    return any(_exclusion_matches(ex, rel) for ex in exclusions)
 
 
 def walk_directory(folder, max_depth, current_depth=0, exclusions=None, root=None):
@@ -419,12 +558,19 @@ def walk_directory(folder, max_depth, current_depth=0, exclusions=None, root=Non
             is_dir = entry.is_dir()
         except OSError:
             continue
-        if _is_excluded(entry, root, exclusions):
+        if _is_excluded(entry, root, exclusions, is_dir=is_dir):
             continue
         if is_dir:
             if entry.name.startswith('.') and entry.name != '.':
                 continue
             if entry.name in EXCLUDED_DIRS:
+                continue
+            # OS pseudo/hardware filesystems (/proc, /sys, /dev, ...) hang or loop the walk.
+            if _is_system_dir(entry):
+                continue
+            # Don't follow symlinked directories: they can form loops (e.g. /proc/<pid>/root
+            # points back at /) and would otherwise recurse until the filesystem errors out.
+            if _is_symlink(entry):
                 continue
             if max_depth is not None and current_depth >= max_depth:
                 continue
@@ -571,14 +717,21 @@ def _collect_wallet_candidates(folder, depth, exclusions=None, progress_cb=None)
                 is_dir = entry.is_dir()
             except OSError:
                 continue
-            if _is_excluded(entry, root, exclusions):
+            if _is_excluded(entry, root, exclusions, is_dir=is_dir):
                 continue
             if is_dir:
+                # OS pseudo/hardware filesystems (/proc, /sys, /dev, ...) hang or loop the
+                # walk; don't probe or descend into them at all.
+                if _is_system_dir(entry):
+                    continue
                 # Only test directories that look like wallets (quick pre-filter)
                 if _looks_like_wallet_directory(entry):
                     yield (str(entry), True)
-                # Recurse into subdirectories unless depth limit reached
-                if not entry.name.startswith('.') and entry.name not in EXCLUDED_DIRS:
+                # Recurse into subdirectories unless depth limit reached. Skip symlinked
+                # directories: following them risks infinite loops (e.g. Linux
+                # /proc/<pid>/root points back at /) that blow up the walk.
+                if (not entry.name.startswith('.') and entry.name not in EXCLUDED_DIRS
+                        and not _is_symlink(entry)):
                     if max_depth is None or current_depth < max_depth:
                         yield from walk(entry, current_depth + 1)
             else:
@@ -642,7 +795,6 @@ def scan_wallet_mode(folder, depth, debug=False, exclusions=None, statusbar=True
     else:
         # No statusbar: scan candidates directly without counting first. The reporter keeps
         # the display alive while the walk traverses directories that yield no candidates.
-        spinners = ['|', '/', '-', '\\']
         report = _make_discovery_reporter()
         for candidate_path, is_dir in _collect_wallet_candidates(folder, depth, exclusions,
                                                                  progress_cb=report):
@@ -652,15 +804,8 @@ def scan_wallet_mode(folder, depth, debug=False, exclusions=None, statusbar=True
             files_scanned += 1
 
             # Show current candidate being scanned (single-line updating display with absolute path)
-            display_path = _format_path_for_display(candidate_path)
-            spinner_idx = files_scanned % 4
-            label = "dir" if is_dir else "file"
-            line = "\r[{}] Scanning: {} {}s  Path: {}".format(spinners[spinner_idx], files_scanned, label, display_path)
-            max_len = 120
-            if len(line) < max_len:
-                line += ' ' * (max_len - len(line))
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            _print_scan_status(files_scanned, candidate_path,
+                               noun=("dirs" if is_dir else "files"))
 
             result = _detect_wallet_file(candidate_path, debug=debug)
             if result is not None:
@@ -738,8 +883,12 @@ def _classify_xprv(key):
         'yprv': 'Bitcoin mainnet (nested segwit)',
         'Yprv': 'Bitcoin mainnet (multisig nested segwit)',
         'zprv': 'Bitcoin mainnet (native segwit)',
+        'Zprv': 'Bitcoin mainnet (multisig native segwit)',
         'tprv': 'Testnet (legacy)',
         'uprv': 'Testnet (nested segwit)',
+        'Uprv': 'Testnet (multisig nested segwit)',
+        'vprv': 'Testnet (native segwit)',
+        'Vprv': 'Testnet (multisig native segwit)',
     }
     return labels.get(prefix, prefix)
 
@@ -750,9 +899,14 @@ def _classify_xpub(key):
     labels = {
         'xpub': 'Bitcoin mainnet (legacy)',
         'ypub': 'Bitcoin mainnet (nested segwit)',
+        'Ypub': 'Bitcoin mainnet (multisig nested segwit)',
         'zpub': 'Bitcoin mainnet (native segwit)',
+        'Zpub': 'Bitcoin mainnet (multisig native segwit)',
         'tpub': 'Testnet (legacy)',
         'upub': 'Testnet (nested segwit)',
+        'Upub': 'Testnet (multisig nested segwit)',
+        'vpub': 'Testnet (native segwit)',
+        'Vpub': 'Testnet (multisig native segwit)',
     }
     return labels.get(prefix, prefix)
 
@@ -1120,11 +1274,63 @@ def _announce_text_scan(wordlist_sets):
 
     if not TEXTRACT_AVAILABLE:
         _try_import_textract()
-        if not TEXTRACT_AVAILABLE:
-            print("[WARNING] textract is not installed. Document file support (docx, pdf, xlsx, etc.) "
-                  "is limited. Plain text files will still be scanned normally.")
-            print("         Install textract for full document scanning: pip3 install textract")
-            print()
+    pypdf_available = _is_pypdf_available()
+
+    if not TEXTRACT_AVAILABLE and not pypdf_available:
+        print("[WARNING] textract and pypdf are not installed. Document file support (docx, pdf, "
+              "xlsx, etc.) is limited. Plain text files will still be scanned normally.")
+        print("         Install both for full document scanning: pip3 install textract pypdf")
+        print()
+    elif not TEXTRACT_AVAILABLE:
+        print("[WARNING] textract is not installed. Document file support (docx, xlsx, etc.) is "
+              "limited; PDFs will still be scanned via pypdf. Plain text files will still be "
+              "scanned normally.")
+        print("         Install textract for full document scanning: pip3 install textract")
+        print()
+    elif not pypdf_available:
+        print("[WARNING] pypdf is not installed. Some PDFs (e.g. paper wallets with custom font "
+              "encodings) extract as garbled text under textract alone; pypdf recovers them.")
+        print("         Install pypdf for full PDF scanning: pip3 install pypdf")
+        print()
+
+
+# Well-known spec/test mnemonics (BIP39 English). These are checksum-valid, so they would
+# always be reported, but they appear constantly in crypto libraries' test suites, docs, and
+# cached packages rather than in real wallets. Sequential matches equal to one of these are
+# suppressed from normal output (still shown with --debug).
+KNOWN_TEST_MNEMONICS = frozenset(
+    [
+        # BIP39 spec (Trezor) patterned test vectors, 12/18/24 words
+        ('abandon ' * 11) + 'about',
+        ('abandon ' * 17) + 'agent',
+        ('abandon ' * 23) + 'art',
+        'legal winner thank year wave sausage worth useful legal winner thank yellow',
+        'legal winner thank year wave sausage worth useful legal winner thank year wave '
+            'sausage worth useful legal will',
+        'legal winner thank year wave sausage worth useful legal winner thank year wave '
+            'sausage worth useful legal winner thank year wave sausage worth title',
+        'letter advice cage absurd amount doctor acoustic avoid letter advice cage above',
+        'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd '
+            'amount doctor acoustic avoid letter always',
+        'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd '
+            'amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless',
+        ('zoo ' * 11) + 'wrong',
+        ('zoo ' * 17) + 'when',
+        ('zoo ' * 23) + 'vote',
+        # Trezor device test seed
+        'all ' * 11 + 'all',
+        # Trezor/BIP38 documentation test seed
+        'turtle front uncle idea crush write shrug there lottery flower risk shell',
+        # Ethereum staking-deposit-cli test mnemonic
+        'sister protect peanut hill ready work profit fit wish want small inflict flip member '
+            'tail between sick setup bright duck morning sell paper worry',
+    ]
+)
+
+
+def _is_known_test_mnemonic(words):
+    """True if a sequential word match is one of the well-known spec/test mnemonics."""
+    return ' '.join(w.lower() for w in words) in KNOWN_TEST_MNEMONICS
 
 
 def _scan_text_file(filepath, fsize, wordlist_sets, wordlist_ordered, min_seq, min_scat):
@@ -1161,7 +1367,8 @@ def _scan_text_file(filepath, fsize, wordlist_sets, wordlist_ordered, min_seq, m
                 checksum_valid = _verify_blockchain_v3_checksum(words)
             elif 'SLIP39' in wname:
                 checksum_valid = _verify_slip39_checksum(words)
-            validated_matches.append((start, length, words, checksum_valid))
+            known_test = checksum_valid and _is_known_test_mnemonic(words)
+            validated_matches.append((start, length, words, checksum_valid, known_test))
 
         if validated_matches or scat_count >= min_scat:
             findings.append({
@@ -1178,13 +1385,14 @@ def _scan_text_file(filepath, fsize, wordlist_sets, wordlist_ordered, min_seq, m
 
     if total_keys_found > 0:
         key_type_findings = []
-        for entry in (key_findings['raw_wif'] + key_findings['bip38'] +
-                      key_findings['xprv'] + key_findings['xpub']):
-            key_type_findings.append({
-                'key': entry['key'],
-                'network': entry['network'],
-                'type': 'private_key',
-            })
+        for category in ('raw_wif', 'bip38', 'xprv', 'xpub'):
+            for entry in key_findings[category]:
+                key_type_findings.append({
+                    'key': entry['key'],
+                    'network': entry['network'],
+                    'key_class': 'public' if category == 'xpub' else 'private',
+                    'type': 'private_key',
+                })
         findings.append({
             'keys': key_type_findings,
             'total_keys': total_keys_found,
@@ -1280,8 +1488,6 @@ def scan_combined(folder, depth, run_wallet, run_text, debug=False,
             return True
         return False
 
-    spinners = ['|', '/', '-', '\\']
-
     # Collect all candidates using _collect_wallet_candidates (files + directories)
     all_candidates = []  # list of (path_string, size_or_None, is_dir)
 
@@ -1296,7 +1502,11 @@ def scan_combined(folder, depth, run_wallet, run_text, debug=False,
             if is_dir:
                 all_candidates.append((cand_path, None, True))
             else:
-                file_size = _timed_operation(os.path.getsize, (cand_path,), timeout=10)
+                try:
+                    file_size = _timed_operation(os.path.getsize, (cand_path,), timeout=10)
+                except OSError:
+                    # Broken/looping symlinks and vanished files raise here; skip them.
+                    continue
                 if candidate_eligible(cand_path, file_size, False):
                     all_candidates.append((cand_path, file_size, False))
         _clear_progress_line()
@@ -1319,28 +1529,18 @@ def scan_combined(folder, depth, run_wallet, run_text, debug=False,
                 break
             if is_dir:
                 count += 1
-                display_path = _format_path_for_display(cand_path)
-                spinner_idx = count % 4
-                line = "\r[{}] Scanning: {} items  Dir: {}".format(spinners[spinner_idx], count, display_path)
-                max_len = 120
-                if len(line) < max_len:
-                    line += ' ' * (max_len - len(line))
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                _print_scan_status(count, cand_path)
                 process(cand_path, None, True)
             else:
-                file_size = _timed_operation(os.path.getsize, (cand_path,), timeout=10)
+                try:
+                    file_size = _timed_operation(os.path.getsize, (cand_path,), timeout=10)
+                except OSError:
+                    # Broken/looping symlinks and vanished files raise here; skip them.
+                    continue
                 if not candidate_eligible(cand_path, file_size, False):
                     continue
                 count += 1
-                display_path = _format_path_for_display(cand_path)
-                spinner_idx = count % 4
-                line = "\r[{}] Scanning: {} items  Dir: {}".format(spinners[spinner_idx], count, display_path)
-                max_len = 120
-                if len(line) < max_len:
-                    line += ' ' * (max_len - len(line))
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                _print_scan_status(count, cand_path)
                 process(cand_path, file_size, False)
         _clear_progress_line()
 
@@ -1412,7 +1612,8 @@ def print_text_results(results, files_scanned, debug=False):
             if f.get('type') == 'mnemonic':
                 for match in f['sequential']:
                     checksum_valid = match[3] if len(match) > 3 else False
-                    if checksum_valid:
+                    known_test = match[4] if len(match) > 4 else False
+                    if checksum_valid and not known_test:
                         has_meaningful = True
                         break
             elif f.get('type') == 'private_key':
@@ -1434,18 +1635,26 @@ def print_text_results(results, files_scanned, debug=False):
                     length = match[1]
                     words = match[2]
                     checksum_valid = match[3] if len(match) > 3 else False
-                    if debug or checksum_valid:
-                        show_seq.append((length, words, checksum_valid))
+                    known_test = match[4] if len(match) > 4 else False
+                    # Well-known spec/test seeds are noise from crypto libraries' test
+                    # suites and docs; only surface them in debug mode.
+                    if debug or (checksum_valid and not known_test):
+                        show_seq.append((length, words, checksum_valid, known_test))
 
                 if not show_seq and f['scattered_count'] == 0:
                     continue
 
                 print("  [Mnemonic: {}]".format(f['wordlist']))
-                for length, words, checksum_valid in show_seq:
+                for length, words, checksum_valid, known_test in show_seq:
                     display_words = ' '.join(words[:12])
                     if len(words) > 12:
                         display_words += ' ...'
-                    tag = " (checksum valid)" if checksum_valid else ""
+                    if known_test:
+                        tag = " (checksum valid, well-known test seed)"
+                    elif checksum_valid:
+                        tag = " (checksum valid)"
+                    else:
+                        tag = ""
                     print("    Sequential match ({} words): {}{}".format(
                         length, display_words, tag))
                 if f['scattered_count'] > 0:
@@ -1454,13 +1663,17 @@ def print_text_results(results, files_scanned, debug=False):
             elif f.get('type') == 'private_key':
                 key_types = {}
                 for entry in f['keys']:
-                    net = entry['network']
-                    if net not in key_types:
-                        key_types[net] = []
-                    key_types[net].append(entry['key'])
+                    # xpub/ypub/zpub/... are extended *public* keys; label them accordingly
+                    # (older results may lack key_class, so default to private)
+                    header = ('Public Key' if entry.get('key_class') == 'public'
+                              else 'Private Key')
+                    group = (header, entry['network'])
+                    if group not in key_types:
+                        key_types[group] = []
+                    key_types[group].append(entry['key'])
 
-                for network, keys in sorted(key_types.items()):
-                    print("  [Private Key: {}]".format(network))
+                for (header, network), keys in sorted(key_types.items()):
+                    print("  [{}: {}]".format(header, network))
                     for key in keys[:5]:
                         truncated = _truncate_key(key)
                         print("    {}".format(truncated))
@@ -1492,22 +1705,51 @@ def _text_result_is_visible(result):
             return True
         if f.get('type') == 'mnemonic':
             for match in f['sequential']:
-                if len(match) > 3 and match[3]:
+                known_test = len(match) > 4 and match[4]
+                if len(match) > 3 and match[3] and not known_test:
                     return True
     return False
 
 
 def update_exclusion_list(statusbar=True):
-    """Regenerate walletfinder-exclusionlist.txt from this BTCRecover repository.
+    """Regenerate the auto-generated section of walletfinder-exclusionlist.txt from this repo.
 
     Scans the script's own directory (the repo) with no exclusions applied, collects every file
     a normal scan would surface (wallet matches + checksum-valid/private-key text matches), and
-    writes their repo-relative paths so a later `--folder .` scan skips them. Existing entries
-    are preserved (union); a file already covered by an existing entry (e.g. a directory prefix
-    such as 'btcrecover/test/') is not re-added individually.
+    writes their repo-relative paths below the EXCLUSIONLIST_AUTO_MARKER line so a later
+    `--folder .` scan skips them. Everything above the marker (the curated default exclusions
+    and any hand-added entries) is preserved verbatim. A file already covered by an existing
+    pattern (e.g. a directory prefix such as 'btcrecover/test/') is not re-added individually.
     """
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    existing = load_exclusions()
+    existing_patterns = load_exclusions()  # casefolded patterns, curated + auto
+
+    # Split the current file at the marker: preserved head lines vs regenerable auto entries.
+    out_path = os.path.join(repo_root, EXCLUSIONLIST_FILENAME)
+    preserved_lines = []
+    auto_entries = set()
+    try:
+        with open(out_path, encoding='utf-8') as f:
+            lines = [line.rstrip('\n') for line in f]
+    except OSError:
+        lines = []
+    if EXCLUSIONLIST_AUTO_MARKER in lines:
+        marker_idx = lines.index(EXCLUSIONLIST_AUTO_MARKER)
+        preserved_lines = lines[:marker_idx + 1]
+        for line in lines[marker_idx + 1:]:
+            entry = re.sub(r'\s+#.*$', '', line).strip()
+            if entry and not entry.startswith('#'):
+                auto_entries.add(entry.replace('\\', '/'))
+    else:
+        # Old-format (or missing) file: keep whatever is there as the curated head and start
+        # a fresh auto section beneath a newly added marker.
+        preserved_lines = [line for line in lines if line.strip()]
+        if preserved_lines:
+            preserved_lines.append("")
+        preserved_lines += [
+            "# === BTCRecover bundled test wallets, docs & examples (AUTO-GENERATED) ===",
+            EXCLUSIONLIST_AUTO_MARKER,
+        ]
 
     print("Scanning repository to update {} ...".format(EXCLUSIONLIST_FILENAME))
     wallet_results, _, text_results, _ = scan_combined(
@@ -1517,35 +1759,21 @@ def update_exclusion_list(statusbar=True):
     matched_paths = [r['path'] for r in wallet_results]
     matched_paths += [r['path'] for r in text_results if _text_result_is_visible(r)]
 
-    new_entries = set()
+    added = 0
     for p in matched_paths:
         rel = _relative_norm(p, repo_root)
-        if any(ex in rel for ex in existing):  # already covered by an existing entry
+        # Skip files already covered by any existing pattern (curated or auto-generated)
+        if any(_exclusion_matches(ex, rel.casefold()) for ex in existing_patterns):
             continue
-        new_entries.add(rel)
+        if rel not in auto_entries:
+            auto_entries.add(rel)
+            added += 1
 
-    all_entries = sorted(set(existing) | new_entries)
-
-    header = [
-        "# walletfinder-exclusionlist.txt",
-        "#",
-        "# Path substrings that walletfinder.py skips while scanning. Each non-comment line is",
-        "# matched against every scanned file's path *relative to the scan root*, so these",
-        "# repo-relative entries only skip BTCRecover's own test wallets and example seed/key",
-        "# files when the repository itself is scanned (e.g. `python walletfinder.py --folder .`);",
-        "# they do not exclude unrelated folders elsewhere on your system.",
-        "#",
-        "# Regenerate after adding/removing files in the repo with:",
-        "#     python walletfinder.py --update-exclusions",
-        "# You may also add your own substrings by hand; they are preserved on regeneration.",
-        "",
-    ]
-    out_path = os.path.join(repo_root, EXCLUSIONLIST_FILENAME)
     with open(out_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(header + all_entries + [""]))
+        f.write("\n".join(preserved_lines + sorted(auto_entries) + [""]))
 
-    added = len(set(all_entries) - set(existing))
-    print("Wrote {} exclusion entries to {} ({} new).".format(len(all_entries), out_path, added))
+    print("Wrote {} auto-generated exclusion entries to {} ({} new); curated section preserved."
+          .format(len(auto_entries), out_path, added))
 
 
 # ---------------------------------------------------------------------------
@@ -1633,6 +1861,12 @@ def parse_arguments(args=None):
 
 
 def main():
+    # pdfminer (used via textract for PDF text extraction) logs a warning line per malformed
+    # font/metadata field ("Could not get FontBBox...", "...check_extractable..."), which
+    # floods the progress display on big scans. Only real errors are worth showing.
+    import logging
+    logging.getLogger('pdfminer').setLevel(logging.ERROR)
+
     args = parse_arguments()
 
     if args.update_exclusions:

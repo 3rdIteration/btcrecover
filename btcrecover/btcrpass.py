@@ -3053,7 +3053,11 @@ class WalletBitGo(object):
             json.loads(walletdata) # Check if it's a valid JSON
         except: return False
 
-        return (b"adata" in walletdata and b"aes" in walletdata)
+        # Require the quoted SJCL field names rather than bare substrings: "adata" as a bare
+        # substring matches inside "metadata", which made ordinary application JSON files
+        # (telemetry, i18n, catalogs) detect as BitGo wallets.
+        return (b'"adata"' in walletdata and b'"iv"' in walletdata
+                and b'"salt"' in walletdata and b'"ct"' in walletdata)
 
     def passwords_per_seconds(self, seconds):
         return 5

@@ -28,7 +28,7 @@ python walletfinder.py --folder /path/to/search
 
 ### Optional: Document Scanning (Mnemonic Mode)
 
-Mnemonic Mode scans **plain-text files out of the box** with no extra dependencies. To also extract and scan text from binary document formats — `docx`, `pdf`, `xlsx`, `pptx`, `odt`, `rtf`, `epub`, and similar — install [`textract`](https://pypi.org/project/textract/) (and optionally [`pypdf`](https://pypi.org/project/pypdf/)):
+Mnemonic Mode scans **plain-text files out of the box** with no extra dependencies. To also extract and scan text from binary document formats — `docx`, `pdf`, `xlsx`, `pptx`, `odt`, `rtf`, `epub`, and similar — install [`textract`](https://pypi.org/project/textract/) **and** [`pypdf`](https://pypi.org/project/pypdf/) (ideally both):
 
 ```
 pip3 install textract pypdf
@@ -36,7 +36,7 @@ pip3 install textract pypdf
 
 With `textract` installed, Mnemonic Mode will look for seed phrases and private keys inside those document formats as well. Without it, only plain-text files are scanned and the script prints a one-time warning noting that document support is limited. Note that `textract` has heavy build dependencies and can be tricky to install on some platforms, which is why it is kept separate from `requirements-walletfinder.txt`.
 
-`pypdf` is an optional, lightweight extra used only as a **PDF fallback**: some PDFs (e.g. paper wallets that use custom font encodings) extract as garbled single characters under `textract`'s `pdfminer` engine, and `pypdf` recovers the text in those cases. It is not required, but recommended if you are scanning PDFs.
+`pypdf` is a lightweight extra used as a **PDF fallback**: some PDFs (e.g. paper wallets that use custom font encodings) extract as garbled single characters under `textract`'s `pdfminer` engine, and `pypdf` recovers the text in those cases. It also lets PDFs be scanned when `textract` itself could not be installed. The script prints a one-time warning if either package is missing, so installing both alongside each other is recommended.
 
 ## Default: Scan Both Modes
 
@@ -57,6 +57,30 @@ While scanning, `walletfinder.py` shows a single, continuously-updating status l
 - If the path is still very long after that, every component is shortened aggressively to its first and last character joined by a single `.` (for example `Documents` → `D.s`), producing lines like `C.\U.s\y.y\O.C\Y.e\...`.
 
 This truncation is purely cosmetic — it only affects the live progress line. It does **not** change which files are scanned, and the **full, untruncated paths** are always used in the final results and summary.
+
+### Saving Output to a File (Redirected Output)
+
+For large scans (e.g. a whole drive) it's usually best to save the report to a file. `walletfinder.py` detects when its output is redirected (i.e. stdout is not a terminal) and automatically switches off the in-place status line — instead it prints one plain progress line per 10,000 items, so the report file stays small and readable rather than filling up with thousands of status-bar rewrites:
+
+```
+python walletfinder.py --folder /path/to/search > scan-report.txt 2>&1
+```
+
+The `2>&1` also captures any warnings sent to stderr. In a redirected run, progress appears as occasional plain lines like `Discovering... 20000 dirs` and `Scanned 640000/854101 candidates...` instead of the animated bar, and the full results and summary are written at the end exactly as normal.
+
+While the scan is running, you can watch the report grow **live** from a second terminal:
+
+**Linux and macOS:**
+```
+tail -f scan-report.txt
+```
+
+**Windows (PowerShell):**
+```
+Get-Content scan-report.txt -Wait -Tail 20
+```
+
+Both commands follow the file and print new lines as they are written (progress lines are flushed immediately for this purpose); press Ctrl+C to stop watching — the scan itself is unaffected. The same detection also means output piped to another program (e.g. `| tee scan-report.txt` on Linux/macOS, which shows *and* saves the output at the same time) gets the clean line-based progress instead of the status bar.
 
 ## Wallet Mode
 
@@ -228,19 +252,26 @@ Use `--depth N` to control how deep the scan recurses into subdirectories. A dep
 
 ### Exclusion List (`walletfinder-exclusionlist.txt`)
 
-BTCRecover's own repository contains test wallets and example seed/key files (under `btcrecover/test/`, `docs/`, `lib/`, and others) that would otherwise be reported when you scan the repo itself with `python walletfinder.py --folder .`. To keep that scan clean, `walletfinder.py` reads a bundled `walletfinder-exclusionlist.txt` and skips any file whose path matches one of its entries.
+`walletfinder.py` reads a bundled `walletfinder-exclusionlist.txt` and skips any file whose path matches one of its entries. The bundled list has two parts:
 
-Each non-comment line is a **path substring** matched against a scanned file's path **relative to the scan root**. Because the entries are repo-relative (e.g. `btcrecover/test/`, `docs/Benchmarks.md`), they only take effect when the repository itself is scanned — they do **not** exclude unrelated folders elsewhere on your system, and they do **not** blanket-exclude by file type (your own `.py` or `.md` files are still scanned). You can also add your own substrings by hand.
+1. **Curated default exclusions** for common false positives that show up on full-system scans: Chromium/Edge/Brave browser data files that happen to parse as unencrypted wallet protobufs (e.g. `AdSelectionAttestationsPreloaded/`), Windows Settings content files, spell-check dictionaries, some third-party app telemetry/cache files, Linux system wordlists, crypto library source trees (`libwally`, python `bitcoinlib`, `uBitcoin` — their docs, examples, and tests are full of spec seeds and example keys, and get vendored inside other projects), and Python package directories / pip caches (`site-packages/`, `dist-packages/`, pip's HTTP cache). Delete a line if you *do* want those locations scanned.
+2. **Auto-generated repo entries** below the `--- Entries below this marker are managed by ... ---` line: BTCRecover's own test wallets and example seed/key files (under `btcrecover/test/`, `docs/`, `lib/`, and others) that would otherwise be reported when you scan the repo itself with `python walletfinder.py --folder .`.
 
-If you add, remove, or rename repo files containing example seeds/keys, regenerate the list with:
+**Entry syntax** (matched case-insensitively against each scanned path **relative to the scan root**, with `/` separators):
+
+- Lines without wildcards are **path substrings** — `site-packages/` skips any `site-packages` directory at any depth; repo-relative entries like `btcrecover/test/` only take effect when the repository itself is scanned.
+- Lines containing `*` or `?` are **shell-style globs** (like `.gitignore` patterns): `*.settingcontent-ms` skips those files at any depth, and `CapCut/Apps/*/Resources/bench/score.dat` matches with any version directory in the middle. Note that `*` also matches across `/`.
+- `#` starts a comment, either on its own line or after an entry.
+
+You can add your own entries by hand anywhere above the marker line; they are preserved when the list is regenerated. If you add, remove, or rename repo files containing example seeds/keys, regenerate the auto-generated section with:
 
 ```
 python walletfinder.py --update-exclusions
 ```
 
-This rescans the repository and merges any newly-matching files into `walletfinder-exclusionlist.txt` (existing and hand-added entries are preserved).
+This rescans the repository and merges any newly-matching files into the section below the marker (everything above the marker — the curated defaults and your own entries — is preserved verbatim).
 
-> **Note on suppressed matches:** in Mnemonic Mode the summary reports `Matches found` (files actually shown) and, separately, `Suppressed matches (viewable if running with --debug)` — files that only had a weak *scattered* signal with no checksum-valid seed or private key. These are hidden by default (source code and prose often contain a dozen stray wordlist words); rerun with `--debug` to see them.
+> **Note on suppressed matches:** in Mnemonic Mode the summary reports `Matches found` (files actually shown) and, separately, `Suppressed matches (viewable if running with --debug)` — files whose only signal was a weak *scattered* match with no checksum-valid seed or private key, or whose only checksum-valid seed was a **well-known spec test mnemonic**. Famous test seeds (like the BIP39 spec vectors `abandon abandon … about` and `legal winner thank year wave …`) appear constantly in crypto libraries, documentation, and cached packages, so they are hidden by default; rerun with `--debug` to see them tagged as `(checksum valid, well-known test seed)`.
 
 ## Tips
 
@@ -273,3 +304,5 @@ Text mode also scans for Bitcoin private keys in various formats:
 - **BIP32 Extended Keys**: Both private (`xprv`, `yprv`, `zprv`, etc.) and public (`xpub`, `ypub`, `zpub`, etc.)
 
 Private key detection uses regex pattern matching with length validation. All detected keys pass Base58Check format requirements by construction of the patterns.
+
+Extended **public** keys are reported under a `[Public Key: …]` heading (an xpub cannot spend funds, but it reveals a wallet's addresses and is a strong hint that a related private key or seed exists nearby); everything else — WIF, BIP38, and extended private keys — appears under `[Private Key: …]`.

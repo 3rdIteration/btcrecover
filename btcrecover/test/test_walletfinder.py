@@ -20,6 +20,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/
 
+import contextlib
+import io
 import os
 import sys
 import unittest
@@ -857,6 +859,340 @@ class TestKeyClassification(unittest.TestCase):
 
     def test_classify_xpub_native_segwit(self):
         self.assertEqual(walletfinder._classify_xpub('zpub6jftahH18ngZw8pWFPu9ff2FJLn2WGdipSRX1NZ9uUN6m2oCedCycnGtJTktaFtN1YvHSgc1PXmpC6RHB1bdMdNWQXCYjwg5TuiU4LsNS9b'), 'Bitcoin mainnet (native segwit)')
+
+    def test_classify_xpub_multisig_native_segwit(self):
+        # SLIP-0132 capital-Z prefix must get a descriptive label, not the raw prefix
+        self.assertEqual(walletfinder._classify_xpub('Zpub' + '1' * 107), 'Bitcoin mainnet (multisig native segwit)')
+
+    def test_classify_xprv_multisig_native_segwit(self):
+        self.assertEqual(walletfinder._classify_xprv('Zprv' + '1' * 107), 'Bitcoin mainnet (multisig native segwit)')
+
+    def test_classify_xpub_testnet_native_segwit(self):
+        self.assertEqual(walletfinder._classify_xpub('vpub' + '1' * 107), 'Testnet (native segwit)')
+
+
+class TestPublicKeyLabeling(unittest.TestCase):
+    """Extended public keys (xpub/ypub/zpub/...) must be labeled as public, not private."""
+
+    XPUB = 'xpub661MyMwAqRbcEYSGagKuFUqExQV8d2eizDP5SamP9TcLeqAk9JsrNexcG3qiaSaXCGgfwjQtUD4iRXC9jcmbmA1Jfqoha836vTbBHB564e1'
+    XPRV = 'xprv9s21ZrQH143K24MoUenttLtWQNeeDZvsczTUeCMmb85Mn2qbbmZbpre8QrhSVGRvnYEg3HHxoTKFp5eMqxH41JR99qVKioE3zbhwXAQpWM6'
+
+    def _scan_and_print(self, content):
+        import io, contextlib
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "keys.txt"), 'w') as f:
+                f.write(content)
+            results, files_scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                walletfinder.print_text_results(results, files_scanned)
+            return out.getvalue()
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_xpub_displayed_as_public_key(self):
+        output = self._scan_and_print(self.XPUB + "\n")
+        self.assertIn("[Public Key: Bitcoin mainnet (legacy)]", output)
+        self.assertNotIn("[Private Key:", output)
+
+    def test_xprv_still_displayed_as_private_key(self):
+        output = self._scan_and_print(self.XPRV + "\n")
+        self.assertIn("[Private Key: Bitcoin mainnet (legacy)]", output)
+        self.assertNotIn("[Public Key:", output)
+
+    def test_mixed_keys_grouped_separately(self):
+        output = self._scan_and_print(self.XPRV + "\n" + self.XPUB + "\n")
+        self.assertIn("[Private Key: Bitcoin mainnet (legacy)]", output)
+        self.assertIn("[Public Key: Bitcoin mainnet (legacy)]", output)
+
+
+class TestKnownTestMnemonicSuppression(unittest.TestCase):
+    """Well-known spec/test seeds must be hidden from normal output but shown with --debug."""
+
+    ABANDON_VECTOR = ("abandon abandon abandon abandon abandon abandon "
+                      "abandon abandon abandon abandon abandon about")
+
+    def _scan_and_print(self, content, debug=False):
+        import io, contextlib
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "seed.txt"), 'w') as f:
+                f.write(content)
+            results, files_scanned = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                walletfinder.print_text_results(results, files_scanned, debug=debug)
+            return out.getvalue()
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_known_vector_suppressed_without_debug(self):
+        output = self._scan_and_print(self.ABANDON_VECTOR + "\n")
+        self.assertNotIn("abandon abandon", output)
+        self.assertIn("Suppressed matches", output)
+
+    def test_known_vector_shown_with_debug(self):
+        output = self._scan_and_print(self.ABANDON_VECTOR + "\n", debug=True)
+        self.assertIn("abandon abandon", output)
+        self.assertIn("well-known test seed", output)
+
+    def test_known_vector_not_visible_for_update_exclusions(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "seed.txt"), 'w') as f:
+                f.write(self.ABANDON_VECTOR + "\n")
+            results, _ = walletfinder.scan_text_mode(tmpdir, None, 6, 12)
+            self.assertEqual(len(results), 1)
+            self.assertFalse(walletfinder._text_result_is_visible(results[0]))
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_is_known_test_mnemonic(self):
+        self.assertTrue(walletfinder._is_known_test_mnemonic(self.ABANDON_VECTOR.split()))
+        self.assertTrue(walletfinder._is_known_test_mnemonic(
+            self.ABANDON_VECTOR.upper().split()))  # case-insensitive
+        self.assertFalse(walletfinder._is_known_test_mnemonic(
+            "meadow harbor thunder river shadow forest harbor meadow dragon winter dragon journey".split()))
+
+
+class TestExclusionMatching(unittest.TestCase):
+    """Test exclusion pattern matching: substrings, globs, case-insensitivity, dir pruning."""
+
+    def test_substring_match(self):
+        self.assertTrue(walletfinder._exclusion_matches('btcrecover/test/', 'btcrecover/test/wallet.dat'))
+
+    def test_substring_matches_anywhere(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'adselectionattestationspreloaded/',
+            'program files (x86)/microsoft/edge/adselectionattestationspreloaded/ad-selection-attestations.dat'))
+
+    def test_substring_no_match(self):
+        self.assertFalse(walletfinder._exclusion_matches('btcrecover/test/', 'mywallets/wallet.dat'))
+
+    def test_glob_extension_any_depth(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            '*.settingcontent-ms', 'appdata/local/packages/tempstate/foo.settingcontent-ms'))
+
+    def test_glob_extension_no_false_suffix(self):
+        self.assertFalse(walletfinder._exclusion_matches(
+            '*.settingcontent-ms', 'appdata/foo.settingcontent-ms.bak'))
+
+    def test_glob_with_directory_wildcard(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'capcut/apps/*/resources/bench/score.dat',
+            'program files/capcut/apps/3.7.0.1379/resources/bench/score.dat'))
+
+    def test_glob_question_mark(self):
+        self.assertTrue(walletfinder._exclusion_matches('cache?.bin', 'some/dir/cache1.bin'))
+        self.assertFalse(walletfinder._exclusion_matches('cache?.bin', 'some/dir/cache12.bin'))
+
+    def test_glob_directory_pattern_matches_subtree(self):
+        # A glob ending in '/' matches every file beneath that directory, at any depth
+        self.assertTrue(walletfinder._exclusion_matches(
+            'bitcoinlib*/examples/', 'lib/bitcoinlib_mod/examples/keys.py'))
+        self.assertTrue(walletfinder._exclusion_matches(
+            'bitcoinlib*/examples/', 'bitcoinlib/examples/wallets.py'))
+        self.assertTrue(walletfinder._exclusion_matches(
+            'bitcoinlib*/mnemonic.py', 'lib/bitcoinlib/mnemonic.py'))
+        self.assertFalse(walletfinder._exclusion_matches(
+            'bitcoinlib*/examples/', 'bitcoinlib/wallets/mywallet.dat'))
+
+    def test_is_excluded_case_insensitive(self):
+        # Patterns are stored casefolded by load_exclusions; paths must match case-insensitively
+        self.assertTrue(walletfinder._is_excluded(
+            r'C:\Scan\Program Files\CapCut\Apps\1.0\Resources\bench\score.dat', r'C:\Scan',
+            ['capcut/apps/*/resources/bench/score.dat']))
+
+    def test_is_excluded_directory_trailing_slash(self):
+        # A 'site-packages/' pattern must prune the directory itself, not just files below it
+        self.assertTrue(walletfinder._is_excluded(
+            r'C:\Scan\Python\site-packages', r'C:\Scan', ['site-packages/'], is_dir=True))
+        self.assertFalse(walletfinder._is_excluded(
+            r'C:\Scan\Python\site-packages', r'C:\Scan', ['site-packages/'], is_dir=False))
+
+    def test_load_exclusions_strips_inline_comments(self):
+        import unittest.mock
+        content = "# header comment\nfoo/bar/   # trailing comment\n\nBaz/Qux\n"
+        with unittest.mock.patch('builtins.open', unittest.mock.mock_open(read_data=content)):
+            exclusions = walletfinder.load_exclusions()
+        self.assertEqual(exclusions, ['foo/bar/', 'baz/qux'])
+
+    def test_walk_directory_applies_glob_exclusions(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, "TempState"))
+            keep = os.path.join(tmpdir, "keep.txt")
+            skipped = os.path.join(tmpdir, "TempState", "page.settingcontent-ms")
+            for p in (keep, skipped):
+                with open(p, 'w') as f:
+                    f.write("data")
+            found = list(walletfinder.walk_directory(
+                tmpdir, None, exclusions=['*.settingcontent-ms']))
+            self.assertEqual([os.path.basename(p) for p in found], ["keep.txt"])
+        finally:
+            shutil.rmtree(tmpdir)
+
+    # --- patterns added for common false-positive sources ---
+
+    def test_huggingface_model_cache_glob(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'models--*/snapshots/',
+            'hub/models--nvidia--somemodel/snapshots/0893e16/tokenizer.json'))
+
+    def test_btcrecover_test_temp_dirs_glob(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'tmp*-test-btcr*/',
+            'users/x/appdata/local/temp/tmp12orr2gm-test-btcr/electrum28-wallet'))
+        self.assertTrue(walletfinder._exclusion_matches(
+            'tmp*-test-btcr*/',
+            'users/x/appdata/local/temp/tmp9syoylyf-test-btcr-dump/vault.txt'))
+
+    def test_chromium_trusted_vault_substring(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'trusted_vault.pb',
+            'users/x/appdata/local/nvidia corporation/nvidia app/cefcache/default/trusted_vault.pb'))
+
+    def test_chromium_download_metadata_glob(self):
+        self.assertTrue(walletfinder._exclusion_matches(
+            'user data/*/downloadmetadata',
+            'users/x/appdata/local/bravesoftware/brave-browser/user data/default/downloadmetadata'))
+
+    def test_new_patterns_leave_user_paths_alone(self):
+        # Ordinary user files must not be caught by the newly added patterns
+        for pattern in ('models--*/snapshots/', 'tmp*-test-btcr*/', 'trusted_vault.pb',
+                        'user data/*/downloadmetadata', 'classic_simulator/samples/keystore/',
+                        'tests/data/shamir_vectors.json'):
+            self.assertFalse(walletfinder._exclusion_matches(
+                pattern, 'users/x/documents/my wallets/wallet.dat'),
+                "pattern {!r} wrongly matched a user path".format(pattern))
+            self.assertFalse(walletfinder._exclusion_matches(
+                pattern, 'users/x/appdata/roaming/code/user/history/abc/seed.py'),
+                "pattern {!r} wrongly matched an editor-history path".format(pattern))
+
+
+class TestSystemDirSkipping(unittest.TestCase):
+    """Test the absolute-path OS system/hardware directory pruning."""
+
+    def test_is_system_dir_exact_and_descendant(self):
+        import unittest.mock
+        with unittest.mock.patch.object(walletfinder, 'SYSTEM_EXCLUDED_DIRS',
+                                        frozenset({os.path.abspath(os.sep + 'proc')})):
+            proc = os.path.abspath(os.sep + 'proc')
+            self.assertTrue(walletfinder._is_system_dir(proc))
+            self.assertTrue(walletfinder._is_system_dir(os.path.join(proc, '1234', 'maps')))
+
+    def test_is_system_dir_no_match_for_similar_names(self):
+        import unittest.mock
+        with unittest.mock.patch.object(walletfinder, 'SYSTEM_EXCLUDED_DIRS',
+                                        frozenset({os.path.abspath(os.sep + 'dev')})):
+            # A user's project folder named 'dev' elsewhere must not match
+            self.assertFalse(walletfinder._is_system_dir(
+                os.path.abspath(os.path.join(os.sep + 'home', 'user', 'dev', 'x'))))
+            # Nor a sibling whose name merely starts with 'dev'
+            self.assertFalse(walletfinder._is_system_dir(os.path.abspath(os.sep + 'devices')))
+
+    def test_is_system_dir_empty_set(self):
+        import unittest.mock
+        with unittest.mock.patch.object(walletfinder, 'SYSTEM_EXCLUDED_DIRS', frozenset()):
+            self.assertFalse(walletfinder._is_system_dir(os.path.abspath(os.sep + 'proc')))
+
+    def test_walk_directory_prunes_system_dirs(self):
+        import unittest.mock
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, "devfs"))
+            Path(tmpdir, "keep.txt").write_text("data")
+            Path(tmpdir, "devfs", "skipped.txt").write_text("data")
+            with unittest.mock.patch.object(
+                    walletfinder, 'SYSTEM_EXCLUDED_DIRS',
+                    frozenset({os.path.abspath(os.path.join(tmpdir, "devfs"))})):
+                found = list(walletfinder.walk_directory(tmpdir, None))
+            self.assertEqual([os.path.basename(p) for p in found], ["keep.txt"])
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_collect_wallet_candidates_prunes_system_dirs(self):
+        import unittest.mock
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmpdir, "devfs"))
+            Path(tmpdir, "keep.txt").write_text("data")
+            Path(tmpdir, "devfs", "skipped.txt").write_text("data")
+            with unittest.mock.patch.object(
+                    walletfinder, 'SYSTEM_EXCLUDED_DIRS',
+                    frozenset({os.path.abspath(os.path.join(tmpdir, "devfs"))})):
+                found = [p for p, is_dir in
+                         walletfinder._collect_wallet_candidates(tmpdir, None)]
+            self.assertEqual([os.path.basename(p) for p in found], ["keep.txt"])
+        finally:
+            shutil.rmtree(tmpdir)
+
+
+class TestProgressRedirect(unittest.TestCase):
+    """Progress output must be suppressed (bar) / milestoned (plain lines) when stdout is
+    redirected to a file or pipe, and unchanged on a real terminal."""
+
+    class _FakeTty(io.StringIO):
+        def isatty(self):
+            return True
+
+    class _BrokenIsatty(io.StringIO):
+        def isatty(self):
+            raise RuntimeError("no isatty")
+
+    def _capture(self, stream, func, *args, **kwargs):
+        with contextlib.redirect_stdout(stream):
+            func(*args, **kwargs)
+        return stream.getvalue()
+
+    def test_non_tty_print_progress_suppressed(self):
+        out = self._capture(io.StringIO(), walletfinder._print_progress, 5, 100, "x")
+        self.assertEqual(out, "")
+
+    def test_non_tty_print_progress_milestone(self):
+        out = self._capture(io.StringIO(), walletfinder._print_progress, 10000, 854101, "x")
+        self.assertNotIn("\r", out)
+        self.assertEqual(out, "Scanned 10000/854101 candidates...\n")
+
+    def test_non_tty_print_progress_final(self):
+        out = self._capture(io.StringIO(), walletfinder._print_progress, 854101, 854101, "x")
+        self.assertEqual(out, "Scanned 854101/854101 candidates...\n")
+
+    def test_non_tty_clear_progress_line_suppressed(self):
+        out = self._capture(io.StringIO(), walletfinder._clear_progress_line)
+        self.assertEqual(out, "")
+
+    def test_non_tty_scan_status_suppressed_and_milestoned(self):
+        out = self._capture(io.StringIO(), walletfinder._print_scan_status, 7, "some/path")
+        self.assertEqual(out, "")
+        out = self._capture(io.StringIO(), walletfinder._print_scan_status, 20000, "some/path")
+        self.assertNotIn("\r", out)
+        self.assertIn("20000", out)
+        self.assertTrue(out.endswith("\n"))
+
+    def test_non_tty_discovery_reporter_milestoned(self):
+        reporter = walletfinder._make_discovery_reporter()
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            for _ in range(walletfinder._MILESTONE_INTERVAL):
+                reporter("some/dir")
+        out = stream.getvalue()
+        self.assertNotIn("\r", out)
+        self.assertEqual(out, "Discovering... {} dirs\n".format(walletfinder._MILESTONE_INTERVAL))
+
+    def test_tty_print_progress_writes_inplace_line(self):
+        out = self._capture(self._FakeTty(), walletfinder._print_progress, 5, 100, "x")
+        self.assertTrue(out.startswith("\r"))
+        self.assertIn("Scanning: 5%", out)
+
+    def test_tty_clear_progress_line_writes(self):
+        out = self._capture(self._FakeTty(), walletfinder._clear_progress_line)
+        self.assertTrue(out.startswith("\r"))
+
+    def test_progress_enabled_handles_broken_isatty(self):
+        with contextlib.redirect_stdout(self._BrokenIsatty()):
+            self.assertFalse(walletfinder._progress_enabled())
 
 
 class TestTruncateKey(unittest.TestCase):

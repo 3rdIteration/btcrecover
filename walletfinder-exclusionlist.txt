@@ -1,15 +1,103 @@
 # walletfinder-exclusionlist.txt
 #
-# Path substrings that walletfinder.py skips while scanning. Each non-comment line is
-# matched against every scanned file's path *relative to the scan root*, so these
-# repo-relative entries only skip BTCRecover's own test wallets and example seed/key
-# files when the repository itself is scanned (e.g. `python walletfinder.py --folder .`);
-# they do not exclude unrelated folders elsewhere on your system.
+# Path patterns that walletfinder.py skips while scanning. Each non-comment line is
+# matched (case-insensitively) against every scanned file's path *relative to the scan
+# root*, normalized to forward slashes:
 #
-# Regenerate after adding/removing files in the repo with:
-#     python walletfinder.py --update-exclusions
-# You may also add your own substrings by hand; they are preserved on regeneration.
+#   * Lines without wildcards match as plain substrings anywhere in the path
+#     (e.g. 'site-packages/' skips any site-packages directory at any depth).
+#   * Lines containing '*' or '?' are shell-style globs. '*' also matches across '/'.
+#     A glob is tried against the whole relative path (from its start or from any
+#     directory boundary) and, when the pattern contains no '/', against the file
+#     name alone (e.g. '*.settingcontent-ms' skips those files at any depth).
+#   * Text after ' #' on an entry line is a comment and is ignored.
+#
+# You may add your own entries by hand anywhere above the AUTO-GENERATED marker below;
+# they are preserved when the list is regenerated.
 
+# === Windows system & browser data files ===
+# Chromium-based browsers (Edge, Chrome, Brave, Copilot, WebView) ship protobuf data
+# files that parse as unencrypted wallet protobufs, and Windows Settings content files
+# can contain checksum-valid word sequences.
+AdSelectionAttestationsPreloaded/    # Edge/Copilot/WebView ad-attestation protobufs
+PrivacySandboxAttestationsPreloaded/ # Chrome/Brave privacy-sandbox attestation protobufs
+typosquatting_list.pb                # Edge typosquatting-protection list
+variations_seed                      # Chromium field-trial seed files
+Edge Signal Triggers/                # Edge signal-trigger asset files
+*.settingcontent-ms                  # Windows Settings page content
+SpellChecker/ExclusionDictionaries/  # Visual Studio spell-check wordlists (*.dic)
+trusted_vault.pb                     # Chromium sync trusted-vault protobuf (Chrome/Brave/CEF apps)
+User Data/*/DownloadMetadata         # Chromium download-metadata protobuf
+
+# === Third-party application data (Windows) ===
+AsusSystemDiagnosis/                 # ASUS diagnostics data
+Abi/bi.config                        # ASUS telemetry config
+Abistorage/bi.config                 # ASUS telemetry config (PC Assistant)
+ProArt Creator Hub/UserCenter/       # ASUS ProArt cached blobs
+LocalState/CachedFiles2/             # ASUS PC Assistant cached blobs
+UninstallList/ServiceCore.list       # ASUS ARMOURY CRATE uninstall metadata
+UninstallList/ThrottlePlugin.list    # ASUS ARMOURY CRATE uninstall metadata
+CapCut/Apps/*/Resources/bench/score.dat # CapCut benchmark data
+Steam/clientui/fonts/                # Steam UI font bundles
+vMix/plr64.dat.s                     # vMix data file
+models--*/snapshots/                 # Hugging Face hub model cache (tokenizer/vocab files)
+
+# === Linux system files ===
+usr/share/dict/                      # system wordlists
+usr/share/hunspell/                  # spell-check dictionaries
+
+# === Crypto library source trees ===
+# Bitcoin/crypto libraries ship spec test seeds, example keys, and wordlists in their
+# source, so checked-out or vendored copies match constantly. These are name-anchored
+# (not repo-relative), so they also cover copies bundled inside other projects.
+libwally                             # libwally-core and its language bindings
+uBitcoin/                            # Arduino/embedded Bitcoin library
+bitcoinlib*/docs/                    # python bitcoinlib (and _mod fork): docs
+bitcoinlib*/examples/                # python bitcoinlib: example keys/wallets
+bitcoinlib*/tests/                   # python bitcoinlib: test vectors
+bitcoinlib*/tools/                   # python bitcoinlib: CLI tools with example keys
+bitcoinlib*/mnemonic.py              # python bitcoinlib: embedded wordlist handling
+bitcoinlib*/networks.py              # python bitcoinlib: network constants (keys)
+bitcoinlib*/README.rst               # python bitcoinlib: README with example seeds
+Jade/test_data/                      # Blockstream Jade: descriptor/multisig test vectors
+Jade/tools/bip85_rsa_key_gen/        # Blockstream Jade: BIP85 test vectors
+psbt_faker/                          # psbt_faker tool: all example/test keys
+NBitcoin.Tests/                      # NBitcoin test suite (BIP39/base58 vectors)
+NBitcoin.Bench/                      # NBitcoin benchmarks with example keys
+classic_simulator/samples/keystore/  # Oracle JavaCard SDK sample keys (specter-javacard, status-keycard, ...)
+status-keycard/testwallets/          # status-keycard test wallets
+pysatochip/test_satochip.py          # pysatochip BIP32 test vectors
+Kern/components/cUR/tests/           # Kern firmware: UR codec test vectors
+Kern/main/core/test/                 # Kern firmware: core test vectors
+mbedtls/repo/framework/data_files/   # mbedtls test data (vendored in ESP-IDF)
+seedtool*/src/www/                   # seedtool web app with embedded test seeds
+brainwallet*/js/                     # brainwalletX JS libraries
+secux-connect/README.md              # SecuX docs with example keys
+# SeedSigner test/docs files, anchored on the distinctive file paths (not 'seedsigner/')
+# so that renamed copies (e.g. a Recycle Bin folder) are still matched.
+docs/developer_tips.md               # SeedSigner: example seed in dev docs
+docs/dice_verification.md            # SeedSigner: dice-roll seed examples
+tests/data/shamir_vectors.json       # SeedSigner: SLIP39 spec vectors
+tests/test_bip38.py                  # SeedSigner: BIP38 test keys
+tests/test_bip85_vectors.py          # SeedSigner: BIP85 test vectors
+tests/test_encodepsbtqr.py           # SeedSigner: PSBT QR test seeds
+tests/test_encryption_vectors.py     # SeedSigner: encryption test seeds
+tests/test_mnemonic_generation.py    # SeedSigner: generated test mnemonics
+tests/test_psbt_parser.py            # SeedSigner: PSBT parser test seeds
+tests/test_seed_export_plaintextqr.py # SeedSigner: seed export test vectors
+tests/test_seedkeeper_xprv_storage.py # SeedSigner: xprv storage test vectors
+
+# === Development & package-manager caches ===
+# Crypto libraries bundle spec test seeds/keys, so installed-package directories and
+# download caches are skipped by default. Delete these lines to scan them anyway.
+site-packages/                       # installed Python packages
+dist-packages/                       # installed Python packages (Debian/Ubuntu)
+pip/cache/                           # pip HTTP cache (Windows: AppData/Local/pip/cache)
+.cache/pip/                          # pip HTTP cache (Linux/macOS)
+tmp*-test-btcr*/                     # BTCRecover's own test-suite temp wallets left in %TEMP%
+
+# === BTCRecover bundled test wallets, docs & examples (AUTO-GENERATED) ===
+# --- Entries below this marker are managed by `python walletfinder.py --update-exclusions`. ---
 btcrecover/test/
 docs/Benchmarks.md
 docs/Benchmarks.md.template
@@ -18,23 +106,4 @@ docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_bip39
 docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_electrum.txt
 docs/Usage_Examples/2020-05-08_Recovering_Blockchain_Wallet_Passwords/wallet.aes.json
 docs/Usage_Examples/basic_seed_recoveries.md
-lib/bitcoinlib/mnemonic.py
-lib/bitcoinlib/networks.py
-lib/bitcoinlib/tools/sign_raw.py
-lib/bitcoinlib_mod/README.rst
-lib/bitcoinlib_mod/docs/_static/manuals.command-line-wallet.rst
-lib/bitcoinlib_mod/examples/encoding.py
-lib/bitcoinlib_mod/examples/keys.py
-lib/bitcoinlib_mod/examples/mnemonic.py
-lib/bitcoinlib_mod/examples/transactions.py
-lib/bitcoinlib_mod/examples/wallet_multisig_3of5.py
-lib/bitcoinlib_mod/examples/wallets.py
-lib/bitcoinlib_mod/examples/wallets_segwit_testnet.py
-lib/bitcoinlib_mod/mnemonic.py
-lib/bitcoinlib_mod/networks.py
-lib/bitcoinlib_mod/tests/bip38_protected_key_tests.json
-lib/bitcoinlib_mod/tests/electrum_keys.json
-lib/bitcoinlib_mod/tests/mnemonics_tests.json
-lib/bitcoinlib_mod/tests/test_mnemonic.py
-lib/bitcoinlib_mod/tools/sign_raw.py
 utilities/cardano_address_derivation.py
