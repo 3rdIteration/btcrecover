@@ -1743,6 +1743,19 @@
 <li>If the path is still very long after that, every component is shortened aggressively to its first and last character joined by a single <code>.</code> (for example <code>Documents</code> → <code>D.s</code>), producing lines like <code>C.\U.s\y.y\O.C\Y.e\...</code>.</li>
 </ul>
 <p>This truncation is purely cosmetic — it only affects the live progress line. It does <strong>not</strong> change which files are scanned, and the <strong>full, untruncated paths</strong> are always used in the final results and summary.</p>
+<h3 id="saving-output-to-a-file-redirected-output">Saving Output to a File (Redirected Output)</h3>
+<p>For large scans (e.g. a whole drive) it's usually best to save the report to a file. <code>walletfinder.py</code> detects when its output is redirected (i.e. stdout is not a terminal) and automatically switches off the in-place status line — instead it prints one plain progress line per 10,000 items, so the report file stays small and readable rather than filling up with thousands of status-bar rewrites:</p>
+<div class="highlight"><pre><span></span><code>python walletfinder.py --folder /path/to/search &gt; scan-report.txt 2&gt;&amp;1
+</code></pre></div>
+<p>The <code>2&gt;&amp;1</code> also captures any warnings sent to stderr. In a redirected run, progress appears as occasional plain lines like <code>Discovering... 20000 dirs</code> and <code>Scanned 640000/854101 candidates...</code> instead of the animated bar, and the full results and summary are written at the end exactly as normal.</p>
+<p>While the scan is running, you can watch the report grow <strong>live</strong> from a second terminal:</p>
+<p><strong>Linux and macOS:</strong>
+<div class="highlight"><pre><span></span><code>tail -f scan-report.txt
+</code></pre></div></p>
+<p><strong>Windows (PowerShell):</strong>
+<div class="highlight"><pre><span></span><code>Get-Content scan-report.txt -Wait -Tail 20
+</code></pre></div></p>
+<p>Both commands follow the file and print new lines as they are written (progress lines are flushed immediately for this purpose); press Ctrl+C to stop watching — the scan itself is unaffected. The same detection also means output piped to another program (e.g. <code>| tee scan-report.txt</code> on Linux/macOS, which shows <em>and</em> saves the output at the same time) gets the clean line-based progress instead of the status bar.</p>
 <h2 id="wallet-mode">Wallet Mode</h2>
 <p>Wallet mode uses BTCRecover's built-in wallet auto-detection to scan a directory recursively for supported wallet files. It reports each detected file with its type and confidence level. Use <code>--skip-text-mode</code> to scan for wallet files <em>only</em>.</p>
 <h3 id="basic-usage">Basic Usage</h3>
