@@ -28,6 +28,11 @@ Edge Signal Triggers/                # Edge signal-trigger asset files
 SpellChecker/ExclusionDictionaries/  # Visual Studio spell-check wordlists (*.dic)
 trusted_vault.pb                     # Chromium sync trusted-vault protobuf (Chrome/Brave/CEF apps)
 User Data/*/DownloadMetadata         # Chromium download-metadata protobuf
+GPUCache/                            # Chromium GPU shader cache (any Chromium-based browser)
+TapCache/                            # Office document-preview/thumbnail cache
+AutofillStates/                      # CEF autofill-heuristics data (any Chromium/CEF-embedding app: browsers, Spotify, NVIDIA App, Proclaim, Logos, etc.)
+screen_ai/                           # Chromium/Brave OCR ("Screen AI") component models (aksara/gocr protobufs)
+Service Worker/CacheStorage/         # Chromium/CEF Service Worker cache-storage index files
 
 # === Third-party application data (Windows) ===
 AsusSystemDiagnosis/                 # ASUS diagnostics data
@@ -41,6 +46,13 @@ CapCut/Apps/*/Resources/bench/score.dat # CapCut benchmark data
 Steam/clientui/fonts/                # Steam UI font bundles
 vMix/plr64.dat.s                     # vMix data file
 models--*/snapshots/                 # Hugging Face hub model cache (tokenizer/vocab files)
+MOD01*.enc                           # OEM factory/driver encrypted metadata blobs (any OEM staging folder/brand)
+OEM/FIVT/                            # Acer OEM factory staging folder
+OpenSSL-Win64/tests/                 # OpenSSL Win64 binary distribution's bundled test suite (OCSP test vectors, etc.)
+python_packages/                     # JetBrains IDE (PyCharm etc.) Python package index cache
+Microsoft.MinecraftUWP_8wekyb3d8bbwe*/      # Minecraft Bedrock (Microsoft Store) save-data entity files
+Minecraft Bedrock/                   # Minecraft Bedrock (Roaming) save-data entity files
+SteamLink/streamplayer.bin           # Valve Steam Link data file
 
 # === Linux system files ===
 usr/share/dict/                      # system wordlists
@@ -52,6 +64,8 @@ usr/share/hunspell/                  # spell-check dictionaries
 # (not repo-relative), so they also cover copies bundled inside other projects.
 libwally                             # libwally-core and its language bindings
 uBitcoin/                            # Arduino/embedded Bitcoin library
+Bitcoin/doc/descriptors.md           # Bitcoin Core's bundled docs (real-looking example xpubs)
+specter-diy/                         # Specter DIY hardware-wallet firmware source tree (test vectors/examples throughout)
 bitcoinlib*/docs/                    # python bitcoinlib (and _mod fork): docs
 bitcoinlib*/examples/                # python bitcoinlib: example keys/wallets
 bitcoinlib*/tests/                   # python bitcoinlib: test vectors
@@ -86,6 +100,22 @@ tests/test_mnemonic_generation.py    # SeedSigner: generated test mnemonics
 tests/test_psbt_parser.py            # SeedSigner: PSBT parser test seeds
 tests/test_seed_export_plaintextqr.py # SeedSigner: seed export test vectors
 tests/test_seedkeeper_xprv_storage.py # SeedSigner: xprv storage test vectors
+trezor-firmware*/common/tests/fixtures/                  # trezor-firmware: cardano/ethereum/stellar test fixtures
+trezor-firmware*/common/defs/ethereum/tokens/onChainCheck.lst  # trezor-firmware: Ethereum token registry checksums
+trezor-firmware*/core/src/apps/binance/README.md         # trezor-firmware: docs with example keys
+trezor-firmware*/core/tests/                             # trezor-firmware: core firmware test vectors
+trezor-firmware*/crypto/tools/README.md                  # trezor-firmware: crypto tool docs with example keys
+trezor-firmware*/python/tests/test_tools.py              # trezor-firmware: python client test vectors
+trezor-firmware*/tests/                                  # trezor-firmware: device-test suite (BIP39/SLIP39/xpub vectors)
+electrum/tests/                                          # Electrum source repo: test suite (seed/key vectors, legacy-format test wallets)
+liana/contrib/lianad_config_example.toml                 # Liana wallet: example config
+liana/doc/USAGE.md                                       # Liana wallet: docs with example xpubs
+liana/liana-gui/src/app/state/receive.rs                 # Liana wallet: GUI source with example xpub
+liana/tests/tools/taproot_signer/README.md               # Liana wallet: test tool docs with example keys
+bipsea/tests/                                            # bipsea: BIP32/39/85 test vectors
+bipsea/README.md                                         # bipsea: docs with example seeds/keys
+BIP39-Solver-GPU*/tests/                                 # BIP39-Solver-GPU: test address/key vectors
+xpub_plus_privkey_tool/README.md                         # xpub_plus_privkey_tool: docs with example keys
 
 # === Development & package-manager caches ===
 # Crypto libraries bundle spec test seeds/keys, so installed-package directories and
@@ -95,6 +125,7 @@ dist-packages/                       # installed Python packages (Debian/Ubuntu)
 pip/cache/                           # pip HTTP cache (Windows: AppData/Local/pip/cache)
 .cache/pip/                          # pip HTTP cache (Linux/macOS)
 tmp*-test-btcr*/                     # BTCRecover's own test-suite temp wallets left in %TEMP%
+.dist-info/METADATA                  # PyInstaller-bundled Python package metadata (embeds package READMEs/test vectors, e.g. Electrum's bundled slip10)
 
 # === BTCRecover bundled test wallets, docs & examples (AUTO-GENERATED) ===
 # --- Entries below this marker are managed by `python walletfinder.py --update-exclusions`. ---

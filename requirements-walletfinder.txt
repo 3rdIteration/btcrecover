@@ -8,6 +8,24 @@
 #                            (--wallet-mode)
 #
 # ---------------------------------------------------------------------------------------
+# Optional: full document scanning in Text Mode
+# ---------------------------------------------------------------------------------------
+# By default Text Mode scans plain-text files only. To also extract and scan text from
+# document formats (docx, pdf, xlsx, pptx, odt, rtf, epub, ...), install textract. It is
+# kept separate because its build dependencies can be difficult to install on some
+# platforms, and plain-text files are always scanned without it:
+#   pip3 install textract
+
+textract
+
+# Optionally also install pypdf. It is a lightweight PDF fallback: some PDFs (e.g. paper
+# wallets with custom font encodings) extract as garbled text under textract's pdfminer
+# engine, and pypdf recovers them. Not required, but recommended if you scan PDFs:
+#   pip3 install pypdf
+
+pypdf
+
+# ---------------------------------------------------------------------------------------
 # FULL wallet-type coverage (recommended)
 # ---------------------------------------------------------------------------------------
 # For load_wallet() to detect AND load *every* wallet type BTCRecover supports (Bitcoin
@@ -33,16 +51,3 @@
 #   pycryptodome~=3.23.0
 #   shamir-mnemonic==0.3.0
 #
-# ---------------------------------------------------------------------------------------
-# Optional: full document scanning in Text Mode
-# ---------------------------------------------------------------------------------------
-# By default Text Mode scans plain-text files only. To also extract and scan text from
-# document formats (docx, pdf, xlsx, pptx, odt, rtf, epub, ...), install textract. It is
-# kept separate because its build dependencies can be difficult to install on some
-# platforms, and plain-text files are always scanned without it:
-#   pip3 install textract
-#
-# Optionally also install pypdf. It is a lightweight PDF fallback: some PDFs (e.g. paper
-# wallets with custom font encodings) extract as garbled text under textract's pdfminer
-# engine, and pypdf recovers them. Not required, but recommended if you scan PDFs:
-#   pip3 install pypdf
