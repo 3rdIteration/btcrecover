@@ -74,53 +74,21 @@ def _chacha20_encrypt(key, counter, nonce, data):
 # Poly1305 MAC
 # ---------------------------------------------------------------------------
 
-_P = 0x3FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB
+_P = 2 ** 130 - 5
 
 
 def _poly1305_mac(key, data):
-    r0 = struct.unpack('<I', key[0:4])[0] & 0x0FFFFFFF
-    r1 = struct.unpack('<I', key[4:8])[0] & 0x0FFFFFFC
-    r2 = struct.unpack('<I', key[8:12])[0] & 0x0FFFFFFC
-    r3 = struct.unpack('<I', key[12:16])[0] & 0x0FFFFFFC
-    r4 = struct.unpack('<I', key[16:20])[0] & 0x0FFFFFFC
-    s1 = struct.unpack('<I', key[20:24])[0]
-    s2 = struct.unpack('<I', key[24:28])[0]
-    s3 = struct.unpack('<I', key[28:32])[0]
-    s4 = struct.unpack('<I', key[32:36])[0]
-    h0 = h1 = h2 = h3 = h4 = 0
+    r_clamped = int.from_bytes(key[:16], 'little') & 0x0FFFFFFC0FFFFFFC0FFFFFFC0FFFFFFF
+    s = int.from_bytes(key[16:32], 'little')
+    h = 0
     for i in range(0, len(data), 16):
         block = data[i:i + 16]
-        if len(block) == 16:
-            n = struct.unpack('<IIII', block)
-            n0, n1, n2, n3 = n[0], n[1], n[2], n[3]
-        else:
-            n0 = struct.unpack('<I', block[:4])[0]
-            n1 = struct.unpack('<I', block[4:8])[0] if len(block) >= 8 else 0
-            n2 = struct.unpack('<I', block[8:12])[0] if len(block) >= 12 else 0
-            n3 = int.from_bytes(block[12:] + b'\x01', 'little') if len(block) < 16 else 0
-        h0 = (h0 + n0) & 0xFFFFFFFF
-        h1 = (h1 + n1) & 0xFFFFFFFF
-        h2 = (h2 + n2) & 0xFFFFFFFF
-        h3 = (h3 + n3) & 0xFFFFFFFF
-        h4 = (h4 + (1 if len(block) < 16 else 0)) & 0x3
-        d0 = h0 * r0 + h1 * s4 + h2 * s3 + h3 * s2 + h4 * s1
-        d1 = h0 * r1 + h1 * r0 + h2 * s4 + h3 * s3 + h4 * s2
-        d2 = h0 * r2 + h1 * r1 + h2 * r0 + h3 * s4 + h4 * s3
-        d3 = h0 * r3 + h1 * r2 + h2 * r1 + h3 * r0 + h4 * s4
-        d4 = h0 * r4 + h1 * r3 + h2 * r2 + h3 * r1 + h4 * r0
-        h0 = d0 & 0xFFFFFFFF
-        h1 = (d0 >> 32 | d1 << 32) & 0xFFFFFFFF
-        h2 = (d1 >> 32 | d2 << 32) & 0xFFFFFFFF
-        h3 = (d2 >> 32 | d3 << 32) & 0xFFFFFFFF
-        h4 = (d3 >> 32 | d4 << 32) & 0xFFFFFFFF
-        h0 = (h0 | (h1 & 0x3) << 32) % _P
-        h1 = ((h1 >> 2) | (h2 & 0xF) << 30) % _P
-        h2 = ((h2 >> 4) | (h3 & 0x3F) << 28) % _P
-        h3 = ((h3 >> 6) | (h4 & 0xFFF) << 26) % _P
-        h4 = 0
-    mac = struct.pack('<IIII', h0, h1, h2, h3)
-    mac = int.from_bytes(mac, 'little') + int.from_bytes(key[36:52], 'little')
-    return (mac & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF).to_bytes(16, 'little')
+        n = int.from_bytes(block, 'little')
+        n |= 1 << (8 * len(block))
+        h = (h + n) % _P
+        h = (h * r_clamped) % _P
+    h = (h + s) & ((1 << 128) - 1)
+    return h.to_bytes(16, 'little')
 
 
 def _pad16(data):
