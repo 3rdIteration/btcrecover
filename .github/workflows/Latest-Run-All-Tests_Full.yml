@@ -36,6 +36,14 @@ jobs:
         # coincurve cannot be built (e.g. Python 3.14), the job still runs using
         # the wallycore fallback instead of failing the install step.
         grep -viE 'coincurve' requirements-full.txt > "$RUNNER_TEMP/btcr-reqs.txt"
+        # On Python 3.14 coincurve has no wheel and cannot build from source, and
+        # bip-utils (plus the packages that depend on it) hard-require coincurve.
+        # Exclude that subtree on 3.14 so the install succeeds using the wallycore
+        # fallback instead of failing on a coincurve source build.
+        if [ "${{ matrix.python-version }}" = "3.14" ]; then
+          grep -viE 'bip-utils|py_crypto_hd_wallet|slip10|stellar_sdk' "$RUNNER_TEMP/btcr-reqs.txt" > "$RUNNER_TEMP/btcr-reqs-3.14.txt"
+          mv "$RUNNER_TEMP/btcr-reqs-3.14.txt" "$RUNNER_TEMP/btcr-reqs.txt"
+        fi
         pip install -r "$RUNNER_TEMP/btcr-reqs.txt"
         sudo apt install python3-bsddb3
         # Per-Python-version coincurve pin (matches available prebuilt wheels):
