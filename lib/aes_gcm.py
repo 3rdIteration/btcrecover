@@ -49,7 +49,9 @@ def _ghash(h_int, data):
 
 def _inc32(block):
     ctr = _bytes_to_int128(block)
-    return _int128_to_bytes(((ctr >> 32) + 1) << 32 | (ctr & 0xFFFFFFFF))
+    high = ctr & 0xFFFFFFFFFFFFFFFFFFFFFFFF00000000
+    low = (ctr + 1) & 0xFFFFFFFF
+    return _int128_to_bytes(high | low)
 
 
 def _aes_ctr_encrypt(aes_ecb, counter_init, data):
@@ -64,14 +66,22 @@ def _aes_ctr_encrypt(aes_ecb, counter_init, data):
     return bytes(out)
 
 
+def _compute_j0(h, nonce):
+    # SP 800-38D: J0 construction
+    if len(nonce) == 12:
+        return nonce + b'\x00\x00\x00\x01'
+    # For non-96-bit IVs, J0 = GHASH_H(IV || 0^s+64 || [len(IV)]_64)
+    s = (16 - len(nonce) % 16) % 16
+    ghash_data = nonce + b'\x00' * s + struct.pack('>Q', 0) + struct.pack('>Q', len(nonce) * 8)
+    return _int128_to_bytes(_ghash(h, ghash_data))
+
+
 def gcm_decrypt(key, nonce, ciphertext, tag=None, aad=None, decrypt_only=False):
     if len(key) not in (16, 24, 32):
         raise ValueError("Invalid key size")
-    if len(nonce) != 12:
-        raise ValueError("Nonce must be 12 bytes")
     aes_ecb = _AES(key)
     h = _bytes_to_int128(aes_ecb.encrypt(b'\x00' * 16))
-    j0 = nonce + b'\x00\x00\x00\x01'
+    j0 = _compute_j0(h, nonce)
     if not decrypt_only and tag is not None:
         if len(tag) not in (4, 8, 12, 13, 14, 15, 16):
             raise ValueError("Invalid tag length")
@@ -101,6 +111,11 @@ class _AES_GCM_Cipher:
         self._ciphertext = bytearray()
         self._finalized = False
 
+    def _j0(self):
+        aes_ecb = _AES(self._key)
+        h = _bytes_to_int128(aes_ecb.encrypt(b'\x00' * 16))
+        return _compute_j0(h, self._nonce)
+
     def update(self, aad_bytes):
         if self._finalized:
             raise ValueError("Already finalized")
@@ -113,7 +128,7 @@ class _AES_GCM_Cipher:
         if isinstance(plaintext, str):
             plaintext = plaintext.encode()
         aes_ecb = _AES(self._key)
-        j0 = self._nonce + b'\x00\x00\x00\x01'
+        j0 = self._j0()
         ct = _aes_ctr_encrypt(aes_ecb, _inc32(j0), plaintext)
         self._ciphertext.extend(ct)
         return ct
@@ -127,7 +142,7 @@ class _AES_GCM_Cipher:
         if isinstance(ciphertext, str):
             ciphertext = ciphertext.encode()
         aes_ecb = _AES(self._key)
-        j0 = self._nonce + b'\x00\x00\x00\x01'
+        j0 = self._j0()
         pt = _aes_ctr_encrypt(aes_ecb, _inc32(j0), ciphertext)
         self._ciphertext.extend(ciphertext)
         return pt
@@ -142,7 +157,7 @@ class _AES_GCM_Cipher:
     def _compute_tag(self, ct):
         aes_ecb = _AES(self._key)
         h = _bytes_to_int128(aes_ecb.encrypt(b'\x00' * 16))
-        j0 = self._nonce + b'\x00\x00\x00\x01'
+        j0 = _compute_j0(h, self._nonce)
         aad = bytes(self._aad)
         u = (16 - len(ct) % 16) % 16
         v = (16 - len(aad) % 16) % 16
