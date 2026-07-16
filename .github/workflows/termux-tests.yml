@@ -14,7 +14,9 @@ jobs:
     name: Termux Base (${{ matrix.backend }})
     strategy:
       matrix:
-        backend: [coincurve, wallycore, purepython]
+        # wallycore has no Android/aarch64 wheel and its source build fails
+        # under Termux, so only coincurve and the pure-Python backend are tested here.
+        backend: [coincurve, purepython]
         include:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
@@ -72,7 +74,9 @@ jobs:
     name: Termux Full (${{ matrix.backend }})
     strategy:
       matrix:
-        backend: [coincurve, wallycore, purepython]
+        # wallycore has no Android/aarch64 wheel and its source build fails
+        # under Termux, so only coincurve and the pure-Python backend are tested here.
+        backend: [coincurve, purepython]
         include:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
