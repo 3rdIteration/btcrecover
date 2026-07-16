@@ -37,7 +37,12 @@ jobs:
         # the wallycore fallback instead of failing the install step.
         grep -viE 'coincurve' requirements-full.txt | pip install -r /dev/stdin
         sudo apt install python3-bsddb3
-        pip install coincurve==21.0.0 || pip install coincurve==20.0.0 || true
+        # Per-Python-version coincurve pin (matches available prebuilt wheels):
+        #  3.13 -> only 21.0.0 has a wheel; 3.14 -> no wheel, fall back to wallycore.
+        case "${{ matrix.python-version }}" in
+          3.13) pip install coincurve==21.0.0 || true ;;
+          *)    pip install coincurve==21.0.0 || pip install coincurve==20.0.0 || true ;;
+        esac
     - name: Install dependencies (wallycore backend)
       if: matrix.backend == 'wallycore'
       run: |
