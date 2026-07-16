@@ -2135,11 +2135,25 @@ pip install -r requirements-full.txt
 <p>If when run this command, you get an error message similar to <strong>error: externally-managed-environment</strong> then you need to add an additional argument <code>--break-system-packages</code> to the above command. (So the command will be <code>pip3 install -r requirements.txt --break-system-packages</code>) </p>
 <p>Note: If you use Python for other things beyond BTCRecover, then the <code>--break-system-packages</code> could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.</p>
 <h4 id="python-314-and-coincurve">Python 3.14 and coincurve</h4>
-<p><strong>coincurve 21 currently has a bug that prevents it from building from source</strong> (<code>RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0</code>). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using <strong>Python 3.14</strong> (or any platform without a pre-built wheel), you must install coincurve 20 manually <em>before</em> running the requirements install:</p>
-<div class="highlight"><pre><span></span><code>pip3 install coincurve==20.0.0
-pip3 install -r requirements.txt
-</code></pre></div>
-<p>Because <code>requirements.txt</code> accepts any coincurve version in the range <code>&gt;=20.0.0,&lt;22</code>, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.</p>
+<p><strong>coincurve does not currently ship pre-built wheels for Python 3.14</strong>, and
+building it from source currently fails for both available releases:</p>
+<ul>
+<li><strong>coincurve 21</strong> fails with <code>RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0</code>.</li>
+<li><strong>coincurve 20</strong> fails with <code>ERROR: Use build.verbose instead of cmake.verbose for scikit-build-core &gt;= 0.10</code>.</li>
+</ul>
+<p>Pre-built wheels exist only up to Python 3.13 (coincurve 21) / 3.12 (coincurve 20)
+on Windows, macOS, and Linux, so most desktop users on Python 3.10–3.13 are
+unaffected. If you are on <strong>Python 3.14</strong> (or any platform without a pre-built
+wheel), coincurve cannot be installed at all right now.</p>
+<p>Because BTCRecover now uses a pluggable secp256k1 backend, this is not fatal:
+if you install <strong>wallycore</strong> (<code>pip3 install wallycore</code>, already part of
+<code>requirements-full.txt</code> and the base <code>requirements.txt</code>), BTCRecover will
+automatically use it instead of coincurve and run at full C-accelerated speed.
+If neither coincurve nor wallycore can be installed, BTCRecover falls back to
+the bundled pure-Python implementation (with a startup warning) — correct, but
+roughly 150× slower for public-key derivation. You can force a backend with the
+<code>BTCR_BACKEND</code> environment variable (see
+<a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
 <h3 id="packages-for-extended-wallet-support">Packages for Extended Wallet Support</h3>
 <p>Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.</p>
 <p><code>pip3 install -r requirements-full.txt</code></p>
