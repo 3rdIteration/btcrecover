@@ -324,12 +324,11 @@ faster** than the pure-Python backend on the same hardware:
 | Backend            | Public-key derivations/sec | Relative speed |
 |--------------------|---------------------------:|---------------:|
 | coincurve          | ~34,000                    | ~1× (baseline) |
-| wallycore          | ~36,000                    | ~1× (baseline) |
+| wallycore          | ~17,000                    | ~2× slower     |
 | pure-Python        | ~240                      | ~150× slower   |
 
-The C backends are effectively equivalent for public-key derivation, so a
-BIP-39 recovery takes essentially the same time whether `coincurve` or
-`wallycore` is in use. The pure-Python backend is perfectly usable for small
+For BIP-39 seed recovery, `coincurve` is about **2× faster** than `wallycore`.
+The pure-Python backend is perfectly usable for small
 jobs and for verifying dependencies aren't required, but for large password or
 seed searches you should install `coincurve` or `wallycore` to avoid runtimes
 that are two orders of magnitude longer.
