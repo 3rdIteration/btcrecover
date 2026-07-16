@@ -73,7 +73,9 @@ jobs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        grep -viE 'coincurve|wallycore' requirements.txt > "$RUNNER_TEMP/btcr-reqs.txt"
+        # Also exclude pycryptodome and protobuf so the pure-python AES,
+        # ChaCha20-Poly1305, and Keccak fallbacks are exercised.
+        grep -viE 'coincurve|wallycore|pycryptodome|protobuf' requirements.txt > "$RUNNER_TEMP/btcr-reqs.txt"
         pip install -r "$RUNNER_TEMP/btcr-reqs.txt"
     - name: Install green on Windows (workaround for hanging tests on Github Actions)
       if: runner.os == 'Windows'

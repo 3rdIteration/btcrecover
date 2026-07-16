@@ -55,7 +55,11 @@ jobs:
       if: matrix.backend == 'purepython'
       run: |
         python -m pip install --upgrade pip
-        grep -viE 'coincurve|wallycore' requirements.txt > "$RUNNER_TEMP/btcr-reqs.txt"
+        # Also exclude pycryptodome and protobuf so the pure-python AES,
+        # ChaCha20-Poly1305, and Keccak fallbacks are exercised.
+        # pycryptodome is the C-backed implementation; protobuf is the
+        # only remaining optional dependency that cannot be pure-python.
+        grep -viE 'coincurve|wallycore|pycryptodome|protobuf' requirements.txt > "$RUNNER_TEMP/btcr-reqs.txt"
         pip install -r "$RUNNER_TEMP/btcr-reqs.txt"
     - name: Run All Tests
       env:

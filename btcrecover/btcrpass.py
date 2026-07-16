@@ -68,8 +68,10 @@ except:
     # otherwise use pure python implementation
     from lib.embit.py_ripemd160 import ripemd160
 
-# Import modules from requirements.txt
-from Crypto.Cipher import AES
+# AES and ChaCha20-Poly1305 are provided by btcrecover.aes_backends,
+# which prefers pycryptodome, falls back to bundled pure-Python
+# implementations (and prints a warning when the slow path is used).
+from btcrecover.aes_backends import AES, chacha20_poly1305_new
 
 # secp256k1 public-key operations are provided by btcrecover.crypto_backends,
 # which prefers coincurve, falls back to wallycore, and finally to a bundled
@@ -1286,8 +1288,10 @@ class WalletBitcoinj(object):
         try:
             from . import bitcoinj_pb2
         except ModuleNotFoundError:
-            print("Warning: Cannot load protobuf module, unable to check if this is a Coinomi wallet"
-                  "... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+            raise ValueError(
+                "Cannot load protobuf module, unable to process this bitcoinj wallet."
+                " Install protobuf with: pip3 install -r requirements.txt"
+                " (see https://btcrecover.readthedocs.io/en/latest/INSTALL/)")
 
         pb_wallet = bitcoinj_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(filedata))
@@ -1428,8 +1432,7 @@ class WalletCoinomi(WalletBitcoinj):
                 try:
                     from . import coinomi_pb2
                 except ModuleNotFoundError:
-                    exit(
-                        "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+                    return False
 
                 try:
                     wallet_file.seek(0)
@@ -1447,8 +1450,10 @@ class WalletCoinomi(WalletBitcoinj):
         try:
             from . import coinomi_pb2
         except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+            raise ValueError(
+                "Cannot load protobuf module, unable to process this Coinomi wallet."
+                " Install protobuf with: pip3 install -r requirements.txt"
+                " (see https://btcrecover.readthedocs.io/en/latest/INSTALL/)")
 
         pb_wallet = coinomi_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(filedata))
@@ -4815,10 +4820,9 @@ class WalletYoroi(object):
 
         try:
             from lib.emip3 import emip3
-        except ModuleNotFoundError:
+        except Exception:
             exit(
-                "\nERROR: Cannot load pycryptodome module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
-
+                "\nERROR: Cannot load EMIP-3 module required for this wallet (Yoroi/Cardano)... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
@@ -4826,9 +4830,9 @@ class WalletYoroi(object):
 
         try:
             from lib.emip3 import emip3
-        except ModuleNotFoundError:
+        except Exception:
             exit(
-                "\nERROR: Cannot load pycryptodome module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+                "\nERROR: Cannot load EMIP-3 module required for this wallet (Yoroi/Cardano)... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         self.__dict__ = state
 
@@ -4858,8 +4862,7 @@ class WalletYoroi(object):
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
-    def _return_verified_password_or_false_opencl(self, arg_passwords): # Yoroi Cadano Wallet
-        from Crypto.Cipher import ChaCha20_Poly1305
+    def _return_verified_password_or_false_opencl(self, arg_passwords): # Yoroi Cardano Wallet
 
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
@@ -4873,7 +4876,7 @@ class WalletYoroi(object):
 
         for count, (password, key) in enumerate(results, 1):
             try:
-                cipher = ChaCha20_Poly1305.new(key=key, nonce=self.nonce)
+                cipher = chacha20_poly1305_new(key=key, nonce=self.nonce)
                 plaintext = cipher.decrypt_and_verify(self.ciphertext, self.tag)
                 return password.decode("utf_8", "replace"), count
             except ValueError:  # ChaCha20_Poly1305 throws a value error if the password is incorrect
@@ -5728,6 +5731,17 @@ def load_aes256_library(force_purepython = False, warnings = True):
             aes256_ofb_decrypt = lambda key, iv, ciphertext: \
                 new_aes(key, Crypto.Cipher.AES.MODE_OFB, iv).decrypt(ciphertext)
             return Crypto  # just so the caller can check which version was loaded
+        except ImportError:
+            pass
+        # Try bundled pure-python AES backend
+        try:
+            from btcrecover.aes_backends import AES as _AES_Backend
+            new_aes = _AES_Backend.new
+            aes256_cbc_decrypt = lambda key, iv, ciphertext: \
+                new_aes(key, _AES_Backend.MODE_CBC, iv).decrypt(ciphertext)
+            aes256_ofb_decrypt = lambda key, iv, ciphertext: \
+                new_aes(key, _AES_Backend.MODE_OFB, iv).decrypt(ciphertext)
+            return _AES_Backend
         except ImportError:
             if warnings and not missing_pycrypto_warned:
                 print("Warning: Can't find PyCrypto, using aespython instead", file=sys.stderr)
