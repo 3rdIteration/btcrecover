@@ -111,6 +111,6 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig libsodium
-          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && export SODIUM_INSTALL=system && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -viE 'coincurve|wallycore|bip-utils' requirements-full.txt | pip install -r /dev/stdin"
+          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && export SODIUM_INSTALL=system && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -viE 'coincurve|wallycore|bip-utils|py_crypto_hd_wallet|slip10|stellar_sdk' requirements-full.txt | pip install -r /dev/stdin"
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
