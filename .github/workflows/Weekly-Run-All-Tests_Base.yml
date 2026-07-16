@@ -52,7 +52,8 @@ jobs:
         # fallback backend), then try to add coincurve on top. On platforms where
         # coincurve cannot be built (e.g. Python 3.14), the job still runs using
         # the wallycore fallback instead of failing the install step.
-        grep -viE 'coincurve' requirements.txt | pip install -r /dev/stdin
+        grep -viE 'coincurve' requirements.txt > \"$RUNNER_TEMP/btcr-reqs.txt\"
+        pip install -r \"$RUNNER_TEMP/btcr-reqs.txt\"
         # Per-Python-version coincurve pin (matches available prebuilt wheels):
         #  3.13 -> only 21.0.0 has a wheel; 3.14 -> no wheel, fall back to wallycore.
         case "${{ matrix.python-version }}" in
@@ -65,13 +66,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install wallycore
-        grep -viE 'coincurve|wallycore' requirements.txt | pip install -r /dev/stdin
+        grep -viE 'coincurve|wallycore' requirements.txt > \"$RUNNER_TEMP/btcr-reqs.txt\"
+        pip install -r \"$RUNNER_TEMP/btcr-reqs.txt\"
     - name: Install dependencies (pure-python backend)
       if: matrix.backend == 'purepython'
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        grep -viE 'coincurve|wallycore' requirements.txt | pip install -r /dev/stdin
+        grep -viE 'coincurve|wallycore' requirements.txt > \"$RUNNER_TEMP/btcr-reqs.txt\"
+        pip install -r \"$RUNNER_TEMP/btcr-reqs.txt\"
     - name: Install green on Windows (workaround for hanging tests on Github Actions)
       if: runner.os == 'Windows'
       run: pip install green

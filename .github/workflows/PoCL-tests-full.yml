@@ -25,7 +25,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install coincurve==21.0.0 || pip install coincurve==20.0.0 || true
-          grep -viE 'coincurve' requirements-full.txt | pip install -r /dev/stdin
+          grep -viE 'coincurve' requirements-full.txt > "$RUNNER_TEMP/btcr-reqs.txt"
+          pip install -r "$RUNNER_TEMP/btcr-reqs.txt"
           pip install pyopencl
       - name: Run tests with PoCL
         env:

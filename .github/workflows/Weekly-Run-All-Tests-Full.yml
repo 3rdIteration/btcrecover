@@ -47,7 +47,8 @@ jobs:
         # fallback backend), then try to add coincurve on top. On platforms where
         # coincurve cannot be built (e.g. Python 3.14), the job still runs using
         # the wallycore fallback instead of failing the install step.
-        grep -viE 'coincurve' requirements-full.txt | pip install -r /dev/stdin
+        grep -viE 'coincurve' requirements-full.txt > \"$RUNNER_TEMP/btcr-reqs.txt\"
+        pip install -r \"$RUNNER_TEMP/btcr-reqs.txt\"
         # Per-Python-version coincurve pin (matches available prebuilt wheels):
         #  3.13 -> only 21.0.0 has a wheel; 3.14 -> no wheel, fall back to wallycore.
         case "${{ matrix.python-version }}" in
