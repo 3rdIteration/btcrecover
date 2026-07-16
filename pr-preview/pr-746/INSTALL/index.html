@@ -632,6 +632,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#termux-and-the-secp256k1-backends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Termux and the secp256k1 backends
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#enabling-native-ripemd160-support" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2054,6 +2065,14 @@
 <p>You can also use Git (If you have it installed) to do this with the command <code>git clone https://github.com/3rdIteration/btcrecover/</code></p>
 <h2 id="2-install-python">2) Install Python</h2>
 <p><strong>Note:</strong> Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...</p>
+<p><strong>Recommended Python version: 3.13.</strong> On Python 3.10–3.13, <code>coincurve</code>
+ships pre-built wheels, so the default <code>pip install -r requirements.txt</code>
+"just works" with the fastest secp256k1 backend. Python 3.14 (and any future
+3.15) currently has <strong>no</strong> <code>coincurve</code> wheel, so the default install cannot use
+coincurve there — see <a href="#python-314-and-coincurve">Python 3.14 and coincurve</a>.
+If you are on 3.14/3.15, install <code>wallycore</code> (or rely on the pure-Python
+fallback) and expect the HD-wallet packages in <code>requirements-full.txt</code> to be
+unavailable until coincurve publishes a wheel for that version.</p>
 <h3 id="windows">Windows</h3>
 <p>Video Demo of Installing BTCRecover in Windows: <a href="https://youtu.be/JveLyJqEgLk">https://youtu.be/JveLyJqEgLk</a></p>
 <p>Install Python via the Windows Store.</p>
@@ -2100,6 +2119,24 @@ pip install maturin --no-binary maturin
 pip install py-sr25519-bindings==0.2.3 --no-build-isolation
 pip install -r requirements-full.txt
 </code></pre></div>
+<h4 id="termux-and-the-secp256k1-backends">Termux and the secp256k1 backends</h4>
+<p><strong>coincurve does not work on Termux/aarch64 at all.</strong> Even when it builds from
+source, <code>import coincurve</code> fails at runtime with
+<code>ImportError: dlopen failed: cannot locate symbol "_Py_NoneStruct"</code>
+(see <a href="https://github.com/ofek/coincurve/issues/189">ofek/coincurve#189</a>). The
+<code>wallycore</code> package also has no Android/aarch64 wheel and its source build fails.
+As a result, the only secp256k1 backend that works on Termux is the bundled
+<strong>pure-Python</strong> implementation — which is correct but roughly 150× slower for
+public-key derivation (see <a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
+<p>Two practical consequences:</p>
+<ul>
+<li>Install the <strong>base</strong> <code>requirements.txt</code> only (or install <code>wallycore</code> and
+   <code>protobuf</code>/<code>pycryptodome</code> individually). Avoid <code>requirements-full.txt</code> on
+   Termux: its <code>bip-utils</code> package hard-requires <code>coincurve</code>, which cannot be
+   installed on aarch64, so the full requirements will fail to install there.</li>
+<li>Expect recoveries on a phone to be slow; this is a CPU/backend limitation,
+   not a misconfiguration.</li>
+</ul>
 <h4 id="enabling-native-ripemd160-support">Enabling Native RIPEMD160 Support</h4>
 <p>As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.</p>
 <p>You can check if this is required by running <code>python check_ripemd160.py</code></p>
@@ -2154,6 +2191,13 @@ the bundled pure-Python implementation (with a startup warning) — correct, but
 roughly 150× slower for public-key derivation. You can force a backend with the
 <code>BTCR_BACKEND</code> environment variable (see
 <a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
+<p><strong>Caveat for <code>requirements-full.txt</code> on Python 3.14:</strong> the HD-wallet packages
+<code>bip-utils</code> (and the packages that depend on it — <code>py_crypto_hd_wallet</code>,
+<code>slip10</code>, <code>stellar_sdk</code>) hard-require <code>coincurve</code>, which cannot be installed on
+3.14. So <code>pip install -r requirements-full.txt</code> will fail on Python 3.14. The
+base <code>requirements.txt</code> does not have this problem (it only needs <code>wallycore</code>
+plus <code>protobuf</code>/<code>pycryptodome</code>), so install that and add the coincurve-dependent
+HD-wallet extras only once a coincurve wheel exists for 3.14.</p>
 <h3 id="packages-for-extended-wallet-support">Packages for Extended Wallet Support</h3>
 <p>Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.</p>
 <p><code>pip3 install -r requirements-full.txt</code></p>
