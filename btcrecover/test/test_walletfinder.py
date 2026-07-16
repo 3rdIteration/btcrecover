@@ -723,7 +723,7 @@ class TestArgumentParsing(unittest.TestCase):
 
     def test_help(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp'])
-        self.assertTrue(args.wallet_mode)
+        self.assertFalse(args.skip_wallet_mode)
 
     def test_folder_required(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp'])
@@ -731,11 +731,11 @@ class TestArgumentParsing(unittest.TestCase):
 
     def test_text_mode_flag(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--text-mode'])
-        self.assertTrue(args.text_mode)
+        self.assertTrue(args.text_mode_compat)
 
     def test_mnemonic_mode_backward_compat(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--mnemonic-mode'])
-        self.assertFalse(args.wallet_mode)
+        self.assertFalse(args.wallet_mode_compat)
 
     def test_depth_argument(self):
         args = walletfinder.parse_arguments(['--folder', '/tmp', '--depth', '3'])
