@@ -13,12 +13,22 @@ from a private key, the P2TR tap-tweak, and the ECIES point multiplication used
 by Electrum 2.8 wallets.
 
 Usage:
-    python benchmark_crypto_backends.py [iterations]
+    python benchmark_crypto_backends.py [iterations] [--backend NAME]
+                                         [--output FILE] [--comment TEXT]
+
+    iterations   number of operations per timed block (default: 2000)
+    --backend    force a single backend: coincurve, wallycore, or purepython.
+                 When omitted, every available backend is benchmarked.
+    --output     write the results as JSON to FILE.
+    --comment    free-text note recorded in the JSON output (e.g. the host).
 
 The default iteration count is chosen so the whole benchmark finishes in a few
 seconds for the C backends and a little longer for the pure-Python one.
 """
 
+import argparse
+import datetime
+import json
 import os
 import sys
 import time
@@ -29,9 +39,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from btcrecover import crypto_backends as cb
 
 
+VALID_BACKENDS = ("coincurve", "wallycore", "purepython")
+
+
 # Number of operations per timed block. Kept modest because the pure-Python
 # backend is intentionally slow.
-ITERATIONS = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
+DEFAULT_ITERATIONS = 2000
 
 
 def _make_backend(name):
@@ -68,22 +81,46 @@ def _time_it(fn, iters):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Benchmark BTCRecover secp256k1 backends.")
+    parser.add_argument("iterations", nargs="?", type=int,
+                        default=DEFAULT_ITERATIONS,
+                        help="operations per timed block (default: %d)" % DEFAULT_ITERATIONS)
+    parser.add_argument("--backend", choices=VALID_BACKENDS, default=None,
+                        help="force a single backend instead of benchmarking all")
+    parser.add_argument("--output", default=None,
+                        help="write results as JSON to this file")
+    parser.add_argument("--comment", default=None,
+                        help="free-text note recorded in the JSON output")
+    args = parser.parse_args()
+
+    iters = args.iterations
+    forced = args.backend
+
     priv = (0x1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF).to_bytes(32, "big")
     epub = cb.privkey_to_pubkey(priv, compressed=True)
     tweak = (0x01).to_bytes(31, "big") + b"\x02"
     h = b"\x11" * 32
 
-    backends = []
-    for name in ("coincurve", "wallycore", "purepython"):
-        be = _make_backend(name)
-        if be is not None:
-            backends.append((name, be))
+    if forced is not None:
+        be = _make_backend(forced)
+        if be is None:
+            print("Requested backend '%s' is not available; aborting." % forced)
+            sys.exit(1)
+        backends = [(forced, be)]
+    else:
+        backends = []
+        for name in VALID_BACKENDS:
+            be = _make_backend(name)
+            if be is not None:
+                backends.append((name, be))
 
     if not backends:
         print("No secp256k1 backend available!")
         sys.exit(1)
 
-    print("Benchmarking %d operations per backend\n" % ITERATIONS)
+    scope = forced if forced is not None else "all available"
+    print("Benchmarking %d operations per backend (%s)\n" % (iters, scope))
     header = "%-12s | %12s | %12s | %12s | %12s" % (
         "backend", "pubkey(comp)", "pubkey(unc)", "p2tr tweak", "ecies mult")
     print(header)
@@ -91,10 +128,10 @@ def main():
 
     results = {}
     for name, be in backends:
-        comp_t, comp_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, True), ITERATIONS)
-        unc_t, unc_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, False), ITERATIONS)
-        tweak_t, tweak_ops = _time_it(lambda: be["tweak_pubkey"](be["lift_x"](epub), h), ITERATIONS)
-        mult_t, mult_ops = _time_it(lambda: be["multiply_pubkey"](epub, tweak), ITERATIONS)
+        comp_t, comp_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, True), iters)
+        unc_t, unc_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, False), iters)
+        tweak_t, tweak_ops = _time_it(lambda: be["tweak_pubkey"](be["lift_x"](epub), h), iters)
+        mult_t, mult_ops = _time_it(lambda: be["multiply_pubkey"](epub, tweak), iters)
         results[name] = (comp_ops, unc_ops, tweak_ops, mult_ops)
         print("%-12s | %12.1f | %12.1f | %12.1f | %12.1f" % (
             name, comp_ops, unc_ops, tweak_ops, mult_ops))
@@ -109,6 +146,29 @@ def main():
                   "for pubkey derivation." % (fastest, speedup))
 
     print("\nActive backend selected at import time: %s" % cb.BACKEND_NAME)
+    if forced is not None:
+        print("Forced backend for this run: %s" % forced)
+
+    if args.output:
+        payload = {
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "iterations": iters,
+            "forced_backend": forced,
+            "active_backend_at_import": cb.BACKEND_NAME,
+            "comment": args.comment,
+            "results": {
+                name: {
+                    "pubkey_comp": comp_ops,
+                    "pubkey_unc": unc_ops,
+                    "p2tr_tweak": tweak_ops,
+                    "ecies_mult": mult_ops,
+                }
+                for name, (comp_ops, unc_ops, tweak_ops, mult_ops) in results.items()
+            },
+        }
+        with open(args.output, "w") as fh:
+            json.dump(payload, fh, indent=2)
+        print("\nWrote results to %s" % args.output)
 
 
 if __name__ == "__main__":
