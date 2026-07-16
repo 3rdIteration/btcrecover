@@ -166,6 +166,7 @@ class _PurePythonAES:
 # ---------------------------------------------------------------------------
 
 class _AESModule:
+    __name__ = "aes_backends"
     MODE_ECB = MODE_ECB
     MODE_CBC = MODE_CBC
     MODE_GCM = MODE_GCM
