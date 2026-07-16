@@ -334,6 +334,13 @@ jobs and for verifying dependencies aren't required, but for large password or
 seed searches you should install `coincurve` or `wallycore` to avoid runtimes
 that are two orders of magnitude longer.
 
+For **simple recoveries** — 1–2 missing or wrong BIP-39 words (e.g. a wrong
+word from a known wallet, or one word you don't fully remember) — the
+pure-Python backend is fast enough: on an average computer the search finishes
+in **well under 24 hours** without any additional modules installed. You can
+start with just Python + the base `requirements.txt` and only bother with the
+C-backed packages if your recovery turns out to be more complex.
+
 Electrum 2.8 ECIES is the one operation that only `coincurve` accelerates
 (~48,000 ops/sec); `wallycore` and pure-Python both fall back to the bundled
 pure-Python EC code (~2,000 ops/sec) for it.
