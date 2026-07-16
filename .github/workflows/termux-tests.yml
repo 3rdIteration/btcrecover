@@ -11,16 +11,9 @@ on:
 
 jobs:
   termux:
-    name: Termux Base (pure-python)
+    name: Termux Base
     strategy:
       matrix:
-        # On Android/aarch64 (Termux) neither coincurve nor wallycore has a
-        # prebuilt wheel and both fail to build from source, so the only backend
-        # that installs there is the bundled pure-Python implementation. Termux
-        # therefore tests that backend (which is slow but correct). All three
-        # C-backed backend combinations are exercised on regular Linux in the
-        # Latest/Weekly workflows instead.
-        backend: [purepython]
         include:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
@@ -40,7 +33,6 @@ jobs:
       TMPDIR: /data/data/com.termux/files/usr/tmp
       LANG: en_US.UTF-8
       TZ: UTC
-      BTCR_BACKEND: ${{ matrix.backend }}
     steps:
       - name: set pkg mirror
         run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
@@ -58,21 +50,18 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig
-          # Exclude the C-backed secp256k1 libraries; they cannot be built on
-          # Termux/aarch64, so the pure-Python backend is used instead.
-          /entrypoint.sh bash -c "grep -viE 'coincurve|wallycore' requirements.txt | pip install -r /dev/stdin"
+          # Exclude wallycore so only coincurve is attempted here (matching the
+          # historical Termux setup); coincurve on Termux/aarch64 is a known
+          # source-build/runtime issue (see ofek/coincurve#189) and is allowed
+          # to fail on this platform.
+          /entrypoint.sh bash -c "grep -viE 'wallycore' requirements.txt | pip install -r /dev/stdin"
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
 
   termux-full:
-    name: Termux Full (pure-python)
+    name: Termux Full
     strategy:
       matrix:
-        # Same reasoning as the Base job: only the pure-Python backend installs
-        # on Termux/aarch64. bip-utils is also excluded because it hard-requires
-        # coincurve (which cannot be built here); wallets needing bip-utils are
-        # skipped in this environment.
-        backend: [purepython]
         include:
           - runner: ubuntu-24.04-arm
             architecture: aarch64
@@ -93,7 +82,6 @@ jobs:
       LANG: en_US.UTF-8
       TZ: UTC
       ANDROID_API_LEVEL: "24"
-      BTCR_BACKEND: ${{ matrix.backend }}
     steps:
       - name: set pkg mirror
         run: ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
@@ -111,6 +99,9 @@ jobs:
       - name: Install dependencies
         run: |
           /entrypoint.sh pkg install -y python git autoconf automake build-essential libtool pkg-config llvm lld rust swig libsodium
-          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && export SODIUM_INSTALL=system && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -viE 'coincurve|wallycore|bip-utils|py_crypto_hd_wallet|slip10|stellar_sdk' requirements-full.txt | pip install -r /dev/stdin"
+          /entrypoint.sh bash -c "export ANDROID_API_LEVEL=24 && export SODIUM_INSTALL=system && pip install maturin --no-binary maturin && pip install py-sr25519-bindings==0.2.3 --no-build-isolation && grep -vi wallycore requirements-full.txt | pip install -r /dev/stdin"
+      - name: Install wallycore (optional, may fail to build from source on some platforms)
+        continue-on-error: true
+        run: /entrypoint.sh pip install wallycore==1.5.2
       - name: Run tests
         run: /entrypoint.sh python run-all-tests.py -vv
