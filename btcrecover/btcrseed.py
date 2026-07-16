@@ -68,10 +68,14 @@ except:
     from lib.embit.py_ripemd160 import ripemd160
 
 # Import modules from requirements.txt
-try:
-    import coincurve
-except ModuleNotFoundError:
-    exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+# secp256k1 public-key operations are provided by btcrecover.crypto_backends,
+# which prefers coincurve, falls back to wallycore, and finally to a bundled
+# pure-Python implementation (emitting a warning when the slow path is used).
+from btcrecover.crypto_backends import (
+    privkey_to_pubkey,
+    pubkey_to_bytes,
+    BACKEND_NAME,
+)
 
 # Import optional modules
 module_opencl_available = False
@@ -662,7 +666,7 @@ class WalletElectrum1(WalletBase):
             # If a master public key was provided, check the pubkey derived from the seed against it
             if self._master_pubkey:
                 try:
-                    if coincurve.PublicKey.from_valid_secret(seed).format(compressed=False) == self._master_pubkey:
+                    if privkey_to_pubkey(seed, compressed=False) == self._master_pubkey:
                         return mnemonic_ids, count  # found it
                 except ValueError: continue
 
@@ -670,7 +674,7 @@ class WalletElectrum1(WalletBase):
             else:
                 master_privkey = bytes_to_int(seed)
 
-                try: master_pubkey_bytes = coincurve.PublicKey.from_valid_secret(seed).format(compressed=False)[1:]
+                try: master_pubkey_bytes = privkey_to_pubkey(seed, compressed=False)[1:]
                 except ValueError: continue
 
                 # Cache instance attributes as locals for the inner loop
@@ -690,7 +694,7 @@ class WalletElectrum1(WalletBase):
                         ).digest()).digest() )
                     d_privkey = int_to_bytes((master_privkey + d_offset) % GENERATOR_ORDER, 32)
 
-                    d_pubkey  = coincurve.PublicKey.from_valid_secret(d_privkey).format(compressed=False)
+                    d_pubkey  = privkey_to_pubkey(d_privkey, compressed=False)
 
                     # Compute the hash160 of the *uncompressed* public key, and check for a match
 
@@ -1810,7 +1814,7 @@ class WalletBIP32(WalletBase):
         if self.checksinglexpubaddress: #Atomic (Eth), MyBitcoinWallet, PT.BTC Wallet Single Address (Does things in a very non-standard way)
             seed_bytes = arg_seed_bytes
             privkey_bytes = seed_bytes[:32] # These wallets basically use the xprv a single private key...
-            pubkey = coincurve.PublicKey.from_valid_secret(privkey_bytes).format(compressed = False)
+            pubkey = privkey_to_pubkey(privkey_bytes, compressed = False)
             pubkey_hash160 = self.pubkey_to_hash160(pubkey)
             if pubkey_hash160 in self._known_hash160s:
                 privkey_wif = base58.b58encode_check(bytes([0x80]) + privkey_bytes + bytes([0x1]))
@@ -1828,7 +1832,7 @@ class WalletBIP32(WalletBase):
 
             for i in current_path_index:
                 if i < 2147483648:  # if it's a normal child key, derive the compressed public key
-                    try: data_to_hmac = coincurve.PublicKey.from_valid_secret(privkey_bytes).format()
+                    try: data_to_hmac = privkey_to_pubkey(privkey_bytes, compressed=True)
                     except ValueError: break
                 else:               # else it's a hardened child key
                     data_to_hmac = b"\0" + privkey_bytes  # prepended "\0" as per BIP32
@@ -1851,7 +1855,7 @@ class WalletBIP32(WalletBase):
 
                 # Derive the final public keys, searching for a match with known_hash160s
                 # (these first steps below are loop invariants)
-                try: data_to_hmac = coincurve.PublicKey.from_valid_secret(privkey_bytes).format()
+                try: data_to_hmac = privkey_to_pubkey(privkey_bytes, compressed=True)
                 except ValueError: break
                 privkey_int = bytes_to_int(privkey_bytes)
 
@@ -1874,7 +1878,7 @@ class WalletBIP32(WalletBase):
                         (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
 
                     if try_p2tr or try_p2pkh or try_p2wpkh or try_p2sh:
-                        base_pubkey = coincurve.PublicKey.from_valid_secret(d_privkey_bytes)
+                        base_pubkey = privkey_to_pubkey(d_privkey_bytes, compressed=True)
                     else:
                         base_pubkey = None
 
@@ -1885,7 +1889,7 @@ class WalletBIP32(WalletBase):
                         script_candidates.append(("p2tr", tweaked))
 
                     if base_pubkey is not None and (try_p2pkh or try_p2wpkh or try_p2sh):
-                        d_pubkey = base_pubkey.format(compressed=False)
+                        d_pubkey = pubkey_to_bytes(base_pubkey, compressed=False)
                         pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
 
                         if try_p2pkh:

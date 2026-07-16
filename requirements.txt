@@ -1,4 +1,10 @@
+# secp256k1 elliptic-curve operations are provided by btcrecover.crypto_backends,
+# which prefers coincurve, falls back to wallycore, and finally to a bundled
+# pure-Python implementation. Install at least one of the two C-backed libraries
+# below; if neither is present, BTCRecover still works via the slow pure-Python
+# fallback (and prints a warning).
 coincurve==20.0.0; platform_machine == 'aarch64'
 coincurve>=20.0.0,<22; platform_machine != 'aarch64'
+wallycore>=1.0.0
 protobuf~=5.29.6
 pycryptodome~=3.23.0

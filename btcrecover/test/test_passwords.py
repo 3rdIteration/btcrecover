@@ -1022,12 +1022,15 @@ def can_load_keccak():
 
 is_coincurve_loadable = None
 def can_load_coincurve():
+    # These ECC-based wallet tests require a secp256k1 backend. BTCRecover now
+    # supports coincurve, wallycore, or a bundled pure-Python fallback, so the
+    # tests run as long as any backend is available (always true now).
     global is_coincurve_loadable
     if is_coincurve_loadable is None:
         try:
-            import coincurve
-            is_coincurve_loadable = True
-        except ImportError:
+            from btcrecover import crypto_backends
+            is_coincurve_loadable = crypto_backends.BACKEND_NAME is not None
+        except Exception:
             is_coincurve_loadable = False
     return is_coincurve_loadable
 
