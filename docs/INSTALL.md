@@ -37,6 +37,15 @@ You can also use Git (If you have it installed) to do this with the command `git
 
 **Note:** Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
+**Recommended Python version: 3.13.** On Python 3.10–3.13, `coincurve`
+ships pre-built wheels, so the default `pip install -r requirements.txt`
+"just works" with the fastest secp256k1 backend. Python 3.14 (and any future
+3.15) currently has **no** `coincurve` wheel, so the default install cannot use
+coincurve there — see [Python 3.14 and coincurve](#python-314-and-coincurve).
+If you are on 3.14/3.15, install `wallycore` (or rely on the pure-Python
+fallback) and expect the HD-wallet packages in `requirements-full.txt` to be
+unavailable until coincurve publishes a wheel for that version.
+
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/JveLyJqEgLk>
 
@@ -92,6 +101,26 @@ If you want to install the full requirements (requirements-full.txt), some packa
     pip install maturin --no-binary maturin
     pip install py-sr25519-bindings==0.2.3 --no-build-isolation
     pip install -r requirements-full.txt
+
+#### Termux and the secp256k1 backends
+
+**coincurve does not work on Termux/aarch64 at all.** Even when it builds from
+source, `import coincurve` fails at runtime with
+`ImportError: dlopen failed: cannot locate symbol "_Py_NoneStruct"`
+(see [ofek/coincurve#189](https://github.com/ofek/coincurve/issues/189)). The
+`wallycore` package also has no Android/aarch64 wheel and its source build fails.
+As a result, the only secp256k1 backend that works on Termux is the bundled
+**pure-Python** implementation — which is correct but roughly 150× slower for
+public-key derivation (see [secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+
+Two practical consequences:
+
+ * Install the **base** `requirements.txt` only (or install `wallycore` and
+   `protobuf`/`pycryptodome` individually). Avoid `requirements-full.txt` on
+   Termux: its `bip-utils` package hard-requires `coincurve`, which cannot be
+   installed on aarch64, so the full requirements will fail to install there.
+ * Expect recoveries on a phone to be slow; this is a CPU/backend limitation,
+   not a misconfiguration.
 
 #### Enabling Native RIPEMD160 Support
 As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.
@@ -173,6 +202,14 @@ the bundled pure-Python implementation (with a startup warning) — correct, but
 roughly 150× slower for public-key derivation. You can force a backend with the
 `BTCR_BACKEND` environment variable (see
 [secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+
+**Caveat for `requirements-full.txt` on Python 3.14:** the HD-wallet packages
+`bip-utils` (and the packages that depend on it — `py_crypto_hd_wallet`,
+`slip10`, `stellar_sdk`) hard-require `coincurve`, which cannot be installed on
+3.14. So `pip install -r requirements-full.txt` will fail on Python 3.14. The
+base `requirements.txt` does not have this problem (it only needs `wallycore`
+plus `protobuf`/`pycryptodome`), so install that and add the coincurve-dependent
+HD-wallet extras only once a coincurve wheel exists for 3.14.
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.

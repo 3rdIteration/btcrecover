@@ -42,6 +42,10 @@ checkout or zip.
 
 ## Step 2 – Clone and install
 
+> **Use Python 3.13 if you can.** Python 3.10–3.13 ship pre-built `coincurve`
+> wheels (fastest backend). Python 3.14+ has no coincurve wheel — see Step 3 for
+> the `wallycore` fallback.
+
 ```powershell
 # Clone
 git clone https://github.com/3rdIteration/btcrecover.git
@@ -100,6 +104,12 @@ After base install, add extras only when needed:
   `pip install py-crypto-hd-wallet`
 
 Use `requirements-full.txt` for multi-package installs or unclear wallet type.
+
+> **Python 3.14 note:** `requirements-full.txt` cannot be installed on Python
+> 3.14 because `bip-utils` (and dependents) hard-require `coincurve`, which has
+> no 3.14 wheel yet. Install the base `requirements.txt` (falling back to
+> `wallycore`) and add HD-wallet extras only once coincurve ships a 3.14 wheel.
+> See `docs/INSTALL.md` ("Python 3.14 and coincurve").
 
 ## Step 5 – Optional GPU mode
 

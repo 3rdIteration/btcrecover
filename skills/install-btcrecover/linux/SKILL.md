@@ -40,6 +40,10 @@ Never install from piecemeal file downloads; require full repo checkout or zip.
 
 ## Step 2 – Install
 
+> **Use Python 3.13 if you can.** Python 3.10–3.13 ship pre-built `coincurve`
+> wheels (fastest backend). Python 3.14+ has no coincurve wheel — see the
+> Windows skill Step 3 / `docs/INSTALL.md` for the `wallycore` fallback.
+
 Hand over this block whole — do not drop packages from the apt line or skip the
 validation. `python3-tk` (seedrecover's GUI prompts) and `libffi-dev` (builds
 native deps) are REQUIRED, not optional; do not tell the user to omit them. The
@@ -86,6 +90,12 @@ After base install, add extras only when needed:
   `pip install py-crypto-hd-wallet`
 
 Use `requirements-full.txt` for multi-package installs or unclear wallet type.
+
+> **Python 3.14 note:** `requirements-full.txt` cannot be installed on Python
+> 3.14 because `bip-utils` (and dependents) hard-require `coincurve`, which has
+> no 3.14 wheel yet. Install the base `requirements.txt` (which falls back to
+> `wallycore` for secp256k1) and add HD-wallet extras only once coincurve ships
+> a 3.14 wheel. See `docs/INSTALL.md` ("Python 3.14 and coincurve").
 
 ## Step 5 – Optional GPU mode (CUDA/OpenCL)
 

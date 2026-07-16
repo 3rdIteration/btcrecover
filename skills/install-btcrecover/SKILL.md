@@ -11,6 +11,14 @@ installed by cloning/downloading the full repository
 its `requirements.txt` into a virtual environment. Never install from piecemeal
 file downloads.
 
+**Recommended Python version: 3.13.** Python 3.10–3.13 ship pre-built `coincurve`
+wheels, so the default install uses the fastest secp256k1 backend. Python 3.14
+and later (e.g. 3.15) currently have **no** `coincurve` wheel, so the default
+install cannot use coincurve there — you must install `wallycore` or accept the
+slower pure-Python fallback, and `requirements-full.txt` won't install until a
+coincurve wheel exists. See `docs/INSTALL.md` ("Recommended Python version" and
+"Python 3.14 and coincurve").
+
 **Pick the OS from the environment you are actually in — do not ask when you can
 tell.**
 
