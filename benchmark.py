@@ -875,6 +875,10 @@ def _append_opencl_args(cmd, opencl_args):
 
 def run_all_benchmarks(args):
     """Run all configured benchmarks and return results."""
+    # Pass backend selection to subprocesses via environment variable
+    if args.backend:
+        os.environ["BTCR_BACKEND"] = args.backend
+
     # Build GPU/OpenCL argument dicts from CLI args
     gpu_args = {}
     opencl_args = {}
@@ -906,6 +910,7 @@ def run_all_benchmarks(args):
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "duration_per_test_seconds": args.duration,
             "threads": threads,
+            "backend": args.backend or "auto",
             "comment": args.comment,
             "gpu_args": gpu_args if gpu_args else None,
             "opencl_args": opencl_args if opencl_args else None,
@@ -1074,8 +1079,11 @@ Examples:
   %(prog)s --wallet-type password  Only test password recovery
   %(prog)s --global-ws 8192        GPU benchmarks with custom work size
   %(prog)s --opencl-workgroup-size 1024  OpenCL with custom workgroup
-  %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
-  %(prog)s --output results.json   Save results to a specific file
+   %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
+   %(prog)s --output results.json   Save results to a specific file
+   %(prog)s --backend coincurve     Force a specific secp256k1 backend
+   %(prog)s --backend purepython    Test with pure-Python secp256k1
+   %(prog)s --backend wallycore     Test with wallycore secp256k1
         """
     )
 
@@ -1116,6 +1124,11 @@ Examples:
     parser.add_argument(
         "--comment", type=str, default=None,
         help="Optional free-form note to include in benchmark metadata"
+    )
+    parser.add_argument(
+        "--backend", choices=["coincurve", "wallycore", "purepython"], default=None,
+        help="Force a specific secp256k1 backend. Sets the BTCR_BACKEND environment "
+             "variable for all subprocesses (default: let btcrecover auto-select)."
     )
     parser.add_argument(
         "--startup-timeout", type=int, default=SEARCH_PHASE_TIMEOUT, metavar="SECONDS",
@@ -1168,6 +1181,7 @@ Examples:
     print(f"Duration per test: {args.duration} seconds")
     print(f"Wallet types:      {args.wallet_type}")
     print(f"Threads:           {args.threads if args.threads else 'auto (btcrecover default)'}")
+    print(f"Backend:           {args.backend or 'auto (btcrecover default)'}")
     print(f"GPU benchmarks:    {'Yes' if args.gpu else 'No'}")
     print(f"OpenCL benchmarks: {'Yes' if args.opencl else 'No'}")
     if args.comment:
