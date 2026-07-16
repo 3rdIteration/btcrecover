@@ -62,21 +62,31 @@ python seedrecover.py --help
 
 ## Step 3 – coincurve build failure (Python 3.14 source-build path)
 
-If `python -m pip install -r requirements.txt` fails on coincurve (a wall of C/C++
-errors ending in "Microsoft Visual C++ 14.0 or greater is required" / "Failed to
-build coincurve"), the **first and usually only fix** is to pin coincurve to a
-version with a prebuilt wheel, which skips the compile entirely:
+coincurve does **not** currently ship pre-built wheels for Python 3.14, and
+building it from source fails for both released versions (coincurve 21 hits a
+LICENSE packaging bug; coincurve 20 fails with a `cmake.verbose` /
+scikit-build-core incompatibility). So on Python 3.14 the `pip install -r
+requirements.txt` step will fail when it reaches coincurve.
+
+If `python -m pip install -r requirements.txt` fails on coincurve, the
+recommended fix is to install **wallycore** instead — BTCRecover will then
+automatically use it as the secp256k1 backend (full C-accelerated speed) and the
+install no longer needs coincurve to build:
 
 ```powershell
-python -m pip install coincurve==20.0.0
+python -m pip install wallycore
 python -m pip install -r requirements.txt
 ```
 
-Do this BEFORE suggesting anything heavier. The build error itself tells the user to
-install Visual C++ Build Tools — mention that (and downgrading Python) only as a
-fallback if the pin above does not work, NOT as the first step. If a user asks
-specifically whether a coincurve version works on Windows, the answer is yes:
-`coincurve==20.0.0`. After it succeeds, validate with the `--help` commands.
+(On Python 3.10–3.13, coincurve 20/21 wheels are available, so the plain
+`pip install -r requirements.txt` above usually just works and this step is
+unnecessary.)
+
+If wallycore also cannot be installed, BTCRecover still runs via its bundled
+pure-Python secp256k1 fallback (with a startup warning) — correct, but much
+slower. You can force a backend with the `BTCR_BACKEND` environment variable
+(`coincurve`, `wallycore`, or `purepython`). Validate the install with the
+`--help` commands after the steps above.
 
 ## Step 4 – Targeted extras (add only what the wallet type needs)
 

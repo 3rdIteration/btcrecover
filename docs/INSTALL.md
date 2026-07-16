@@ -153,12 +153,26 @@ Note: If you use Python for other things beyond BTCRecover, then the `--break-sy
 
 #### Python 3.14 and coincurve
 
-**coincurve 21 currently has a bug that prevents it from building from source** (`RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0`). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using **Python 3.14** (or any platform without a pre-built wheel), you must install coincurve 20 manually *before* running the requirements install:
+**coincurve does not currently ship pre-built wheels for Python 3.14**, and
+building it from source currently fails for both available releases:
 
-    pip3 install coincurve==20.0.0
-    pip3 install -r requirements.txt
+ * **coincurve 21** fails with `RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0`.
+ * **coincurve 20** fails with `ERROR: Use build.verbose instead of cmake.verbose for scikit-build-core >= 0.10`.
 
-Because `requirements.txt` accepts any coincurve version in the range `>=20.0.0,<22`, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.
+Pre-built wheels exist only up to Python 3.13 (coincurve 21) / 3.12 (coincurve 20)
+on Windows, macOS, and Linux, so most desktop users on Python 3.10–3.13 are
+unaffected. If you are on **Python 3.14** (or any platform without a pre-built
+wheel), coincurve cannot be installed at all right now.
+
+Because BTCRecover now uses a pluggable secp256k1 backend, this is not fatal:
+if you install **wallycore** (`pip3 install wallycore`, already part of
+`requirements-full.txt` and the base `requirements.txt`), BTCRecover will
+automatically use it instead of coincurve and run at full C-accelerated speed.
+If neither coincurve nor wallycore can be installed, BTCRecover falls back to
+the bundled pure-Python implementation (with a startup warning) — correct, but
+roughly 150× slower for public-key derivation. You can force a backend with the
+`BTCR_BACKEND` environment variable (see
+[secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
