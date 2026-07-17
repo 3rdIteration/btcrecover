@@ -17,11 +17,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Modified fork of bitcoinlib: only the encoding module (and its config/main
+# dependencies) is used by btcrecover. Upstream wallet/database/service modules
+# have been removed to keep the bundled dependency minimal.
 import lib.bitcoinlib_mod.encoding
-#import bitcoinlib.mnemonic
-#import lib.bitcoinlib.keys
-#import bitcoinlib.transactions
-#import bitcoinlib.wallets
-#import bitcoinlib.tools
 
-__all__ = ["keys", "transactions", "wallets", "encoding", "mnemonic", "tools"]
+__all__ = ["encoding", "networks"]
