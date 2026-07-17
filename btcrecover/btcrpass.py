@@ -6409,6 +6409,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     init_parser_common()
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-h", "--help",   action="store_true", help="show this help message and exit")
+    parser.add_argument("--json",         action="store_true", help="print the final result as a single JSON object on stdout (human-readable output is redirected to stderr); intended for scripts and AI tools")
     parser.add_argument("--tokenlist",    metavar="FILE",      help="the list of tokens/partial passwords (required)")
     parser.add_argument("--keep-tokens-order", action="store_true",
                         help="try tokens in the order in which they are listed in the file, without trying their permutations")

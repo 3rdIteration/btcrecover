@@ -62,6 +62,10 @@ walletfinder = [
     "textract",
     "pypdf",
 ]
+# Model Context Protocol server, for driving recovery from AI agents.
+mcp = [
+    "mcp>=1.0",
+]
 # Developer tooling: linting, coverage, and the test runner.
 dev = [
     "ruff>=0.15",
@@ -72,6 +76,7 @@ dev = [
 [project.scripts]
 btcrecover = "btcrecover.cli:password_console_entry"
 seedrecover = "btcrecover.cli:seed_console_entry"
+btcrecover-mcp = "btcrecover.mcp_server:main"
 
 # ---------------------------------------------------------------------------
 # Packaging

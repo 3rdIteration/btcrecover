@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     is_coincurve_loadable = test_passwords.can_load_coincurve()
     if is_coincurve_loadable:
-        from btcrecover.test     import test_seeds, test_walletfinder
+        from btcrecover.test     import test_api, test_seeds, test_walletfinder
         from btcrecover.btcrseed import full_version
     else:
         from btcrecover.test     import test_walletfinder
@@ -242,6 +242,10 @@ if __name__ == "__main__":
     if is_coincurve_loadable:
         print("\n** Testing seed recovery **")
         results = main(test_seeds, exit=False, buffer= not args.no_buffer).result
+        accumulate_results(results)
+
+        print("\n** Testing library API and --json mode **")
+        results = main(test_api, exit=False, buffer= not args.no_buffer).result
         accumulate_results(results)
     else:
         print("\nwarning: skipping seed recovery tests (can't find prerequisite coincurve)")

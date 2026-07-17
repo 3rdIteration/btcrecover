@@ -4730,6 +4730,7 @@ def main(argv):
     if argv or "_ARGCOMPLETE" in os.environ:
         import argparse
         parser = argparse.ArgumentParser()
+        parser.add_argument("--json",        action="store_true",   help="print the final result as a single JSON object on stdout (human-readable output is redirected to stderr); intended for scripts and AI tools")
         parser.add_argument("--wallet",      metavar="FILE",        help="the wallet file")
         parser.add_argument("--wallet-type", metavar="TYPE",        help="if not using a wallet file, the wallet type")
         parser.add_argument("--mpk",         metavar="XPUB-OR-HEX", help="if not using a wallet file, the master public key (xpub, ypub or zpub)")

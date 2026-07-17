@@ -12,6 +12,7 @@ The top-level launcher scripts now simply run the Python-version gate in
 ``python btcrecover.py ...`` is unchanged.
 """
 
+import json
 import multiprocessing
 import sys
 
@@ -23,6 +24,21 @@ __all__ = [
     "password_console_entry",
     "seed_console_entry",
 ]
+
+# Exit code for each api result status, matching the human-readable CLI paths:
+# a found or exhausted search is a clean exit; an interrupt or error is not.
+_STATUS_EXIT_CODE = {
+    "found": 0,
+    "not_found": 0,
+    "interrupted": 1,
+    "error": 1,
+}
+
+
+def _emit_json_result(result):
+    """Print *result* as one JSON object on stdout and return the exit code."""
+    print(json.dumps(result.to_dict()))
+    return _STATUS_EXIT_CODE.get(result.status, 1)
 
 _DONATION_LINES = (
     "If this tool helped you to recover funds, please consider donating 1% of what you recovered, in your crypto of choice to:",
@@ -44,6 +60,12 @@ def password_recovery_main(argv=None):
     """Run the password recovery tool. Returns the process exit code."""
     if argv is None:
         argv = sys.argv[1:]
+
+    if "--json" in argv:
+        from btcrecover import api
+
+        result = api.recover_password(argv, quiet=True)
+        return _emit_json_result(result)
 
     print()
     print(
@@ -95,6 +117,12 @@ def seed_recovery_main(argv=None):
     """Run the seed/mnemonic recovery tool. Returns the process exit code."""
     if argv is None:
         argv = sys.argv[1:]
+
+    if "--json" in argv:
+        from btcrecover import api
+
+        result = api.recover_seed(argv, quiet=True)
+        return _emit_json_result(result)
 
     print()
     print("Starting", btcrseed.full_version())
