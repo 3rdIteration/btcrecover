@@ -41,8 +41,8 @@ import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle
 
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
-from . import success_alert
-from .trezor_common_mistakes import TREZOR_COMMON_MISTAKES
+from .. import success_alert
+from ..trezor_common_mistakes import TREZOR_COMMON_MISTAKES
 import lib.cardano.cardano_utils as cardano
 from lib.eth_hash.auto import keccak
 from lib.mnemonic_btc_com_tweaked import Mnemonic
@@ -977,7 +977,7 @@ class WalletMultiBit(object):
     # This just dumps the wallet private keys for Android Wallets
     def dump_privkeys(self, wallet_data):
         with open(self._dump_privkeys_file, 'a') as logfile:
-            from . import bitcoinj_pb2
+            from .. import bitcoinj_pb2
             global pylibscrypt
             import lib.pylibscrypt as pylibscrypt
             pad_len = wallet_data[-1]
@@ -1223,7 +1223,7 @@ class WalletBitcoinj(object):
     # From https://github.com/gurnec/decrypt_bitcoinj_seed
     @staticmethod
     def extract_mnemonic(pb_wallet, password = None):
-        from . import bitcoinj_pb2
+        from .. import bitcoinj_pb2
         """extract and if necessary decrypt (w/scrypt) a BIP39 mnemonic from a bitcoinj wallet protobuf
 
         :param pb_wallet: a Wallet protobuf message
@@ -1286,7 +1286,7 @@ class WalletBitcoinj(object):
     @classmethod
     def _load_from_filedata(cls, filedata, filename=None):
         try:
-            from . import bitcoinj_pb2
+            from .. import bitcoinj_pb2
         except ModuleNotFoundError:
             raise ValueError(
                 "Cannot load protobuf module, unable to process this bitcoinj wallet."
@@ -1348,7 +1348,7 @@ class WalletBitcoinj(object):
         return "scrypt N, r, p = {}, {}, {}".format(self._scrypt_n, self._scrypt_r, self._scrypt_p)
 
     def dump_privkeys(self, derived_key):
-        from . import bitcoinj_pb2
+        from .. import bitcoinj_pb2
         pb_wallet = bitcoinj_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(self.pb_wallet_filedata))
         
@@ -1430,7 +1430,7 @@ class WalletCoinomi(WalletBitcoinj):
             wallet_file.read(1)
             if wallet_file.read(1) == b'\x12':
                 try:
-                    from . import coinomi_pb2
+                    from .. import coinomi_pb2
                 except ModuleNotFoundError:
                     return False
 
@@ -1448,7 +1448,7 @@ class WalletCoinomi(WalletBitcoinj):
     @classmethod
     def _load_from_filedata(cls, filedata, filename=None):
         try:
-            from . import coinomi_pb2
+            from .. import coinomi_pb2
         except ModuleNotFoundError:
             raise ValueError(
                 "Cannot load protobuf module, unable to process this Coinomi wallet."
@@ -1541,7 +1541,7 @@ class WalletMultiBitHD(WalletBitcoinj):
             decrypted_data = aes256_cbc_decrypt(derived_key, self._iv, self._encrypted_data)
             padding_len = decrypted_data[-1]
 
-            from . import bitcoinj_pb2
+            from .. import bitcoinj_pb2
             pb_wallet = bitcoinj_pb2.Wallet()
             pb_wallet.ParseFromString(bytes(decrypted_data[:-padding_len]))
             mnemonic = WalletBitcoinj.extract_mnemonic(pb_wallet, password)
@@ -4195,7 +4195,7 @@ class WalletBIP39(object):
         disable_bip44=False,
         disable_bip84=False,
     ):
-        from . import btcrseed
+        from .. import btcrseed
 
         wallet_type = wallet_type.lower()
 
@@ -4225,7 +4225,7 @@ class WalletBIP39(object):
         # Create a btcrseed.WalletBIP39 object which will do most of the work;
         # this also interactively prompts the user if not enough command-line options were included
         if addressdb_filename:
-            from .addressset import AddressSet
+            from ..addressset import AddressSet
             print("Loading address database ...")
             hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
         else:
@@ -4353,7 +4353,7 @@ class WalletSLIP39(object):
             print("ERROR: Cannot import shamir-mnemonic which is required for SLIP39 wallets, install it via 'pip3 install shamir-mnemonic[cli]'")
             exit()
 
-        from . import btcrseed
+        from .. import btcrseed
 
         wallet_type = wallet_type.lower()
 
@@ -4381,7 +4381,7 @@ class WalletSLIP39(object):
         # Create a btcrseed.WalletBIP39 object which will do most of the work;
         # this also interactively prompts the user if not enough command-line options were included
         if addressdb_filename:
-            from .addressset import AddressSet
+            from ..addressset import AddressSet
             print("Loading address database ...")
             hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
         else:
@@ -4525,7 +4525,7 @@ class WalletCardano(WalletBIP39):
 
     def __init__(self, addresses=None, addressdb_filename=None,
                  mnemonic=None, lang=None, path=None, is_performance=False):
-        from . import btcrseed
+        from .. import btcrseed
 
         btcrseed_cls = btcrecover.btcrseed.WalletCardano
 
@@ -4539,7 +4539,7 @@ class WalletCardano(WalletBIP39):
         # Create a btcrseed.WalletBIP39 object which will do most of the work;
         # this also interactively prompts the user if not enough command-line options were included
         if addressdb_filename:
-            from .addressset import AddressSet
+            from ..addressset import AddressSet
             print("Loading address database ...")
             hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
         else:
@@ -4672,7 +4672,7 @@ class WalletCardano(WalletBIP39):
 class WalletPyCryptoHDWallet(WalletBIP39):
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
                  mnemonic = None, lang = None, path = None, wallet_type = "bip39", is_performance = False):
-        from . import btcrseed
+        from .. import btcrseed
 
         wallet_type = wallet_type.lower()
 
@@ -4696,7 +4696,7 @@ class WalletPyCryptoHDWallet(WalletBIP39):
         # Create a btcrseed.WalletBIP39 object which will do most of the work;
         # this also interactively prompts the user if not enough command-line options were included
         if addressdb_filename:
-            from .addressset import AddressSet
+            from ..addressset import AddressSet
             print("Loading address database ...")
             hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
         else:
@@ -4743,7 +4743,7 @@ class WalletEthereumValidator(WalletBIP39):
 
     def __init__(self, mpk = None, addresses = None, address_limit = None, addressdb_filename = None,
                  mnemonic = None, lang = None, path = None, wallet_type = "EthereumValidator", is_performance = False):
-        from . import btcrseed
+        from .. import btcrseed
 
         btcrseed_cls = btcrseed.WalletEthereumValidator
 
@@ -4756,7 +4756,7 @@ class WalletEthereumValidator(WalletBIP39):
         # Create a btcrseed.WalletBIP39 object which will do most of the work;
         # this also interactively prompts the user if not enough command-line options were included
         if addressdb_filename:
-            from .addressset import AddressSet
+            from ..addressset import AddressSet
             print("Loading address database ...")
             hash160s = AddressSet.fromfile(open(addressdb_filename, "rb"))
         else:
@@ -4935,9 +4935,9 @@ class WalletBrainwallet(object):
         else:
             self.crypto = crypto
 
-        from . import btcrseed
+        from .. import btcrseed
         # Load addresses
-        from .addressset import AddressSet
+        from ..addressset import AddressSet
 
         input_address_p2sh = False
         input_address_standard = False
@@ -5224,9 +5224,9 @@ class WalletRawPrivateKey(object):
         else:
             self.crypto = crypto.lower()
 
-        from . import btcrseed
+        from .. import btcrseed
         # Load addresses
-        from .addressset import AddressSet
+        from ..addressset import AddressSet
 
         input_address_p2sh = False
         input_address_standard = False
