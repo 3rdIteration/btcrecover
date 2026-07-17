@@ -217,11 +217,14 @@ def _make_coincurve_backend():
 # ---------------------------------------------------------------------------
 
 def _make_wallycore_backend():
+    import functools
     import wallycore as w
 
-    # wallycore lacks point-scalar multiplication for an arbitrary point, so the
-    # Electrum 2.8 ECIES path reuses the pure-python backend (built once here).
-    _pp_backend = _make_purepython_backend()
+    # Only reachable from multiply_pubkey's fallbacks below, so it is built on
+    # first use rather than paying ecpy's curve setup on every import.
+    @functools.lru_cache(maxsize=1)
+    def _purepython():
+        return _make_purepython_backend()
 
     def privkey_to_pubkey(priv, compressed=True):
         if not _privkey_valid(priv):
@@ -265,10 +268,71 @@ def _make_wallycore_backend():
         unc = _normalize_uncompressed(pub)
         return (bytes_to_int(unc[1:33]), bytes_to_int(unc[33:65]))
 
-    def multiply_pubkey(pub, scalar):
-        # wallycore has no public point-scalar multiplication for an arbitrary
-        # point; fall back to the bundled pure-python ecpy implementation.
-        return _pp_backend["multiply_pubkey"](pub, scalar)
+    # wallycore exposes no arbitrary point-scalar multiplication, but ECDSA
+    # public key recovery is one in disguise. Recovery computes
+    #     Q = r^-1 (sR - eG)
+    # so with e = 0, R = P (r = P.x, recid = P.y parity) and s = k*P.x mod n,
+    # it returns Q = r^-1 * k * r * P = k*P, entirely inside libsecp256k1. This
+    # is ~50x faster than the bundled pure-python fallback.
+    _ZERO_MSG = b"\x00" * 32
+
+    @functools.lru_cache(maxsize=4)
+    def _recovery_prefix(pub):
+        # Cached because Electrum 2.8's ephemeral pubkey is constant for a whole
+        # run, making the decompression a one-time rather than per-password cost.
+        unc = _normalize_uncompressed(pub)
+        x = bytes_to_int(unc[1:33])
+        y = bytes_to_int(unc[33:65])
+        if not 0 < x < GROUP_ORDER_INT:
+            return None  # x has to be a valid scalar to stand in as r
+        # libwally recoverable signature layout: [27 + 4 + recid] || r || s
+        return x, bytes([27 + 4 + (y & 1)]) + unc[1:33]
+
+    def _multiply_pubkey_recovery(pub, scalar):
+        prefix = _recovery_prefix(bytes(pub))
+        if prefix is not None:
+            x, sig_prefix = prefix
+            # k*P == (k mod n)*P, so reducing here also handles scalar >= n.
+            s = (bytes_to_int(scalar) * x) % GROUP_ORDER_INT
+            if s:
+                return w.ec_sig_to_public_key(
+                    _ZERO_MSG, sig_prefix + int_to_bytes_padded(s, 32))
+        # P.x >= n (~2^-128), or a scalar that degenerates to s == 0.
+        return _purepython()["multiply_pubkey"](pub, scalar)
+
+    # Known-answer test for the trick above, generated from the bundled
+    # pure-python backend and covering both recid parities. A libwally that
+    # encodes recoverable signatures differently fails this and falls back
+    # loudly, rather than silently returning wrong ECIES shared secrets.
+    _KAT_SCALAR = bytes.fromhex(
+        "0fedcba9876543210fedcba9876543210fedcba9876543210fedcba987654321")
+    _KAT_VECTORS = (  # (pubkey, _KAT_SCALAR * pubkey)
+        ("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+         "03fd1b7de8c449eecda5e5e2f3b4d7dcb5c241d0bb727d1c2098a4d3f423857b62"),
+        ("03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556",
+         "02d7709d1a7407ada96362092b63e266696428ff5fcdb17fd4355ba3971c114c3a"),
+    )
+
+    def _recovery_multiply_works():
+        try:
+            return all(
+                _multiply_pubkey_recovery(bytes.fromhex(pub), _KAT_SCALAR)
+                == bytes.fromhex(expected)
+                for pub, expected in _KAT_VECTORS)
+        except Exception:
+            return False
+
+    if _recovery_multiply_works():
+        multiply_pubkey = _multiply_pubkey_recovery
+    else:
+        warnings.warn(
+            "This wallycore build does not recover public keys the way BTCRecover "
+            "expects, so Electrum 2.8 ECIES will fall back to the much slower "
+            "bundled pure-Python implementation. Results stay correct. Please "
+            "report this along with your wallycore version.", RuntimeWarning)
+
+        def multiply_pubkey(pub, scalar):
+            return _purepython()["multiply_pubkey"](pub, scalar)
 
     def lift_x(pub):
         x, y = pubkey_point(pub)

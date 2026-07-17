@@ -99,7 +99,11 @@ def main():
 
     priv = (0x1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF).to_bytes(32, "big")
     epub = cb.privkey_to_pubkey(priv, compressed=True)
-    tweak = (0x01).to_bytes(31, "big") + b"\x02"
+    # Electrum 2.8 multiplies by a PBKDF2 output reduced mod the group order, so
+    # this has to be full width: the pure-python ladder iterates over the
+    # scalar's bits, and a small value here overstates that backend several-fold.
+    ecies_scalar = bytes.fromhex(
+        "0fedcba9876543210fedcba9876543210fedcba9876543210fedcba987654321")
     h = b"\x11" * 32
 
     if forced is not None:
@@ -131,7 +135,7 @@ def main():
         comp_t, comp_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, True), iters)
         unc_t, unc_ops = _time_it(lambda: be["privkey_to_pubkey"](priv, False), iters)
         tweak_t, tweak_ops = _time_it(lambda: be["tweak_pubkey"](be["lift_x"](epub), h), iters)
-        mult_t, mult_ops = _time_it(lambda: be["multiply_pubkey"](epub, tweak), iters)
+        mult_t, mult_ops = _time_it(lambda: be["multiply_pubkey"](epub, ecies_scalar), iters)
         results[name] = (comp_ops, unc_ops, tweak_ops, mult_ops)
         print("%-12s | %12.1f | %12.1f | %12.1f | %12.1f" % (
             name, comp_ops, unc_ops, tweak_ops, mult_ops))

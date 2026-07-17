@@ -87,7 +87,7 @@ For specific wallet types not covered by base requirements:
 * **coincurve does not work on Termux at all** — even when built from source,
   `import coincurve` fails with `cannot locate symbol "_Py_NoneStruct"`
   (ofek/coincurve#189). `wallycore` also has no aarch64 wheel. So BTCRecover runs
-  on the **bundled pure-Python** secp256k1 backend, which is correct but ~150×
+  on the **bundled pure-Python** secp256k1 backend, which is correct but ~100×
   slower for public-key derivation.
 * `requirements-full.txt` cannot install on Termux because `bip-utils` needs
   coincurve — stick to the base requirements + targeted extras.

@@ -1714,8 +1714,11 @@ class WalletMsigna(object):
         wallet_conn.row_factory = sqlite3.Row
         select = "SELECT * FROM Keychain"
         try:
-            if "args" in globals() and args.msigna_keychain:  # args is not defined during unit tests
-                wallet_cur = wallet_conn.execute(select + " WHERE name LIKE '%' || ? || '%'", (args.msigna_keychain,))
+            # args may be absent entirely (library use), or present but without
+            # msigna_keychain (unit tests, or another wallet type's arg parse).
+            msigna_keychain = getattr(globals().get("args"), "msigna_keychain", None)
+            if msigna_keychain:
+                wallet_cur = wallet_conn.execute(select + " WHERE name LIKE '%' || ? || '%'", (msigna_keychain,))
             else:
                 wallet_cur = wallet_conn.execute(select)
         except sqlite3.OperationalError as e:
@@ -3759,6 +3762,7 @@ class WalletBither(object):
         wallet_conn = sqlite3.connect(wallet_filename)
 
         is_bitcoinj_compatible  = None
+        e1 = None
         # Try to find an encrypted loose key first; they're faster to check
         try:
             wallet_cur = wallet_conn.execute("SELECT encrypt_private_key FROM addresses LIMIT 1")
@@ -3768,8 +3772,11 @@ class WalletBither(object):
                 is_bitcoinj_compatible = True  # if found, the KDF & encryption are bitcoinj compatible
             else:
                 e1 = "no encrypted keys present in addresses table"
-        except sqlite3.OperationalError as e1:
-            if str(e1).startswith("no such table"):
+        except sqlite3.OperationalError as e:
+            # Python unbinds an "except ... as" name when the block ends, so the
+            # message must be copied out for the ValueError raised further below.
+            e1 = str(e)
+            if e1.startswith("no such table"):
                 key_data = None
             else: raise  # unexpected error
 
