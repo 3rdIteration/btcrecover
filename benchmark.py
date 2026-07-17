@@ -50,6 +50,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WALLET_DIR = os.path.join(SCRIPT_DIR, "btcrecover", "test", "test-wallets")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "benchmark-results")
 
+# The secp256k1 backends btcrecover.crypto_backends can select between.
+BACKENDS = ("coincurve", "wallycore", "purepython")
+
 # Extra seconds (on top of the test duration) allowed for a subprocess to
 # reach and finish its measured run. This covers slow one-off setup such as
 # first-time OpenCL kernel compilation, which can take a while on integrated
@@ -875,6 +878,9 @@ def _append_opencl_args(cmd, opencl_args):
 
 def run_all_benchmarks(args):
     """Run all configured benchmarks and return results."""
+    # BTCR_BACKEND is exported by _configure_backend() before we get here, so
+    # subprocesses inherit the requested backend.
+
     # Build GPU/OpenCL argument dicts from CLI args
     gpu_args = {}
     opencl_args = {}
@@ -906,6 +912,9 @@ def run_all_benchmarks(args):
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "duration_per_test_seconds": args.duration,
             "threads": threads,
+            "backend": args.backend or "auto",
+            # What actually loaded, which is not necessarily what was requested.
+            "backend_actual": getattr(args, "backend_actual", None) or _get_active_backend(),
             "comment": args.comment,
             "gpu_args": gpu_args if gpu_args else None,
             "opencl_args": opencl_args if opencl_args else None,
@@ -988,6 +997,53 @@ def run_all_benchmarks(args):
                 results["benchmarks"].append(result)
 
     return results
+
+
+def _get_active_backend():
+    """Get the secp256k1 backend btcrecover actually selected.
+
+    Queried in a subprocess rather than by importing crypto_backends here, so
+    that the answer reflects what the benchmark's own worker subprocesses will
+    select: same interpreter, same working directory, same BTCR_BACKEND.
+    Returns "unknown" if the backend could not be determined.
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c",
+             "from btcrecover import crypto_backends; print(crypto_backends.BACKEND_NAME)"],
+            capture_output=True, text=True, timeout=60,
+            cwd=SCRIPT_DIR,
+        )
+        for line in result.stdout.splitlines():
+            if line.strip() in BACKENDS:
+                return line.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _configure_backend(args):
+    """Force the requested backend, then confirm which one really loaded.
+
+    crypto_backends falls back to the next available backend when a forced one
+    cannot be imported, so a requested backend is not proof of what ran. Returns
+    the active backend name, or None if it did not match what was requested.
+    """
+    if args.backend:
+        os.environ["BTCR_BACKEND"] = args.backend
+
+    active = _get_active_backend()
+
+    if args.backend and active != args.backend:
+        print(f"ERROR: --backend {args.backend} was requested, but btcrecover selected "
+              f"'{active}' instead.")
+        print("       btcrecover falls back to the next available backend when a forced one")
+        print("       cannot be imported, so continuing would benchmark the wrong library and")
+        print(f"       label the results as '{args.backend}'. Install {args.backend}, or re-run")
+        print(f"       with --backend {active}.")
+        return None
+
+    return active
 
 
 def _get_btcrecover_version():
@@ -1074,8 +1130,11 @@ Examples:
   %(prog)s --wallet-type password  Only test password recovery
   %(prog)s --global-ws 8192        GPU benchmarks with custom work size
   %(prog)s --opencl-workgroup-size 1024  OpenCL with custom workgroup
-  %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
-  %(prog)s --output results.json   Save results to a specific file
+   %(prog)s --comment "GitHub actions run"  Add a free-form comment in metadata
+   %(prog)s --output results.json   Save results to a specific file
+   %(prog)s --backend coincurve     Force a specific secp256k1 backend
+   %(prog)s --backend purepython    Test with pure-Python secp256k1
+   %(prog)s --backend wallycore     Test with wallycore secp256k1
         """
     )
 
@@ -1116,6 +1175,12 @@ Examples:
     parser.add_argument(
         "--comment", type=str, default=None,
         help="Optional free-form note to include in benchmark metadata"
+    )
+    parser.add_argument(
+        "--backend", choices=list(BACKENDS), default=None,
+        help="Force a specific secp256k1 backend. Sets the BTCR_BACKEND environment "
+             "variable for all subprocesses (default: let btcrecover auto-select). "
+             "The run aborts if the requested backend is not the one that actually loads."
     )
     parser.add_argument(
         "--startup-timeout", type=int, default=SEARCH_PHASE_TIMEOUT, metavar="SECONDS",
@@ -1163,11 +1228,19 @@ Examples:
     # Apply the (possibly overridden) startup timeout used by run_benchmark
     SEARCH_PHASE_TIMEOUT = args.startup_timeout
 
+    # Export BTCR_BACKEND and confirm it took effect before spending time on a run
+    # whose results would be mislabeled.
+    args.backend_actual = _configure_backend(args)
+    if args.backend_actual is None:
+        return 1
+
     print("BTCRecover Benchmarking Tool")
     print(f"{'=' * 60}")
     print(f"Duration per test: {args.duration} seconds")
     print(f"Wallet types:      {args.wallet_type}")
     print(f"Threads:           {args.threads if args.threads else 'auto (btcrecover default)'}")
+    print(f"Backend:           {args.backend_actual}"
+          f"{' (forced via --backend)' if args.backend else ' (auto-selected)'}")
     print(f"GPU benchmarks:    {'Yes' if args.gpu else 'No'}")
     print(f"OpenCL benchmarks: {'Yes' if args.opencl else 'No'}")
     if args.comment:

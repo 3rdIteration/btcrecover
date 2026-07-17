@@ -30,11 +30,17 @@ References:
 
 # Imports
 from typing import Any, Union
-import coincurve
 import hashlib
 
-G = coincurve.PublicKey.from_point(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
-                                   0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
+from btcrecover.crypto_backends import (
+    privkey_to_pubkey,
+    pubkey_from_bytes,
+    pubkey_point,
+    lift_x,
+    tweak_pubkey,
+)
+
+# The generator point G is handled internally by crypto_backends.tweak_pubkey()
 
 class P2TRConst:
     """Class container for P2TR constants."""
@@ -69,60 +75,57 @@ class _P2TRUtils:
         return hashlib.sha256(tag_hash + tag_hash + data_bytes).digest()
 
     @staticmethod
-    def HashTapTweak(pub_key: coincurve.PublicKey) -> bytes:
+    def HashTapTweak(pub_key_bytes: bytes) -> bytes:
         """
         Compute the HashTapTweak of the specified public key.
 
         Args:
-            pub_key (IPublicKey object): Public key
+            pub_key_bytes (bytes): Serialized (compressed or uncompressed) public key
 
         Returns:
             bytes: Computed hash
         """
-
+        x = pubkey_point(pub_key_bytes)[0]
         # Use the pre-computed SHA256 of "TapTweak" for speeding up
         return _P2TRUtils.TaggedHash(
             P2TRConst.TAP_TWEAK_SHA256,
-            pub_key.point()[0].to_bytes(32, byteorder="big")
+            x.to_bytes(32, byteorder="big")
         )
 
     @staticmethod
-    def LiftX(pub_key: coincurve.PublicKey):
+    def LiftX(pub_key_bytes: bytes):
         """
         Implementation of the lift_x function as defined by BIP-0340.
         It computes the point P for which P.X() = pub_key.X() and has_even_y(P).
 
         Args:
-            pub_key (IPublicKey object): Public key
+            pub_key_bytes (bytes): Serialized public key
 
         Returns:
-            IPoint: Computed point
-
-        Raises:
-            ValueError: If the point doesn't exist
+            bytes: Serialized (compressed) public key with even Y
         """
         p = P2TRConst.FIELD_SIZE
-        x = pub_key.point()[0]
+        x = pubkey_point(pub_key_bytes)[0]
         if x >= p:
             raise ValueError("Unable to compute LiftX point")
         c = (pow(x, 3, p) + 7) % p
         y = pow(c, (p + 1) // 4, p)
         if c != pow(y, 2, p):
             raise ValueError("Unable to compute LiftX point")
-        return coincurve.PublicKey.from_point(x, y if y % 2 == 0 else p - y)
+        return lift_x(pub_key_bytes)
 
     @staticmethod
-    def TweakPublicKey(pub_key: coincurve.PublicKey) -> bytes:
+    def TweakPublicKey(pub_key_bytes: bytes) -> bytes:
         """
         Tweak a public key as defined by BIP-0086.
         tweaked_pub_key = lift_x(pub_key.X()) + int(HashTapTweak(bytes(pub_key.X()))) * G
 
         Args:
-            pub_key (IPublicKey object): Public key
+            pub_key_bytes (bytes): Serialized public key
 
         Returns:
             bytes: X coordinate of the tweaked public key
         """
-        h = _P2TRUtils.HashTapTweak(pub_key)
-        out_point = _P2TRUtils.LiftX(pub_key).combine([G.multiply(h)])
-        return out_point.point()[0].to_bytes(32, byteorder="big")
+        h = _P2TRUtils.HashTapTweak(pub_key_bytes)
+        out_point = tweak_pubkey(lift_x(pub_key_bytes), h)
+        return pubkey_point(out_point)[0].to_bytes(32, byteorder="big")

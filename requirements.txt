@@ -1,4 +1,20 @@
-coincurve==20.0.0; platform_machine == 'aarch64'
-coincurve>=20.0.0,<22; platform_machine != 'aarch64'
+# secp256k1 elliptic-curve operations are provided by btcrecover.crypto_backends,
+# which prefers coincurve, falls back to wallycore, and finally to a bundled
+# pure-Python implementation. Install at least one of the two C-backed libraries
+# below; if neither is present, BTCRecover still works via the slow pure-Python
+# fallback (and prints a warning).
+# coincurve per-Python-version pins, matched to the available prebuilt wheels:
+#   < 3.13 : coincurve 20.0.0 has wheels (cp38-cp312)
+#   3.13   : only coincurve 21.0.0 has a wheel (cp313)
+#   >= 3.14: no coincurve wheel exists, so it is intentionally omitted here and
+#            BTCRecover falls back to the wallycore backend instead.
+coincurve==20.0.0; python_version < '3.13'
+coincurve==21.0.0; python_version >= '3.13' and python_version < '3.14'
+wallycore>=1.0.0
+# protobuf is required only for bitcoinj and Coinomi wallet types. If absent,
+# those wallets cannot be loaded; all other wallet types work without it.
 protobuf~=5.29.6
+# pycryptodome provides fast AES, ChaCha20-Poly1305, and keccak. The bundled
+# pure-Python fallback (via btcrecover.aes_backends) is used when pycryptodome
+# is not installed, at the cost of significantly slower performance.
 pycryptodome~=3.23.0

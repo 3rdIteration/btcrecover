@@ -37,6 +37,15 @@ You can also use Git (If you have it installed) to do this with the command `git
 
 **Note:** Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...
 
+**Recommended Python version: 3.13.** On Python 3.10–3.13, `coincurve`
+ships pre-built wheels, so the default `pip install -r requirements.txt`
+"just works" with the fastest secp256k1 backend. Python 3.14 (and any future
+3.15) currently has **no** `coincurve` wheel, so the default install cannot use
+coincurve there — see [Python 3.14 and coincurve](#python-314-and-coincurve).
+If you are on 3.14/3.15, install `wallycore` (or rely on the pure-Python
+fallback) and expect the HD-wallet packages in `requirements-full.txt` to be
+unavailable until coincurve publishes a wheel for that version.
+
 ### Windows ###
 Video Demo of Installing BTCRecover in Windows: <https://youtu.be/JveLyJqEgLk>
 
@@ -92,6 +101,26 @@ If you want to install the full requirements (requirements-full.txt), some packa
     pip install maturin --no-binary maturin
     pip install py-sr25519-bindings==0.2.3 --no-build-isolation
     pip install -r requirements-full.txt
+
+#### Termux and the secp256k1 backends
+
+**coincurve does not work on Termux/aarch64 at all.** Even when it builds from
+source, `import coincurve` fails at runtime with
+`ImportError: dlopen failed: cannot locate symbol "_Py_NoneStruct"`
+(see [ofek/coincurve#189](https://github.com/ofek/coincurve/issues/189)). The
+`wallycore` package also has no Android/aarch64 wheel and its source build fails.
+As a result, the only secp256k1 backend that works on Termux is the bundled
+**pure-Python** implementation — which is correct but around 100× slower for
+public-key derivation (see [secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+
+Two practical consequences:
+
+ * Install the **base** `requirements.txt` only (or install `wallycore` and
+   `protobuf`/`pycryptodome` individually). Avoid `requirements-full.txt` on
+   Termux: its `bip-utils` package hard-requires `coincurve`, which cannot be
+   installed on aarch64, so the full requirements will fail to install there.
+ * Expect recoveries on a phone to be slow; this is a CPU/backend limitation,
+   not a misconfiguration.
 
 #### Enabling Native RIPEMD160 Support
 As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.
@@ -153,12 +182,34 @@ Note: If you use Python for other things beyond BTCRecover, then the `--break-sy
 
 #### Python 3.14 and coincurve
 
-**coincurve 21 currently has a bug that prevents it from building from source** (`RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0`). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using **Python 3.14** (or any platform without a pre-built wheel), you must install coincurve 20 manually *before* running the requirements install:
+**coincurve does not currently ship pre-built wheels for Python 3.14**, and
+building it from source currently fails for both available releases:
 
-    pip3 install coincurve==20.0.0
-    pip3 install -r requirements.txt
+ * **coincurve 21** fails with `RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0`.
+ * **coincurve 20** fails with `ERROR: Use build.verbose instead of cmake.verbose for scikit-build-core >= 0.10`.
 
-Because `requirements.txt` accepts any coincurve version in the range `>=20.0.0,<22`, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.
+Pre-built wheels exist only up to Python 3.13 (coincurve 21) / 3.12 (coincurve 20)
+on Windows, macOS, and Linux, so most desktop users on Python 3.10–3.13 are
+unaffected. If you are on **Python 3.14** (or any platform without a pre-built
+wheel), coincurve cannot be installed at all right now.
+
+Because BTCRecover now uses a pluggable secp256k1 backend, this is not fatal:
+if you install **wallycore** (`pip3 install wallycore`, already part of
+`requirements-full.txt` and the base `requirements.txt`), BTCRecover will
+automatically use it instead of coincurve and run at full C-accelerated speed.
+If neither coincurve nor wallycore can be installed, BTCRecover falls back to
+the bundled pure-Python implementation (with a startup warning) — correct, but
+around 100× slower for public-key derivation. You can force a backend with the
+`BTCR_BACKEND` environment variable (see
+[secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+
+**Caveat for `requirements-full.txt` on Python 3.14:** the HD-wallet packages
+`bip-utils` (and the packages that depend on it — `py_crypto_hd_wallet`,
+`slip10`, `stellar_sdk`) hard-require `coincurve`, which cannot be installed on
+3.14. So `pip install -r requirements-full.txt` will fail on Python 3.14. The
+base `requirements.txt` does not have this problem (it only needs `wallycore`
+plus `protobuf`/`pycryptodome`), so install that and add the coincurve-dependent
+HD-wallet extras only once a coincurve wheel exists for 3.14.
 
 ### Packages for Extended Wallet Support
 Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.
@@ -235,6 +286,73 @@ BTCRecover prefers the `wallycore` implementation of `scrypt` when available.
 If `wallycore` is not installed it falls back to `pylibscrypt`, which is
 approximately 20% slower for BIP38 operations and other wallet formats that rely
 on scrypt.
+
+----------
+
+### secp256k1 Backends (coincurve / wallycore / pure-Python)
+
+BTCRecover no longer hard-depends on `coincurve` for secp256k1 operations
+(public-key derivation, P2TR taproot tweaking, and Electrum 2.8 ECIES). It
+selects a backend automatically, in this order:
+
+ 1. **coincurve** — Used when the `coincurve` package is installed (this is the
+    default when you install `requirements.txt` or `requirements-full.txt`).
+ 2. **wallycore** — Used when `coincurve` is *not* installed but `wallycore`
+    is. `wallycore` is already a dependency of `requirements-full.txt` and is
+    also usable with the base requirements by installing it separately
+    (`pip install wallycore`). It covers every secp256k1 operation BTCRecover
+    needs, at roughly the same speed as `coincurve` (see Performance below).
+ 3. **pure-Python** — Used only when neither `coincurve` nor `wallycore` is
+    available. A warning is printed on startup. This keeps BTCRecover working in
+    minimal environments (e.g. Termux, or platforms without pre-built C
+    extension wheels), but it is dramatically slower for secp256k1-heavy
+    recoveries.
+
+You can force a specific backend (for testing, or to avoid an unwanted
+dependency) by setting the `BTCR_BACKEND` environment variable to `coincurve`,
+`wallycore`, or `purepython` before running BTCRecover. If the forced backend is
+not available, BTCRecover warns and falls back to the next available one — so
+setting `BTCR_BACKEND` is not by itself proof of which backend ran. To check
+what is actually in use:
+
+    python -c "from btcrecover import crypto_backends; print(crypto_backends.BACKEND_NAME)"
+
+`benchmark.py --backend NAME` makes this check for you, and aborts rather than
+reporting results labelled with a backend that did not actually run.
+
+#### Performance
+
+**`coincurve` and `wallycore` perform roughly the same on most systems.** Both
+wrap a C implementation of secp256k1, so the gap between them is typically within
+run-to-run noise. Pick whichever installs cleanly on your platform (see the
+Python 3.14 and Termux notes above) rather than choosing one for speed.
+
+Both are **well over 100× faster** than the pure-Python backend at public-key
+derivation, which is what dominates a standard BIP-39 wallet recovery. Indicative
+single-threaded figures (AMD Ryzen 9 9950X, Python 3.13) — absolute numbers vary
+widely with hardware, so the ratios are the point:
+
+| Backend            | Public-key derivations/sec | Electrum 2.8 ECIES mult/sec | Relative speed |
+|--------------------|---------------------------:|----------------------------:|---------------:|
+| coincurve          | ~70,000                    | ~31,000                     | ~1× (baseline) |
+| wallycore          | ~71,000                    | ~31,000                     | ~1×            |
+| pure-Python        | ~600                       | ~530                        | ~115× slower   |
+
+The pure-Python backend is perfectly usable for small
+jobs and for verifying dependencies aren't required, but for large password or
+seed searches you should install `coincurve` or `wallycore` to avoid runtimes
+that are two orders of magnitude longer.
+
+For **simple recoveries** — 1–2 missing or wrong BIP-39 words (e.g. a wrong
+word from a known wallet, or one word you don't fully remember) — the
+pure-Python backend is fast enough: on an average computer the search finishes
+in **well under 24 hours** without any additional modules installed. You can
+start with just Python + the base `requirements.txt` and only bother with the
+C-backed packages if your recovery turns out to be more complex.
+
+You can compare the backends on your own hardware with
+`python benchmark_crypto_backends.py`, which reports each operation separately
+for every backend you have installed.
 
 ----------
 

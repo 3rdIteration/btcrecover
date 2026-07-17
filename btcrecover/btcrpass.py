@@ -68,8 +68,23 @@ except:
     # otherwise use pure python implementation
     from lib.embit.py_ripemd160 import ripemd160
 
-# Import modules from requirements.txt
-from Crypto.Cipher import AES
+# AES and ChaCha20-Poly1305 are provided by btcrecover.aes_backends,
+# which prefers pycryptodome, falls back to bundled pure-Python
+# implementations (and prints a warning when the slow path is used).
+from btcrecover.aes_backends import AES, chacha20_poly1305_new
+
+# secp256k1 public-key operations are provided by btcrecover.crypto_backends,
+# which prefers coincurve, falls back to wallycore, and finally to a bundled
+# pure-Python implementation (emitting a warning when the slow path is used).
+from btcrecover.crypto_backends import (
+    privkey_to_pubkey,
+    pubkey_from_bytes,
+    pubkey_to_bytes,
+    multiply_pubkey,
+    bytes_to_int,
+    int_to_bytes_padded,
+    GROUP_ORDER_INT,
+)
 
 # Import optional modules
 module_opencl_available = False
@@ -1273,8 +1288,10 @@ class WalletBitcoinj(object):
         try:
             from . import bitcoinj_pb2
         except ModuleNotFoundError:
-            print("Warning: Cannot load protobuf module, unable to check if this is a Coinomi wallet"
-                  "... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+            raise ValueError(
+                "Cannot load protobuf module, unable to process this bitcoinj wallet."
+                " Install protobuf with: pip3 install -r requirements.txt"
+                " (see https://btcrecover.readthedocs.io/en/latest/INSTALL/)")
 
         pb_wallet = bitcoinj_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(filedata))
@@ -1415,8 +1432,7 @@ class WalletCoinomi(WalletBitcoinj):
                 try:
                     from . import coinomi_pb2
                 except ModuleNotFoundError:
-                    exit(
-                        "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+                    return False
 
                 try:
                     wallet_file.seek(0)
@@ -1434,8 +1450,10 @@ class WalletCoinomi(WalletBitcoinj):
         try:
             from . import coinomi_pb2
         except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load protobuf module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+            raise ValueError(
+                "Cannot load protobuf module, unable to process this Coinomi wallet."
+                " Install protobuf with: pip3 install -r requirements.txt"
+                " (see https://btcrecover.readthedocs.io/en/latest/INSTALL/)")
 
         pb_wallet = coinomi_pb2.Wallet()
         pb_wallet.ParseFromString(bytes(filedata))
@@ -1696,8 +1714,11 @@ class WalletMsigna(object):
         wallet_conn.row_factory = sqlite3.Row
         select = "SELECT * FROM Keychain"
         try:
-            if "args" in globals() and args.msigna_keychain:  # args is not defined during unit tests
-                wallet_cur = wallet_conn.execute(select + " WHERE name LIKE '%' || ? || '%'", (args.msigna_keychain,))
+            # args may be absent entirely (library use), or present but without
+            # msigna_keychain (unit tests, or another wallet type's arg parse).
+            msigna_keychain = getattr(globals().get("args"), "msigna_keychain", None)
+            if msigna_keychain:
+                wallet_cur = wallet_conn.execute(select + " WHERE name LIKE '%' || ? || '%'", (msigna_keychain,))
             else:
                 wallet_cur = wallet_conn.execute(select)
         except sqlite3.OperationalError as e:
@@ -2068,38 +2089,26 @@ class WalletElectrum28(object):
 
     def __init__(self, loading = False):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
-        global hmac, coincurve
+        global hmac
         import hmac
-
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         pbkdf2_library_name    = load_pbkdf2_library().__name__
         self._aes_library_name = load_aes256_library().__name__
         self._passwords_per_second = 800 if pbkdf2_library_name == "hashlib" else 140
 
     def __getstate__(self):
-        # Serialize unpicklable coincurve.PublicKey object
-        state = self.__dict__.copy()
-        state["_ephemeral_pubkey"] = self._ephemeral_pubkey.format(compressed=False)
-        return state
+        # The ephemeral public key is stored as serialized bytes (see
+        # pubkey_from_bytes), so it pickles cleanly without special handling.
+        return self.__dict__.copy()
 
     def __setstate__(self, state):
-        # Restore coincurve.PublicKey object and (re-)load the required libraries
-        global hmac, coincurve
+        # (Re-)load the required libraries after being unpickled
+        global hmac
         import hmac
-
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_pbkdf2_library(warnings=False)
         load_aes256_library(warnings=False)
         self.__dict__ = state
-        self._ephemeral_pubkey = coincurve.PublicKey(self._ephemeral_pubkey)
 
     # Load an Electrum 2.8 encrypted wallet file
     @classmethod
@@ -2117,7 +2126,7 @@ class WalletElectrum28(object):
         assert data[:4] == b"BIE1", "wallet file has Electrum 2.8+ magic"
 
         self = cls(loading=True)
-        self._ephemeral_pubkey = coincurve.PublicKey(data[4:37])
+        self._ephemeral_pubkey = pubkey_to_bytes(pubkey_from_bytes(data[4:37]), compressed=True)
         self._ciphertext_beg   = data[37:37+16]  # first ciphertext block
         self._ciphertext_end   = data[-64:-32]   # last two blocks (before mac)
         self._mac              = data[-32:]
@@ -2134,7 +2143,6 @@ class WalletElectrum28(object):
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def _return_verified_password_or_false_cpu(self, passwords): #Electrum28
-        cutils = coincurve.utils
 
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), passwords)
@@ -2144,8 +2152,8 @@ class WalletElectrum28(object):
             # Derive the ECIES shared public key, and from it, the AES and HMAC keys
             static_privkey = pbkdf2_hmac("sha512", password, b"", 1024, 64)
             # Electrum uses a 512-bit private key (why?), but libsecp256k1 expects a 256-bit key < group's order:
-            static_privkey = cutils.int_to_bytes( cutils.bytes_to_int(static_privkey) % cutils.GROUP_ORDER_INT )
-            shared_pubkey  = self._ephemeral_pubkey.multiply(static_privkey).format()
+            static_privkey = int_to_bytes_padded( bytes_to_int(static_privkey) % GROUP_ORDER_INT )
+            shared_pubkey  = multiply_pubkey(self._ephemeral_pubkey, static_privkey)
             keys           = hashlib.sha512(shared_pubkey).digest()
 
             # Check the MAC
@@ -2158,7 +2166,6 @@ class WalletElectrum28(object):
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def _return_verified_password_or_false_opencl(self, arg_passwords): #Electrum28
-        cutils = coincurve.utils
 
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
@@ -2172,8 +2179,8 @@ class WalletElectrum28(object):
 
         for count, (password, static_privkey) in enumerate(results, 1):
             # Electrum uses a 512-bit private key (why?), but libsecp256k1 expects a 256-bit key < group's order:
-            static_privkey = cutils.int_to_bytes( cutils.bytes_to_int(static_privkey) % cutils.GROUP_ORDER_INT )
-            shared_pubkey  = self._ephemeral_pubkey.multiply(static_privkey).format()
+            static_privkey = int_to_bytes_padded( bytes_to_int(static_privkey) % GROUP_ORDER_INT )
+            shared_pubkey  = multiply_pubkey(self._ephemeral_pubkey, static_privkey)
             keys           = hashlib.sha512(shared_pubkey).digest()
 
             # Check the MAC
@@ -3742,14 +3749,8 @@ class WalletBither(object):
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
-        global pylibscrypt, coincurve
+        global pylibscrypt
         from lib import pylibscrypt
-
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_aes256_library(warnings=False)
         self.__dict__ = state
@@ -3761,6 +3762,7 @@ class WalletBither(object):
         wallet_conn = sqlite3.connect(wallet_filename)
 
         is_bitcoinj_compatible  = None
+        e1 = None
         # Try to find an encrypted loose key first; they're faster to check
         try:
             wallet_cur = wallet_conn.execute("SELECT encrypt_private_key FROM addresses LIMIT 1")
@@ -3770,8 +3772,11 @@ class WalletBither(object):
                 is_bitcoinj_compatible = True  # if found, the KDF & encryption are bitcoinj compatible
             else:
                 e1 = "no encrypted keys present in addresses table"
-        except sqlite3.OperationalError as e1:
-            if str(e1).startswith("no such table"):
+        except sqlite3.OperationalError as e:
+            # Python unbinds an "except ... as" name when the block ends, so the
+            # message must be copied out for the ValueError raised further below.
+            e1 = str(e)
+            if e1.startswith("no such table"):
                 key_data = None
             else: raise  # unexpected error
 
@@ -3827,13 +3832,6 @@ class WalletBither(object):
         else:
             if not pubkey_hash:
                 error_exit("pubkey hash160 not present in Bither password_seed")
-            global coincurve
-
-            try:
-                import coincurve
-            except ModuleNotFoundError:
-                exit(
-                    "\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
             self = cls(loading=True)
             self._passwords_per_second = bitcoinj_wallet._passwords_per_second  # they're the same
@@ -3870,8 +3868,6 @@ class WalletBither(object):
         hashlib_new          = hashlib.new
         iv_encrypted_key     = self._iv_encrypted_key  # 16-byte iv + encrypted_key
         salt                 = self._salt
-        pubkey_from_secret   = coincurve.PublicKey.from_valid_secret
-        cutils               = coincurve.utils
 
         # Convert strings (lazily) to UTF-16BE bytestrings
         passwords = map(lambda p: p.encode("utf_16_be", "ignore"), passwords)
@@ -3889,8 +3885,8 @@ class WalletBither(object):
             # Decrypt the rest of the encrypted_key, derive its pubkey, and compare it to what's expected
             privkey = l_aes256_cbc_decrypt(derived_aeskey, iv_encrypted_key[:16], iv_encrypted_key[16:-16]) + privkey_end
             # privkey can be any size, but libsecp256k1 expects a 256-bit key < the group's order:
-            privkey = cutils.int_to_bytes_padded( cutils.bytes_to_int(privkey) % cutils.GROUP_ORDER_INT )
-            pubkey  = pubkey_from_secret(privkey).format(self._is_compressed)
+            privkey = int_to_bytes_padded( bytes_to_int(privkey) % GROUP_ORDER_INT )
+            pubkey  = privkey_to_pubkey(privkey, compressed=self._is_compressed)
             # Compute the hash160 of the public key, and check for a match
             if ripemd160(l_sha256(pubkey).digest()) == self._pubkey_hash160:
                 password = password.decode("utf_16_be", "replace")
@@ -4831,10 +4827,9 @@ class WalletYoroi(object):
 
         try:
             from lib.emip3 import emip3
-        except ModuleNotFoundError:
+        except Exception:
             exit(
-                "\nERROR: Cannot load pycryptodome module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
-
+                "\nERROR: Cannot load EMIP-3 module required for this wallet (Yoroi/Cardano)... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
@@ -4842,9 +4837,9 @@ class WalletYoroi(object):
 
         try:
             from lib.emip3 import emip3
-        except ModuleNotFoundError:
+        except Exception:
             exit(
-                "\nERROR: Cannot load pycryptodome module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
+                "\nERROR: Cannot load EMIP-3 module required for this wallet (Yoroi/Cardano)... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         self.__dict__ = state
 
@@ -4874,8 +4869,7 @@ class WalletYoroi(object):
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
-    def _return_verified_password_or_false_opencl(self, arg_passwords): # Yoroi Cadano Wallet
-        from Crypto.Cipher import ChaCha20_Poly1305
+    def _return_verified_password_or_false_opencl(self, arg_passwords): # Yoroi Cardano Wallet
 
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
@@ -4889,7 +4883,7 @@ class WalletYoroi(object):
 
         for count, (password, key) in enumerate(results, 1):
             try:
-                cipher = ChaCha20_Poly1305.new(key=key, nonce=self.nonce)
+                cipher = chacha20_poly1305_new(key=key, nonce=self.nonce)
                 plaintext = cipher.decrypt_and_verify(self.ciphertext, self.tag)
                 return password.decode("utf_8", "replace"), count
             except ValueError:  # ChaCha20_Poly1305 throws a value error if the password is incorrect
@@ -4913,16 +4907,12 @@ class WalletBrainwallet(object):
 
     def __init__(self, addresses = None, addressdb = None, check_compressed = True, check_uncompressed = True,
                  force_check_p2sh = False, isWarpwallet = False, salt = None, crypto = 'bitcoin', is_performance = False):
-        global hmac, coincurve, base58, pylibscrypt
+        global hmac, base58, pylibscrypt
         if not hashlib_ripemd160_available:
             print("Warning: Native RIPEMD160 not available via Hashlib, using Pure-Python (This will significantly reduce performance)")
         import lib.pylibscrypt as pylibscrypt
         from lib.cashaddress import base58
         import hmac
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_pbkdf2_library()
 
@@ -4978,16 +4968,10 @@ class WalletBrainwallet(object):
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
-        global hmac, coincurve, base58, pylibscrypt
+        global hmac, base58, pylibscrypt
         import lib.pylibscrypt as pylibscrypt
         from lib.cashaddress import base58
         import hmac
-
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_pbkdf2_library(warnings=False)
         self.__dict__ = state
@@ -5015,7 +4999,6 @@ class WalletBrainwallet(object):
         l_scrypt = pylibscrypt.scrypt
         hashlib_new = hashlib.new
         global pbkdf2_hmac
-        pubkey_from_secret = coincurve.PublicKey.from_valid_secret
 
         for count, password in enumerate(passwords, 1):
             # Generate the initial Keypair
@@ -5050,7 +5033,7 @@ class WalletBrainwallet(object):
                 else:
                     privcompress = bytes([])
 
-                pubkey = pubkey_from_secret(privkey).format(compressed = isCompressed)
+                pubkey = privkey_to_pubkey(privkey, compressed = isCompressed)
 
                 pubkey_hash160 = ripemd160(l_sha256(pubkey).digest())
 
@@ -5081,7 +5064,6 @@ class WalletBrainwallet(object):
         l_sha256 = hashlib.sha256
         l_scrypt = pylibscrypt.scrypt
         hashlib_new = hashlib.new
-        pubkey_from_secret = coincurve.PublicKey.from_valid_secret
 
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
@@ -5165,7 +5147,7 @@ class WalletBrainwallet(object):
                 else:
                     privcompress = bytes([])
 
-                pubkeys.append(pubkey_from_secret(privkey).format(compressed=isCompressed))
+                pubkeys.append(privkey_to_pubkey(privkey, compressed=isCompressed))
 
             clResult_hashed_pubkey = self.opencl_algo.cl_sha256(self.opencl_context_sha256, pubkeys)
 
@@ -5221,16 +5203,12 @@ class WalletRawPrivateKey(object):
 
     def __init__(self, addresses = None, addressdb = None, check_compressed = True, check_uncompressed = True,
                  force_check_p2sh = False, crypto = 'bitcoin', is_performance = False, correct_wallet_password = None):
-        global hmac, coincurve, base58
+        global hmac, base58
         if not hashlib_ripemd160_available:
             print("Warning: Native RIPEMD160 not available via Hashlib, using Pure-Python (This will significantly reduce performance)")
 
         from lib.cashaddress import base58
         import hmac
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit("\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_pbkdf2_library()
 
@@ -5282,16 +5260,10 @@ class WalletRawPrivateKey(object):
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
-        global hmac, coincurve, base58, pylibscrypt
+        global hmac, base58, pylibscrypt
         import lib.pylibscrypt as pylibscrypt
         from lib.cashaddress import base58
         import hmac
-
-        try:
-            import coincurve
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load coincurve module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
 
         load_pbkdf2_library(warnings=False)
         self.__dict__ = state
@@ -5307,7 +5279,6 @@ class WalletRawPrivateKey(object):
     def return_verified_password_or_false(self, passwords): # Raw Privatekey
         l_sha256 = hashlib.sha256
         hashlib_new = hashlib.new
-        pubkey_from_secret = coincurve.PublicKey.from_valid_secret
 
         for count, password in enumerate(passwords, 1):
             # Generate the initial Keypair
@@ -5404,7 +5375,7 @@ class WalletRawPrivateKey(object):
 
                 # Sometimes it's possible that a privatekey (with a valid checksum) will still be invalid in terms of generating a usable address
                 try:
-                    pubkey = pubkey_from_secret(privkey).format(compressed = isCompressed)
+                    pubkey = privkey_to_pubkey(privkey, compressed = isCompressed)
                 except Exception as e:
                     print("Exception for Privkey: ", password, " : ", e)
                     continue
@@ -5767,6 +5738,17 @@ def load_aes256_library(force_purepython = False, warnings = True):
             aes256_ofb_decrypt = lambda key, iv, ciphertext: \
                 new_aes(key, Crypto.Cipher.AES.MODE_OFB, iv).decrypt(ciphertext)
             return Crypto  # just so the caller can check which version was loaded
+        except ImportError:
+            pass
+        # Try bundled pure-python AES backend
+        try:
+            from btcrecover.aes_backends import AES as _AES_Backend
+            new_aes = _AES_Backend.new
+            aes256_cbc_decrypt = lambda key, iv, ciphertext: \
+                new_aes(key, _AES_Backend.MODE_CBC, iv).decrypt(ciphertext)
+            aes256_ofb_decrypt = lambda key, iv, ciphertext: \
+                new_aes(key, _AES_Backend.MODE_OFB, iv).decrypt(ciphertext)
+            return _AES_Backend
         except ImportError:
             if warnings and not missing_pycrypto_warned:
                 print("Warning: Can't find PyCrypto, using aespython instead", file=sys.stderr)

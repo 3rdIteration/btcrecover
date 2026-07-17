@@ -3,7 +3,7 @@
 
 import hashlib
 import binascii
-from Crypto.Cipher import ChaCha20_Poly1305
+from btcrecover.aes_backends import chacha20_poly1305_new
 
 def encryptWithPassword (password, saltHex, nonceHex, data):
     salt = binascii.unhexlify(saltHex)
@@ -15,7 +15,7 @@ def encryptWithPassword (password, saltHex, nonceHex, data):
         raise ValueError("Salt length must be 12 bytes")
 
     key = hashlib.pbkdf2_hmac('sha512', password, salt, 19162, 32)
-    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+    cipher = chacha20_poly1305_new(key=key, nonce=nonce)
     ciphertext, tag = cipher.encrypt_and_digest(data)
 
     return saltHex + nonceHex + tag.hex().encode() + ciphertext.hex().encode()
@@ -32,7 +32,7 @@ def decryptWithPassword(password, ciphertextHex):
     ciphertext = binascii.unhexlify(ciphertextHex)
 
     key = hashlib.pbkdf2_hmac('sha512', password, salt, 19162, 32)
-    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+    cipher = chacha20_poly1305_new(key=key, nonce=nonce)
     plaintext = cipher.decrypt_and_verify(ciphertext, tag)
 
     return plaintext

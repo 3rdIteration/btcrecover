@@ -56,11 +56,21 @@ python seedrecover.py --help
 
 ## Step 4 – Full requirements (when targeted extras are not sufficient)
 
-For wallets requiring `requirements-full.txt`, ensure libsodium is installed
-and set the environment variable before installing:
+**Avoid `requirements-full.txt` on Termux.** Its `bip-utils` package
+hard-requires `coincurve`, which cannot be installed on Android/aarch64 (see the
+backend note below), so the full requirements will fail to install. Install the
+base `requirements.txt` and add targeted extras (Step 5) only.
+
+If you do attempt the full requirements, ensure libsodium is installed and set
+the environment variable before installing, and build maturin from source first
+(the pre-built maturin wheel does not work on Termux):
 
 ```bash
-SODIUM_INSTALL=system pip install -r requirements-full.txt
+export ANDROID_API_LEVEL=24
+export SODIUM_INSTALL=system
+pip install maturin --no-binary maturin
+pip install py-sr25519-bindings==0.2.3 --no-build-isolation
+pip install -r requirements-full.txt
 ```
 
 ## Step 5 – Targeted extras
@@ -74,9 +84,15 @@ For specific wallet types not covered by base requirements:
 ## Step 6 – Known limitations
 
 * GPU acceleration not available on Android.
-* Some cryptographic packages may fail to build from source; try targeted extras
-  before falling back to requirements-full.txt.
-* Large password/seed searches will be significantly slower than on a desktop.
+* **coincurve does not work on Termux at all** — even when built from source,
+  `import coincurve` fails with `cannot locate symbol "_Py_NoneStruct"`
+  (ofek/coincurve#189). `wallycore` also has no aarch64 wheel. So BTCRecover runs
+  on the **bundled pure-Python** secp256k1 backend, which is correct but ~100×
+  slower for public-key derivation.
+* `requirements-full.txt` cannot install on Termux because `bip-utils` needs
+  coincurve — stick to the base requirements + targeted extras.
+* Large password/seed searches will be significantly slower than on a desktop
+  (slow CPU **and** the pure-Python backend).
 
 ## Step 7 – Validate
 
