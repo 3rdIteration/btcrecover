@@ -2126,7 +2126,7 @@ source, <code>import coincurve</code> fails at runtime with
 (see <a href="https://github.com/ofek/coincurve/issues/189">ofek/coincurve#189</a>). The
 <code>wallycore</code> package also has no Android/aarch64 wheel and its source build fails.
 As a result, the only secp256k1 backend that works on Termux is the bundled
-<strong>pure-Python</strong> implementation — which is correct but roughly 150× slower for
+<strong>pure-Python</strong> implementation — which is correct but around 100× slower for
 public-key derivation (see <a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
 <p>Two practical consequences:</p>
 <ul>
@@ -2188,7 +2188,7 @@ if you install <strong>wallycore</strong> (<code>pip3 install wallycore</code>, 
 automatically use it instead of coincurve and run at full C-accelerated speed.
 If neither coincurve nor wallycore can be installed, BTCRecover falls back to
 the bundled pure-Python implementation (with a startup warning) — correct, but
-roughly 150× slower for public-key derivation. You can force a backend with the
+around 100× slower for public-key derivation. You can force a backend with the
 <code>BTCR_BACKEND</code> environment variable (see
 <a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
 <p><strong>Caveat for <code>requirements-full.txt</code> on Python 3.14:</strong> the HD-wallet packages
@@ -2275,10 +2275,8 @@ selects a backend automatically, in this order:</p>
 <li><strong>wallycore</strong> — Used when <code>coincurve</code> is <em>not</em> installed but <code>wallycore</code>
     is. <code>wallycore</code> is already a dependency of <code>requirements-full.txt</code> and is
     also usable with the base requirements by installing it separately
-    (<code>pip install wallycore</code>). It covers all secp256k1 operations BTCRecover
-    needs except arbitrary point-scalar multiplication for Electrum 2.8 ECIES,
-    which falls back to the bundled pure-Python implementation (still correct,
-    just slower for that one wallet type).</li>
+    (<code>pip install wallycore</code>). It covers every secp256k1 operation BTCRecover
+    needs, at roughly the same speed as <code>coincurve</code> (see Performance below).</li>
 <li><strong>pure-Python</strong> — Used only when neither <code>coincurve</code> nor <code>wallycore</code> is
     available. A warning is printed on startup. This keeps BTCRecover working in
     minimal environments (e.g. Termux, or platforms without pre-built C
@@ -2288,39 +2286,53 @@ selects a backend automatically, in this order:</p>
 <p>You can force a specific backend (for testing, or to avoid an unwanted
 dependency) by setting the <code>BTCR_BACKEND</code> environment variable to <code>coincurve</code>,
 <code>wallycore</code>, or <code>purepython</code> before running BTCRecover. If the forced backend is
-not available, BTCRecover warns and falls back to the next available one.</p>
+not available, BTCRecover warns and falls back to the next available one — so
+setting <code>BTCR_BACKEND</code> is not by itself proof of which backend ran. To check
+what is actually in use:</p>
+<div class="highlight"><pre><span></span><code>python -c &quot;from btcrecover import crypto_backends; print(crypto_backends.BACKEND_NAME)&quot;
+</code></pre></div>
+<p><code>benchmark.py --backend NAME</code> makes this check for you, and aborts rather than
+reporting results labelled with a backend that did not actually run.</p>
 <h4 id="performance">Performance</h4>
-<p>For a typical <strong>standard BIP-39 wallet recovery</strong> (which is dominated by public
-key derivation per candidate seed), the C-based backends are roughly <strong>150×
-faster</strong> than the pure-Python backend on the same hardware:</p>
+<p><strong><code>coincurve</code> and <code>wallycore</code> perform roughly the same on most systems.</strong> Both
+wrap a C implementation of secp256k1, so the gap between them is typically within
+run-to-run noise. Pick whichever installs cleanly on your platform (see the
+Python 3.14 and Termux notes above) rather than choosing one for speed.</p>
+<p>Both are <strong>well over 100× faster</strong> than the pure-Python backend at public-key
+derivation, which is what dominates a standard BIP-39 wallet recovery. Indicative
+single-threaded figures (AMD Ryzen 9 9950X, Python 3.13) — absolute numbers vary
+widely with hardware, so the ratios are the point:</p>
 <table>
 <thead>
 <tr>
 <th>Backend</th>
 <th style="text-align: right;">Public-key derivations/sec</th>
+<th style="text-align: right;">Electrum 2.8 ECIES mult/sec</th>
 <th style="text-align: right;">Relative speed</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>coincurve</td>
-<td style="text-align: right;">~34,000</td>
+<td style="text-align: right;">~70,000</td>
+<td style="text-align: right;">~31,000</td>
 <td style="text-align: right;">~1× (baseline)</td>
 </tr>
 <tr>
 <td>wallycore</td>
-<td style="text-align: right;">~17,000</td>
-<td style="text-align: right;">~2× slower</td>
+<td style="text-align: right;">~71,000</td>
+<td style="text-align: right;">~31,000</td>
+<td style="text-align: right;">~1×</td>
 </tr>
 <tr>
 <td>pure-Python</td>
-<td style="text-align: right;">~240</td>
-<td style="text-align: right;">~150× slower</td>
+<td style="text-align: right;">~600</td>
+<td style="text-align: right;">~530</td>
+<td style="text-align: right;">~115× slower</td>
 </tr>
 </tbody>
 </table>
-<p>For BIP-39 seed recovery, <code>coincurve</code> is about <strong>2× faster</strong> than <code>wallycore</code>.
-The pure-Python backend is perfectly usable for small
+<p>The pure-Python backend is perfectly usable for small
 jobs and for verifying dependencies aren't required, but for large password or
 seed searches you should install <code>coincurve</code> or <code>wallycore</code> to avoid runtimes
 that are two orders of magnitude longer.</p>
@@ -2330,11 +2342,9 @@ pure-Python backend is fast enough: on an average computer the search finishes
 in <strong>well under 24 hours</strong> without any additional modules installed. You can
 start with just Python + the base <code>requirements.txt</code> and only bother with the
 C-backed packages if your recovery turns out to be more complex.</p>
-<p>Electrum 2.8 ECIES is the one operation that only <code>coincurve</code> accelerates
-(~48,000 ops/sec); <code>wallycore</code> and pure-Python both fall back to the bundled
-pure-Python EC code (~2,000 ops/sec) for it.</p>
 <p>You can compare the backends on your own hardware with
-<code>python benchmark_crypto_backends.py</code>.</p>
+<code>python benchmark_crypto_backends.py</code>, which reports each operation separately
+for every backend you have installed.</p>
 <hr />
 <h3 id="pycryptodome">PyCryptoDome</h3>
 <p>With the exception of Ethereum wallets, PyCryptoDome is not strictly required for any wallet, however it offers a 20x speed improvement for wallets that tag it as recommended in the list above.</p>
