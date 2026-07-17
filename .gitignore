@@ -27,3 +27,14 @@ docs/Benchmarks.md
 # skill-eval harness run output (regenerated locally, not tracked)
 /utilities/skill_eval/results/
 /.claude
+
+# Dev-tooling artifacts
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/

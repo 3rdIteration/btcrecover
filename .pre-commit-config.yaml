@@ -1,0 +1,26 @@
+# Pre-commit hooks for btcrecover. Install with:
+#   pip install pre-commit && pre-commit install
+#
+# Kept intentionally light: it lints first-party code with ruff (config lives in
+# pyproject.toml) and runs a few safe file checks. Whitespace/EOL auto-fixing is
+# deliberately NOT enabled yet, because the bundled lib/ tree and the two engine
+# monoliths carry a lot of legacy formatting that will be cleaned up per-module
+# during the package split rather than in one sweep.
+exclude: ^(lib/|docs/|.*_pb2\.py)
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        name: ruff (lint first-party code)
+        args: ["--fix"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]

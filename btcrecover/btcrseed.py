@@ -2651,8 +2651,11 @@ class WalletElectrum2(WalletBIP39):
             if expected_len > 13:
                 print("WARNING: Maximum mnemonic length for standard Electrum2 wallets is 13 words, you specified", expected_len)
 
-        if self._needs_passphrase and not passphrase:
-            passphrase = True  # tells self._config_mnemonic() to prompt for a passphrase below
+        # This Electrum seed was extended with "custom words" (a seed passphrase)
+        # when it was created. In passphrase-recovery mode the passphrase is the
+        # unknown being searched, so don't prompt; otherwise warn the user (or
+        # exit in headless mode) since one must be supplied to continue.
+        if self._needs_passphrase and not getattr(self, "_passphrase_recovery", False):
             init_gui()
             if tk_root:  # Skip if TK is not available...
                 tk.messagebox.showwarning("Passphrase",
