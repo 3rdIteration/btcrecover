@@ -632,6 +632,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#termux-and-the-secp256k1-backends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Termux and the secp256k1 backends
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#enabling-native-ripemd160-support" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -772,6 +783,34 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secp256k1-backends-coincurve-wallycore-pure-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        secp256k1 Backends (coincurve / wallycore / pure-Python)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="secp256k1 Backends (coincurve / wallycore / pure-Python)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2026,6 +2065,14 @@
 <p>You can also use Git (If you have it installed) to do this with the command <code>git clone https://github.com/3rdIteration/btcrecover/</code></p>
 <h2 id="2-install-python">2) Install Python</h2>
 <p><strong>Note:</strong> Only Python 3.10 and later are officially supported... BTCRecover is automatically tested with all supported Python versions (3.10, 3.11, 3.12, 3.13, 3.14) on all supported environments (Windows, Linux, Mac), so you can be sure that both BTCRecover and all required packages will work correctly. Some features of BTCRecover may work on earlier versions of Python, your best bet is to use run-all-tests.py to see what works and what doesn't...</p>
+<p><strong>Recommended Python version: 3.13.</strong> On Python 3.10–3.13, <code>coincurve</code>
+ships pre-built wheels, so the default <code>pip install -r requirements.txt</code>
+"just works" with the fastest secp256k1 backend. Python 3.14 (and any future
+3.15) currently has <strong>no</strong> <code>coincurve</code> wheel, so the default install cannot use
+coincurve there — see <a href="#python-314-and-coincurve">Python 3.14 and coincurve</a>.
+If you are on 3.14/3.15, install <code>wallycore</code> (or rely on the pure-Python
+fallback) and expect the HD-wallet packages in <code>requirements-full.txt</code> to be
+unavailable until coincurve publishes a wheel for that version.</p>
 <h3 id="windows">Windows</h3>
 <p>Video Demo of Installing BTCRecover in Windows: <a href="https://youtu.be/JveLyJqEgLk">https://youtu.be/JveLyJqEgLk</a></p>
 <p>Install Python via the Windows Store.</p>
@@ -2072,6 +2119,24 @@ pip install maturin --no-binary maturin
 pip install py-sr25519-bindings==0.2.3 --no-build-isolation
 pip install -r requirements-full.txt
 </code></pre></div>
+<h4 id="termux-and-the-secp256k1-backends">Termux and the secp256k1 backends</h4>
+<p><strong>coincurve does not work on Termux/aarch64 at all.</strong> Even when it builds from
+source, <code>import coincurve</code> fails at runtime with
+<code>ImportError: dlopen failed: cannot locate symbol "_Py_NoneStruct"</code>
+(see <a href="https://github.com/ofek/coincurve/issues/189">ofek/coincurve#189</a>). The
+<code>wallycore</code> package also has no Android/aarch64 wheel and its source build fails.
+As a result, the only secp256k1 backend that works on Termux is the bundled
+<strong>pure-Python</strong> implementation — which is correct but around 100× slower for
+public-key derivation (see <a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
+<p>Two practical consequences:</p>
+<ul>
+<li>Install the <strong>base</strong> <code>requirements.txt</code> only (or install <code>wallycore</code> and
+   <code>protobuf</code>/<code>pycryptodome</code> individually). Avoid <code>requirements-full.txt</code> on
+   Termux: its <code>bip-utils</code> package hard-requires <code>coincurve</code>, which cannot be
+   installed on aarch64, so the full requirements will fail to install there.</li>
+<li>Expect recoveries on a phone to be slow; this is a CPU/backend limitation,
+   not a misconfiguration.</li>
+</ul>
 <h4 id="enabling-native-ripemd160-support">Enabling Native RIPEMD160 Support</h4>
 <p>As of OpenSSL v3 (Late 2021), ripemd160 is no longer enabled by default in some Linux environments and is now part of the "Legacy" set of hash functions. In Linux/MacOS environments, the hashlib module in Python relies on OpenSSL for ripemd160, so if you want full performance in these environments, you may need modify your OpenSSL settings to enable the legacy provider.</p>
 <p>You can check if this is required by running <code>python check_ripemd160.py</code></p>
@@ -2107,11 +2172,32 @@ pip install -r requirements-full.txt
 <p>If when run this command, you get an error message similar to <strong>error: externally-managed-environment</strong> then you need to add an additional argument <code>--break-system-packages</code> to the above command. (So the command will be <code>pip3 install -r requirements.txt --break-system-packages</code>) </p>
 <p>Note: If you use Python for other things beyond BTCRecover, then the <code>--break-system-packages</code> could cause other issues, but in such situations, managing your python virtual environments for your specific system is beyond the scope of this documentation.</p>
 <h4 id="python-314-and-coincurve">Python 3.14 and coincurve</h4>
-<p><strong>coincurve 21 currently has a bug that prevents it from building from source</strong> (<code>RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0</code>). Pre-built wheels are available for Python 3.9–3.13 on Windows, macOS, and Linux, so most desktop users are unaffected. However, if you are using <strong>Python 3.14</strong> (or any platform without a pre-built wheel), you must install coincurve 20 manually <em>before</em> running the requirements install:</p>
-<div class="highlight"><pre><span></span><code>pip3 install coincurve==20.0.0
-pip3 install -r requirements.txt
-</code></pre></div>
-<p>Because <code>requirements.txt</code> accepts any coincurve version in the range <code>&gt;=20.0.0,&lt;22</code>, pip will recognize that coincurve 20 is already installed and will leave it in place rather than attempting to upgrade to coincurve 21.</p>
+<p><strong>coincurve does not currently ship pre-built wheels for Python 3.14</strong>, and
+building it from source currently fails for both available releases:</p>
+<ul>
+<li><strong>coincurve 21</strong> fails with <code>RuntimeError: Expected exactly one LICENSE file in cffi distribution, got 0</code>.</li>
+<li><strong>coincurve 20</strong> fails with <code>ERROR: Use build.verbose instead of cmake.verbose for scikit-build-core &gt;= 0.10</code>.</li>
+</ul>
+<p>Pre-built wheels exist only up to Python 3.13 (coincurve 21) / 3.12 (coincurve 20)
+on Windows, macOS, and Linux, so most desktop users on Python 3.10–3.13 are
+unaffected. If you are on <strong>Python 3.14</strong> (or any platform without a pre-built
+wheel), coincurve cannot be installed at all right now.</p>
+<p>Because BTCRecover now uses a pluggable secp256k1 backend, this is not fatal:
+if you install <strong>wallycore</strong> (<code>pip3 install wallycore</code>, already part of
+<code>requirements-full.txt</code> and the base <code>requirements.txt</code>), BTCRecover will
+automatically use it instead of coincurve and run at full C-accelerated speed.
+If neither coincurve nor wallycore can be installed, BTCRecover falls back to
+the bundled pure-Python implementation (with a startup warning) — correct, but
+around 100× slower for public-key derivation. You can force a backend with the
+<code>BTCR_BACKEND</code> environment variable (see
+<a href="#secp256k1-backends-coincurve--wallycore--pure-python">secp256k1 Backends</a>).</p>
+<p><strong>Caveat for <code>requirements-full.txt</code> on Python 3.14:</strong> the HD-wallet packages
+<code>bip-utils</code> (and the packages that depend on it — <code>py_crypto_hd_wallet</code>,
+<code>slip10</code>, <code>stellar_sdk</code>) hard-require <code>coincurve</code>, which cannot be installed on
+3.14. So <code>pip install -r requirements-full.txt</code> will fail on Python 3.14. The
+base <code>requirements.txt</code> does not have this problem (it only needs <code>wallycore</code>
+plus <code>protobuf</code>/<code>pycryptodome</code>), so install that and add the coincurve-dependent
+HD-wallet extras only once a coincurve wheel exists for 3.14.</p>
 <h3 id="packages-for-extended-wallet-support">Packages for Extended Wallet Support</h3>
 <p>Depending on your wallet type, you may also want to install the packages required for full wallet support. This is a much larger download and may also require that you install additional software on your PC for these packages to build and install.</p>
 <p><code>pip3 install -r requirements-full.txt</code></p>
@@ -2179,6 +2265,87 @@ If <code>wallycore</code> is not installed it falls back to <code>pylibscrypt</c
 approximately 20% slower for BIP38 operations and other wallet formats that rely
 on scrypt.</p>
 <hr />
+<h3 id="secp256k1-backends-coincurve-wallycore-pure-python">secp256k1 Backends (coincurve / wallycore / pure-Python)</h3>
+<p>BTCRecover no longer hard-depends on <code>coincurve</code> for secp256k1 operations
+(public-key derivation, P2TR taproot tweaking, and Electrum 2.8 ECIES). It
+selects a backend automatically, in this order:</p>
+<ol>
+<li><strong>coincurve</strong> — Used when the <code>coincurve</code> package is installed (this is the
+    default when you install <code>requirements.txt</code> or <code>requirements-full.txt</code>).</li>
+<li><strong>wallycore</strong> — Used when <code>coincurve</code> is <em>not</em> installed but <code>wallycore</code>
+    is. <code>wallycore</code> is already a dependency of <code>requirements-full.txt</code> and is
+    also usable with the base requirements by installing it separately
+    (<code>pip install wallycore</code>). It covers every secp256k1 operation BTCRecover
+    needs, at roughly the same speed as <code>coincurve</code> (see Performance below).</li>
+<li><strong>pure-Python</strong> — Used only when neither <code>coincurve</code> nor <code>wallycore</code> is
+    available. A warning is printed on startup. This keeps BTCRecover working in
+    minimal environments (e.g. Termux, or platforms without pre-built C
+    extension wheels), but it is dramatically slower for secp256k1-heavy
+    recoveries.</li>
+</ol>
+<p>You can force a specific backend (for testing, or to avoid an unwanted
+dependency) by setting the <code>BTCR_BACKEND</code> environment variable to <code>coincurve</code>,
+<code>wallycore</code>, or <code>purepython</code> before running BTCRecover. If the forced backend is
+not available, BTCRecover warns and falls back to the next available one — so
+setting <code>BTCR_BACKEND</code> is not by itself proof of which backend ran. To check
+what is actually in use:</p>
+<div class="highlight"><pre><span></span><code>python -c &quot;from btcrecover import crypto_backends; print(crypto_backends.BACKEND_NAME)&quot;
+</code></pre></div>
+<p><code>benchmark.py --backend NAME</code> makes this check for you, and aborts rather than
+reporting results labelled with a backend that did not actually run.</p>
+<h4 id="performance">Performance</h4>
+<p><strong><code>coincurve</code> and <code>wallycore</code> perform roughly the same on most systems.</strong> Both
+wrap a C implementation of secp256k1, so the gap between them is typically within
+run-to-run noise. Pick whichever installs cleanly on your platform (see the
+Python 3.14 and Termux notes above) rather than choosing one for speed.</p>
+<p>Both are <strong>well over 100× faster</strong> than the pure-Python backend at public-key
+derivation, which is what dominates a standard BIP-39 wallet recovery. Indicative
+single-threaded figures (AMD Ryzen 9 9950X, Python 3.13) — absolute numbers vary
+widely with hardware, so the ratios are the point:</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th style="text-align: right;">Public-key derivations/sec</th>
+<th style="text-align: right;">Electrum 2.8 ECIES mult/sec</th>
+<th style="text-align: right;">Relative speed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>coincurve</td>
+<td style="text-align: right;">~70,000</td>
+<td style="text-align: right;">~31,000</td>
+<td style="text-align: right;">~1× (baseline)</td>
+</tr>
+<tr>
+<td>wallycore</td>
+<td style="text-align: right;">~71,000</td>
+<td style="text-align: right;">~31,000</td>
+<td style="text-align: right;">~1×</td>
+</tr>
+<tr>
+<td>pure-Python</td>
+<td style="text-align: right;">~600</td>
+<td style="text-align: right;">~530</td>
+<td style="text-align: right;">~115× slower</td>
+</tr>
+</tbody>
+</table>
+<p>The pure-Python backend is perfectly usable for small
+jobs and for verifying dependencies aren't required, but for large password or
+seed searches you should install <code>coincurve</code> or <code>wallycore</code> to avoid runtimes
+that are two orders of magnitude longer.</p>
+<p>For <strong>simple recoveries</strong> — 1–2 missing or wrong BIP-39 words (e.g. a wrong
+word from a known wallet, or one word you don't fully remember) — the
+pure-Python backend is fast enough: on an average computer the search finishes
+in <strong>well under 24 hours</strong> without any additional modules installed. You can
+start with just Python + the base <code>requirements.txt</code> and only bother with the
+C-backed packages if your recovery turns out to be more complex.</p>
+<p>You can compare the backends on your own hardware with
+<code>python benchmark_crypto_backends.py</code>, which reports each operation separately
+for every backend you have installed.</p>
+<hr />
 <h3 id="pycryptodome">PyCryptoDome</h3>
 <p>With the exception of Ethereum wallets, PyCryptoDome is not strictly required for any wallet, however it offers a 20x speed improvement for wallets that tag it as recommended in the list above.</p>
 <h3 id="py_crypto_hd_wallet">Py_Crypto_HD_Wallet</h3>
@@ -2220,9 +2387,9 @@ on scrypt.</p>
     
     <nav>
       
-        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
+        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
           
-          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
+          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
         </a>
       
         <a href="https://github.com/web-flow" class="md-author" title="@web-flow">
@@ -2230,9 +2397,9 @@ on scrypt.</p>
           <img src="https://avatars.githubusercontent.com/u/19864447?v=4&size=72" alt="web-flow">
         </a>
       
-        <a href="https://github.com/3rdIteration" class="md-author" title="@3rdIteration">
+        <a href="https://github.com/apps/copilot-swe-agent" class="md-author" title="@Copilot">
           
-          <img src="https://avatars.githubusercontent.com/u/2230318?v=4&size=72" alt="3rdIteration">
+          <img src="https://avatars.githubusercontent.com/in/1143301?v=4&size=72" alt="Copilot">
         </a>
       
         <a href="https://github.com/gurnec" class="md-author" title="@gurnec">
@@ -2264,7 +2431,7 @@ on scrypt.</p>
       
 <ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
     Page Contributors
-    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">gurnec - </a></li></ul>
+    <ul class="contributors" data-bi-name="contributors"><li><a href="" data-bi-name="contributorprofile">3rdIteration - </a></li><li><a href="" data-bi-name="contributorprofile">web-flow - </a></li><li><a href="" data-bi-name="contributorprofile">Copilot - </a></li><li><a href="" data-bi-name="contributorprofile">gurnec - </a></li></ul>
 </ul>
 <footer class="md-footer">
   
