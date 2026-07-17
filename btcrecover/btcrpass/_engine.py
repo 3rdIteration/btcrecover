@@ -1069,17 +1069,26 @@ def clean_autosave_args(argList, listName):
 #
 # TODO: document kwds usage (as used by unit tests)
 def parse_arguments(effective_argv, wallet = None, base_iterator = None,
-                    perf_iterator = None, inserted_items = None, check_only = None, disable_security_warning_param = False, **kwds):
+                    perf_iterator = None, inserted_items = None, check_only = None,
+                    disable_security_warning_param = False, arg_overrides = None, **kwds):
     # effective_argv is what we are effectively given, either via the command line, via embedded
     # options in the tokenlist file, or as a result of restoring a session, before any argument
     # processing or defaulting is done (unless it's is done by argparse). Each time effective_argv
     # is changed (due to reading a tokenlist or restore file), we redo parser.parse_args() which
     # changes args, so we only do this early on before most args processing takes place.
+    #
+    # arg_overrides is an optional {dest: value} mapping of already-typed option values applied
+    # directly to the parsed namespace. It lets in-process callers (e.g. btcrseed, the API, a GUI)
+    # pass structured configuration instead of encoding it as command-line strings for argparse to
+    # re-parse. Because it is applied after *every* (re-)parse below, the overrides always win.
 
-    def _apply_beep_configuration(parsed_args):
+    def _finalize_parsed_args(parsed_args):
         pcspeaker = getattr(parsed_args, "beep_on_find_pcspeaker", False)
         success_alert.configure_pc_speaker(pcspeaker)
         success_alert.set_beep_on_find(getattr(parsed_args, "beep_on_find", False) or pcspeaker)
+        if arg_overrides:
+            for _override_dest, _override_value in arg_overrides.items():
+                setattr(parsed_args, _override_dest, _override_value)
 
     # If no args are present on the command line (e.g. user double-clicked the script
     # in the shell), enable --pause by default so user doesn't miss any error messages
@@ -1126,7 +1135,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         pass
     #
     args = parser.parse_args(effective_argv)
-    _apply_beep_configuration(args)
+    _finalize_parsed_args(args)
 
     # Do this as early as possible so user doesn't miss any error messages
     if args.pause: enable_pause()
@@ -1180,7 +1189,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         # Add these in as non-options so that args gets a copy of their values
         parser.set_defaults(autosave=False, restore=False)
         args = parser.parse_args(effective_argv)
-        _apply_beep_configuration(args)
+        _finalize_parsed_args(args)
 
     # Manually handle the --help option, now that we know which help (tokenlist, not passwordlist) to print
     elif args.help:
@@ -1243,7 +1252,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         passwordlist_args = stripped_first_line.split()
         effective_argv = passwordlist_args + effective_argv
         args = parser.parse_args(effective_argv)
-        _apply_beep_configuration(args)
+        _finalize_parsed_args(args)
         if args.pause: enable_pause()
         for arg in passwordlist_args:
             if arg.startswith("--pas"):           # --passwordlist or --passwordlist-arguments
@@ -1274,7 +1283,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             tokenlist_args = first_line.split()          # TODO: support quoting / escaping?
             effective_argv = tokenlist_args + effective_argv  # prepend them so that real argv takes precedence
             args = parser.parse_args(effective_argv)     # reparse the arguments
-            _apply_beep_configuration(args)
+            _finalize_parsed_args(args)
             # Check this again as early as possible so user doesn't miss any error messages
             if args.pause: enable_pause()
             for arg in tokenlist_args:
@@ -1306,7 +1315,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         print("Last session ended having finished password #", savestate["skip"])
         restore_filename = args.restore      # save this before it's overwritten below
         args = parser.parse_args(effective_argv)
-        _apply_beep_configuration(args)
+        _finalize_parsed_args(args)
         # Check this again as early as possible so user doesn't miss any error messages
         if args.pause: enable_pause()
         # If the order of passwords generated has changed since the last version, don't permit a restore
