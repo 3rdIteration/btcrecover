@@ -408,11 +408,31 @@ def register_wallet_class(cls):
 
     return cls
 
+# Snapshot of the default (decorator-registered) wallet set, captured lazily the
+# first time the registry is cleared so it can be restored later. This matters
+# when password wallet loading and seed autodetection (which calls
+# clear_registered_wallets() to swap in the seed-detecting wallet classes) run in
+# the same process -- e.g. the MCP server or the test suite.
+_default_wallet_types = None
+_default_wallet_types_by_id = None
+
 # Clears the current set of registered wallets (including those registered by default below)
 def clear_registered_wallets():
-    global wallet_types, wallet_types_by_id
+    global wallet_types, wallet_types_by_id, _default_wallet_types, _default_wallet_types_by_id
+    if _default_wallet_types is None:
+        _default_wallet_types       = list(wallet_types)
+        _default_wallet_types_by_id = dict(wallet_types_by_id)
     wallet_types       = []
     wallet_types_by_id = {}
+
+# Restores the default wallet set captured before the first clear_registered_wallets()
+# call (a no-op if the registry was never cleared). Use this before loading a
+# password wallet in a process that may have switched to seed autodetection.
+def restore_default_registered_wallets():
+    global wallet_types, wallet_types_by_id
+    if _default_wallet_types is not None:
+        wallet_types       = list(_default_wallet_types)
+        wallet_types_by_id = dict(_default_wallet_types_by_id)
 
 
 # The max wallet file size in bytes (prevents trying to load huge files which clearly aren't wallets)
@@ -770,7 +790,9 @@ class WalletBitcoinCore(object):
             if "apple" in device.vendor.lower():
                 build_options += " -DAPPLE_GPU"
                 break
-        kernel_file = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "opencl","sha512-bc-kernel.cl"), encoding="ascii", errors="ignore")
+        # The kernel lives in btcrecover/opencl/; this module is
+        # btcrecover/btcrpass/_engine.py, so go up two levels to btcrecover/.
+        kernel_file = open(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "opencl","sha512-bc-kernel.cl"), encoding="ascii", errors="ignore")
         cl_program = pyopencl.Program(cl_context, kernel_file.read()).build(build_options)
         kernel_file.close()
 

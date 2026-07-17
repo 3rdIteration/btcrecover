@@ -30,9 +30,9 @@ import bisect
 from typing import AnyStr, List, Optional, Sequence, Tuple, TypeVar, Union
 
 # Import modules bundled with BTCRecover
-from . import aezeed, btcrpass
-from . import success_alert
-from .addressset import AddressSet
+from .. import aezeed, btcrpass
+from .. import success_alert
+from ..addressset import AddressSet
 from lib.bitcoinlib import encoding
 from lib.cashaddress import convert, base58
 from lib.base58_tools import base58_tools
@@ -310,7 +310,9 @@ def register_selectable_wallet_class(description):
 
 # Loads a wordlist from a file into a list of Python unicodes. Note that the
 # unicodes are normalized in NFC format, which is not what BIP39 requires (NFKD).
-wordlists_dir = os.path.join(os.path.dirname(__file__), "wordlists")
+# wordlists live in btcrecover/wordlists/; this module is btcrecover/btcrseed/_engine.py,
+# so go up two levels to the btcrecover package directory.
+wordlists_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "wordlists")
 def load_wordlist(name, lang):
     filename = os.path.join(wordlists_dir, "{}-{}.txt".format(name, lang))
     with io.open(filename, encoding="utf_8_sig") as wordlist_file:
@@ -2444,7 +2446,7 @@ class WalletBitcoinj(WalletBIP39):
     # Load a bitcoinj wallet file (the part of it we need, just the chaincode)
     @classmethod
     def load_from_filename(cls, wallet_filename):
-        from . import wallet_pb2
+        from .. import wallet_pb2
         pb_wallet = wallet_pb2.Wallet()
         with open(wallet_filename, "rb") as wallet_file:
             pb_wallet.ParseFromString(wallet_file.read(btcrpass.MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k

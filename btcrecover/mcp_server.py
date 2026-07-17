@@ -48,6 +48,12 @@ def recover_password_tool(args: list[str]) -> dict:
     "guesses.txt"]``. Returns a structured result: ``status`` (found /
     not_found / interrupted / error), ``found`` (bool), and ``password``.
     """
+    from btcrecover import btcrpass
+
+    # A prior recover_seed call in this process may have swapped the shared
+    # wallet registry over to seed autodetection; restore the default password
+    # wallet set so a --wallet file can still be detected.
+    btcrpass.restore_default_registered_wallets()
     return api.recover_password(args, quiet=True).to_dict()
 
 
@@ -72,6 +78,10 @@ def inspect_wallet_tool(wallet_path: str) -> dict:
     from btcrecover import btcrpass
 
     with contextlib.redirect_stdout(sys.stderr):
+        # A prior recover_seed call in this process may have swapped the shared
+        # wallet registry over to seed autodetection; restore the default
+        # password wallet set so file detection works.
+        btcrpass.restore_default_registered_wallets()
         try:
             wallet = btcrpass.load_wallet(wallet_path)
         except SystemExit:
