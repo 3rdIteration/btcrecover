@@ -3657,7 +3657,10 @@ class WalletBIP38(object):
         self.__dict__ = state
 
     def passwords_per_seconds(self, seconds):
-        return max(int(round(10 * seconds)), 1)
+        # Rough estimate used before/without the pre-start benchmark. CUDA is far
+        # faster than the CPU scrypt, so a per-mode figure keeps the initial ETA sane.
+        rate = 375 if self.cuda_enabled else 10
+        return max(int(round(rate * seconds)), 1)
 
     def difficulty_info(self):
         return "sCrypt N=14, r=8, p=8"

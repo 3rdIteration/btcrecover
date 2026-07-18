@@ -4315,24 +4315,27 @@ def main():
 
     # Measure the performance of the verification function
     # (for CPU, run for about 0.5s; for GPU, run for one global-worksize chunk)
+    # One chunk of passwords is verified per call to amortize call overhead; the
+    # CPU chunksize below is derived from the measured est_secs_per_password.
+    CHUNKSIZE_SECONDS = 1.0 / 100.0
+
     if args.performance and args.enable_gpu:  # skip this time-consuming & unnecessary measurement in this case
         est_secs_per_password = 0.01          # set this to something relatively big, it doesn't matter exactly what
     else:
+        # Batch size sent to the verifier per call during the benchmark. GPU paths
+        # verify a fixed device-sized batch; for the CPU it is chosen adaptively
+        # below so per-call overhead is amortized. Note this no longer relies on the
+        # legacy per-wallet passwords_per_seconds() estimate -- the benchmark, which
+        # runs by default, is now the sole source of the ETA. passwords_per_seconds()
+        # survives only as the --skip-pre-start fallback (where nothing is measured).
         if args.enable_gpu:
-            inner_iterations = sum(args.global_ws)
-            outer_iterations = 1
-            approx_passwords = loaded_wallet.passwords_per_seconds(0.5)
+            gpu_batch = sum(args.global_ws)
+        elif args.enable_cuda or args.enable_opencl:
+            gpu_batch = max(1, getattr(loaded_wallet, "chunksize", 1))
         else:
-            # Passwords are verified in "chunks" to reduce call overhead. One chunk includes enough passwords to
-            # last for about 1/100th of a second (determined experimentally to be about the best I could do, YMMV)
-            CHUNKSIZE_SECONDS = 1.0 / 100.0
-            measure_performance_iterations = loaded_wallet.passwords_per_seconds(0.5)
-            inner_iterations = int(round(2 * measure_performance_iterations * CHUNKSIZE_SECONDS)) or 1  # the "2*" is due to the 0.5 seconds above
-            outer_iterations = max(1, int(round(measure_performance_iterations / inner_iterations)))
-            approx_passwords = measure_performance_iterations
+            gpu_batch = None  # CPU: size adaptively during the benchmark
 
-        approx_passwords = max(approx_passwords, 1)
-        fallback_estimate = 0.5 / float(approx_passwords)
+        fallback_estimate = 0.5 / float(max(loaded_wallet.passwords_per_seconds(0.5), 1))
 
         skip_pre_start = getattr(args, "skip_pre_start", False)
         pre_start_limit = getattr(args, "pre_start_seconds", 30.0)
@@ -4357,28 +4360,56 @@ def main():
             print(message)
 
             performance_generator = performance_base_password_generator()  # generates dummy passwords
-            start = timeit.default_timer()
-            iterations_done = 0
-
             loaded_wallet.pre_start_benchmark = True
+
+            def _run_benchmark_batch(n):
+                pwds = list(itertools.islice(filter(custom_final_checker, performance_generator), n))
+                loaded_wallet.return_verified_password_or_false(pwds)
+                return len(pwds)
+
+            # Measure for a short, fixed budget (self-calibrating), capped by --pre-start-seconds.
+            budget = 0.5 if pre_start_limit is None else min(0.5, pre_start_limit)
+
+            iterations_done = 0
+            elapsed = 0.0
             try:
-                for o in range(outer_iterations):
-                    loaded_wallet.return_verified_password_or_false(list(
-                        itertools.islice(filter(custom_final_checker, performance_generator), inner_iterations)))
-                    iterations_done += inner_iterations
-                    if pre_start_limit is not None and timeit.default_timer() - start >= pre_start_limit:
+                if gpu_batch is not None:
+                    # GPU: fixed device batch, with one untimed warm-up call so the
+                    # timed measurement excludes one-time setup (CUDA's scratchpad, etc.).
+                    batch = gpu_batch
+                    _run_benchmark_batch(batch)
+                else:
+                    # CPU: grow the batch until one call is long enough that per-call
+                    # overhead is negligible relative to the verification work.
+                    batch = 1
+                    while batch < (1 << 20):
+                        t0 = timeit.default_timer()
+                        _run_benchmark_batch(batch)
+                        if timeit.default_timer() - t0 >= 0.002:
+                            break
+                        batch *= 2
+
+                start = timeit.default_timer()
+                while True:
+                    got = _run_benchmark_batch(batch)
+                    iterations_done += got
+                    elapsed = timeit.default_timer() - start
+                    if got < batch:  # the dummy-password generator ran out
+                        break
+                    if elapsed >= budget:
+                        break
+                    if pre_start_limit is not None and elapsed >= pre_start_limit:
                         break
             finally:
                 loaded_wallet.pre_start_benchmark = False
                 del performance_generator
 
-            elapsed = timeit.default_timer() - start
             if iterations_done <= 0 or elapsed <= 0:
                 est_secs_per_password = fallback_estimate
             else:
                 est_secs_per_password = elapsed / iterations_done
-                rate = iterations_done / elapsed
-                print("Pre-start benchmark completed in {:.2f}s ({:.2f} passwords/s).".format(elapsed, rate))
+                print("Pre-start benchmark completed in {:.2f}s ({:.2f} passwords/s).".format(
+                    elapsed, iterations_done / elapsed))
 
         assert isinstance(est_secs_per_password, float) and est_secs_per_password > 0.0
 
