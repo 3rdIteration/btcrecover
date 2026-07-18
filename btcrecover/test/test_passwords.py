@@ -1198,6 +1198,32 @@ def has_scrypt_opencl_support():
     """sCrypt OpenCL is not supported on AMD unified memory GPUs."""
     return has_any_opencl_devices() and not has_amd_unified_memory_gpu()
 
+
+def can_load_cuda():
+    try:
+        from btcrecover import cuda_scrypt
+        return cuda_scrypt.is_available()
+    except Exception:
+        return False
+
+
+class TestCudaScrypt(unittest.TestCase):
+    """The CUDA scrypt used for BIP38 acceleration must match hashlib.scrypt."""
+
+    @skipUnless(can_load_cuda, "requires CuPy and a CUDA GPU")
+    def test_cuda_scrypt_matches_hashlib(self):
+        import hashlib
+
+        from btcrecover import cuda_scrypt
+
+        pws = [("cuda-test-%d" % i).encode() for i in range(8)]
+        salt = b"\x01\x02\x03\x04"
+        for dklen in (32, 64):  # 32 = BIP38 EC-multiplied, 64 = non-EC
+            ref = [hashlib.scrypt(p, salt=salt, n=1 << 14, r=8, p=8, dklen=dklen, maxmem=1 << 30) for p in pws]
+            got = cuda_scrypt.scrypt_batch(pws, salt, 1 << 14, 8, 8, dklen)
+            self.assertEqual(ref, got, "CUDA scrypt mismatch at dklen=%d" % dklen)
+
+
 class Test07WalletDecryption(unittest.TestCase):
 
     # Checks a test wallet against the known password, and ensures

@@ -1870,6 +1870,20 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     except AttributeError:
         pass
 
+    # CUDA (NVIDIA) acceleration -- currently BIP38 sCrypt only, and far faster than
+    # OpenCL for it. Runs single-process (the GPU is the parallelism), so force one
+    # worker; the main process owns the CUDA context.
+    if args.enable_cuda:
+        from btcrecover import cuda_scrypt
+        if type(loaded_wallet) is not WalletBIP38:
+            error_exit("--enable-cuda currently only accelerates BIP38 wallets")
+        if not cuda_scrypt.is_available():
+            error_exit("--enable-cuda requires CuPy and a CUDA-capable GPU; install with 'pip install btcrecover[cuda]'")
+        loaded_wallet.cuda_enabled = True
+        loaded_wallet.chunksize = args.cuda_batch if args.cuda_batch else 200
+        args.threads = 1
+        print("CUDA: BIP38 sCrypt acceleration enabled (batch size {})".format(loaded_wallet.chunksize))
+
     # Parse and syntax check all of the GPU related options
     if args.enable_opencl:
         try:
@@ -4370,7 +4384,7 @@ def main():
 
     if args.enable_gpu:
         chunksize = sum(args.global_ws)
-    elif args.enable_opencl:
+    elif args.enable_opencl or args.enable_cuda:
         chunksize = loaded_wallet.chunksize
     else:
         # (see CHUNKSIZE_SECONDS above)

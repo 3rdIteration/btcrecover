@@ -3594,6 +3594,7 @@ def prefactor_to_passpoint(prefactor, has_lotsequence_flag, encpriv):
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
 class WalletBIP38(object):
     opencl_algo = -1
+    cuda_enabled = False
 
     def __init__(self, enc_privkey, bip38_network = 'bitcoin'):
         global pylibscrypt, ecdsa, double_sha256, hash160, normalize, base58, AESModeOfOperationECB, secp256k1_n
@@ -3662,8 +3663,37 @@ class WalletBIP38(object):
         return "sCrypt N=14, r=8, p=8"
 
     def return_verified_password_or_false(self, passwords): # BIP38 Encrypted Private Keys
+        if self.cuda_enabled:
+            return self._return_verified_password_or_false_cuda(passwords)
         return self._return_verified_password_or_false_opencl(passwords) if (not isinstance(self.opencl_algo,int)) \
           else self._return_verified_password_or_false_cpu(passwords)
+
+    def _return_verified_password_or_false_cuda(self, arg_passwords): # BIP38 Encrypted Private Keys
+        from btcrecover import cuda_scrypt
+        l_scrypt = pylibscrypt.scrypt
+
+        passwords = [normalize("NFC", p).encode("utf_8", "ignore") for p in arg_passwords]
+
+        if not self.ec_multiplied:
+            scrypthashes = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 64)
+            for count, (password, scrypthash) in enumerate(zip(passwords, scrypthashes), 1):
+                self.decrypted_privkey = bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
+                    return password.decode("utf_8", "replace"), count
+        else:
+            # The expensive first sCrypt runs on the GPU; the small second sCrypt
+            # (N=1024) and the EC math stay on the CPU.
+            prefactors = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 32)
+            for count, (password, prefactor) in enumerate(zip(passwords, prefactors), 1):
+                passpoint = prefactor_to_passpoint(prefactor, self.has_lotsequence_flag, self.enc_privkey)
+                encseedb = l_scrypt(passpoint, self.enc_privkey[0:12], 1024, 1, 1, 64)
+                self.decrypted_privkey = bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
+                if self.decrypted_privkey:
+                    print("Decrypted BIP38 Key:", self.decrypted_privkey)
+                    return password.decode("utf_8", "replace"), count
+
+        return False, len(passwords)
 
     # This is the time-consuming function executed by worker thread(s). It returns a tuple: if a password
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1

@@ -173,6 +173,9 @@ def init_parser_common():
         opencl_group.add_argument("--opencl-platform",  type=int, nargs="+", metavar="ID", help="Choose the OpenCL platform (GPU) to use (default: auto)")
         opencl_group.add_argument("--opencl-devices", metavar="ID1,ID2,ID3", help="Choose which OpenCL devices for a given to use as a comma seperated list eg: 1,2,4 (default: all)")
         opencl_group.add_argument("--opencl-info",  action="store_true",     help="list available GPU names and IDs, then exit")
+        cuda_group = parser_common.add_argument_group("CUDA acceleration (NVIDIA)")
+        cuda_group.add_argument("--enable-cuda", action="store_true", help="enable CUDA (NVIDIA GPU) acceleration; currently accelerates BIP38 sCrypt and is much faster than OpenCL for it (requires: pip install btcrecover[cuda])")
+        cuda_group.add_argument("--cuda-batch", type=int, metavar="PASSWORD-COUNT", help="passwords per CUDA batch (default: auto, sized to fit GPU memory)")
 
         parser_common_initialized = True
 

@@ -4,6 +4,30 @@
 
 BTCRecover includes support for using one or more graphics cards or dedicated accelerator cards to increase search performance. 
 
+### CUDA Acceleration for BIP38 (NVIDIA)
+
+BIP38 encrypted private keys use a very heavy, memory-hard sCrypt (N=2^14, r=8, p=8).
+The generic OpenCL path is memory-bound and does not scale well for this. On NVIDIA
+GPUs there is a purpose-built **CUDA** path that is dramatically faster — on an RTX 5090
+it runs at roughly **375 passwords/s**, versus ~40/s for OpenCL and ~75/s for a fully
+loaded high-end CPU (about a **9× speedup over OpenCL**).
+
+Install the optional CUDA dependency (CuPy) and enable it with `--enable-cuda`:
+
+```
+pip install btcrecover[cuda]
+python btcrecover.py --bip38-enc-privkey <key> --enable-cuda --passwordlist passwords.txt
+```
+
+Notes:
+
+* Requires an NVIDIA GPU and a recent driver. If CuPy or a CUDA device is not present,
+  `--enable-cuda` reports an error; use OpenCL (`--enable-opencl`) or plain CPU instead.
+* CUDA acceleration currently applies to **BIP38** only. It runs single-process (the GPU
+  is the parallelism), so it ignores `--threads`.
+* The GPU-memory batch size is auto-sized to your card; override with `--cuda-batch`.
+
+
 The performance increase that this offers depends on the type of wallet you are trying to recover, your CPU and your GPU.
 
 For the sake of comparison, the CPU vs GPU performance for an i7-8750 vs an NVidia 1660ti, for a variety of wallets is generally:

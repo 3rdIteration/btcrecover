@@ -57,6 +57,15 @@ gpu = [
     "pyopencl",
     "numpy",
 ]
+# Optional CUDA (NVIDIA) acceleration for BIP38 sCrypt, via CuPy. The nvidia-cuda-*
+# packages supply the NVRTC/runtime headers CuPy needs to JIT-compile the kernel.
+cuda = [
+    "cupy-cuda12x>=13",
+    "numpy",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cuda-cccl-cu12",
+]
 # Extra document-scanning support for walletfinder.py.
 walletfinder = [
     "textract",
