@@ -1066,8 +1066,17 @@ class opencl_algos:
         prg = ctx[0]
         bufStructs = ctx[1]
 
+        # `prg.hash_iterations` creates a new kernel instance every time it is
+        # accessed, which is expensive and triggers pyopencl's
+        # RepeatedKernelRetrieval warning.  Cache the kernel on the compiled
+        # program so that subsequent calls reuse the same object.
+        hash_iterations_kernel = getattr(prg, "_hash_iterations_kernel", None)
+        if hash_iterations_kernel is None:
+            hash_iterations_kernel = cl.Kernel(prg, "hash_iterations")
+            setattr(prg, "_hash_iterations_kernel", hash_iterations_kernel)
+
         def func(s, pwdim, pass_g, salt_g, result_g):
-            prg.hash_iterations(
+            hash_iterations_kernel(
                 s.queue,
                 pwdim,
                 None,
