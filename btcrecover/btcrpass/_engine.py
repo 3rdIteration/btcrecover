@@ -1083,12 +1083,14 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
     # re-parse. Because it is applied after *every* (re-)parse below, the overrides always win.
 
     def _finalize_parsed_args(parsed_args):
-        pcspeaker = getattr(parsed_args, "beep_on_find_pcspeaker", False)
-        success_alert.configure_pc_speaker(pcspeaker)
-        success_alert.set_beep_on_find(getattr(parsed_args, "beep_on_find", False) or pcspeaker)
+        # Apply typed overrides first so any logic below (and the processing that
+        # follows) sees the final values.
         if arg_overrides:
             for _override_dest, _override_value in arg_overrides.items():
                 setattr(parsed_args, _override_dest, _override_value)
+        pcspeaker = getattr(parsed_args, "beep_on_find_pcspeaker", False)
+        success_alert.configure_pc_speaker(pcspeaker)
+        success_alert.set_beep_on_find(getattr(parsed_args, "beep_on_find", False) or pcspeaker)
 
     # If no args are present on the command line (e.g. user double-clicked the script
     # in the shell), enable --pause by default so user doesn't miss any error messages

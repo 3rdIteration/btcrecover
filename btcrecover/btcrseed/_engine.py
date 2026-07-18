@@ -433,7 +433,7 @@ def replace_wrong_word(mnemonic_ids, i):
 #               full word list, and significantly increases the search time
 #   min_typos - min number of mistakes to apply to each guess
 num_inserts = num_deletes = 0
-def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, seed_transform_trezor_common_mistakes = None, keep_tokens_order = False):
+def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, extra_args = [], arg_overrides = None, tokenlist = None, passwordlist = None, listpass = None, min_tokens = None, max_tokens = None, mnemonic_length = None, seed_transform_wordswaps = None, seed_transform_trezor_common_mistakes = None, keep_tokens_order = False):
     if typos < 0:  # typos == 0 is silly, but causes no harm
         raise ValueError("typos must be >= 0")
     if big_typos < 0:
@@ -450,44 +450,41 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
     # Number of words that were definitely wrong in the guess
     num_wrong = sum(map(lambda id: id is None, mnemonic_ids_guess))
 
-    # Start building the command-line arguments
-    btcr_args = "--typos " + str(typos)
+    # Build the configuration passed to btcrpass. Options that must be present as
+    # real command-line arguments -- because parse_arguments reads them from files
+    # during parsing (tokenlist/passwordlist), affects its early flow, or must keep
+    # the argv non-empty -- go into argv. Everything else is passed as already-typed
+    # values via arg_overrides, rather than being stringified for argparse to
+    # re-parse. extra_args carries the user's own --btcr-args passthrough verbatim.
+    argv = ["--typos", str(typos)]
+    overrides = dict(arg_overrides or {})
 
     if tokenlist:
-        btcr_args += " --tokenlist " + str(tokenlist)
-
-        if max_tokens:
-            btcr_args += " --max-tokens " + str(max_tokens)
-        else:
-            btcr_args += " --max-tokens " + str(big_typos)
-
-        if min_tokens:
-            btcr_args += " --min-tokens " + str(min_tokens)
-        else:
-            btcr_args += " --min-tokens " + str(big_typos)
-
-        btcr_args += " --seedgenerator"
-        btcr_args += " --mnemonic-length " + str(mnemonic_length)
+        argv += ["--tokenlist", str(tokenlist)]
+        overrides["max_tokens"] = max_tokens if max_tokens else big_typos
+        overrides["min_tokens"] = min_tokens if min_tokens else big_typos
+        overrides["seedgenerator"] = True
+        overrides["mnemonic_length"] = mnemonic_length
 
     if keep_tokens_order:
-        btcr_args += " --keep-tokens-order"
+        overrides["keep_tokens_order"] = True
 
     if passwordlist:
-        btcr_args += " --passwordlist " + str(passwordlist)
-        btcr_args += " --seedgenerator"
+        argv += ["--passwordlist", str(passwordlist)]
+        overrides["seedgenerator"] = True
 
     if listpass:
-        btcr_args += " --listpass"
+        argv.append("--listpass")
 
     if is_performance:
-        btcr_args += " --performance"
+        argv.append("--performance")
         # These typos are not supported by seedrecover with --performance testing:
         l_num_inserts = l_num_deletes = num_wrong = 0
 
     if seed_transform_wordswaps:
-        btcr_args += " --seed-transform-wordswaps " + str(seed_transform_wordswaps)
+        overrides["seed_transform_wordswaps"] = seed_transform_wordswaps
     if seed_transform_trezor_common_mistakes:
-        btcr_args += " --seed-transform-trezor-common-mistakes " + str(seed_transform_trezor_common_mistakes)
+        overrides["seed_transform_trezor_common_mistakes"] = seed_transform_trezor_common_mistakes
 
     # First, check if there are any required typos (if there are missing or extra
     # words in the guess) and adjust the max number of other typos to later apply
@@ -497,16 +494,16 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
 
     if l_num_deletes:  # if the guess is too long (extra words need to be deleted)
         any_typos -= l_num_deletes
-        btcr_args += " --typos-deleteword"
+        overrides["typos_deleteword"] = True
         if l_num_deletes < typos:
-            btcr_args += " --max-typos-deleteword " + str(l_num_deletes)
+            overrides["max_typos_deleteword"] = l_num_deletes
 
     if num_wrong:      # if any of the words were invalid (and need to be replaced)
         any_typos -= num_wrong
         big_typos -= num_wrong
-        btcr_args += " --typos-replacewrongword"
+        overrides["typos_replacewrongword"] = True
         if num_wrong < typos:
-            btcr_args += " --max-typos-replacewrongword " + str(num_wrong)
+            overrides["max_typos_replacewrongword"] = num_wrong
 
     # For (only) Electrum2, num_inserts are not required, so we try several sub-phases with a
     # different number of inserts each time; for all others the total num_inserts are required
@@ -519,7 +516,7 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         # Create local copies of these which are reset at the beginning of each loop
         l_any_typos = any_typos
         l_big_typos = big_typos
-        l_btcr_args = btcr_args
+        l_overrides = dict(overrides)
 
         ids_to_try_inserting = None
         if cur_num_inserts:  # if the guess is too short (words need to be inserted)
@@ -527,9 +524,9 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
             l_big_typos -= cur_num_inserts
             # (instead of --typos-insert we'll set inserted_items=ids_to_try_inserting below)
             ids_to_try_inserting = ((id,) for id in loaded_wallet.word_ids)
-            l_btcr_args += " --max-adjacent-inserts " + str(cur_num_inserts)
+            l_overrides["max_adjacent_inserts"] = cur_num_inserts
             if cur_num_inserts < typos:
-                l_btcr_args += " --max-typos-insert " + str(cur_num_inserts)
+                l_overrides["max_typos_insert"] = cur_num_inserts
 
         # For >1 subphases, print this out now or just after the skip-this-phase check below
         if len(num_inserts_to_try) > 1:
@@ -558,31 +555,32 @@ def run_btcrecover(typos, big_typos = 0, min_typos = 0, is_performance = False, 
         # of them (the remainder is later filtered out by verify_mnemonic_syntax()).
         min_typos = max(min_typos, cur_num_inserts + l_num_deletes + num_wrong)
         if min_typos:
-            l_btcr_args += " --min-typos " + str(min_typos)
+            l_overrides["min_typos"] = min_typos
 
         # Next, if the required typos above haven't consumed all available typos
         # (as specified by the function's args), add some "optional" typos
 
         if l_any_typos:
-            l_btcr_args += " --typos-swap"
+            l_overrides["typos_swap"] = True
             if l_any_typos < typos:
-                l_btcr_args += " --max-typos-swap " + str(l_any_typos)
+                l_overrides["max_typos_swap"] = l_any_typos
 
             if l_big_typos:  # if there are any big typos left, add the replaceword typo
-                l_btcr_args += " --typos-replaceword"
+                l_overrides["typos_replaceword"] = True
                 if l_big_typos < typos:
-                    l_btcr_args += " --max-typos-replaceword " + str(l_big_typos)
+                    l_overrides["max_typos_replaceword"] = l_big_typos
 
             # only add replacecloseword typos if they're not already covered by the
             # replaceword typos added above and there exists at least one close word
             num_replacecloseword = l_any_typos - l_big_typos
             if num_replacecloseword > 0 and any(len(ids) > 0 for ids in close_mnemonic_ids.values()):
-                l_btcr_args += " --typos-replacecloseword"
+                l_overrides["typos_replacecloseword"] = True
                 if num_replacecloseword < typos:
-                    l_btcr_args += " --max-typos-replacecloseword " + str(num_replacecloseword)
+                    l_overrides["max_typos_replacecloseword"] = num_replacecloseword
 
         btcrpass.parse_arguments(
-            l_btcr_args.split() + extra_args,
+            argv + list(extra_args),
+            arg_overrides=  l_overrides,
             inserted_items= ids_to_try_inserting,
             wallet=         loaded_wallet,
             base_iterator=  (mnemonic_ids_guess,) if not is_performance else None, # the one guess to modify
@@ -645,7 +643,10 @@ def main(argv):
     config_mnemonic_params = {}  # additional args to pass to wallet.config_mnemonic()
     phase                  = {}  # if only one phase is requested, the args to pass to run_btcrecover()
     phase_transform        = {}  # args applied to all run_btcrecover() phases without overriding defaults
-    extra_args             = []  # additional args to pass to btcrpass.parse_arguments() (in run_btcrecover())
+    extra_args             = []  # verbatim argv passthrough for btcrpass (the user's --btcr-args, plus a
+                                 # few options that must stay as real args, e.g. the --no-dupchecks count)
+    btcr_overrides         = {}  # already-typed {dest: value} config forwarded to btcrpass.parse_arguments()
+                                 # instead of being stringified and re-parsed by argparse
     listseeds = False
 
     if argv or "_ARGCOMPLETE" in os.environ:
@@ -670,8 +671,8 @@ def main(argv):
         if args.no_gui:
             no_gui = True
 
-        # Pass an argument so that btcrpass knows that we are running a seed recovery
-        extra_args.append("--btcrseed")
+        # Tell btcrpass we are running a seed recovery
+        btcr_overrides["btcrseed"] = True
 
         #Disable Security Warnings if parameter set...
         global disable_security_warnings
@@ -684,9 +685,9 @@ def main(argv):
         beep_on_find_enabled = args.beep_on_find or args.beep_on_find_pcspeaker
         success_alert.set_beep_on_find(beep_on_find_enabled)
         if beep_on_find_enabled:
-            extra_args.append("--beep-on-find")
+            btcr_overrides["beep_on_find"] = True
         if args.beep_on_find_pcspeaker:
-            extra_args.append("--beep-on-find-pcspeaker")
+            btcr_overrides["beep_on_find_pcspeaker"] = True
 
         # Version information is always printed by seedrecover.py, so just exit
         if args.version: sys.exit(0)
@@ -916,18 +917,18 @@ def main(argv):
         if args.no_check_change_addresses:
             create_from_params["check_change_addresses"] = False
 
-        # These arguments and their values are passed on to btcrpass.parse_arguments()
+        # These arguments and their values are forwarded to btcrpass as typed overrides
         for argkey in "skip", "threads", "worker", "max_eta", "pre_start_seconds", "performance_duration":
             if args.__dict__[argkey] is not None:
-                extra_args.extend(("--"+argkey.replace("_", "-"), str(args.__dict__[argkey])))
+                btcr_overrides[argkey] = args.__dict__[argkey]
 
-
-        # These arguments (which have no values) are passed on to btcrpass.parse_arguments()
+        # These (valueless) flags are forwarded to btcrpass as typed overrides
         for argkey in "no_eta", "no_progress", "skip_pre_start":
             if args.__dict__[argkey]:
-                extra_args.append("--"+argkey.replace("_", "-"))
+                btcr_overrides[argkey] = True
 
-        # Special Case for --no-dupchecks
+        # Special case for --no-dupchecks: it is a repeat-count option, and per-phase
+        # config may add more of them, so it stays a real (repeatable) argv flag.
         if args.__dict__["no_dupchecks"] is not None:
             for i in range(0, args.__dict__["no_dupchecks"]):
                 extra_args.append("--no-dupchecks")
@@ -1208,6 +1209,7 @@ def main(argv):
 
         # Perform this phase's search
         phase_params.setdefault("extra_args", []).extend(extra_args)
+        phase_params.setdefault("arg_overrides", {}).update(btcr_overrides)
 
         mnemonic_found = run_btcrecover(**phase_params)
 
