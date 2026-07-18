@@ -1537,6 +1537,18 @@ class WalletBIP32(WalletBase):
                 except ValueError: break
                 privkey_int = bytes_to_int(privkey_bytes)
 
+                # Which script types to try depends only on the path (not the address
+                # index), so compute it once here rather than for every address below.
+                try_p2tr = self._is_script_type_enabled("p2tr") and (
+                    (current_path_index and (current_path_index[0] - 2 ** 31) == 86) or getattr(self, "force_p2tr", False))
+                try_p2pkh = self._is_script_type_enabled("p2pkh") and (
+                    path_script_type in (None, "p2pkh") or getattr(self, "force_bip44", False))
+                try_p2wpkh = self._is_script_type_enabled("p2wpkh") and (
+                    path_script_type in (None, "p2wpkh") or getattr(self, "force_bip84", False))
+                try_p2sh = self._is_script_type_enabled("p2sh") and (
+                    (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
+                any_script_type = try_p2tr or try_p2pkh or try_p2wpkh or try_p2sh
+
                 for i in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
                     seed_bytes = hmac.new(chaincode_bytes,
                         data_to_hmac + struct.pack(">I", i), hashlib.sha512).digest()
@@ -1546,16 +1558,7 @@ class WalletBIP32(WalletBase):
                                                     privkey_int) % GENERATOR_ORDER, 32)
 
                     script_candidates = []
-                    try_p2tr = self._is_script_type_enabled("p2tr") and (
-                        (current_path_index and (current_path_index[0] - 2 ** 31) == 86) or getattr(self, "force_p2tr", False))
-                    try_p2pkh = self._is_script_type_enabled("p2pkh") and (
-                        path_script_type in (None, "p2pkh") or getattr(self, "force_bip44", False))
-                    try_p2wpkh = self._is_script_type_enabled("p2wpkh") and (
-                        path_script_type in (None, "p2wpkh") or getattr(self, "force_bip84", False))
-                    try_p2sh = self._is_script_type_enabled("p2sh") and (
-                        (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
-
-                    if try_p2tr or try_p2pkh or try_p2wpkh or try_p2sh:
+                    if any_script_type:
                         base_pubkey = privkey_to_pubkey(d_privkey_bytes, compressed=True)
                     else:
                         base_pubkey = None
