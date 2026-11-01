@@ -1769,6 +1769,10 @@ class WalletBlockchain(object):
     _dump_wallet_file = None
     _using_extract = False
 
+    # The PBKDF2 PRF used to stretch the main password into the AES key.
+    # v0-v4 wallets use SHA1; v5 wallets ("algorithm":"sha256") use SHA256.
+    _crypto_prf = "sha1"
+
     def data_extract_id():
         return "bk"
 
@@ -1777,9 +1781,10 @@ class WalletBlockchain(object):
     # JSON data will be in the first block of the file
     #
 
-    # Encryption scheme used in newer wallets
-    def decrypt_current(self,password, salt_and_iv, iter_count, data):
-        key = _engine.pbkdf2_hmac("sha1", password, salt_and_iv, iter_count, 32)
+    # Encryption scheme used in newer wallets. prf overrides the wallet's stored
+    # PBKDF2 PRF (used when decrypting before an instance's _crypto_prf is set).
+    def decrypt_current(self, password, salt_and_iv, iter_count, data, prf=None):
+        key = _engine.pbkdf2_hmac(prf or self._crypto_prf, password, salt_and_iv, iter_count, 32)
         decrypted = _engine.aes256_cbc_decrypt(key, salt_and_iv, data)  # CBC mode
         padding = ord(decrypted[-1:])  # ISO 10126 padding length
         # A bit fragile because it assumes the guid is in the first encrypted block,
@@ -1911,10 +1916,11 @@ class WalletBlockchain(object):
     @staticmethod
     def is_wallet_file(wallet_file): return None  # there's no easy way to check this
 
-    def __init__(self, iter_count, loading = False):
+    def __init__(self, iter_count, loading=False, crypto_prf="sha1"):
         assert loading, 'use load_from_* to create a ' + self.__class__.__name__
         pbkdf2_library_name = load_pbkdf2_library().__name__
         aes_library_name    = load_aes256_library().__name__
+        self._crypto_prf           = crypto_prf
         self._iter_count           = iter_count
         self._passwords_per_second = 400000 if pbkdf2_library_name == "hashlib" else 100000
         if iter_count == 0:  # if it's a v0 wallet
@@ -1936,8 +1942,8 @@ class WalletBlockchain(object):
     @classmethod
     def load_from_filename(cls, wallet_filename):
         with open(wallet_filename) as wallet_file:
-            data, iter_count, reason = cls._parse_encrypted_blockchain_wallet(wallet_file.read(MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k
-        self = cls(iter_count, loading=True)
+            data, iter_count, crypto_prf, reason = cls._parse_encrypted_blockchain_wallet(wallet_file.read(MAX_WALLET_FILE_SIZE))  # up to 64M, typical size is a few k
+        self = cls(iter_count, crypto_prf=crypto_prf, loading=True)
         self.detection_reason = reason
         # v2+ wallets have valid JSON structure (definite); v0 wallets are heuristic (possible)
         self.detection_confidence = "definite" if iter_count else "possible"
@@ -1946,12 +1952,14 @@ class WalletBlockchain(object):
         self._encrypted_wallet = data
         return self
 
-    # Parse the contents of an encrypted blockchain wallet (v0 - v3) or config file returning three
-    # values in a tuple: (encrypted_data_blob, iter_count, detection_reason)
+    # Parse the contents of an encrypted blockchain wallet (v0 - v5) or config file returning four
+    # values in a tuple: (encrypted_data_blob, iter_count, crypto_prf, detection_reason)
+    # crypto_prf is the PBKDF2 PRF ("sha1" for v0-v4, "sha256" for v5 wallets).
     # detection_reason explains why the file was matched as a Blockchain wallet
     @staticmethod
     def _parse_encrypted_blockchain_wallet(data):
         iter_count = 0
+        crypto_prf = "sha1"
         reason_parts = []
 
         while True:  # "loops" exactly once; only here so we've something to break out of
@@ -1978,14 +1986,20 @@ class WalletBlockchain(object):
                     reason_parts.append("payload is not JSON, treating as v0 raw data")
                     break
 
-            # Extract what's needed from a v2.0/3.0/4 wallet file
-            if data["version"] > 4:
+            # Extract what's needed from a v2.0/3.0/4/5 wallet file
+            if data["version"] > 5:
                 raise NotImplementedError("Unsupported Blockchain wallet version " + str(data["version"]))
             reason_parts.append("version: " + str(data["version"]))
             iter_count = data["pbkdf2_iterations"]
             if not isinstance(iter_count, int) or iter_count < 1:
                 raise ValueError("Invalid Blockchain pbkdf2_iterations " + str(iter_count))
             reason_parts.append("pbkdf2_iterations: " + str(iter_count))
+            # The client defaults to SHA1 when no algorithm is supplied.
+            crypto_prf = data.get("algorithm") or "sha1"
+            if crypto_prf not in ("sha1", "sha256"):
+                raise NotImplementedError(
+                    "Unsupported Blockchain PBKDF2 algorithm " + str(crypto_prf))
+            reason_parts.append("algorithm: " + crypto_prf)
             data = data["payload"]
 
             break
@@ -2030,21 +2044,29 @@ class WalletBlockchain(object):
             reason_parts.append("wallet type: v0")
 
         reason = ", ".join(reason_parts)
-        return data, iter_count, reason  # iter_count == 0 for v0 wallets
+        return data, iter_count, crypto_prf, reason  # iter_count == 0 for v0 wallets
 
     # Import extracted Blockchain file data necessary for main password checking
     @classmethod
     def load_from_data_extract(cls, file_data):
+        # Legacy extracts are 36 bytes (16s 16s I) and imply the SHA1 PRF; v5 extracts
+        # append a trailing algorithm byte (1 == SHA256) so the PRF survives extraction.
+        crypto_prf = "sha1"
+        if len(file_data) == 37:
+            file_data, algo_flag = file_data[:36], file_data[36]
+            if algo_flag != 1:
+                raise ValueError("Unsupported Blockchain extract algorithm " + str(algo_flag))
+            crypto_prf = "sha256"
         # These are the same first encrypted block, salt_and_iv, iteration count retrieved above
         encrypted_block, salt_and_iv, iter_count = struct.unpack(b"< 16s 16s I", file_data)
-        self = cls(iter_count, loading=True)
+        self = cls(iter_count, crypto_prf=crypto_prf, loading=True)
         self._encrypted_block = encrypted_block
         self._salt_and_iv     = salt_and_iv
         self._using_extract   = True
         return self
 
     def difficulty_info(self):
-        return "{:,} PBKDF2-SHA1 iterations".format(self._iter_count or 10)
+        return "{:,} PBKDF2-{} iterations".format(self._iter_count or 10, self._crypto_prf.upper())
 
     def init_logfile(self):
         with open(self._possible_passwords_file, 'a') as logfile:
@@ -2082,11 +2104,11 @@ class WalletBlockchain(object):
     def check_blockchain_decrypted_block(self, unencrypted_block, password):
         # Return True if
         if re.search(self.matchStrings, unencrypted_block):
-            if self._savepossiblematches:
-                try:
-                    return True  # Only return true if we can successfully decode the block in to ascii
-
-                except UnicodeDecodeError:  # Likely a false positive if we can't...
+            try:
+                unencrypted_block.decode("ascii")
+                return True
+            except UnicodeDecodeError:  # Likely a false positive if we can't...
+                if self._savepossiblematches:
                     with open('possible_passwords.log', 'a', encoding="utf_8") as logfile:
                         logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
                                       " Found Likely False Positive Password (with non-Ascii characters in decrypted block) ==>" +
@@ -2138,11 +2160,13 @@ class WalletBlockchain(object):
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
+        prf = self._crypto_prf  # "sha1" for v0-v4 wallets, "sha256" for v5
+
         v0 = not iter_count     # version 0.0 wallets don't specify an iter_count
         if v0: iter_count = 10  # the default iter_count for version 0.0 wallets
 
         for count, password in enumerate(passwords, 1):
-            key = l_pbkdf2_hmac("sha1", password, salt_and_iv, iter_count, 32)          # iter_count iterations
+            key = l_pbkdf2_hmac(prf, password, salt_and_iv, iter_count, 32)              # iter_count iterations
             unencrypted_block = l_aes256_cbc_decrypt(key, salt_and_iv, encrypted_block)  # CBC mode
 
             if self.check_blockchain_decrypted_block(unencrypted_block, password):
@@ -2184,7 +2208,12 @@ class WalletBlockchain(object):
         # Convert Unicode strings (lazily) to UTF-8 bytestrings
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
-        clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha1, passwords, salt_and_iv, iter_count, 32)
+        # v5 wallets stretch with SHA256; v0-v4 with SHA1 (contexts set in opencl_helpers)
+        if self._crypto_prf == "sha256":
+            pbkdf2_context = self.opencl_context_pbkdf2_sha256
+        else:
+            pbkdf2_context = self.opencl_context_pbkdf2_sha1
+        clResult = self.opencl_algo.cl_pbkdf2(pbkdf2_context, passwords, salt_and_iv, iter_count, 32)
 
         #This list is consumed, so recreated it and zip
         passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
@@ -2324,9 +2353,10 @@ class WalletBlockchainSecondpass(WalletBlockchain):
         with open(wallet_filename) as wallet_file:
             data = wallet_file.read(MAX_WALLET_FILE_SIZE)  # up to 64M, typical size is a few k
 
+        crypto_prf = "sha1"
         try:
             # Assuming the wallet is encrypted, get the encrypted data
-            data, iter_count, _ = cls._parse_encrypted_blockchain_wallet(data)
+            data, iter_count, crypto_prf, _ = cls._parse_encrypted_blockchain_wallet(data)
         except ValueError as e:
             # This is the one error to expect and ignore which occurs when the wallet isn't encrypted
             if e.args[0] == "Can't find either version nor payload attributes in Blockchain file":
@@ -2346,8 +2376,8 @@ class WalletBlockchainSecondpass(WalletBlockchain):
             load_pbkdf2_library(force_purepython)
             load_aes256_library(force_purepython)
 
-            if iter_count:  # v2.0 wallets have a single possible encryption scheme
-                data = cls.decrypt_current(cls, password, salt_and_iv, iter_count, data)
+            if iter_count:  # v2.0+ wallets have a single possible encryption scheme
+                data = cls.decrypt_current(cls, password, salt_and_iv, iter_count, data, prf=crypto_prf)
             else:           # v0.0 wallets have three different possible encryption schemes
                 data = cls.decrypt_current(cls, password, salt_and_iv, 10, data) or \
                        cls.decrypt_current(cls, password, salt_and_iv, 1, data) or \

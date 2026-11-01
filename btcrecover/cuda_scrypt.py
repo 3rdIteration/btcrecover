@@ -144,6 +144,23 @@ def _get_kernel():
     return _kernel
 
 
+def free_buffers():
+    """Release the cached ROMix scratchpad and return pooled device memory to the driver.
+
+    Used when CUDA was benchmarked but another backend won the comparison, so the
+    (potentially many GB) scratchpad isn't left tying up the GPU for the whole run.
+    """
+    global _V_buffer, _V_capacity_blocks, _V_N
+    _V_buffer = None
+    _V_capacity_blocks = 0
+    _V_N = None
+    if _cp is not None:
+        try:
+            _cp.get_default_memory_pool().free_all_blocks()
+        except Exception:
+            pass
+
+
 def _max_concurrent_blocks(N):
     """How many 16 MiB ROMix scratchpads to run at once.
 
@@ -171,11 +188,13 @@ def _romix_blocks(host_blocks, N):
     cp = _cupy()
     kernel = _get_kernel()
     nblk = host_blocks.shape[0]
+    if not nblk:
+        return host_blocks.copy()
 
     global _V_buffer, _V_capacity_blocks, _V_N
     if _V_buffer is None or _V_N != N:
-        _V_buffer = None  # release any previous buffer before reallocating
-        cap = _max_concurrent_blocks(N)
+        free_buffers()
+        cap = min(nblk, _max_concurrent_blocks(N))
         _V_buffer = cp.empty((cap, N * _WORDS), dtype=cp.uint32)
         _V_capacity_blocks = cap
         _V_N = N
@@ -206,6 +225,11 @@ def scrypt_batch(passwords, salt, N, r, p, dklen):
 
     if r != 8:
         raise ValueError("cuda_scrypt only supports r=8 (BIP38)")
+    if not isinstance(N, int) or N < 2 or N & (N - 1):
+        raise ValueError("scrypt N must be a power of two greater than one")
+    if not isinstance(p, int) or p < 1 or not isinstance(dklen, int) or dklen < 1:
+        raise ValueError("scrypt p and dklen must be positive integers")
+    passwords = list(passwords)
     blocklen = 128 * r  # 1024 bytes = 256 uint32
     # Expand each password to p blocks via PBKDF2-SHA256 (1 iteration).
     all_blocks = []

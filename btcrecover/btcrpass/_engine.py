@@ -37,7 +37,8 @@ OPENCL_UNIFIED_MEMORY_BUDGET_FRACTION = 0.5
 
 # Import modules included in standard libraries
 import sys, argparse, itertools, string, re, multiprocessing, signal, os, pickle, gc, \
-       time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip
+       time, timeit, hashlib, collections, base64, struct, atexit, zlib, math, json, numbers, datetime, binascii, gzip, \
+       io, contextlib
 
 # Import modules bundled with BTCRecover
 import btcrecover.opencl_helpers
@@ -1044,6 +1045,219 @@ def clean_autosave_args(argList, listName):
 
     return working_arglist
 
+
+# ---------------------------------------------------------------------------
+# Automatic backend selection
+#
+# Rather than making the user work out which of --enable-cuda / --enable-opencl /
+# --enable-gpu their wallet type and hardware actually support (and which of them is
+# fastest, which varies by wallet and by GPU), "--backend auto" -- the default --
+# detects the usable backends, briefly benchmarks each, and enables the fastest one.
+# The explicit --enable-* flags and --backend cpu|opencl|cuda still force a choice.
+# ---------------------------------------------------------------------------
+
+_BACKEND_LABELS = {"cpu": "CPU", "opencl": "OpenCL", "cuda": "CUDA"}
+
+
+def auto_backend_selection_enabled():
+    """False when BTCRECOVER_AUTO_BACKEND is set to a false-ish value.
+
+    The test suite sets this, so that hundreds of short-lived recovery runs don't each
+    pay to probe the GPU (and so test results don't vary with the machine's hardware).
+    """
+    return os.environ.get("BTCRECOVER_AUTO_BACKEND", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def available_backends(wallet):
+    """The verification backends this wallet implements which are also usable here."""
+    backends = ["cpu"]
+    if hasattr(wallet, "_return_verified_password_or_false_cuda"):
+        try:
+            from .. import cuda_scrypt
+            if cuda_scrypt.is_available():
+                backends.append("cuda")
+        except Exception:
+            pass
+    if module_opencl_available and hasattr(wallet, "_return_verified_password_or_false_opencl"):
+        try:
+            for platform in pyopencl.get_platforms():
+                if platform.get_devices():
+                    backends.append("opencl")
+                    break
+        except Exception:
+            pass
+    return backends
+
+
+def _configure_backend_probe(wallet, backend, args):
+    """Set `wallet` (a throwaway copy) up for `backend` and return the verification
+    function to time plus the batch size to use. A batch of None means "grow the batch
+    adaptively", which is what the CPU wants."""
+    if backend == "cpu":
+        wallet.cuda_enabled = False
+        wallet.opencl_algo  = -1
+        return getattr(wallet, "_return_verified_password_or_false_cpu",
+                       wallet.return_verified_password_or_false), None
+
+    if backend == "cuda":
+        wallet.cuda_enabled = True
+        wallet.chunksize    = args.cuda_batch if args.cuda_batch else 200
+        return wallet._return_verified_password_or_false_cuda, wallet.chunksize
+
+    if backend == "opencl":
+        # Mirror the --enable-opencl setup closely enough for the measurement to be
+        # representative; the winner is configured properly by that code path afterwards.
+        # Refuse the cases that path rejects outright, so auto-selection can never pick a
+        # backend whose real setup would then call error_exit() and kill the run.
+        if getattr(wallet, "_iter_count", None) == 0:
+            raise ValueError("this wallet version doesn't support OpenCL acceleration")
+        wallet.opencl = True
+        if args.opencl_platform:
+            wallet.opencl_platform = args.opencl_platform[0]
+            wallet.opencl_device_worksize = max(
+                device.max_work_group_size
+                for device in pyopencl.get_platforms()[args.opencl_platform[0]].get_devices())
+        else:
+            btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+        if args.opencl_devices:
+            wallet.opencl_devices = [int(x) for x in args.opencl_devices.split(",")]
+        wallet.opencl_algo = 0
+        if args.opencl_workgroup_size:
+            wallet.chunksize = args.opencl_workgroup_size[0]
+        elif args.bip38_enc_privkey:
+            # sCrypt needs ~2 GB of VRAM per work item at the tuned chunksize of 16; the
+            # --enable-opencl path bails out below 6 GB, so don't offer it as a candidate.
+            if min(device.global_mem_size
+                   for device in pyopencl.get_platforms()[wallet.opencl_platform].get_devices()
+                   ) / 1073741824.0 < 6:
+                raise ValueError("insufficient GPU memory for OpenCL sCrypt")
+            wallet.chunksize = 16  # the tuned default for sCrypt in the --enable-opencl path
+        else:
+            wallet.chunksize = wallet.opencl_device_worksize
+        devices = getattr(wallet, "opencl_devices", None)
+        device_index = devices[0] if devices else 0
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet, openclDevice=device_index)
+        return wallet._return_verified_password_or_false_opencl, wallet.chunksize
+
+    raise ValueError("unknown backend " + repr(backend))
+
+
+def _measure_verify_rate(verify, take_passwords, batch, budget):
+    """Passwords per second for `verify`, measured after an untimed warm-up.
+
+    Mirrors the pre-start benchmark: GPU paths verify a fixed device-sized batch (with a
+    warm-up call so one-time setup such as CUDA's scratchpad allocation isn't timed),
+    while the CPU grows its batch until per-call overhead is amortized.
+    """
+    if batch is None:
+        batch = 1
+        while batch < (1 << 20):
+            passwords = take_passwords(batch)
+            if not passwords:
+                return None
+            started = timeit.default_timer()
+            verify(passwords)
+            if timeit.default_timer() - started >= 0.002:
+                break
+            batch *= 2
+    else:
+        passwords = take_passwords(batch)
+        if not passwords:
+            return None
+        verify(passwords)  # untimed warm-up
+
+    checked = 0
+    start   = timeit.default_timer()
+    while True:
+        passwords = take_passwords(batch)
+        if not passwords:
+            break
+        _, verified = verify(passwords)
+        checked += verified
+        if timeit.default_timer() - start >= budget:
+            break
+    elapsed = timeit.default_timer() - start
+    if checked <= 0 or elapsed <= 0:
+        return None
+    return checked / elapsed
+
+
+def auto_select_backend(args, wallet, perf_iterator = None):
+    """Benchmark every usable backend for `wallet` and enable the fastest by setting the
+    matching args.enable_* flag (which the normal setup code then acts on as usual).
+    Returns the winner's measured passwords/second, or None if nothing was measured."""
+    candidates = available_backends(wallet)
+    if len(candidates) < 2:
+        return None  # only the CPU is usable, so there's nothing to choose between
+
+    budget = getattr(args, "backend_benchmark_seconds", 0.5) or 0.5
+    budget = max(0.05, budget)
+    print("Backend: benchmarking", ", ".join(_BACKEND_LABELS[b] for b in candidates),
+          "to pick the fastest (override with --backend)")
+
+    rates = {}
+    for backend in candidates:
+        generator = (perf_iterator or default_performance_base_password_generator)()
+
+        def take_passwords(count, _generator = generator):
+            return list(itertools.islice(filter(custom_final_checker, _generator), count))
+
+        failure = None
+        probe = None
+        verify = None
+        try:
+            # An independent copy, so probing can't disturb the real wallet: many wallets'
+            # __setstate__ assigns self.__dict__ = state, which makes a shallow copy share
+            # its __dict__ with the original.
+            probe = pickle.loads(pickle.dumps(wallet))
+            probe.pre_start_benchmark = True
+            probe._savepossiblematches = False
+            probe._dump_wallet_file = None
+            probe._dump_privkeys_file = None
+            # Backend setup is chatty (platform and device listings); keep probing quiet.
+            with contextlib.redirect_stdout(io.StringIO()):
+                verify, batch = _configure_backend_probe(probe, backend, args)
+                rate = _measure_verify_rate(verify, take_passwords, batch, budget)
+        except SystemExit:  # a backend's setup called error_exit()/exit(): unusable here
+            rate, failure = None, "unavailable"
+        except Exception as e:
+            failure = "{}: {}".format(type(e).__name__, e)
+            if len(failure) > 70:
+                failure = failure[:67] + "..."
+            rate = None
+        finally:
+            # Release each probe before configuring the next backend. Otherwise a
+            # CUDA scratchpad can consume the memory OpenCL needs for its probe.
+            verify = None
+            probe = None
+            if backend == "cuda":
+                from .. import cuda_scrypt
+                cuda_scrypt.free_buffers()
+
+        if rate:
+            if backend == "cpu":
+                workers = min(max(1, getattr(args, "threads", 1) or 1), logical_cpu_cores)
+                rate *= workers
+            rates[backend] = rate
+            suffix = " (estimated across {} CPU workers)".format(workers) if backend == "cpu" else ""
+            print("  {:<6} {:>12,.1f} passwords/s{}".format(_BACKEND_LABELS[backend], rate, suffix))
+        else:
+            print("  {:<6} {:>12}".format(_BACKEND_LABELS[backend], failure or "no measurement"))
+
+    if not rates:
+        return None
+
+    winner = max(rates, key = rates.get)
+    print("Backend: using {} ({:,.1f} passwords/s)".format(_BACKEND_LABELS[winner], rates[winner]))
+
+    if winner == "cuda":
+        args.enable_cuda = True
+    elif winner == "opencl":
+        args.enable_opencl = True
+
+    return rates[winner]
+
+
 # Once parse_arguments() has completed, password_generator_factory() will return an iterator
 # (actually a generator object) configured to generate all the passwords requested by the
 # command-line options, and loaded_wallet.return_verified_password_or_false() can check
@@ -1867,8 +2081,42 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         loaded_wallet.opencl = False
         loaded_wallet.opencl_algo = -1
         loaded_wallet.opencl_context_pbkdf2_sha1 = -1
+        loaded_wallet.cuda_enabled = False
     except AttributeError:
         pass
+
+    # Decide which verification backend to use before the per-backend setup below runs.
+    # --backend cpu|opencl|cuda (and the older --enable-* flags) force a specific one;
+    # "auto", the default, measures whatever this wallet and machine support and enables
+    # the fastest by setting the same args.enable_* flag the user would have passed.
+    backend_choice = getattr(args, "backend", "auto")
+    explicit_flags = (args.enable_gpu, args.enable_opencl, args.enable_cuda)
+    if sum(bool(flag) for flag in explicit_flags) > 1:
+        error_exit("choose only one of --enable-gpu, --enable-opencl and --enable-cuda")
+    if backend_choice != "auto" and any(explicit_flags):
+        matching_flag = {"cpu": False, "opencl": args.enable_opencl,
+                         "cuda": args.enable_cuda}[backend_choice]
+        if not matching_flag:
+            error_exit("--backend " + backend_choice + " conflicts with the requested --enable-* backend")
+    if args.cuda_batch is not None and args.cuda_batch < 1:
+        error_exit("--cuda-batch must be positive")
+    if not math.isfinite(args.backend_benchmark_seconds) or args.backend_benchmark_seconds <= 0:
+        error_exit("--backend-benchmark-seconds must be finite and positive")
+    if backend_choice == "cuda":
+        args.enable_cuda = True
+    elif backend_choice == "opencl":
+        args.enable_opencl = True
+    elif (backend_choice == "auto"
+            and loaded_wallet is not None
+            and not (args.enable_gpu or args.enable_opencl or args.enable_cuda)
+            and not args.listpass
+            and auto_backend_selection_enabled()):
+        auto_select_backend(args, loaded_wallet, perf_iterator)
+        if args.enable_opencl and not threads_specified_by_user:
+            # Thread defaults were chosen before auto-selection enabled OpenCL.
+            if not (args.btcrseed or args.bip39) and type(loaded_wallet) not in (
+                    WalletElectrum28, WalletMetamask):
+                args.threads = 2
 
     # CUDA (NVIDIA) acceleration -- currently BIP38 sCrypt only, and far faster than
     # OpenCL for it. Runs single-process (the GPU is the parallelism), so force one
@@ -4360,12 +4608,22 @@ def main():
             print(message)
 
             performance_generator = performance_base_password_generator()  # generates dummy passwords
-            loaded_wallet.pre_start_benchmark = True
+            benchmark_wallet = loaded_wallet
+            if args.enable_opencl:
+                # Contexts are normally created in the workers, after this
+                # benchmark. Time a separate initialized wallet so the ETA
+                # measures OpenCL rather than the CPU dispatch fallback, and
+                # keep the real wallet pickleable for multiprocessing.
+                benchmark_wallet = pickle.loads(pickle.dumps(loaded_wallet))
+                _configure_backend_probe(benchmark_wallet, "opencl", args)
+            benchmark_wallet.pre_start_benchmark = True
 
             def _run_benchmark_batch(n):
                 pwds = list(itertools.islice(filter(custom_final_checker, performance_generator), n))
-                loaded_wallet.return_verified_password_or_false(pwds)
-                return len(pwds)
+                if not pwds:
+                    return 0
+                _, verified = benchmark_wallet.return_verified_password_or_false(pwds)
+                return verified
 
             # Measure for a short, fixed budget (self-calibrating), capped by --pre-start-seconds.
             budget = 0.5 if pre_start_limit is None else min(0.5, pre_start_limit)
@@ -4384,7 +4642,9 @@ def main():
                     batch = 1
                     while batch < (1 << 20):
                         t0 = timeit.default_timer()
-                        _run_benchmark_batch(batch)
+                        got = _run_benchmark_batch(batch)
+                        if got < batch:
+                            break
                         if timeit.default_timer() - t0 >= 0.002:
                             break
                         batch *= 2
@@ -4401,7 +4661,8 @@ def main():
                     if pre_start_limit is not None and elapsed >= pre_start_limit:
                         break
             finally:
-                loaded_wallet.pre_start_benchmark = False
+                benchmark_wallet.pre_start_benchmark = False
+                benchmark_wallet = None
                 del performance_generator
 
             if iterations_done <= 0 or elapsed <= 0:

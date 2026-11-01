@@ -4,6 +4,44 @@
 
 BTCRecover includes support for using one or more graphics cards or dedicated accelerator cards to increase search performance. 
 
+### Automatic Backend Selection (default)
+
+Which accelerator is fastest depends on both the wallet type and the hardware: CUDA wins
+by a wide margin for BIP38, OpenCL is a large win for BIP39 and Electrum seeds, and for
+some wallets the CPU is simply quicker than the GPU. Rather than requiring you to know
+this in advance, BTCRecover defaults to `--backend auto`: it detects which backends your
+wallet type and machine actually support, benchmarks each of them for a fraction of a
+second, prints the rates, and then selects a backend. CPU throughput is estimated
+by multiplying its measured single-worker rate by the requested worker count
+(capped at the logical CPU count); GPU rates are measured for one device batch.
+CPU scaling and multi-GPU throughput can differ from these estimates, so compare
+explicit backends with `--performance` when tuning a long recovery:
+
+```
+Backend: benchmarking CPU, CUDA, OpenCL to pick the fastest (override with --backend)
+  CPU              83.2 passwords/s (estimated across 8 CPU workers)
+  CUDA            376.2 passwords/s
+  OpenCL           40.1 passwords/s
+Backend: using CUDA (376.2 passwords/s)
+```
+
+If only the CPU is usable for a wallet type, no benchmarking happens and nothing is printed.
+
+To force a particular backend, use `--backend cpu|opencl|cuda`; the older `--enable-opencl`,
+`--enable-cuda` and `--enable-gpu` flags still work and also override auto-selection.
+`--backend-benchmark-seconds` controls how long each candidate is timed (default 0.5).
+Conflicting backend flags are rejected. The timing budget excludes setup and
+warm-up; a single slow verification batch can exceed it. Backend probes suppress
+wallet dumps and release CUDA scratch memory before testing OpenCL.
+
+Automatic selection can also be disabled entirely by setting the environment variable
+`BTCRECOVER_AUTO_BACKEND=0`, which is what the test suite does so that its many short
+runs don't each probe the GPU.
+Set `BTCRECOVER_SKIP_GPU_TESTS=1` to skip GPU tests when the card is occupied.
+On a free GPU, unset it and run `python run-all-tests.py --no-pause`; the new
+Blockchain.com v5 test can also be run alone with
+`python -m unittest btcrecover.test.test_passwords.TestBlockchainV5 -v`.
+
 ### CUDA Acceleration for BIP38 (NVIDIA)
 
 BIP38 encrypted private keys use a very heavy, memory-hard sCrypt (N=2^14, r=8, p=8).

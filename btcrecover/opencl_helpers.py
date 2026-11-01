@@ -111,11 +111,19 @@ def init_opencl_contexts(loaded_wallet, openclDevice=0):
 
     # Password recovery for blockchain.com wallet
     if type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchain:
-        loaded_wallet.opencl_context_pbkdf2_sha1 = (
-            loaded_wallet.opencl_algo.cl_pbkdf2_init(
-                "sha1", len(loaded_wallet._salt_and_iv), 32
+        # v5 wallets stretch the password with SHA256; v0-v4 with SHA1
+        if getattr(loaded_wallet, "_crypto_prf", "sha1") == "sha256":
+            loaded_wallet.opencl_context_pbkdf2_sha256 = (
+                loaded_wallet.opencl_algo.cl_pbkdf2_init(
+                    "sha256", len(loaded_wallet._salt_and_iv), 32
+                )
             )
-        )
+        else:
+            loaded_wallet.opencl_context_pbkdf2_sha1 = (
+                loaded_wallet.opencl_algo.cl_pbkdf2_init(
+                    "sha1", len(loaded_wallet._salt_and_iv), 32
+                )
+            )
         return
 
     # Password Recovery for MultiBit Wallets

@@ -1160,6 +1160,8 @@ def init_worker(wallet, char_mode, force_purepython, force_kdf_purepython):
 
 opencl_device_count = None
 def has_any_opencl_devices():
+    if os.environ.get("BTCRECOVER_SKIP_GPU_TESTS") == "1":
+        return False
     global opencl_device_count
     global opencl_devices_list
     if opencl_device_count is None:
@@ -1200,6 +1202,8 @@ def has_scrypt_opencl_support():
 
 
 def can_load_cuda():
+    if os.environ.get("BTCRECOVER_SKIP_GPU_TESTS") == "1":
+        return False
     try:
         from btcrecover import cuda_scrypt
         return cuda_scrypt.is_available()
@@ -1222,6 +1226,273 @@ class TestCudaScrypt(unittest.TestCase):
             ref = [hashlib.scrypt(p, salt=salt, n=1 << 14, r=8, p=8, dklen=dklen, maxmem=1 << 30) for p in pws]
             got = cuda_scrypt.scrypt_batch(pws, salt, 1 << 14, 8, 8, dklen)
             self.assertEqual(ref, got, "CUDA scrypt mismatch at dklen=%d" % dklen)
+
+
+class TestBackendSelection(unittest.TestCase):
+    """--backend auto must only ever offer backends the wallet and machine really support."""
+
+    class _CpuOnlyWallet(object):
+        def return_verified_password_or_false(self, passwords):
+            return False, len(passwords)
+
+    class _OpenclCapableWallet(_CpuOnlyWallet):
+        def _return_verified_password_or_false_opencl(self, passwords):
+            return False, len(passwords)
+
+    def test_cpu_only_wallet_offers_only_cpu(self):
+        # A wallet with no GPU verify methods must never be offered a GPU backend, no
+        # matter what hardware is present (so auto-selection stays a silent no-op).
+        self.assertEqual(btcrpass.available_backends(self._CpuOnlyWallet()), ["cpu"])
+
+    @unittest.skipIf(os.environ.get("BTCRECOVER_SKIP_GPU_TESTS") == "1",
+                     "GPU discovery disabled by BTCRECOVER_SKIP_GPU_TESTS")
+    def test_opencl_only_listed_when_wallet_and_hardware_both_support_it(self):
+        backends = btcrpass.available_backends(self._OpenclCapableWallet())
+        self.assertIn("cpu", backends)
+        self.assertNotIn("cuda", backends)  # the wallet has no CUDA verify method
+        self.assertEqual("opencl" in backends, bool(has_any_opencl_devices()))
+
+    def test_auto_selection_can_be_disabled_by_environment(self):
+        saved = os.environ.get("BTCRECOVER_AUTO_BACKEND")
+        try:
+            for value, expected in (("0", False), ("false", False), ("off", False),
+                                    ("1", True), ("yes", True)):
+                os.environ["BTCRECOVER_AUTO_BACKEND"] = value
+                self.assertEqual(btcrpass.auto_backend_selection_enabled(), expected,
+                                 "BTCRECOVER_AUTO_BACKEND=%s" % value)
+            del os.environ["BTCRECOVER_AUTO_BACKEND"]
+            self.assertTrue(btcrpass.auto_backend_selection_enabled())  # defaults to on
+        finally:
+            if saved is None:
+                os.environ.pop("BTCRECOVER_AUTO_BACKEND", None)
+            else:
+                os.environ["BTCRECOVER_AUTO_BACKEND"] = saved
+
+    def test_selecting_a_backend_returns_no_candidate_for_cpu_only_wallets(self):
+        # Nothing to choose between, so it must not benchmark or touch args
+        args = argparse.Namespace(backend="auto", backend_benchmark_seconds=0.5,
+                                  enable_gpu=False, enable_opencl=False, enable_cuda=False)
+        self.assertIsNone(btcrpass.auto_select_backend(args, self._CpuOnlyWallet()))
+        self.assertFalse(args.enable_opencl or args.enable_cuda)
+
+    def test_probes_are_isolated_and_cpu_workers_are_counted(self):
+        from unittest import mock
+        from btcrecover import cuda_scrypt
+
+        wallet = self._CpuOnlyWallet()
+        wallet._dump_wallet_file = "must-not-write"
+        wallet._dump_privkeys_file = "must-not-write"
+        wallet._savepossiblematches = True
+        args = argparse.Namespace(threads=2, backend_benchmark_seconds=0.05,
+                                  enable_opencl=False, enable_cuda=False)
+
+        def configure(probe, backend, probe_args):
+            self.assertIsNone(probe._dump_wallet_file)
+            self.assertIsNone(probe._dump_privkeys_file)
+            self.assertFalse(probe._savepossiblematches)
+            self.assertTrue(probe.pre_start_benchmark)
+            if backend == "opencl":
+                cleanup.assert_called_once()
+            return probe.return_verified_password_or_false, 1
+
+        with mock.patch.object(btcrpass, "available_backends", return_value=["cpu", "cuda", "opencl"]), \
+                mock.patch.object(btcrpass, "logical_cpu_cores", 4), \
+                mock.patch.object(btcrpass, "_configure_backend_probe", side_effect=configure), \
+                mock.patch.object(btcrpass, "_measure_verify_rate", side_effect=[10, 15, 16]), \
+                mock.patch.object(cuda_scrypt, "free_buffers") as cleanup:
+            self.assertEqual(btcrpass.auto_select_backend(args, wallet), 20)
+        self.assertFalse(args.enable_opencl or args.enable_cuda)
+        self.assertEqual(wallet._dump_wallet_file, "must-not-write")
+        self.assertTrue(wallet._savepossiblematches)
+
+    def test_failed_cuda_probe_releases_memory(self):
+        from unittest import mock
+        from btcrecover import cuda_scrypt
+
+        args = argparse.Namespace(threads=1, backend_benchmark_seconds=0.05,
+                                  enable_opencl=False, enable_cuda=False)
+        with mock.patch.object(btcrpass, "available_backends", return_value=["cpu", "cuda"]), \
+                mock.patch.object(btcrpass, "_configure_backend_probe", side_effect=RuntimeError("unavailable")), \
+                mock.patch.object(cuda_scrypt, "free_buffers") as cleanup:
+            self.assertIsNone(btcrpass.auto_select_backend(args, self._CpuOnlyWallet()))
+        cleanup.assert_called_once()
+
+    def test_measurement_counts_verified_passwords(self):
+        from unittest import mock
+
+        verify = mock.Mock(return_value=("found", 2))
+        with mock.patch.object(btcrpass.timeit, "default_timer", side_effect=[0, 0.1, 0.2]):
+            rate = btcrpass._measure_verify_rate(verify, lambda count: ["password"] * count, 4, 0.05)
+        self.assertEqual(rate, 10)
+
+    def test_opencl_probe_uses_requested_device(self):
+        from unittest import mock
+
+        wallet = self._OpenclCapableWallet()
+        args = argparse.Namespace(opencl_platform=[0], opencl_devices="1",
+                                  opencl_workgroup_size=[64], bip38_enc_privkey=None)
+        platforms = mock.MagicMock()
+        platforms.get_platforms.return_value[0].get_devices.return_value = [
+            argparse.Namespace(max_work_group_size=64)]
+        with mock.patch.object(btcrpass, "pyopencl", platforms, create=True), \
+                mock.patch.object(btcrecover.opencl_helpers, "init_opencl_contexts") as initialize:
+            _, batch = btcrpass._configure_backend_probe(wallet, "opencl", args)
+        self.assertEqual(batch, 64)
+        initialize.assert_called_once_with(wallet, openclDevice=1)
+
+    def test_cuda_scrypt_rejects_invalid_parameters_without_gpu(self):
+        from btcrecover import cuda_scrypt
+
+        for n, p, dklen in ((0, 8, 32), (3, 8, 32), (16, 0, 32), (16, 8, 0)):
+            with self.subTest(n=n, p=p, dklen=dklen), self.assertRaises(ValueError):
+                cuda_scrypt.scrypt_batch([b"password"], b"salt", n, 8, p, dklen)
+
+    def test_cuda_scratchpad_is_limited_to_batch_size(self):
+        from unittest import mock
+        import numpy as np
+        from btcrecover import cuda_scrypt
+
+        host = np.zeros((1, 256), dtype=np.uint32)
+        cp = mock.Mock()
+        cp.asarray.return_value.get.return_value = host
+        with mock.patch.multiple(cuda_scrypt, _V_buffer=None, _V_capacity_blocks=0, _V_N=None), \
+                mock.patch.object(cuda_scrypt, "_cupy", return_value=cp), \
+                mock.patch.object(cuda_scrypt, "_get_kernel"), \
+                mock.patch.object(cuda_scrypt, "_max_concurrent_blocks", return_value=2000), \
+                mock.patch.object(cuda_scrypt, "free_buffers"):
+            cuda_scrypt._romix_blocks(host, 16384)
+        cp.empty.assert_called_once_with((1, 16384 * 256), dtype=cp.uint32)
+
+    def test_conflicting_backends_and_invalid_batch_options(self):
+        wallet = btcrpass.WalletBlockchain.load_from_filename(
+            os.path.join(WALLET_DIR, "blockchain-v5.0-official-wallet.aes.json"))
+        for options, message in (
+            (["--backend", "cpu", "--enable-opencl"], "conflicts"),
+            (["--enable-cuda", "--enable-opencl"], "choose only one"),
+            (["--cuda-batch", "0"], "must be positive"),
+            (["--backend-benchmark-seconds", "nan"], "finite and positive"),
+        ):
+            with self.subTest(options=options), self.assertRaises(SystemExit) as raised:
+                btcrpass.parse_arguments(
+                    ["--performance", "--disable-save-possible-passwords"] + options, wallet=wallet)
+            self.assertIn(message, str(raised.exception))
+
+
+class TestBlockchainV5(unittest.TestCase):
+    """Compatibility with a v5 wallet created using the official tooling."""
+
+    filename = "blockchain-v5.0-official-wallet.aes.json"
+    password = "BTCR-test-passw0rd"
+
+    def load_wallet(self):
+        return btcrpass.WalletBlockchain.load_from_filename(
+            os.path.join(WALLET_DIR, self.filename))
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_finite_calibration_generator_does_not_verify_empty_batches(self):
+        from unittest import mock
+
+        wallet = self.load_wallet()
+        btcrpass.parse_arguments(
+            ["--passwordlist", "__funccall", "--backend", "cpu", "--threads", "1",
+             "--no-progress", "--disable-save-possible-passwords"], wallet=wallet,
+            passwordlist=StringIO(self.password + "\n"),
+            perf_iterator=lambda: iter(["wrong"]), disable_security_warning_param=True)
+        with mock.patch.object(wallet, "return_verified_password_or_false",
+                               wraps=wallet.return_verified_password_or_false) as verify:
+            result, _ = btcrpass.main()
+        self.assertEqual(result, self.password)
+        self.assertTrue(all(call.args[0] for call in verify.call_args_list))
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_password_and_full_decryption(self):
+        wallet = self.load_wallet()
+        self.assertEqual(wallet.difficulty_info(), "300,000 PBKDF2-SHA256 iterations")
+        self.assertEqual(wallet.return_verified_password_or_false(
+            ("wrong-1", "wrong-2")), (False, 2))
+        self.assertEqual(wallet.return_verified_password_or_false(
+            ("wrong", self.password, "unused")), (self.password, 2))
+        with tempfile.TemporaryDirectory() as directory:
+            wallet._dump_wallet_file = os.path.join(directory, "wallet.json")
+            wallet._dump_privkeys_file = os.path.join(directory, "keys.txt")
+            wallet.decrypt_wallet(self.password.encode("utf-8"))
+            with open(wallet._dump_wallet_file) as stream:
+                decrypted = json.load(stream)
+            with open(wallet._dump_privkeys_file) as stream:
+                keys = stream.read()
+        hd_wallet = decrypted["hd_wallets"][0]
+        # Independently encode the entropy as BIP39, including its checksum.
+        entropy = bytes.fromhex(hd_wallet["seed_hex"])
+        bits = "".join(format(byte, "08b") for byte in entropy)
+        checksum = format(hashlib.sha256(entropy).digest()[0], "08b")
+        bits += checksum[:len(entropy) * 8 // 32]
+        wordlist_path = os.path.join(WALLET_DIR, "..", "..", "wordlists", "bip39-en.txt")
+        with open(wordlist_path, encoding="utf-8-sig") as stream:
+            words = stream.read().split()
+        mnemonic = " ".join(words[int(bits[i:i + 11], 2)] for i in range(0, len(bits), 11))
+        self.assertEqual(mnemonic, "omit lawn check broccoli resemble hover "
+                         "bonus glide security call oak benefit")
+        for account in hd_wallet["accounts"]:
+            for derivation in account["derivations"]:
+                self.assertIn(derivation["xpriv"], keys)
+
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_extract_round_trip_and_legacy_compatibility(self):
+        import subprocess
+
+        script = os.path.join(WALLET_DIR, "..", "..", "..", "extract-scripts",
+                              "extract-blockchain-main-data.py")
+        for filename, password, prf in (
+            (self.filename, self.password, "sha256"),
+            ("blockchain-v4.0-wallet.aes.json", "btcr-test-password", "sha1"),
+        ):
+            with self.subTest(wallet=filename):
+                extract = subprocess.check_output(
+                    [sys.executable, script, os.path.join(WALLET_DIR, filename)],
+                    stderr=subprocess.PIPE, text=True).strip()
+                btcrpass.load_from_base64_key(extract)
+                wallet = btcrpass.loaded_wallet
+                self.assertEqual(wallet._crypto_prf, prf)
+                self.assertEqual(wallet.return_verified_password_or_false(
+                    ("wrong", password)), (password, 2))
+
+    def test_algorithm_selection(self):
+        with open(os.path.join(WALLET_DIR, self.filename)) as stream:
+            wrapper = json.load(stream)
+        for version, algorithm, expected in (
+            (4, None, "sha1"), (5, None, "sha1"),
+            (4, "sha256", "sha256"), (5, "sha256", "sha256"),
+            (5, "sha1", "sha1"),
+        ):
+            with self.subTest(version=version, algorithm=algorithm):
+                wrapper["version"] = version
+                wrapper.pop("algorithm", None)
+                if algorithm is not None:
+                    wrapper["algorithm"] = algorithm
+                parsed = btcrpass.WalletBlockchain._parse_encrypted_blockchain_wallet(
+                    json.dumps(wrapper))
+                self.assertEqual(parsed[2], expected)
+        wrapper["algorithm"] = "unknown"
+        with self.assertRaisesRegex(NotImplementedError, "algorithm"):
+            btcrpass.WalletBlockchain._parse_encrypted_blockchain_wallet(json.dumps(wrapper))
+        wrapper["version"] = 6
+        with self.assertRaisesRegex(NotImplementedError, "version"):
+            btcrpass.WalletBlockchain._parse_encrypted_blockchain_wallet(json.dumps(wrapper))
+
+    def test_unknown_extract_algorithm(self):
+        with self.assertRaisesRegex(ValueError, "extract algorithm"):
+            btcrpass.WalletBlockchain.load_from_data_extract(b"\0" * 37)
+
+    @skipUnless(has_any_opencl_devices, "requires OpenCL and a compatible device")
+    @skipUnless(can_load_pycrypto, "requires PyCryptoDome")
+    def test_opencl(self):
+        wallet = self.load_wallet()
+        btcrecover.opencl_helpers.auto_select_opencl_platform(wallet)
+        btcrecover.opencl_helpers.init_opencl_contexts(wallet)
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            ["wrong-1", "wrong-2"]), (False, 2))
+        self.assertEqual(wallet._return_verified_password_or_false_opencl(
+            ["wrong", self.password, "unused"]), (self.password, 2))
 
 
 class Test07WalletDecryption(unittest.TestCase):

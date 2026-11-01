@@ -32,6 +32,9 @@ data = open(wallet_filename, "rb").read(64 * 2**20)  # up to 64M, typical size i
 # The number of pbkdf2 iterations, or 0 for v0.0 wallet files which don't specify this
 iter_count = 0
 
+# The PBKDF2 PRF: "sha1" for v0-v4 wallets, "sha256" for v5 ("algorithm":"sha256")
+crypto_prf = "sha1"
+
 class MayBeBlockchainV0(BaseException): pass;  # an exception which jumps to the end of the try block below
 try:
 
@@ -52,12 +55,17 @@ try:
         except ValueError:
             raise MayBeBlockchainV0()
 
-    # Extract what's needed from a v2.0/3.0/4 wallet file
-    if data["version"] > 4:
+    # Extract what's needed from a v2.0/3.0/4/5 wallet file
+    if data["version"] > 5:
         raise NotImplementedError("Unsupported Blockchain wallet version " + str(data["version"]))
     iter_count = data["pbkdf2_iterations"]
     if not isinstance(iter_count, int) or iter_count < 1:
         raise ValueError("Invalid Blockchain pbkdf2_iterations " + str(iter_count))
+    # v5 wallets stretch the password with PBKDF2-HMAC-SHA256 instead of SHA1
+    crypto_prf = data.get("algorithm") or "sha1"
+    if crypto_prf not in ("sha1", "sha256"):
+        raise NotImplementedError(
+            "Unsupported Blockchain PBKDF2 algorithm " + str(crypto_prf))
     data = data["payload"]
 
 except MayBeBlockchainV0:
@@ -77,6 +85,10 @@ if len(data) % 16 != 0:
 print("Blockchain first 16 encrypted bytes, iv, and iter_count in base64:", file=sys.stderr)
 
 bytes = b"bk:" + struct.pack("< 16s 16s I", data[16:32], data[0:16], iter_count)
+# v5 wallets append a trailing algorithm byte (1 == SHA256) so the PRF survives extraction.
+# Legacy (SHA1) extracts are left at their original 36-byte length for backward compatibility.
+if crypto_prf == "sha256":
+    bytes += b"\x01"
 crc_bytes = struct.pack("<I", zlib.crc32(bytes) & 0xffffffff)
 
 print(base64.b64encode(bytes + crc_bytes).decode())

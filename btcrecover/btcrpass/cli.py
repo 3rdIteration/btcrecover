@@ -176,6 +176,11 @@ def init_parser_common():
         cuda_group = parser_common.add_argument_group("CUDA acceleration (NVIDIA)")
         cuda_group.add_argument("--enable-cuda", action="store_true", help="enable CUDA (NVIDIA GPU) acceleration; currently accelerates BIP38 sCrypt and is much faster than OpenCL for it (requires: pip install btcrecover[cuda])")
         cuda_group.add_argument("--cuda-batch", type=int, metavar="PASSWORD-COUNT", help="passwords per CUDA batch (default: auto, sized to fit GPU memory)")
+        backend_group = parser_common.add_argument_group("Backend selection")
+        backend_group.add_argument("--backend", choices=["auto", "cpu", "opencl", "cuda"], default="auto",
+                                   help="which verification backend to use. 'auto' (the default) detects what this wallet and machine support, briefly benchmarks each, and uses the fastest; 'cpu'/'opencl'/'cuda' force one. The --enable-opencl/--enable-cuda/--enable-gpu flags also force their backend.")
+        backend_group.add_argument("--backend-benchmark-seconds", type=float, default=0.5, metavar="SECONDS",
+                                   help="how long to time each candidate backend during --backend auto selection (default: %(default)s)")
 
         parser_common_initialized = True
 
