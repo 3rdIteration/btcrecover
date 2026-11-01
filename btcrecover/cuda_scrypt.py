@@ -221,8 +221,6 @@ def scrypt_batch(passwords, salt, N, r, p, dklen):
     Mirrors ``hashlib.scrypt`` semantics. r must be 8 (BIP38). The memory-hard
     ROMix runs on the GPU; the two 1-iteration PBKDF2-SHA256 steps run on the CPU.
     """
-    import numpy as np
-
     if r != 8:
         raise ValueError("cuda_scrypt only supports r=8 (BIP38)")
     if not isinstance(N, int) or N < 2 or N & (N - 1):
@@ -230,6 +228,11 @@ def scrypt_batch(passwords, salt, N, r, p, dklen):
     if not isinstance(p, int) or p < 1 or not isinstance(dklen, int) or dklen < 1:
         raise ValueError("scrypt p and dklen must be positive integers")
     passwords = list(passwords)
+    if not passwords:
+        return []
+
+    import numpy as np
+
     blocklen = 128 * r  # 1024 bytes = 256 uint32
     # Expand each password to p blocks via PBKDF2-SHA256 (1 iteration).
     all_blocks = []

@@ -1349,7 +1349,10 @@ class TestBackendSelection(unittest.TestCase):
 
     def test_cuda_scratchpad_is_limited_to_batch_size(self):
         from unittest import mock
-        import numpy as np
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("requires NumPy")
         from btcrecover import cuda_scrypt
 
         host = np.zeros((1, 256), dtype=np.uint32)
