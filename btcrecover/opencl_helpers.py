@@ -29,9 +29,8 @@ import btcrecover.btcrpass
 
 def _has_amd_unified_memory_gpu(platform_num):
     # AMD APUs with unified memory report system RAM as VRAM but can't run some
-    # kernels correctly (sCrypt hangs, PBKDF2-SHA256 saltlist silently returns
-    # wrong results). No discrete AMD GPU exceeds 32GB VRAM, so anything above
-    # that is unified memory.
+    # kernels correctly (sCrypt hangs). No discrete AMD GPU exceeds 32GB VRAM,
+    # so anything above that is unified memory.
     try:
         devices = pyopencl.get_platforms()[platform_num].get_devices()
         return any(
