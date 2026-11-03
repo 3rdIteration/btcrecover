@@ -3554,6 +3554,12 @@ class OpenCL_Tests(unittest.TestSuite) :
             module=sys.modules[__name__]
         ))
 
+        self.addTest(unittest.defaultTestLoader.loadTestsFromNames(("TestBlockchainV5." + method_name
+            for method_name in (
+                ["test_opencl"])),
+            module=sys.modules[__name__]
+        ))
+
 
 
 class Test09EndToEnd(unittest.TestCase):
