@@ -1,0 +1,52 @@
+# Lint (ruff) and a coverage baseline for the core engines. This runs alongside
+# the existing test-matrix workflows; it does not replace them. Ruff is a hard
+# gate (config in pyproject.toml); coverage is informational for now.
+
+name: Lint and Coverage
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff
+      - name: Ruff lint (first-party code)
+        run: ruff check .
+
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip coverage
+          pip install -r requirements.txt
+      - name: Run engine tests under coverage
+        # Informational: measures coverage of the password and seed engines.
+        # Not a gate yet -- the number establishes a baseline to improve against.
+        continue-on-error: true
+        run: |
+          coverage run -m unittest btcrecover.test.test_passwords btcrecover.test.test_seeds
+          coverage report
+          coverage xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore

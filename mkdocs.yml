@@ -61,6 +61,7 @@ nav:
         - Credits: CREDITS.md
         - License: licence.md
     - AI-Assisted Recovery: AI_Assisted_Recovery.md
+    - Programmatic & AI-Tool Interfaces: Programmatic_and_AI_Interfaces.md
     - Donate: donate.md
 
 plugins:

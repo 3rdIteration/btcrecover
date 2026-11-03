@@ -45,6 +45,8 @@ wallet_dir = os.path.join(os.path.dirname(__file__), "test-wallets")
 
 opencl_device_count = None
 def has_any_opencl_devices():
+    if os.environ.get("BTCRECOVER_SKIP_GPU_TESTS") == "1":
+        return False
     global opencl_device_count
     if opencl_device_count is None:
         try:

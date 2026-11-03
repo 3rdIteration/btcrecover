@@ -5,6 +5,11 @@
 **Note:** The YouTube video and examples were made before OpenCL acceleration was added to Blockchain.com wallets and can give at least a 10x performance improvement. (See [GPU Accleration](../../GPU_Acceleration.md) for more info) 
 
 ## Overview
+
+Version 5 wallet backups use PBKDF2-HMAC-SHA256, selected by the wrapper's
+`algorithm` field. See [v5 format and JavaScript investigation notes](../../Blockchain_v5_Format.md)
+for the encryption layout, official test fixture, and validation commands.
+
 [Firstly you download the wallet file as per the process here:](../../TUTORIAL.md#downloading-blockchaincom-wallet-files)
 
 Once you have that file, there are three ways that blockchain.com wallets can be recovered.
