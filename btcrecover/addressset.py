@@ -424,7 +424,7 @@ def create_address_db(dbfilename, blockdir, table_len, startBlockDate="2019-01-0
         first_filenum = startBlockFile
 
     if not addresslistfile:
-        for filename in glob.iglob(path.join(blockdir, "blk*.dat")):
+        for filename in glob.iglob(path.join(glob.escape(blockdir), "blk*.dat")):
             if path.isfile(filename): break
         else:
             raise ValueError("no block files exist in blocks directory '{}'".format(blockdir))
