@@ -1960,7 +1960,7 @@ class WalletBIP39(WalletBIP32):
     def _do_load_wordlists(cls, name, wordlist_langs = None):
         if not wordlist_langs:
             wordlist_langs = []
-            for filename in glob.iglob(os.path.join(wordlists_dir, name + "-??*.txt")):
+            for filename in glob.iglob(os.path.join(glob.escape(wordlists_dir), name + "-??*.txt")):
                 wordlist_langs.append(os.path.basename(filename)[len(name)+1:-4])  # e.g. "en", or "zh-hant"
         for lang in wordlist_langs:
             if lang in cls._language_words:
