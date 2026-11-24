@@ -36,7 +36,11 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "macOS" ]; then
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          brew install autoconf automake libffi libtool pkg-config gnu-sed swig
+          # NOTE: do not install swig here. wallycore's sdist ships a
+          # pre-generated SWIG wrapper that builds cleanly (incl. Python 3.14);
+          # a brew-installed swig makes wallycore regenerate it into code that
+          # still calls the Python 2 PyInt_/PyString_ APIs and fails to compile.
+          brew install autoconf automake libffi libtool pkg-config gnu-sed
         fi
       shell: bash
     - name: Install dependencies
