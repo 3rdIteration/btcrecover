@@ -13,7 +13,11 @@ They will all find a result almost straight away.
 
 ## BIP38 Encrypted Paper Wallet Recovery.
 **Notes**
-BIP38 wallets are encrypted via sCrypt, so will be very slow to brute-force. GPU acceleration for these wallets is available, but doesn't offer much of a performance boost unless you have multiple GPUs or a particularly powerful GPU relative to your CPU... (Or some kind of dedicated OpenCL accelerator)
+BIP38 wallets use the expensive sCrypt key derivation function. The older OpenCL
+path may offer little benefit over a fast CPU, while the CUDA path can provide a
+substantial speedup on supported NVIDIA GPUs. The default `--backend auto` compares
+available backends. See [CUDA acceleration for BIP38](../GPU_Acceleration.md#cuda-acceleration-for-bip38-nvidia)
+for installation and benchmarking instructions.
 
 **Supported wallets**
 
@@ -292,6 +296,10 @@ python btcrecover.py --brainwallet --addrs XksGLVwdDQSzkxK1xPmd4R5grcUFyB3ouY --
 
 ### Warpwallets
 Note: At this time, only Bitcoin and Litecoin are supported... (Eth could be easily added)
+
+Automatic backend selection uses the CPU for Warpwallet and Memwallet. Their
+OpenCL path still performs sCrypt on the CPU, so automatic OpenCL probing is
+skipped to avoid long startup delays.
 
 **Commands**
 

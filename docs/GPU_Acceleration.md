@@ -25,7 +25,12 @@ Backend: benchmarking CPU, CUDA, OpenCL to pick the fastest (override with --bac
 Backend: using CUDA (376.2 passwords/s)
 ```
 
-If only the CPU is usable for a wallet type, no benchmarking happens and nothing is printed.
+If only the CPU is offered for a wallet type, the automatic backend comparison is skipped.
+The separate pre-start benchmark used for ETA estimates still runs unless skipped.
+
+Warpwallet (including Memwallet) stays on the CPU in auto mode. Its OpenCL path still
+runs the expensive sCrypt work serially on the CPU, so probing a GPU-sized batch would
+add a long startup delay. Explicit `--enable-opencl` remains available for these wallets.
 
 To force a particular backend, use `--backend cpu|opencl|cuda`; the older `--enable-opencl`,
 `--enable-cuda` and `--enable-gpu` flags still work and also override auto-selection.
@@ -33,6 +38,11 @@ To force a particular backend, use `--backend cpu|opencl|cuda`; the older `--ena
 Conflicting backend flags are rejected. The timing budget excludes setup and
 warm-up; a single slow verification batch can exceed it. Backend probes suppress
 wallet dumps and release CUDA scratch memory before testing OpenCL.
+
+If an OpenCL worker fails to initialize after a backend has been selected, recovery
+stops with an error and shuts down the workers, including any seed-file writer.
+Check the selected devices, GPU drivers and available GPU memory, or choose
+`--backend cpu` to run on the CPU.
 
 Automatic selection can also be disabled entirely by setting the environment variable
 `BTCRECOVER_AUTO_BACKEND=0`, which is what the test suite does so that its many short
@@ -46,9 +56,10 @@ Blockchain.com v5 test can also be run alone with
 
 BIP38 encrypted private keys use a very heavy, memory-hard sCrypt (N=2^14, r=8, p=8).
 The generic OpenCL path is memory-bound and does not scale well for this. On NVIDIA
-GPUs there is a purpose-built **CUDA** path that is dramatically faster — on an RTX 5090
-it runs at roughly **375 passwords/s**, versus ~40/s for OpenCL and ~75/s for a fully
-loaded high-end CPU (about a **9× speedup over OpenCL**).
+GPUs there is a purpose-built **CUDA** path. Earlier measurements on an RTX 5090
+recorded roughly **375 passwords/s**, versus ~40/s for OpenCL and ~75/s for a fully
+loaded high-end CPU (about a **9× speedup over OpenCL**). These are reference figures;
+measure your own recovery configuration to compare current performance.
 
 Install the optional CUDA dependency (CuPy) and enable it with `--enable-cuda`:
 
@@ -63,7 +74,49 @@ Notes:
   `--enable-cuda` reports an error; use OpenCL (`--enable-opencl`) or plain CPU instead.
 * CUDA acceleration currently applies to **BIP38** only. It runs single-process (the GPU
   is the parallelism), so it ignores `--threads`.
-* The GPU-memory batch size is auto-sized to your card; override with `--cuda-batch`.
+* The default batch size is based on available GPU memory; override it with
+  `--cuda-batch`. Batches that exceed the available capacity run in waves, reusing
+  GPU buffers between batches. Increasing the batch size is not always faster.
+* BIP38's public-key derivation and AES verification use the selected
+  [secp256k1 backend](INSTALL.md#secp256k1-backends)
+  and [PyCryptoDome](INSTALL.md#pycryptodome), with bundled Python fallbacks when
+  native libraries are unavailable. These CPU operations still matter when sCrypt
+  runs on CUDA. Speedups in this verification step do not translate directly into
+  the same speedup for the complete recovery.
+
+#### Benchmarking and testing CUDA
+
+`benchmark.py` has CPU, legacy GPU, OpenCL and CUDA modes. The CUDA mode runs the
+BIP38 benchmark with `--enable-cuda` whenever CuPy and an NVIDIA GPU are available
+(skip it with `--no-cuda`; set the batch size with `--cuda-batch`). CPU-mode runs pass
+`--backend cpu` and every run disables automatic backend selection, so a result
+labelled CPU is never silently measured on a GPU. Note that `benchmark.py --backend`
+selects the secp256k1 library (`coincurve`, `wallycore` or `purepython`), not the
+recovery accelerator.
+
+```
+python benchmark.py --wallet-type password --no-gpu --no-opencl
+```
+
+For a direct CUDA throughput measurement, replace `<key>` with a BIP38 encrypted key:
+
+```
+python btcrecover.py --bip38-enc-privkey <key> --backend cuda --performance --performance-duration 30 --no-dupchecks --dsw
+```
+
+Repeat with `--backend cpu` or `--backend opencl` for a controlled comparison.
+Leave the pre-start benchmark enabled when comparing sustained throughput so
+CUDA kernel compilation and buffer setup happen before the timed search.
+
+The full test suite includes CUDA sCrypt comparisons against `hashlib.scrypt`
+for both BIP38 derived-key lengths, plus buffer-reuse tests. Run them directly with:
+
+```
+python -m unittest btcrecover.test.test_passwords.TestCudaScrypt btcrecover.test.test_cuda_buffer_reuse
+```
+
+The sCrypt comparison requires CuPy and a CUDA GPU, and is skipped when
+`BTCRECOVER_SKIP_GPU_TESTS=1`. The buffer-reuse tests require NumPy but no GPU.
 
 
 The performance increase that this offers depends on the type of wallet you are trying to recover, your CPU and your GPU.

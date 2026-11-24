@@ -21,13 +21,17 @@
 """BTCRecover Benchmarking Tool
 
 Runs performance benchmarks for various wallet types and seed recovery modes.
-Tests CPU, GPU, and OpenCL acceleration. Results are saved as JSON files in
-the benchmark-results/ directory for easy comparison across systems.
+Tests CPU, GPU, OpenCL and CUDA acceleration. Results are saved as JSON files
+in the benchmark-results/ directory for easy comparison across systems.
+
+CPU-mode runs pass ``--backend cpu`` and disable btcrecover's automatic backend
+selection, so a result labelled CPU really was measured on the CPU.
 
 Usage:
-    python benchmark.py                    # Run all benchmarks (CPU + GPU + OpenCL)
+    python benchmark.py                    # Run all benchmarks (CPU + GPU + OpenCL + CUDA)
     python benchmark.py --no-gpu           # Skip GPU benchmarks
     python benchmark.py --no-opencl        # Skip OpenCL benchmarks
+    python benchmark.py --no-cuda          # Skip CUDA benchmarks
     python benchmark.py --duration 60      # Run each test for 60 seconds
     python benchmark.py --wallet-type all  # Test all wallet types (default)
     python benchmark.py --wallet-type seed # Test only seed recovery
@@ -152,6 +156,11 @@ def get_system_info():
     opencl_info = _get_opencl_info()
     if opencl_info:
         info["opencl_devices"] = opencl_info
+
+    # Record the CUDA device, if btcrecover can use one
+    cuda_info = _get_cuda_info()
+    if cuda_info.get("available"):
+        info["cuda_device"] = cuda_info
 
     return info
 
@@ -352,6 +361,49 @@ def _get_opencl_info():
     return None
 
 
+_CUDA_INFO_CACHE = None
+
+
+def _get_cuda_info():
+    """Report whether btcrecover's CUDA backend is usable on this machine.
+
+    Probed in a subprocess (like the secp256k1 backend check) so that the
+    benchmark process itself never creates a CUDA context, and cached because
+    importing CuPy is slow. Returns a dict with ``available`` (bool) and, when
+    available, the device ``name`` and ``memory_mb``; otherwise a ``reason``.
+    """
+    global _CUDA_INFO_CACHE
+    if _CUDA_INFO_CACHE is not None:
+        return _CUDA_INFO_CACHE
+    probe = (
+        "import json, warnings\n"
+        "warnings.simplefilter('ignore')\n"
+        "from btcrecover import cuda_scrypt\n"
+        "info = {'available': bool(cuda_scrypt.is_available())}\n"
+        "if info['available']:\n"
+        "    import cupy\n"
+        "    props = cupy.cuda.runtime.getDeviceProperties(0)\n"
+        "    name = props['name']\n"
+        "    info['name'] = name.decode() if isinstance(name, bytes) else str(name)\n"
+        "    info['memory_mb'] = int(props['totalGlobalMem'] // (1024 * 1024))\n"
+        "print('CUDA_INFO=' + json.dumps(info))\n"
+    )
+    info = {"available": False, "reason": "CuPy or a CUDA-capable GPU not found"}
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", probe],
+            capture_output=True, text=True, timeout=120, cwd=SCRIPT_DIR,
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("CUDA_INFO="):
+                info = json.loads(line[len("CUDA_INFO="):])
+                break
+    except Exception:
+        pass
+    _CUDA_INFO_CACHE = info
+    return info
+
+
 def _has_amd_unified_memory_gpu():
     """Detect AMD APU with unified memory (>32GB reported VRAM)."""
     try:
@@ -442,6 +494,9 @@ def run_benchmark(cmd, duration, label, cwd=None):
     try:
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
+        # Every benchmark names its backend explicitly (see _configure_mode),
+        # so never let btcrecover's automatic selection substitute another.
+        env["BTCRECOVER_AUTO_BACKEND"] = "0"
 
         popen_kwargs = {}
         if os.name != "nt":
@@ -617,7 +672,8 @@ def get_password_benchmarks():
     benchmarks = []
     wallet_dir = WALLET_DIR
 
-    # Each entry: (label, wallet_file, extra_args, supports_gpu, supports_opencl)
+    # Each entry: (label, wallet_file, extra_args, supports_gpu, supports_opencl).
+    # supports_cuda defaults to False; only BIP38 has a CUDA path so far.
     wallet_tests = [
         ("Bitcoin Core (BDB)", "bitcoincore-wallet.dat", [], True, True),
         ("Bitcoin Core (SQLite)", "bitcoincore-0.21.1-wallet.dat", [], True, True),
@@ -625,6 +681,7 @@ def get_password_benchmarks():
         ("Blockchain.com (v0)", "blockchain-v0.0-wallet.aes.json", [], False, False),  # v0 doesn't support OpenCL
         ("Blockchain.com (v2)", "blockchain-v2.0-wallet.aes.json", [], False, True),
         ("Blockchain.com (v3)", "blockchain-v3.0-MAY2020-wallet.aes.json", [], False, True),
+        ("Blockchain.com (v5)", "blockchain-v5.0-official-wallet.aes.json", [], False, True),
         ("MultiBit Classic", "multibit-wallet.key", [], False, True),
         ("MultiBit HD", "mbhd.wallet.aes", [], False, False),  # WalletMultiBitHD doesn't support OpenCL
         ("MetaMask (Chrome)", "metamask/nkbihfbeogaeaoehlefnkodbefgpgknn", [], False, True),
@@ -667,6 +724,7 @@ def get_password_benchmarks():
         "category": "password",
         "supports_gpu": False,
         "supports_opencl": True,
+        "supports_cuda": True,
         "cmd_builder": lambda: _build_bip38_cmd(),
     })
 
@@ -872,6 +930,54 @@ def _append_opencl_args(cmd, opencl_args):
         cmd.extend(["--opencl-devices"] + [str(d) for d in opencl_args["devices"]])
 
 
+def _append_cuda_args(cmd, cuda_args):
+    """Append CUDA acceleration arguments to a command list."""
+    if cuda_args.get("batch"):
+        cmd.extend(["--cuda-batch", str(cuda_args["batch"])])
+
+
+def _configure_mode(cmd, bench, mode, gpu_args=None, opencl_args=None, cuda_args=None):
+    """Add the arguments that select *mode*'s backend to *cmd*.
+
+    Returns None when the command is ready to run, or a reason string when
+    the benchmark doesn't apply to this mode and should be skipped.
+
+    --enable-gpu is only for password recovery (Bitcoin Core only).
+    --enable-opencl is for seed recovery AND some password types
+      (BIP39 Passphrase, BIP38, wallet files that support OpenCL).
+    --enable-cuda is password recovery for BIP38 only.
+    CPU password runs pass --backend cpu: btcrecover otherwise defaults to
+    --backend auto, which may silently pick a GPU for a "CPU" result.
+    """
+    category = bench["category"]
+    if mode == "cpu":
+        if category == "password":
+            cmd.extend(["--backend", "cpu"])
+        return None
+    if mode == "gpu":
+        if category != "password":
+            return "not applicable for GPU"
+        if not bench.get("supports_gpu"):
+            return "GPU not supported for this wallet type"
+        cmd.append("--enable-gpu")
+        _append_gpu_args(cmd, gpu_args or {})
+        return None
+    if mode == "opencl":
+        default = category == "seed"  # seed recovery supports OpenCL unless told otherwise
+        if not bench.get("supports_opencl", default):
+            return "OpenCL not supported for this wallet type"
+        cmd.append("--enable-opencl")
+        _append_opencl_args(cmd, opencl_args or {})
+        return None
+    if mode == "cuda":
+        if category != "password" or not bench.get("supports_cuda"):
+            return "CUDA not supported for this wallet type"
+        cmd.append("--enable-cuda")
+        _append_cuda_args(cmd, cuda_args or {})
+        return None
+    return f"unknown mode {mode!r}"
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Main benchmark runner
 # ──────────────────────────────────────────────────────────────────────
@@ -884,6 +990,7 @@ def run_all_benchmarks(args):
     # Build GPU/OpenCL argument dicts from CLI args
     gpu_args = {}
     opencl_args = {}
+    cuda_args = {}
 
     if args.global_ws is not None:
         gpu_args["global_ws"] = args.global_ws
@@ -898,6 +1005,9 @@ def run_all_benchmarks(args):
         opencl_args["platform"] = args.opencl_platform
     if args.opencl_devices:
         opencl_args["devices"] = args.opencl_devices
+
+    if args.cuda_batch is not None:
+        cuda_args["batch"] = args.cuda_batch
 
     # When the user doesn't force a thread count we let btcrecover auto-detect
     # its own per-mode/per-wallet default, so record "auto" rather than a made-up
@@ -918,6 +1028,7 @@ def run_all_benchmarks(args):
             "comment": args.comment,
             "gpu_args": gpu_args if gpu_args else None,
             "opencl_args": opencl_args if opencl_args else None,
+            "cuda_args": cuda_args if cuda_args else None,
         },
         "system_info": get_system_info(),
         "benchmarks": [],
@@ -940,6 +1051,13 @@ def run_all_benchmarks(args):
         modes.append("gpu")
     if args.opencl:
         modes.append("opencl")
+    if args.cuda:
+        cuda_info = _get_cuda_info()
+        if cuda_info.get("available"):
+            modes.append("cuda")
+        else:
+            print(f"\nSkipping CUDA benchmarks ({cuda_info.get('reason', 'CUDA unavailable')}; "
+                  "install with 'pip install btcrecover[cuda]')")
 
     for mode in modes:
         mode_label = mode.upper()
@@ -966,28 +1084,9 @@ def run_all_benchmarks(args):
             # devices while the first kernel compiles.
             cmd.append("--skip-pre-start")
 
-            # Modify command for GPU/OpenCL mode
-            # --enable-gpu is only for password recovery (Bitcoin Core only)
-            # --enable-opencl is for seed recovery AND some password types
-            #   (BIP39 Passphrase, BIP38, wallet files that support OpenCL)
-            if mode == "gpu" and bench["category"] == "password":
-                if not bench.get("supports_gpu"):
-                    print(f"  Skipping (GPU not supported for this wallet type)")
-                    continue
-                cmd.append("--enable-gpu")
-                _append_gpu_args(cmd, gpu_args)
-            elif mode == "opencl" and bench["category"] == "seed":
-                if not bench.get("supports_opencl", True):
-                    print(f"  Skipping (OpenCL not supported for this wallet type)")
-                    continue
-                cmd.append("--enable-opencl")
-                _append_opencl_args(cmd, opencl_args)
-            elif mode == "opencl" and bench.get("supports_opencl"):
-                cmd.append("--enable-opencl")
-                _append_opencl_args(cmd, opencl_args)
-            elif mode != "cpu":
-                # Skip unsupported combinations
-                print(f"  Skipping (not applicable for {mode_label})")
+            skip_reason = _configure_mode(cmd, bench, mode, gpu_args, opencl_args, cuda_args)
+            if skip_reason:
+                print(f"  Skipping ({skip_reason})")
                 continue
 
             result = run_benchmark(cmd, args.duration, label)
@@ -1121,10 +1220,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                         Run CPU benchmarks for all wallet types
-  %(prog)s                         Run all benchmarks (CPU + GPU + OpenCL)
+  %(prog)s                         Run all benchmarks (CPU + GPU + OpenCL + CUDA)
   %(prog)s --no-gpu                Skip GPU benchmarks
   %(prog)s --no-opencl             Skip OpenCL benchmarks
+  %(prog)s --no-cuda               Skip CUDA benchmarks
+  %(prog)s --no-gpu --no-opencl --wallet-type password  CPU vs CUDA only
   %(prog)s --duration 60           Run each test for 60 seconds
   %(prog)s --wallet-type seed      Only test seed recovery
   %(prog)s --wallet-type password  Only test password recovery
@@ -1157,6 +1257,15 @@ Examples:
     parser.add_argument(
         "--no-opencl", action="store_false", dest="opencl",
         help="Skip OpenCL-accelerated benchmarks"
+    )
+    parser.add_argument(
+        "--cuda", action="store_true", default=True,
+        help="Run CUDA-accelerated benchmarks when CuPy and an NVIDIA GPU are "
+             "available (default: enabled; currently BIP38 only)"
+    )
+    parser.add_argument(
+        "--no-cuda", action="store_false", dest="cuda",
+        help="Skip CUDA-accelerated benchmarks"
     )
     parser.add_argument(
         "--wallet-type", choices=["all", "password", "seed"], default="all",
@@ -1219,7 +1328,16 @@ Examples:
         help="OpenCL device IDs to use (btcrecover default: all)"
     )
 
+    # CUDA acceleration arguments (BIP38 password recovery)
+    cuda_group = parser.add_argument_group("CUDA acceleration (BIP38 password recovery)")
+    cuda_group.add_argument(
+        "--cuda-batch", type=int, default=None, metavar="COUNT",
+        help="Passwords per CUDA batch (btcrecover default: auto, sized to fit GPU memory)"
+    )
+
     args = parser.parse_args()
+    if args.cuda_batch is not None and args.cuda_batch < 1:
+        parser.error("--cuda-batch must be positive")
 
     # Override thread count globally if specified
     if args.threads:
@@ -1243,6 +1361,7 @@ Examples:
           f"{' (forced via --backend)' if args.backend else ' (auto-selected)'}")
     print(f"GPU benchmarks:    {'Yes' if args.gpu else 'No'}")
     print(f"OpenCL benchmarks: {'Yes' if args.opencl else 'No'}")
+    print(f"CUDA benchmarks:   {'Yes (if available)' if args.cuda else 'No'}")
     if args.comment:
         print(f"Comment:           {args.comment}")
     if args.gpu or args.opencl:
@@ -1258,6 +1377,8 @@ Examples:
             print(f"  OpenCL platform:           {args.opencl_platform}")
         if args.opencl_devices:
             print(f"  OpenCL devices:            {', '.join(str(d) for d in args.opencl_devices)}")
+    if args.cuda and args.cuda_batch is not None:
+        print(f"  CUDA batch size:           {args.cuda_batch}")
 
     # Collect system info
     print(f"\nCollecting system information...")
@@ -1278,6 +1399,10 @@ Examples:
                       f"driver {dev.get('driver_version', '?')})")
         else:
             print(f"  OpenCL: {str(opencl_devs)[:100]}")
+    if sys_info.get("cuda_device"):
+        cuda_dev = sys_info["cuda_device"]
+        print(f"  CUDA:   {cuda_dev.get('name', 'Unknown')} "
+              f"({cuda_dev.get('memory_mb', '?')} MB)")
 
     # Run benchmarks
     results = run_all_benchmarks(args)

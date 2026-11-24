@@ -41,6 +41,7 @@ DOCS_FILE = os.path.join(SCRIPT_DIR, "docs", "Benchmarks.md")
 # Markers in the template where generated content is inserted
 START_MARKER = "<!-- BENCHMARK_RESULTS_START -->"
 END_MARKER = "<!-- BENCHMARK_RESULTS_END -->"
+BENCHMARK_MODES = ("cpu", "gpu", "opencl", "cuda")
 
 
 def load_all_results():
@@ -95,7 +96,7 @@ def generate_markdown(all_results):
             
             # Clean label
             base_label = label
-            for suffix in (" (CPU)", " (GPU)", " (OPENCL)"):
+            for suffix in (f" ({name.upper()})" for name in BENCHMARK_MODES):
                 base_label = base_label.replace(suffix, "")
             
             if cat not in categories:
@@ -173,7 +174,7 @@ def _get_system_hw_label(result, index, mode):
     """Build a short label showing system number and relevant hardware.
 
     For CPU mode, shows the CPU name.
-    For GPU/OpenCL modes, shows the GPU name.
+    For GPU/OpenCL/CUDA modes, shows the GPU name.
     """
     sys_info = result.get("system_info", {})
     cpu = sys_info.get("cpu_model", "Unknown")
@@ -182,7 +183,7 @@ def _get_system_hw_label(result, index, mode):
     gpu_info = sys_info.get("gpu", [])
     gpu = gpu_info[0].get("name", "None") if gpu_info else "None"
 
-    if mode in ("gpu", "opencl"):
+    if mode in BENCHMARK_MODES[1:]:
         if gpu != "None":
             return f"#{index + 1} {gpu}"
         # Fall back to CPU if no GPU info available
@@ -208,7 +209,7 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
         for sys_idx in system_rates:
             row_keys.add((sys_idx, mode))
     # Sort by system index first, then mode
-    mode_order = {"cpu": 0, "gpu": 1, "opencl": 2}
+    mode_order = {mode: index for index, mode in enumerate(BENCHMARK_MODES)}
     sorted_row_keys = sorted(row_keys, key=lambda x: (x[0], mode_order.get(x[1], 9)))
 
     # Header — test labels as columns, with difficulty if available
@@ -218,7 +219,7 @@ def _generate_table(lines, category_data, all_results, difficulties=None):
         display_label = label
         if difficulties:
             # Find any difficulty for this label (pick from any mode)
-            for mode_key in ("cpu", "gpu", "opencl"):
+            for mode_key in BENCHMARK_MODES:
                 diff = difficulties.get((label, mode_key), "")
                 if diff:
                     display_label = f"{label} - {diff}"

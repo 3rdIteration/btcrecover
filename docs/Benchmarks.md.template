@@ -16,6 +16,10 @@ Benchmarks measure the password/seed recovery speed in passwords per second (p/s
 - **Mp/s** = millions of passwords per second
 - **CPU** = using CPU only (multi-threaded)
 - **GPU/OpenCL** = using GPU acceleration via OpenCL
+- **CUDA** = using NVIDIA GPU acceleration via CuPy (currently BIP38 only)
+
+CPU rows are measured with `--backend cpu`, so btcrecover's automatic backend selection
+cannot move a CPU-labelled run onto a GPU.
 
 Speed varies significantly based on:
 
@@ -37,11 +41,12 @@ You can contribute your own benchmarks by running the benchmarking tool and
 submitting a pull request:
 
 ```bash
-# Run all benchmarks including CPU, GPU and OpenCL (30 seconds each)
+# Run all benchmarks including CPU, GPU, OpenCL and CUDA (30 seconds each).
+# CUDA runs only when CuPy and an NVIDIA GPU are available (pip install btcrecover[cuda]).
 python benchmark.py
 
-# Skip GPU/OpenCL benchmarks (CPU only)
-python benchmark.py --no-gpu --no-opencl
+# Skip GPU/OpenCL/CUDA benchmarks (CPU only)
+python benchmark.py --no-gpu --no-opencl --no-cuda
 
 # Adjust test duration (default: 30 seconds)
 python benchmark.py --duration 60
@@ -91,6 +96,9 @@ python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/block
 # Blockchain.com (v3)
 python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/blockchain-v3.0-MAY2020-wallet.aes.json --no-eta --no-dupchecks --dsw
 
+# Blockchain.com (v5)
+python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/blockchain-v5.0-official-wallet.aes.json --no-eta --no-dupchecks --dsw
+
 # MultiBit Classic
 python btcrecover.py --performance --wallet ./btcrecover/test/test-wallets/multibit-wallet.key --no-eta --no-dupchecks --dsw
 
@@ -119,7 +127,10 @@ python btcrecover.py --performance --slip39 --slip39-shares "hearing echo academ
 python btcrecover.py --performance --slip39 --slip39-shares "hearing echo academic acid deny bracelet playoff exact fancy various evidence standard adjust muscle parcel sled crucial amazing mansion losing" "hearing echo academic agency deliver join grant laden index depart deadline starting duration loud crystal bulge gasoline injury tofu together" --addrs bc1q76szkxz4cta5p5s66muskvads0nhwe5m5w07pq --addr-limit 2 --no-eta --no-dupchecks --dsw --enable-opencl
 
 # BIP38 Encrypted Key (CPU)
-python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw
+python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw --backend cpu
+
+# BIP38 Encrypted Key with CUDA acceleration (NVIDIA, requires pip install btcrecover[cuda])
+python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw --enable-cuda
 
 # BIP38 Encrypted Key with OpenCL acceleration
 python btcrecover.py --performance --bip38-enc-privkey 6PnM7h9sBC9EMZxLVsKzpafvBN8zjKp8MZj6h9mfvYEQRMkKBTPTyWZHHx --no-eta --no-dupchecks --dsw --enable-opencl

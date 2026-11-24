@@ -175,11 +175,11 @@ def bytes_to_int(bytes_rep):
     """convert a string of bytes (in big-endian order) to a long integer
 
     :param bytes_rep: the raw bytes
-    :type bytes_rep: str
+    :type bytes_rep: bytes
     :return: the unsigned integer
-    :rtype: long
+    :rtype: int
     """
-    return int(base64.b16encode(bytes_rep), 16)
+    return int.from_bytes(bytes_rep, "big")
 
 def int_to_bytes(int_rep, min_length):
     """convert an unsigned integer to a string of bytes (in big-endian order)
@@ -189,13 +189,13 @@ def int_to_bytes(int_rep, min_length):
     :param min_length: the minimum output length
     :type min_length: int
     :return: the raw bytes, zero-padded (at the beginning) if necessary
-    :rtype: str
+    :rtype: bytes
     """
     assert int_rep >= 0
-    hex_rep = "{:X}".format(int_rep)
-    if len(hex_rep) % 2 == 1:    # The hex decoder below requires
-        hex_rep = "0" + hex_rep  # exactly 2 chars per byte.
-    return base64.b16decode(hex_rep).rjust(min_length, "\0".encode("utf-8"))
+    # int.to_bytes() raises if the value doesn't fit, so grow past min_length
+    # when needed (matching the old hex-based implementation's behavior).
+    length = max(min_length, (int_rep.bit_length() + 7) // 8)
+    return int_rep.to_bytes(length, "big")
 
 
 dec_digit_to_base58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"

@@ -1078,7 +1078,12 @@ def available_backends(wallet):
                 backends.append("cuda")
         except Exception:
             pass
-    if module_opencl_available and hasattr(wallet, "_return_verified_password_or_false_opencl"):
+    # Warpwallet's OpenCL path still runs scrypt serially on the CPU. A
+    # device-sized warm-up can take minutes without providing a speedup.
+    # Keep it available through explicit --enable-opencl, but never probe it.
+    if (module_opencl_available
+            and hasattr(wallet, "_return_verified_password_or_false_opencl")
+            and not getattr(wallet, "isWarpwallet", False)):
         try:
             for platform in pyopencl.get_platforms():
                 if platform.get_devices():
@@ -1101,7 +1106,8 @@ def _configure_backend_probe(wallet, backend, args):
 
     if backend == "cuda":
         wallet.cuda_enabled = True
-        wallet.chunksize    = args.cuda_batch if args.cuda_batch else 200
+        from .. import cuda_scrypt
+        wallet.chunksize    = args.cuda_batch if args.cuda_batch else cuda_scrypt.suggest_batch()
         return wallet._return_verified_password_or_false_cuda, wallet.chunksize
 
     if backend == "opencl":
@@ -1825,7 +1831,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             error_exit("in --worker ID#/TOTAL#, TOTAL# must be >= 2")
         if min(worker_id) < 0:
             error_exit("in --worker ID#/TOTAL#, ID# must be >= 1")
-        if max(worker_id) > workers_total:
+        if max(worker_id) >= workers_total:
             error_exit("in --worker ID#/TOTAL#, ID# must be <= TOTAL#")
 
     global have_progress, progressbar
@@ -2128,7 +2134,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
         if not cuda_scrypt.is_available():
             error_exit("--enable-cuda requires CuPy and a CUDA-capable GPU; install with 'pip install btcrecover[cuda]'")
         loaded_wallet.cuda_enabled = True
-        loaded_wallet.chunksize = args.cuda_batch if args.cuda_batch else 200
+        loaded_wallet.chunksize = args.cuda_batch if args.cuda_batch else cuda_scrypt.suggest_batch()
         args.threads = 1
         print("CUDA: BIP38 sCrypt acceleration enabled (batch size {})".format(loaded_wallet.chunksize))
 
@@ -2356,7 +2362,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
             for dev in devices_avail:
                 cur_score = 0
                 if   dev.type & pyopencl.device_type.ACCELERATOR:
-                    if "oclgrind" not in device.name.lower():  # Some simulators present as an accelerator...
+                    if "oclgrind" not in dev.name.lower():  # Some simulators present as an accelerator...
                         cur_score += 8  # always best
                 elif dev.type & pyopencl.device_type.GPU:         cur_score += 4  # better than CPU
                 if   "nvidia" in dev.vendor.lower():              cur_score += 2  # is never an IGP: very good
@@ -2403,7 +2409,7 @@ def parse_arguments(effective_argv, wallet = None, base_iterator = None,
 
         if args.enable_gpu:
             #If we are dealing with a Bitcoin Core wallet
-            if args.threads != parser.get_default("threads"):
+            if threads_specified_by_user:
                 print("Warning: --threads ignored for GPU based Bitcoin Core recovery", file=sys.stderr)
             args.threads = 1
             extra_opencl_args = ()
@@ -3062,6 +3068,7 @@ def password_generator(chunksize = 1, only_yield_count = False):
     l_length_min = args.length_min
     l_length_max = args.length_max
     l_truncate_length = args.truncate_length
+    l_custom_final_checker = custom_final_checker
 
     if l_args_worker:
         l_workers_total = workers_total
@@ -3144,7 +3151,7 @@ def password_generator(chunksize = 1, only_yield_count = False):
 
             # This is the check_only argument optionally passed
             # by external libraries to parse_arguments()
-            if custom_final_checker and not custom_final_checker(password): continue
+            if l_custom_final_checker and not l_custom_final_checker(password): continue
 
             # Truncate password if required
             password = password[0:l_truncate_length]
@@ -3335,7 +3342,7 @@ def tokenlist_base_password_generator():
         if not using_product_limitedlen:
             #tokens_combination = filter(lambda t: t is not None, tokens_combination)
             tokens_combination = [x for x in tokens_combination if x is not None]
-            if not l_args_min_tokens <= l_len(list(tokens_combination)) <= l_args_max_tokens: continue
+            if not l_args_min_tokens <= l_len(tokens_combination) <= l_args_max_tokens: continue
 
         # There are three types of anchors: positional, middle/range, & relative. Positionals
         # only have a single possible position; middle anchors have a range, but are never
@@ -3349,7 +3356,7 @@ def tokenlist_base_password_generator():
         has_any_mid_anchors = False
         rel_anchors_count   = 0
         if l_has_any_anchors:
-            tokens_combination_len   = l_len(list(tokens_combination))
+            tokens_combination_len   = l_len(tokens_combination)
             tokens_combination_nopos = []  # all tokens except positional ones
             invalid_anchors          = False
             for token in tokens_combination:
@@ -4216,9 +4223,14 @@ def password_repeats_generator(password_base, min_typos = 0):
 ################################### Main ###################################
 
 
-# Simply forwards calls on to the return_verified_password_or_false()
-# member function of the currently loaded global wallet
+class WorkerInitializationError(RuntimeError):
+    """An initialization failure delivered through the pool's result channel."""
+
+
 def return_verified_password_or_false(passwords):
+    """Verify a batch, or forward worker initialization errors to the parent."""
+    if _worker_initialization_error is not None:
+        raise WorkerInitializationError(_worker_initialization_error)
     try:
         return loaded_wallet.return_verified_password_or_false(passwords)
     except Exception as e:
@@ -4231,8 +4243,10 @@ def return_verified_password_or_false(passwords):
 #   tries to set the process priority to minimum, and
 #   begins ignoring SIGINTs for a more graceful exit on Ctrl-C
 loaded_wallet = None  # initialized once at global scope for Windows
+_worker_initialization_error = None
 def init_worker(wallet, char_mode, worker_out_queue = None):
-    global loaded_wallet
+    global loaded_wallet, _worker_initialization_error
+    _worker_initialization_error = None
     if not loaded_wallet:
         loaded_wallet = wallet
         if char_mode == str:
@@ -4249,7 +4263,7 @@ def init_worker(wallet, char_mode, worker_out_queue = None):
 
     try:
         # If GPU usage is enabled, create the openCL contexts for the workers
-        if loaded_wallet.opencl_algo == 0:
+        if getattr(loaded_wallet, "opencl_algo", -1) == 0:
             # Split up GPU's over available worker threads
             worker_number = int(multiprocessing.current_process().name.split("-")[1]) - 1
             try:
@@ -4261,8 +4275,13 @@ def init_worker(wallet, char_mode, worker_out_queue = None):
             btcrecover.opencl_helpers.init_opencl_contexts(loaded_wallet, openclDevice = openclDevice)
 
     except Exception as errormessage:
-        print(errormessage)
-        pass
+        # Raising from a Pool initializer makes it repeatedly respawn workers.
+        # Keep this worker alive and fail its first task instead, so the parent
+        # receives a pickleable exception and can terminate the entire pool.
+        _worker_initialization_error = (
+            "Worker failed to initialize OpenCL contexts: "
+            f"{type(errormessage).__name__}: {errormessage}"
+        )
 
     set_process_priority_idle()
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -4515,6 +4534,9 @@ def write_checked_seeds(worker_out_queue,loaded_wallet):
 #   returns (None, None) for abnormal but not fatal errors (e.g. Ctrl-C)
 def main():
 
+    global _worker_initialization_error
+    _worker_initialization_error = None
+
     # Once installed, performs cleanup prior to a requested process shutdown on Windows
     # (this is defined inside main so it can access the passwords_tried local)
     def windows_ctrl_handler(signal):
@@ -4560,6 +4582,20 @@ def main():
         print("Wallet Type:", str(type(loaded_wallet))[19:-2])
         print("Wallet difficulty:", loaded_wallet.difficulty_info())
     except AttributeError: pass
+
+    # Make the crypto backend choices visible for the wallet types that use
+    # them: a pure-Python secp256k1 or ripemd160 fallback can be 10-100x
+    # slower, and the import-time warnings are easy to miss (worker processes
+    # never emit them at all).
+    if (getattr(loaded_wallet, "btcrseed_wallet", None)
+            or getattr(args, "bip39", False) or getattr(args, "btcrseed", False)
+            or type(loaded_wallet).__name__ in ("WalletBIP38", "WalletElectrum28")):
+        try:
+            from .. import crypto_backends
+            for banner_line in crypto_backends.startup_banner_lines():
+                print(banner_line)
+        except Exception:
+            pass
 
     # Measure the performance of the verification function
     # (for CPU, run for about 0.5s; for GPU, run for one global-worksize chunk)
@@ -4693,8 +4729,26 @@ def main():
         spawned_threads   = args.threads if args.threads > 1 else 0
         verifying_threads = args.threads
 
-    # Adjust estimate for the number of verifying threads (final estimate is probably an underestimate)
-    est_secs_per_password /= min(verifying_threads, logical_cpu_cores)
+    # Adjust estimate for the number of workers. CPU throughput scales with the
+    # number of verifying threads (capped by core count). OpenCL workers are
+    # allocated to devices round-robin, so aggregate throughput scales with the
+    # number of distinct devices, not threads (threads sharing one GPU share
+    # its throughput, which the benchmark measured for a single device batch).
+    # CUDA and the legacy GPU path run a single process and the benchmark
+    # already reflects all devices, so their divisor is 1 either way.
+    if args.enable_opencl:
+        try:
+            n_platform_devices = len(pyopencl.get_platforms()[loaded_wallet.opencl_platform].get_devices())
+        except Exception:
+            n_platform_devices = 1
+        device_indices = getattr(loaded_wallet, "opencl_devices", None)
+        if device_indices:
+            n_opencl_devices = len({i for i in device_indices if 0 <= i < n_platform_devices})
+        else:
+            n_opencl_devices = n_platform_devices
+        est_secs_per_password /= max(1, min(n_opencl_devices, verifying_threads))
+    else:
+        est_secs_per_password /= min(verifying_threads, logical_cpu_cores)
 
     # Count how many passwords there are (excluding skipped ones) so we can display and conform to ETAs
     if not args.no_eta:
@@ -4842,6 +4896,7 @@ def main():
         if main_thread_is_worker: set_process_priority_idle()  # if this thread is cpu-intensive, be nice
 
     # If we are writing out the checksummed seed files, spawn a process that will handle taking the seeds produced by the workers and writing them out to a file
+    write_checked_seeds_worker = None
     try:
         if loaded_wallet._savevalidseeds and worker_out_queue is not None:
             write_checked_seeds_worker = multiprocessing.Process(target = write_checked_seeds, args = (worker_out_queue,loaded_wallet))
@@ -4940,7 +4995,19 @@ def main():
     except BaseException as e:
         handled = handle_oom() if isinstance(e, MemoryError) and passwords_tried > 0 else False
         if not handled: print()  # move to the next line if handle_oom() hasn't already done so
-        if pool: pool.close()
+        if isinstance(e, WorkerInitializationError):
+            if pool:
+                pool.terminate()
+                pool.join()
+            # The seed writer may still be waiting for its first batch. It
+            # must not keep the interpreter alive after initialization fails.
+            if write_checked_seeds_worker is not None:
+                write_checked_seeds_worker.terminate()
+                write_checked_seeds_worker.join()
+            if worker_out_queue is not None:
+                worker_out_queue.close()
+        elif pool:
+            pool.close()
 
         print("Interrupted after finishing password #", args.skip + passwords_tried, file=sys.stderr)
         if sys.stdout.isatty() ^ sys.stderr.isatty():  # if they're different, print to both to be safe

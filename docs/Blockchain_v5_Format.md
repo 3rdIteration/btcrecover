@@ -3,7 +3,7 @@
 The v5 main-password format was investigated from the JavaScript served by the
 [official login page](https://login.blockchain.com/auth/login) on 1 November 2026.
 An independent wallet made with the official tooling is included as
-[`blockchain-v5.0-official-wallet.aes.json`](../btcrecover/test/test-wallets/blockchain-v5.0-official-wallet.aes.json).
+[`blockchain-v5.0-official-wallet.aes.json`](https://github.com/3rdIteration/btcrecover/blob/master/btcrecover/test/test-wallets/blockchain-v5.0-official-wallet.aes.json).
 Its test password is `BTCR-test-passw0rd`. Its expected BIP39 mnemonic is:
 
 ```text

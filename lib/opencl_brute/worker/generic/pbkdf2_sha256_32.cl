@@ -530,7 +530,10 @@ static void hmac(__global const word *K, const word K_len_bytes,
     // Hash input2 into output!
     word temp_output[16 + 9] = {0};
     hash_private(input_2, 64 + 32, temp_output);
-    for (int j = 0; j < (16 + 9); j++){
+    // Only the 8-word (32-byte) SHA-256 digest is valid output, and callers
+    // size their buffers to match. Copying more overflows them, which some
+    // compilers (AMD RDNA) treat as UB and drop the kernel's writes entirely.
+    for (int j = 0; j < 8; j++){
         output[j] = temp_output[j];
     }
 }
@@ -563,7 +566,10 @@ static void F(__global const word *pwd, const word pwdLen_bytes,
     word be_callI = SWAP((word)callI) >> (8*(wordSize-4));
     if (overhang>0)
     {
-        salt[saltLastI] |= be_callI << overhang;
+        // Clear the previous block's counter before writing this one, or
+        // blocks 2+ hash with (1|2|...) instead of the right counter.
+        word saltMask = ((word)1 << overhang) - 1;
+        salt[saltLastI] = (salt[saltLastI] & saltMask) | (be_callI << overhang);
         salt[saltLastI+1] = be_callI >> ((8*wordSize)-overhang);
     }
     else

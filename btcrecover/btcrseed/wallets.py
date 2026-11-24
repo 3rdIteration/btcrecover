@@ -43,6 +43,9 @@ from . import _engine
 from ._engine import *  # noqa: F401,F403 -- stable helpers/constants/modules
 from ._engine import register_selectable_wallet_class
 
+_HMAC_IPAD_TABLE = bytes(value ^ 0x36 for value in range(256))
+_HMAC_OPAD_TABLE = bytes(value ^ 0x5C for value in range(256))
+
 ############### WalletBase ###############
 
 # Methods common to most wallets, but overridden by WalletEthereum
@@ -98,6 +101,13 @@ class WalletBase(object):
 
             hash160s.add(hash160)
         return hash160s
+
+    # When False (the Bitcoin-family default), the address hot loop may hash the
+    # compressed public key directly, since hash160 is defined over the
+    # compressed form. Wallets whose pubkey hash is defined over the
+    # uncompressed form (Ethereum's keccak, Zilliqa's sha256) set this True so
+    # the hot loop keeps passing those the uncompressed key.
+    _hash160_needs_uncompressed = False
 
     @staticmethod
     def pubkey_to_hash160(uncompressed_pubkey):
@@ -222,7 +232,7 @@ class WalletElectrum1(WalletBase):
 
         if address_start_index:
             self._address_start_index = address_start_index
-            if address_limit < 0:
+            if address_limit is not None and address_limit < 0:
                 raise ValueError("the address limit must zero or positive")
         else:
             self._address_start_index = 0
@@ -846,6 +856,12 @@ class WalletBIP32(WalletBase):
     # meaningful.
     _has_change_addresses = True
 
+    # Lazily built caches for the address hot loop (see _build_path_plan and
+    # _verify_seed); reset whenever the path or script-type configuration
+    # changes (see _apply_script_type_filters).
+    _path_plan = None
+    _addr_index_packs = None
+
     def __init__(self, arg_derivationpath = None, loading = False):
         super(WalletBIP32, self).__init__(loading)
         self._chaincode            = None
@@ -1096,6 +1112,8 @@ class WalletBIP32(WalletBase):
         self._path_indexes = filtered_indexes
         self._path_script_types = filtered_scripts
         self._path_strings = filtered_strings
+        self._path_plan = None  # invalidate the hot-loop path/pack caches
+        self._addr_index_packs = None
 
         if "p2sh" not in self._enabled_script_types:
             self.force_p2sh = False
@@ -1231,7 +1249,7 @@ class WalletBIP32(WalletBase):
 
         if address_start_index:
             self._address_start_index = address_start_index
-            if address_limit < 0:
+            if address_limit is not None and address_limit < 0:
                 raise ValueError("the address limit must zero or positive")
         else:
             self._address_start_index = 0
@@ -1484,6 +1502,27 @@ class WalletBIP32(WalletBase):
 
         return False, len(mnemonic_ids_list)
 
+    def _build_path_plan(self):
+        """Precompute the per-path script-type decisions used by _verify_seed.
+        They depend only on configuration and the derivation path, not on the
+        candidate seed or the address index, so they are computed once per
+        wallet instead of once per candidate per path."""
+        plan = []
+        for path_idx, current_path_index in enumerate(self._path_indexes):
+            path_script_type = self._path_script_types[path_idx] if path_idx < len(self._path_script_types) else None
+            if not self._should_check_path_for_script(path_script_type):
+                continue
+            try_p2tr = self._is_script_type_enabled("p2tr") and (
+                (current_path_index and (current_path_index[0] - 2 ** 31) == 86) or getattr(self, "force_p2tr", False))
+            try_p2pkh = self._is_script_type_enabled("p2pkh") and (
+                path_script_type in (None, "p2pkh") or getattr(self, "force_bip44", False))
+            try_p2wpkh = self._is_script_type_enabled("p2wpkh") and (
+                path_script_type in (None, "p2wpkh") or getattr(self, "force_bip84", False))
+            try_p2sh = self._is_script_type_enabled("p2sh") and (
+                (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
+            plan.append((current_path_index, try_p2tr, try_p2pkh, try_p2wpkh, try_p2sh))
+        return plan
+
     def _verify_seed(self, arg_seed_bytes, salt = None):
         if salt is None:
             salt = self._derivation_salts[0]
@@ -1500,28 +1539,57 @@ class WalletBIP32(WalletBase):
                 print("Match found on Non-Standard Single Address, Privkey (Generic Hex): ", privkey_bytes.hex())
                 return True
 
-        for path_idx, current_path_index in enumerate(self._path_indexes):
-            path_script_type = self._path_script_types[path_idx] if path_idx < len(self._path_script_types) else None
-            if not self._should_check_path_for_script(path_script_type):
-                continue
-            seed_bytes = arg_seed_bytes
-            privkey_bytes = seed_bytes[:32]
-            chaincode_bytes = seed_bytes[32:]
+        # Copy globals into locals for a small speed boost in the hot loops
+        l_sha512            = hashlib.sha512
+        l_sha256            = hashlib.sha256
+        l_hmac_new          = hmac.new
+        l_pack              = struct.pack
+        l_bytes_to_int      = bytes_to_int
+        l_int_to_bytes      = int_to_bytes
+        l_privkey_to_pubkey = privkey_to_pubkey
+        l_pubkey_to_bytes   = pubkey_to_bytes
+        l_ripemd160         = ripemd160
+        l_gen_order         = GENERATOR_ORDER
+        # Not set in mpk/xpub mode (the chaincode check is used instead), so
+        # fetch it defensively; the original code only touched it in the
+        # address loop.
+        l_known_hash160s    = getattr(self, "_known_hash160s", None)
+        l_needs_uncompressed = self._hash160_needs_uncompressed
 
-            for i in current_path_index:
+        # The per-path script-type decisions depend only on configuration;
+        # build them once and reuse (see _build_path_plan).
+        plan = self._path_plan
+        if plan is None:
+            plan = self._path_plan = self._build_path_plan()
+
+        # Change-mirror paths (e.g. m/44'/0'/0'/0 and .../1) share the same
+        # parent chain; remember each derived prefix for this seed so shared
+        # steps are derived once per candidate instead of once per path.
+        derived_cache = {(): (arg_seed_bytes[:32], arg_seed_bytes[32:])}
+
+        for current_path_index, try_p2tr, try_p2pkh, try_p2wpkh, try_p2sh in plan:
+            steps = current_path_index
+            k = len(steps)
+            while k and tuple(steps[:k]) not in derived_cache:
+                k -= 1
+            privkey_bytes, chaincode_bytes = derived_cache[tuple(steps[:k])]
+
+            for j in range(k, len(steps)):
+                i = steps[j]
                 if i < 2147483648:  # if it's a normal child key, derive the compressed public key
-                    try: data_to_hmac = privkey_to_pubkey(privkey_bytes, compressed=True)
+                    try: data_to_hmac = l_privkey_to_pubkey(privkey_bytes, compressed=True)
                     except ValueError: break
                 else:               # else it's a hardened child key
                     data_to_hmac = b"\0" + privkey_bytes  # prepended "\0" as per BIP32
-                data_to_hmac += struct.pack(">I", i)  # append the index (big-endian) as per BIP32
+                data_to_hmac += l_pack(">I", i)  # append the index (big-endian) as per BIP32
 
-                seed_bytes = hmac.new(chaincode_bytes, data_to_hmac, hashlib.sha512).digest()
+                seed_bytes = l_hmac_new(chaincode_bytes, data_to_hmac, l_sha512).digest()
 
                 # The child private key is the parent one + the first half of the seed_bytes (mod n)
-                privkey_bytes   = int_to_bytes((bytes_to_int(seed_bytes[:32]) +
-                                                bytes_to_int(privkey_bytes)) % GENERATOR_ORDER, 32)
+                privkey_bytes   = l_int_to_bytes((l_bytes_to_int(seed_bytes[:32]) +
+                                                  l_bytes_to_int(privkey_bytes)) % l_gen_order, 32)
                 chaincode_bytes = seed_bytes[32:]
+                derived_cache[tuple(steps[:j+1])] = (privkey_bytes, chaincode_bytes)
 
             # If an extended public key was provided, check the derived chain code against it
             if self._chaincode:
@@ -1531,35 +1599,48 @@ class WalletBIP32(WalletBase):
             else:
                 # (note: the rest assumes the address index isn't hardened)
 
+                # The packed address indexes depend only on configuration;
+                # build them once and reuse. (Built here rather than up front
+                # because mpk/xpub mode never reaches the address loop and
+                # may not have these attributes set at all.)
+                addr_packs = self._addr_index_packs
+                if addr_packs is None:
+                    addr_packs = self._addr_index_packs = [
+                        (i, l_pack(">I", i))
+                        for i in range(self._address_start_index,
+                                       self._address_start_index + self._addrs_to_generate)]
+
                 # Derive the final public keys, searching for a match with known_hash160s
                 # (these first steps below are loop invariants)
-                try: data_to_hmac = privkey_to_pubkey(privkey_bytes, compressed=True)
+                try: data_to_hmac = l_privkey_to_pubkey(privkey_bytes, compressed=True)
                 except ValueError: break
-                privkey_int = bytes_to_int(privkey_bytes)
-
-                # Which script types to try depends only on the path (not the address
-                # index), so compute it once here rather than for every address below.
-                try_p2tr = self._is_script_type_enabled("p2tr") and (
-                    (current_path_index and (current_path_index[0] - 2 ** 31) == 86) or getattr(self, "force_p2tr", False))
-                try_p2pkh = self._is_script_type_enabled("p2pkh") and (
-                    path_script_type in (None, "p2pkh") or getattr(self, "force_bip44", False))
-                try_p2wpkh = self._is_script_type_enabled("p2wpkh") and (
-                    path_script_type in (None, "p2wpkh") or getattr(self, "force_bip84", False))
-                try_p2sh = self._is_script_type_enabled("p2sh") and (
-                    (current_path_index and (current_path_index[0] - 2 ** 31) == 49) or getattr(self, "force_p2sh", False))
+                privkey_int = l_bytes_to_int(privkey_bytes)
                 any_script_type = try_p2tr or try_p2pkh or try_p2wpkh or try_p2sh
 
-                for i in range(self._address_start_index, self._address_start_index + self._addrs_to_generate):
-                    seed_bytes = hmac.new(chaincode_bytes,
-                        data_to_hmac + struct.pack(">I", i), hashlib.sha512).digest()
+                # BIP32 chain codes are 32 bytes, shorter than SHA512's
+                # 128-byte block. Translate the padded key in C, then reuse
+                # both HMAC states and the constant public-key prefix.
+                # Python byte-by-byte pad construction costs more than the
+                # saved hashing when checking only a few addresses.
+                padded_key = chaincode_bytes.ljust(128, b"\0")
+                inner_pre = l_sha512(
+                    padded_key.translate(_HMAC_IPAD_TABLE) + data_to_hmac)
+                outer_pre = l_sha512(padded_key.translate(_HMAC_OPAD_TABLE))
+
+                for i, packed_idx in addr_packs:
+                    h = inner_pre.copy()
+                    h.update(packed_idx)
+                    outer = outer_pre.copy()
+                    outer.update(h.digest())
+                    seed_bytes = outer.digest()
 
                     # The final derived private key is the parent one + the first half of the seed_bytes
-                    d_privkey_bytes = int_to_bytes((bytes_to_int(seed_bytes[:32]) +
-                                                    privkey_int) % GENERATOR_ORDER, 32)
+                    d_privkey_bytes = l_int_to_bytes((l_bytes_to_int(seed_bytes[:32]) +
+                                                     privkey_int) % l_gen_order, 32)
 
                     script_candidates = []
                     if any_script_type:
-                        base_pubkey = privkey_to_pubkey(d_privkey_bytes, compressed=True)
+                        base_pubkey = l_privkey_to_pubkey(d_privkey_bytes, compressed=True)
                     else:
                         base_pubkey = None
 
@@ -1570,8 +1651,14 @@ class WalletBIP32(WalletBase):
                         script_candidates.append(("p2tr", tweaked))
 
                     if base_pubkey is not None and (try_p2pkh or try_p2wpkh or try_p2sh):
-                        d_pubkey = pubkey_to_bytes(base_pubkey, compressed=False)
-                        pubkey_hash160 = self.pubkey_to_hash160(d_pubkey)
+                        if l_needs_uncompressed:
+                            pubkey_hash160 = self.pubkey_to_hash160(
+                                l_pubkey_to_bytes(base_pubkey, compressed=False))
+                        else:
+                            # hash160 is defined over the compressed key, so
+                            # hash it directly instead of decompressing the
+                            # freshly derived key just to re-compress it.
+                            pubkey_hash160 = l_ripemd160(l_sha256(base_pubkey).digest())
 
                         if try_p2pkh:
                             script_candidates.append(("p2pkh", pubkey_hash160))
@@ -1579,7 +1666,7 @@ class WalletBIP32(WalletBase):
                             script_candidates.append(("p2wpkh", pubkey_hash160))
                         if try_p2sh:
                             witness_program = b"\x00\x14" + pubkey_hash160
-                            script_candidates.append(("p2sh", ripemd160(hashlib.sha256(witness_program).digest())))
+                            script_candidates.append(("p2sh", l_ripemd160(l_sha256(witness_program).digest())))
 
                     seen_hashes = set()
                     for candidate_type, test_hash160 in script_candidates:
@@ -1587,7 +1674,7 @@ class WalletBIP32(WalletBase):
                             continue
                         seen_hashes.add(test_hash160)
 
-                        if test_hash160 in self._known_hash160s: #Check if this hash160 is in our list of known hash160s
+                        if test_hash160 in l_known_hash160s: #Check if this hash160 is in our list of known hash160s
                             _engine.seedfoundpath = "m/"
                             for index in current_path_index:
                                 if index >= 2147483648:
@@ -1889,14 +1976,15 @@ class WalletBIP39(WalletBIP32):
         try:
             bit_string        = "".join(self._word_to_binary[w] for w in mnemonic_words)
         except:
-		    # only get here if there was something wrong with the nemonic words
+            # only get here if there was something wrong with the nemonic words
             print ("invalid nemonic sentence: ")
             print (mnemonic_words)
-            return False		
+            return False
         cksum_len_in_bits = len(mnemonic_words) // 3  # as per BIP39
-        entropy_bytes     = bytearray()
-        for i in range(0, len(bit_string) - cksum_len_in_bits, 8):
-            entropy_bytes.append(int(bit_string[i:i+8], 2))
+        # Convert the entropy bits to bytes with a single big-int conversion
+        # (the entropy bit count is always a multiple of 8 for valid mnemonics)
+        entropy_bits  = len(bit_string) - cksum_len_in_bits
+        entropy_bytes = int(bit_string[:entropy_bits], 2).to_bytes(entropy_bits // 8, "big")
         cksum_int = int(bit_string[-cksum_len_in_bits:], 2)
         #
         # Calculate and verify the checksum
@@ -1906,9 +1994,10 @@ class WalletBIP39(WalletBIP32):
     # Called by WalletBIP32.return_verified_password_or_false() to create a binary seed
     def _derive_seed(self, mnemonic_words):
         # Note: the words are already in BIP39's normalized form
+        mnemonic_bytes = " ".join(mnemonic_words).encode('utf-8')  # loop-invariant across salts
         seedList = []
         for salt in self._derivation_salts:
-            seedList.append(btcrpass.pbkdf2_hmac("sha512", " ".join(mnemonic_words).encode('utf-8'), b"mnemonic" + salt, 2048))
+            seedList.append(btcrpass.pbkdf2_hmac("sha512", mnemonic_bytes, b"mnemonic" + salt, 2048))
 
         return zip(seedList,self._derivation_salts)
 
@@ -2456,6 +2545,8 @@ class WalletEthereum(WalletBIP39):
             hash160s.add( (cur_hash160) )
         return hash160s
 
+    _hash160_needs_uncompressed = True
+
     @staticmethod
     def pubkey_to_hash160(uncompressed_pubkey):
         """convert from an uncompressed public key to its Ethereum hash160 form
@@ -2886,6 +2977,8 @@ class WalletZilliqa(WalletBIP39):
 
             hash160s.add(cur_hash160)
         return hash160s
+
+    _hash160_needs_uncompressed = True
 
     @staticmethod
     def pubkey_to_hash160(uncompressed_pubkey):

@@ -1268,6 +1268,33 @@ class TestBackendSelection(unittest.TestCase):
             else:
                 os.environ["BTCRECOVER_AUTO_BACKEND"] = saved
 
+    def test_warpwallet_auto_selection_does_not_probe_opencl(self):
+        from unittest import mock
+
+        wallet = self._OpenclCapableWallet()
+        wallet.isWarpwallet = True
+        args = argparse.Namespace(enable_opencl=False, enable_cuda=False)
+        with mock.patch.object(btcrpass, "module_opencl_available", True), \
+                mock.patch.object(btcrpass, "pyopencl", create=True) as opencl, \
+                mock.patch.object(btcrpass, "_configure_backend_probe") as configure:
+            self.assertEqual(btcrpass.available_backends(wallet), ["cpu"])
+            self.assertIsNone(btcrpass.auto_select_backend(args, wallet))
+        opencl.get_platforms.assert_not_called()
+        configure.assert_not_called()
+        self.assertFalse(args.enable_opencl or args.enable_cuda)
+
+    def test_regular_brainwallet_can_still_use_opencl(self):
+        from unittest import mock
+
+        wallet = self._OpenclCapableWallet()
+        wallet.isWarpwallet = False
+        platform = mock.Mock()
+        platform.get_devices.return_value = [object()]
+        with mock.patch.object(btcrpass, "module_opencl_available", True), \
+                mock.patch.object(btcrpass, "pyopencl", create=True) as opencl:
+            opencl.get_platforms.return_value = [platform]
+            self.assertEqual(btcrpass.available_backends(wallet), ["cpu", "opencl"])
+
     def test_selecting_a_backend_returns_no_candidate_for_cpu_only_wallets(self):
         # Nothing to choose between, so it must not benchmark or touch args
         args = argparse.Namespace(backend="auto", backend_benchmark_seconds=0.5,
@@ -1356,15 +1383,23 @@ class TestBackendSelection(unittest.TestCase):
         from btcrecover import cuda_scrypt
 
         host = np.zeros((1, 256), dtype=np.uint32)
-        cp = mock.Mock()
+        # MagicMock (not Mock): the code slices the device buffers
+        # (_d_blocks[:chunk]), which a plain Mock can't do.
+        cp = mock.MagicMock()
         cp.asarray.return_value.get.return_value = host
+        # alloc_pinned_memory must return a real writable buffer (numpy views
+        # are taken over it); size it like the driver would.
+        cp.cuda.alloc_pinned_memory.side_effect = lambda n: bytearray(n)
         with mock.patch.multiple(cuda_scrypt, _V_buffer=None, _V_capacity_blocks=0, _V_N=None), \
                 mock.patch.object(cuda_scrypt, "_cupy", return_value=cp), \
                 mock.patch.object(cuda_scrypt, "_get_kernel"), \
                 mock.patch.object(cuda_scrypt, "_max_concurrent_blocks", return_value=2000), \
                 mock.patch.object(cuda_scrypt, "free_buffers"):
             cuda_scrypt._romix_blocks(host, 16384)
-        cp.empty.assert_called_once_with((1, 16384 * 256), dtype=cp.uint32)
+        # V is sized to the batch (1 block), not to the 2000 VRAM allows...
+        cp.empty.assert_any_call((1, 16384 * 256), dtype=cp.uint32)
+        # ...and so are the pinned staging buffers (1 block * 256 words * 4).
+        cp.cuda.alloc_pinned_memory.assert_called_with(1 * 256 * 4)
 
     def test_conflicting_backends_and_invalid_batch_options(self):
         wallet = btcrpass.WalletBlockchain.load_from_filename(

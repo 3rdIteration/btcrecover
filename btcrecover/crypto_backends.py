@@ -10,6 +10,7 @@
 # If neither coincurve nor wallycore can be imported, the pure-python backend
 # is selected and a warning is printed at import time.
 
+import hashlib
 import os
 import warnings
 
@@ -404,3 +405,29 @@ pubkey_point = _backend["pubkey_point"]
 multiply_pubkey = _backend["multiply_pubkey"]
 lift_x = _backend["lift_x"]
 tweak_pubkey = _backend["tweak_pubkey"]
+
+
+def ripemd160_available():
+    """True when hashlib provides a (C-backed) ripemd160, i.e. when address
+    hashing will not fall back to the much slower pure-Python implementation."""
+    try:
+        hashlib.new("ripemd160")
+        return True
+    except Exception:
+        return False
+
+
+def startup_banner_lines():
+    """Lines describing the active crypto backends for the run banner.
+
+    A pure-Python secp256k1 or ripemd160 fallback can make recovery 10-100x
+    slower; the import-time warnings are easy to miss (workers don't emit them
+    at all), so the run banner states the active choices up front."""
+    lines = ["Crypto backend: " + BACKEND_NAME]
+    if BACKEND_NAME == "purepython":
+        lines.append("Warning: using the pure-Python secp256k1 backend; install coincurve "
+                     "or wallycore for a large (10-100x) speedup")
+    if not ripemd160_available():
+        lines.append("Warning: hashlib has no ripemd160 on this system (OpenSSL 3 without the "
+                     "legacy provider); using the pure-Python fallback for address hashing")
+    return lines

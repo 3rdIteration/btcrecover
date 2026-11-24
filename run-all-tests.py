@@ -65,11 +65,18 @@ if __name__ == "__main__":
     import tempfile
     from pathlib import Path
 
-    from btcrecover.test import test_passwords
+    from btcrecover.test import (
+        test_benchmark,
+        test_benchmark_docs,
+        test_bip38_backends,
+        test_cuda_buffer_reuse,
+        test_passwords,
+        test_worker_initialization,
+    )
 
     is_coincurve_loadable = test_passwords.can_load_coincurve()
     if is_coincurve_loadable:
-        from btcrecover.test     import test_api, test_seeds, test_walletfinder
+        from btcrecover.test     import test_api, test_seed_hmac, test_seeds, test_walletfinder
         from btcrecover.btcrseed import full_version
     else:
         from btcrecover.test     import test_walletfinder
@@ -239,9 +246,20 @@ if __name__ == "__main__":
     results = main(test_passwords, exit=False, buffer= not args.no_buffer).result
     accumulate_results(results)
 
+    print("\n** Testing crypto backends, worker initialization and benchmarks **")
+    for test_module in (
+        test_bip38_backends, test_cuda_buffer_reuse, test_worker_initialization,
+        test_benchmark, test_benchmark_docs,
+    ):
+        results = main(test_module, exit=False, buffer=not args.no_buffer).result
+        accumulate_results(results)
+
     if is_coincurve_loadable:
         print("\n** Testing seed recovery **")
         results = main(test_seeds, exit=False, buffer= not args.no_buffer).result
+        accumulate_results(results)
+
+        results = main(test_seed_hmac, exit=False, buffer=not args.no_buffer).result
         accumulate_results(results)
 
         print("\n** Testing library API and --json mode **")

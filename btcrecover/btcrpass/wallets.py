@@ -278,8 +278,10 @@ class WalletBitcoinCore(object):
         # Copy a global into local for a small speed boost
         l_sha512 = hashlib.sha512
 
-        # Convert Unicode strings (lazily) to UTF-8 bytestrings
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+        # Convert Unicode strings to UTF-8 bytestrings. Materialize the list
+        # once (the old code re-encoded the whole batch after the kernel call
+        # just to zip the results back together).
+        passwords = [p.encode("utf_8", "ignore") for p in arg_passwords]
 
         hashed_keys = []
         for password in passwords:
@@ -287,9 +289,6 @@ class WalletBitcoinCore(object):
             hashed_keys.append(l_sha512(derived_key).digest())
 
         clResult = self.opencl_algo.cl_hash_iterations(self.opencl_context_hash_iterations_sha512, hashed_keys, self._iter_count-1, 8)
-
-        #This list is consumed, so recreated it and zip
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
         results = zip(passwords, clResult)
 
@@ -1728,13 +1727,12 @@ class WalletElectrum28(object):
     # is correct return it, else return False for item 0; return a count of passwords checked for item 1
     def _return_verified_password_or_false_opencl(self, arg_passwords): #Electrum28
 
-        # Convert Unicode strings (lazily) to UTF-8 bytestrings
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+        # Convert Unicode strings to UTF-8 bytestrings. Materialize the list
+        # once (the old code re-encoded the whole batch after the kernel call
+        # just to zip the results back together).
+        passwords = [p.encode("utf_8", "ignore") for p in arg_passwords]
 
         clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords, b"", 1024, 64)
-
-        # This list is consumed, so recreated it and zip
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
         results = zip(passwords, clResult)
 
@@ -2109,7 +2107,7 @@ class WalletBlockchain(object):
                 return True
             except UnicodeDecodeError:  # Likely a false positive if we can't...
                 if self._savepossiblematches:
-                    with open('possible_passwords.log', 'a', encoding="utf_8") as logfile:
+                    with open(self._possible_passwords_file, 'a', encoding="utf_8") as logfile:
                         logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") +
                                       " Found Likely False Positive Password (with non-Ascii characters in decrypted block) ==>" +
                                       password.decode("utf_8") +
@@ -2205,8 +2203,10 @@ class WalletBlockchain(object):
         salt_and_iv          = self._salt_and_iv
         iter_count           = self._iter_count
 
-        # Convert Unicode strings (lazily) to UTF-8 bytestrings
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
+        # Convert Unicode strings to UTF-8 bytestrings. Materialize the list
+        # once (the old code re-encoded the whole batch after the kernel call
+        # just to zip the results back together).
+        passwords = [p.encode("utf_8", "ignore") for p in arg_passwords]
 
         # v5 wallets stretch with SHA256; v0-v4 with SHA1 (contexts set in opencl_helpers)
         if self._crypto_prf == "sha256":
@@ -2214,9 +2214,6 @@ class WalletBlockchain(object):
         else:
             pbkdf2_context = self.opencl_context_pbkdf2_sha1
         clResult = self.opencl_algo.cl_pbkdf2(pbkdf2_context, passwords, salt_and_iv, iter_count, 32)
-
-        #This list is consumed, so recreated it and zip
-        passwords = map(lambda p: p.encode("utf_8", "ignore"), arg_passwords)
 
         results = zip(passwords, clResult)
 
@@ -3282,16 +3279,17 @@ class WalletMetamask(object):
         return False, count
 
     def _return_verified_password_or_false_opencl(self, arg_passwords):
-        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+        # Convert Unicode strings to UTF-8 bytestrings. Deliberately no NFKD
+        # normalization: this must match the CPU path exactly, so that a given
+        # password list verifies identically on either backend. Materialize the
+        # list once (the old code re-encoded the whole batch after the kernel
+        # call just to zip the results back together).
+        passwords = [p.encode("utf_8", "ignore") for p in arg_passwords]
 
         if not self._mobileWallet:
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha256, passwords, self.salt, self._iter_count, 32)
         else:
             clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords, self.salt, self._iter_count, 32)
-
-        # This list is consumed, so recreated it and zip
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
 
         results = zip(passwords, clResult)
 
@@ -3504,9 +3502,12 @@ def compress(pub):
         prefix = bytes([0x02])
     return prefix + x
 
-def private_key_to_public_key(s):
-    sk = ecdsa.SigningKey.from_string(s, curve=ecdsa.SECP256k1)
-    return (bytes([0x04]) + sk.verifying_key.to_string())
+def private_key_to_public_key(secret, compressed=False):
+    """Serialize a BIP38 public key using the selected secp256k1 backend."""
+    # Some native backends assume their input is already a valid scalar.
+    if len(secret) != 32 or not 0 < int.from_bytes(secret, "big") < GROUP_ORDER_INT:
+        raise ValueError("Invalid private key")
+    return privkey_to_pubkey(secret, compressed=compressed)
 
 def bip38decrypt_ec(prefactor, encseedb, encpriv, has_compression_flag, has_lotsequence_flag, outputlotsequence=False, network_prefix='00'):
     owner_entropy = encpriv[4:12]
@@ -3521,13 +3522,13 @@ def bip38decrypt_ec(prefactor, encseedb, encpriv, has_compression_flag, has_lots
     else:
         passfactor = double_sha256(prefactor + owner_entropy)
     passfactor_int = int.from_bytes(passfactor, byteorder='big')
-    if passfactor_int == 0 or passfactor_int >= secp256k1_n:
+    if passfactor_int == 0 or passfactor_int >= GROUP_ORDER_INT:
         if outputlotsequence:
             return False, False, False
         else:
             return False
     key = encseedb[32:]
-    aes = AESModeOfOperationECB(key)
+    aes = AES.new(key, AES.MODE_ECB)
     tmp = aes.decrypt(enchalf2)
     enchalf1half2_seedblastthird = int.from_bytes(tmp, byteorder='big') ^ int.from_bytes(encseedb[16:32], byteorder='big')
     enchalf1half2_seedblastthird = enchalf1half2_seedblastthird.to_bytes(16, byteorder='big')
@@ -3541,17 +3542,16 @@ def bip38decrypt_ec(prefactor, encseedb, encpriv, has_compression_flag, has_lots
         factorb = double_sha256(seedb)
         factorb_int = int.from_bytes(factorb, byteorder='big')
         assert factorb_int != 0
-        assert not factorb_int >= secp256k1_n
+        assert not factorb_int >= GROUP_ORDER_INT
     except:
         if outputlotsequence:
             return False, False, False
         else:
             return False
-    priv = ((passfactor_int * factorb_int) % secp256k1_n).to_bytes(32, byteorder='big')
-    pub = private_key_to_public_key(priv)
+    priv = ((passfactor_int * factorb_int) % GROUP_ORDER_INT).to_bytes(32, byteorder='big')
+    pub = private_key_to_public_key(priv, compressed=has_compression_flag)
     if has_compression_flag:
         privcompress = bytes([0x1])
-        pub = compress(pub)
     else:
         privcompress = bytes([])
     address = public_key_to_address(pub, network_prefix)
@@ -3576,25 +3576,21 @@ def bip38decrypt_ec(prefactor, encseedb, encpriv, has_compression_flag, has_lots
             return False
 
 def bip38decrypt_non_ec(scrypthash, encpriv, has_compression_flag, has_lotsequence_flag, outputlotsequence=False, network_prefix='00'):
-    msg1 = encpriv[4:20]
-    msg2 = encpriv[20:36]
     key = scrypthash[32:]
-    aes = AESModeOfOperationECB(key)
-    msg1 = aes.decrypt(msg1)
-    msg2 = aes.decrypt(msg2)
+    decrypted = AES.new(key, AES.MODE_ECB).decrypt(encpriv[4:36])
+    msg1, msg2 = decrypted[:16], decrypted[16:]
     half1 = int.from_bytes(msg1, byteorder='big') ^ int.from_bytes(scrypthash[:16], byteorder='big')
     half2 = int.from_bytes(msg2, byteorder='big') ^ int.from_bytes(scrypthash[16:32], byteorder='big')
     priv = half1.to_bytes(16, byteorder='big') + half2.to_bytes(16, byteorder='big')
     priv_int = int.from_bytes(priv, byteorder='big')
-    if priv_int == 0 or priv_int >= secp256k1_n:
+    if priv_int == 0 or priv_int >= GROUP_ORDER_INT:
         if outputlotsequence:
             return False, False, False
         else:
             return False
-    pub = private_key_to_public_key(priv)
+    pub = private_key_to_public_key(priv, compressed=has_compression_flag)
     if has_compression_flag:
         privcompress = bytes([0x1])
-        pub = compress(pub)
     else:
         privcompress = bytes([])
     address = public_key_to_address(pub, network_prefix)
@@ -3618,7 +3614,7 @@ def prefactor_to_passpoint(prefactor, has_lotsequence_flag, encpriv):
         passfactor = double_sha256(prefactor + owner_entropy)
     else:
         passfactor = prefactor
-    passpoint = compress(private_key_to_public_key(passfactor))
+    passpoint = private_key_to_public_key(passfactor, compressed=True)
     return passpoint
 
 # @register_wallet_class - not a "registered" wallet since there are no wallet files nor extracts
@@ -3627,22 +3623,12 @@ class WalletBIP38(object):
     cuda_enabled = False
 
     def __init__(self, enc_privkey, bip38_network = 'bitcoin'):
-        global pylibscrypt, ecdsa, double_sha256, hash160, normalize, base58, AESModeOfOperationECB, secp256k1_n
+        global pylibscrypt, double_sha256, hash160, normalize, base58
         from lib import pylibscrypt
-        from lib.bitcoinlib.config.secp256k1 import secp256k1_n
         from lib.bitcoinlib.encoding import double_sha256, hash160
         from lib.bitcoinlib import networks
         from unicodedata import normalize
         from lib.cashaddress import base58
-        from lib.pyaes import AESModeOfOperationECB
-
-        try:
-            import ecdsa
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load ecdsa module which is required for BIP38 wallets... You can install it with the command 'pip3 install ecdsa")
-
-
         self.enc_privkey = base58.b58decode_check(enc_privkey)
         assert len(self.enc_privkey) == 39
 
@@ -3668,22 +3654,11 @@ class WalletBIP38(object):
 
     def __setstate__(self, state):
         # (re-)load the required libraries after being unpickled
-        global pylibscrypt, ecdsa, double_sha256, hash160, normalize, base58, AESModeOfOperationECB, secp256k1_n
+        global pylibscrypt, double_sha256, hash160, normalize, base58
         from lib import pylibscrypt
-        from lib.bitcoinlib.config.secp256k1 import secp256k1_n
         from lib.bitcoinlib.encoding import double_sha256, hash160
-        from lib.bitcoinlib import networks
         from unicodedata import normalize
         from lib.cashaddress import base58
-        from lib.pyaes import AESModeOfOperationECB
-
-        try:
-            import ecdsa
-        except ModuleNotFoundError:
-            exit(
-                "\nERROR: Cannot load ecdsa module... Be sure to install all requirements with the command 'pip3 install -r requirements.txt', see https://btcrecover.readthedocs.io/en/latest/INSTALL/")
-
-
         self.__dict__ = state
 
     def passwords_per_seconds(self, seconds):
@@ -3707,18 +3682,32 @@ class WalletBIP38(object):
 
         passwords = [normalize("NFC", p).encode("utf_8", "ignore") for p in arg_passwords]
 
+        try:
+            if not self.ec_multiplied:
+                cuda_results = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 64)
+            else:
+                # The expensive first sCrypt runs on the GPU; the small second sCrypt
+                # (N=1024) and the EC math stay on the CPU.
+                cuda_results = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 32)
+        except Exception as e:
+            # CUDA can fail mid-run (VRAM pressure, driver fault, NVRTC issue).
+            # Degrade to CPU for this batch instead of crashing a long recovery;
+            # after repeated failures, stop using CUDA for the rest of the run.
+            self._cuda_failures = getattr(self, "_cuda_failures", 0) + 1
+            print(f"Warning: CUDA sCrypt failed ({type(e).__name__}: {e}), falling back to CPU", file=sys.stderr)
+            if self._cuda_failures >= 3:
+                print("Warning: too many CUDA failures; disabling CUDA for the rest of this run", file=sys.stderr)
+                self.cuda_enabled = False
+            return self._return_verified_password_or_false_cpu(arg_passwords)
+
         if not self.ec_multiplied:
-            scrypthashes = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 64)
-            for count, (password, scrypthash) in enumerate(zip(passwords, scrypthashes), 1):
+            for count, (password, scrypthash) in enumerate(zip(passwords, cuda_results), 1):
                 self.decrypted_privkey = bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
                 if self.decrypted_privkey:
                     print("Decrypted BIP38 Key:", self.decrypted_privkey)
                     return password.decode("utf_8", "replace"), count
         else:
-            # The expensive first sCrypt runs on the GPU; the small second sCrypt
-            # (N=1024) and the EC math stay on the CPU.
-            prefactors = cuda_scrypt.scrypt_batch(passwords, self.salt, 1 << 14, 8, 8, 32)
-            for count, (password, prefactor) in enumerate(zip(passwords, prefactors), 1):
+            for count, (password, prefactor) in enumerate(zip(passwords, cuda_results), 1):
                 passpoint = prefactor_to_passpoint(prefactor, self.has_lotsequence_flag, self.enc_privkey)
                 encseedb = l_scrypt(passpoint, self.enc_privkey[0:12], 1024, 1, 1, 64)
                 self.decrypted_privkey = bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
@@ -3733,7 +3722,12 @@ class WalletBIP38(object):
     def _return_verified_password_or_false_opencl(self, arg_passwords): # BIP38 Encrypted Private Keys
         l_scrypt = pylibscrypt.scrypt
 
-        passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
+        if not arg_passwords:
+            return False, 0
+
+        # Materialize the encoded list once (the old code re-encoded the whole
+        # batch after each kernel call just to zip the results back together).
+        passwords = [normalize("NFC", p).encode("utf_8", "ignore") for p in arg_passwords]
 
         if not self.ec_multiplied:
             try:
@@ -3743,7 +3737,6 @@ class WalletBIP38(object):
                 # Fall back to CPU verification for this batch instead of crashing.
                 print(f"Warning: OpenCL sCrypt failed ({type(e).__name__}: {e}), falling back to CPU", file=sys.stderr)
                 return self._return_verified_password_or_false_cpu(arg_passwords)
-            passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
             results = zip(passwords, clResult)
             for count, (password, scrypthash) in enumerate(results, 1):
                 self.decrypted_privkey = bip38decrypt_non_ec(scrypthash, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
@@ -3758,7 +3751,6 @@ class WalletBIP38(object):
                 return self._return_verified_password_or_false_cpu(arg_passwords)
             passpoints = map(lambda p: prefactor_to_passpoint(p, self.has_lotsequence_flag, self.enc_privkey), clPrefactors)
             encseedbs = map(lambda p: l_scrypt(p, self.enc_privkey[0:12], 1024, 1, 1, 64), passpoints)
-            passwords = map(lambda p: normalize("NFC", p).encode("utf_8", "ignore"), arg_passwords)
             results = zip(passwords, clPrefactors, encseedbs)
             for count, (password, prefactor, encseedb) in enumerate(results, 1):
                 self.decrypted_privkey = bip38decrypt_ec(prefactor, encseedb, self.enc_privkey, self.has_compression_flag, self.has_lotsequence_flag, network_prefix = self.network.prefix_address)
@@ -3912,32 +3904,34 @@ class WalletBIP39(object):
         # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
         passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), passwords)
 
+        # Hoist loop-invariant checks out of the per-candidate loop
+        l_is_electrum = type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2
+        l_is_xlm      = type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletXLM
+        l_salt_prefix = b"electrum" if l_is_electrum else b"mnemonic"
+        l_mnemonic    = self._mnemonic.encode()
+        l_verify_seed = self.btcrseed_wallet._verify_seed
+
         for count, password in enumerate(passwords, 1):
-            if type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2:
-                derivation_salt = b"electrum" + password
-            else:
-                derivation_salt = b"mnemonic" + password
+            seed_bytes = _engine.pbkdf2_hmac("sha512", l_mnemonic, l_salt_prefix + password, 2048)
 
-            seed_bytes = _engine.pbkdf2_hmac("sha512", self._mnemonic.encode(), derivation_salt, 2048)
-
-            if type(self.btcrseed_wallet) is not btcrecover.btcrseed.WalletXLM:
+            if not l_is_xlm:
                 seed_bytes = hmac.new(b"Bitcoin seed", seed_bytes, hashlib.sha512).digest()
 
-            if self.btcrseed_wallet._verify_seed(seed_bytes):
+            if l_verify_seed(seed_bytes):
                 return password.decode("utf_8", "replace"), count
 
         return False, count
 
     def _return_verified_password_or_false_opencl(self, arg_passwords):
-        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
+        # Materialize the encoded list once (the old code re-encoded the whole
+        # batch after the kernel call just to zip the results back together).
+        passwords = [normalize("NFKD", p).encode("utf_8", "ignore") for p in arg_passwords]
 
-        salt_list = []
-        for password in passwords:
-            if type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2:
-                salt_list.append(b"electrum" + password)
-            else:
-                salt_list.append(b"mnemonic" + password)
+        # Hoist loop-invariant checks out of the per-candidate loop
+        l_is_electrum = type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2
+        l_is_xlm      = type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletXLM
+        l_salt_prefix = b"electrum" if l_is_electrum else b"mnemonic"
+        salt_list     = [l_salt_prefix + password for password in passwords]
 
         clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512, self._mnemonic.encode(), salt_list, 2048, 64)
 
@@ -3946,18 +3940,16 @@ class WalletBIP39(object):
         #for salt in salt_list:
         #    clResult.append(_engine.pbkdf2_hmac("sha512", self._mnemonic.encode(), salt, 2048))
 
-        # This list is consumed, so recreated it and zip
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-
         results = zip(passwords, clResult)
 
+        l_verify_seed = self.btcrseed_wallet._verify_seed
         for count, (password, result) in enumerate(results, 1):
-            if type(self.btcrseed_wallet) is not btcrecover.btcrseed.WalletXLM:
+            if not l_is_xlm:
                 seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
             else:
                 seed_bytes = result
 
-            if self.btcrseed_wallet._verify_seed(seed_bytes):
+            if l_verify_seed(seed_bytes):
                 return password.decode("utf_8", "replace"), count
 
         return False, count
@@ -4108,35 +4100,9 @@ class WalletSLIP39(object):
 
         return False, count
 
-    def _return_verified_password_or_false_opencl(self, arg_passwords):
-        # Convert Unicode strings (lazily) to normalized UTF-8 bytestrings
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-
-        salt_list = []
-        for password in passwords:
-            if type(self.btcrseed_wallet) is btcrecover.btcrseed.WalletElectrum2:
-                salt_list.append(b"electrum" + password)
-            else:
-                salt_list.append(b"mnemonic" + password)
-
-        clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512, self._mnemonic.encode(), salt_list, 2048, 64)
-
-        #Placeholder until OpenCL kernel can be patched to support this...
-        #clResult = []
-        #for salt in salt_list:
-        #    clResult.append(_engine.pbkdf2_hmac("sha512", self._mnemonic.encode(), salt, 2048))
-
-        # This list is consumed, so recreated it and zip
-        passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-
-        results = zip(passwords, clResult)
-
-        for count, (password, result) in enumerate(results, 1):
-            seed_bytes = hmac.new(b"Bitcoin seed", result, hashlib.sha512).digest()
-            if self.btcrseed_wallet._verify_seed(seed_bytes):
-                return password.decode("utf_8", "replace"), count
-
-        return False, count
+    # Note: no OpenCL path here. SLIP39's Shamir recovery + custom KDF cannot be
+    # expressed as PBKDF2 (opencl_helpers sets opencl_algo = -1 for this wallet),
+    # so available_backends() correctly offers CPU only.
 
 
 ############### Cardano ###############
@@ -4221,69 +4187,45 @@ class WalletCardano(WalletBIP39):
     def _return_verified_password_or_false_opencl(self, arg_passwords):
         rootKeys = []
 
+        # Materialize the encoded list once and reuse it across all derivation
+        # branches (the old code re-encoded the whole batch up to four times).
+        passwords = [normalize("NFKD", p).encode("utf_8", "ignore") for p in arg_passwords]
+
         if self.btcrseed_wallet._check_ledger:
-            passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-            salt_list = []
-            for password in passwords:
-                salt_list.append(b"mnemonic" + password)
-            mnemonic_list = []
+            salt_list = [b"mnemonic" + password for password in passwords]
 
             clResult = self.opencl_algo.cl_pbkdf2_saltlist(self.opencl_context_pbkdf2_sha512_saltlist, self._mnemonic.encode(),
                                                   salt_list, 2048, 64)
 
-            passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-            results = zip(passwords, clResult)
-
-            for password, result in results:
+            for password, result in zip(passwords, clResult):
                 rootKeys.append((password, "ledger", cardano.generateRootKey_Ledger(result)))
 
         if self.btcrseed_wallet._check_icarus or self.btcrseed_wallet._check_trezor:
             if self.btcrseed_wallet._check_icarus:
-                passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
                 entropy = cardano.mnemonic_to_entropy(words=self._mnemonic,
                                                            wordlist=self.btcrseed_wallet.current_wordlist,
                                                            langcode=self.btcrseed_wallet._lang,
                                                            trezorDerivation=False)
 
-
                 clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords,
                                                                entropy, 4096, 96)
 
-                passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-                results = zip(passwords, clResult)
-
-                for password, result in results:
+                for password, result in zip(passwords, clResult):
                     rootKeys.append((password, "icarus", cardano.generateRootKey_Icarus(result)))
 
             if self.btcrseed_wallet._check_trezor:
-                passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
                 entropy = cardano.mnemonic_to_entropy(words=self._mnemonic,
                                                       wordlist = self.btcrseed_wallet.current_wordlist,
                                                       langcode = self.btcrseed_wallet._lang,
                                                       trezorDerivation = True)
 
-
                 clResult = self.opencl_algo.cl_pbkdf2(self.opencl_context_pbkdf2_sha512, passwords,
                                                       entropy, 4096, 96)
 
-                passwords = map(lambda p: normalize("NFKD", p).encode("utf_8", "ignore"), arg_passwords)
-                results = zip(passwords, clResult)
-
-                for password, result in results:
+                for password, result in zip(passwords, clResult):
                     rootKeys.append((password, "trezor", cardano.generateRootKey_Icarus(result)))
 
         for (password, derivationType, masterkey) in rootKeys:
-            if password == b"btcr-test-password":
-                print("Derivation Type:", derivationType)
-                (kL, kR), AP, cP = masterkey
-                print("Master Key")
-                print("kL:", kL.hex())
-                print("kR:", kR.hex())
-                print("AP:", AP.hex())
-                print("cP:", cP.hex())
-
-                print("#Rootkeys:", len(rootKeys))
-
             if self.btcrseed_wallet._verify_seed(derivationType, masterkey, password):
                 return password.decode(), arg_passwords.index(password.decode()) + 1  # found it
 

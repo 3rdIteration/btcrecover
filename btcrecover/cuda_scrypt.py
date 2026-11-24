@@ -20,6 +20,17 @@ import hashlib
 _cp = None
 _import_error = None
 
+# Cached CUDA stream and pinned-memory staging buffers (allocated alongside the
+# V scratchpad in _romix_blocks, released by free_buffers). _pinned_in/_pinned_out
+# are the PinnedMemoryPointers (kept alive so the _np_in/_np_out numpy views that
+# wrap them stay valid).
+_stream = None
+_pinned_in = None
+_pinned_out = None
+_np_in = None
+_np_out = None
+_d_blocks = None
+
 
 def _cupy():
     global _cp, _import_error
@@ -132,6 +143,7 @@ _SHARED_BYTES = _THREADS_PER_BLOCK * _WORDS * 2 * 4
 _kernel = None
 _V_buffer = None
 _V_capacity_blocks = 0
+_V_memory_limit_blocks = 0
 _V_N = None
 
 
@@ -145,15 +157,23 @@ def _get_kernel():
 
 
 def free_buffers():
-    """Release the cached ROMix scratchpad and return pooled device memory to the driver.
+    """Release the cached ROMix scratchpad and staging buffers and return pooled device memory to the driver.
 
     Used when CUDA was benchmarked but another backend won the comparison, so the
     (potentially many GB) scratchpad isn't left tying up the GPU for the whole run.
     """
-    global _V_buffer, _V_capacity_blocks, _V_N
+    global _V_buffer, _V_capacity_blocks, _V_N, _stream, _pinned_in, _pinned_out
+    global _np_in, _np_out, _d_blocks, _V_memory_limit_blocks
     _V_buffer = None
     _V_capacity_blocks = 0
+    _V_memory_limit_blocks = 0
     _V_N = None
+    _stream = None
+    _pinned_in = None
+    _pinned_out = None
+    _np_in = None
+    _np_out = None
+    _d_blocks = None
     if _cp is not None:
         try:
             _cp.get_default_memory_pool().free_all_blocks()
@@ -164,16 +184,39 @@ def free_buffers():
 def _max_concurrent_blocks(N):
     """How many 16 MiB ROMix scratchpads to run at once.
 
-    Sized from *free* device memory, but only ever called ONCE (before the V
-    buffer is allocated), so it reflects real availability -- including memory
-    already used by a display -- without the shrink-to-nothing feedback loop that
-    would happen if it were recomputed after allocating V.
+    Sized from *free* device memory, but only ever called when (re)allocating
+    V, with any previous V already released — so it reflects real availability,
+    including memory already used by a display, without the shrink-to-nothing
+    feedback loop that would happen if it were measured while V was allocated.
     """
     cp = _cupy()
     free, _total = cp.cuda.runtime.memGetInfo()
     v_bytes_per_block = N * _BLOCK_BYTES
     usable = int(free * 0.85)  # leave headroom for I/O buffers, pool and driver
     return max(1, usable // v_bytes_per_block)
+
+
+# Historical fixed default for --cuda-batch (BIP38: p=8, N=2^14).
+DEFAULT_BATCH = 200
+
+
+def suggest_batch(p=8, N=1 << 14):
+    """Suggested default --cuda-batch: the number of passwords whose p*batch
+    ROMix scratchpads fit in free VRAM in a single wave.
+
+    The kernel is latency-bound, so a batch that spills into a second wave
+    costs roughly an extra full wave rather than a proportional fraction
+    (measured on an RTX 5090: one wave ~350 ms whether it holds 800 or 1600
+    blocks, two waves ~1050 ms). On a 32 GB card this returns the historical
+    default of 200; smaller cards get a smaller single-wave batch.
+    """
+    if not is_available():
+        return DEFAULT_BATCH
+    try:
+        blocks = _max_concurrent_blocks(N)
+    except Exception:  # noqa: BLE001 -- fall back to the historical default
+        return DEFAULT_BATCH
+    return max(25, min(DEFAULT_BATCH, blocks // max(1, p)))
 
 
 def _romix_blocks(host_blocks, N):
@@ -191,27 +234,64 @@ def _romix_blocks(host_blocks, N):
     if not nblk:
         return host_blocks.copy()
 
-    global _V_buffer, _V_capacity_blocks, _V_N
-    if _V_buffer is None or _V_N != N:
+    global _V_buffer, _V_capacity_blocks, _V_N, _stream, _pinned_in, _pinned_out
+    global _np_in, _np_out, _d_blocks, _V_memory_limit_blocks
+    needs_growth = (
+        _V_capacity_blocks < nblk
+        and _V_capacity_blocks < _V_memory_limit_blocks
+    )
+    if _V_buffer is None or _V_N != N or needs_growth:
+        # (Re)allocate on the first call, when N changes, or when a batch
+        # can use more of the memory budget than an earlier small batch did.
+        # Once the scratchpad fills that budget, larger batches reuse it in
+        # waves instead of reallocating the same buffers on every call.
+        # free_buffers() releases the old scratchpad to the driver before
+        # _max_concurrent_blocks() measures free memory, so the measurement
+        # still reflects real availability.
         free_buffers()
-        cap = min(nblk, _max_concurrent_blocks(N))
+        _V_memory_limit_blocks = _max_concurrent_blocks(N)
+        cap = min(nblk, _V_memory_limit_blocks)
         _V_buffer = cp.empty((cap, N * _WORDS), dtype=cp.uint32)
         _V_capacity_blocks = cap
         _V_N = N
+        # Persistent staging buffers: pinned host memory is what makes the
+        # transfers below genuinely asynchronous (pageable copies are silently
+        # staged and fully synchronized by the driver), and the device block
+        # buffer is reused across calls and waves.
+        nbytes = cap * _WORDS * 4
+        _pinned_in = cp.cuda.alloc_pinned_memory(nbytes)
+        _pinned_out = cp.cuda.alloc_pinned_memory(nbytes)
+        # (count= is required: the pinned-memory pool may hand back a block
+        # larger than requested, and the buffer protocol exposes all of it.)
+        _np_in = np.frombuffer(_pinned_in, dtype=np.uint32,
+                               count=cap * _WORDS).reshape(cap, _WORDS)
+        _np_out = np.frombuffer(_pinned_out, dtype=np.uint32,
+                                count=cap * _WORDS).reshape(cap, _WORDS)
+        _d_blocks = cp.empty((cap, _WORDS), dtype=cp.uint32)
+        _stream = cp.cuda.Stream()
 
+    rt = cp.cuda.runtime
     wave = _V_capacity_blocks
     out = np.empty_like(host_blocks)
     for start in range(0, nblk, wave):
         end = min(start + wave, nblk)
         chunk = end - start
-        d_blocks = cp.asarray(host_blocks[start:end])
+        nbytes = chunk * _WORDS * 4
+        # Stage through pinned memory, then run H2D -> kernel -> D2H on the
+        # dedicated stream and synchronize once per wave.
+        np.copyto(_np_in[:chunk], host_blocks[start:end])
+        rt.memcpyAsync(_d_blocks.data.ptr, _np_in.ctypes.data, nbytes,
+                       rt.memcpyHostToDevice, _stream.ptr)
         grid = (chunk + _THREADS_PER_BLOCK - 1) // _THREADS_PER_BLOCK
         kernel(
             (grid,), (_THREADS_PER_BLOCK,),
-            (d_blocks, _V_buffer, np.int32(N), np.int32(chunk)),
-            shared_mem=_SHARED_BYTES,
+            (_d_blocks[:chunk], _V_buffer, np.int32(N), np.int32(chunk)),
+            shared_mem=_SHARED_BYTES, stream=_stream,
         )
-        out[start:end] = d_blocks.get()
+        rt.memcpyAsync(_np_out.ctypes.data, _d_blocks.data.ptr, nbytes,
+                       rt.memcpyDeviceToHost, _stream.ptr)
+        _stream.synchronize()
+        out[start:end] = _np_out[:chunk]
     return out
 
 
