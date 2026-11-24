@@ -4265,7 +4265,11 @@ def init_worker(wallet, char_mode, worker_out_queue = None):
         # If GPU usage is enabled, create the openCL contexts for the workers
         if getattr(loaded_wallet, "opencl_algo", -1) == 0:
             # Split up GPU's over available worker threads
-            worker_number = int(multiprocessing.current_process().name.split("-")[1]) - 1
+            # Pool workers are named e.g. "SpawnPoolWorker-3", or
+            # "SpawnPoolWorker-16:3" when the pool is created inside another
+            # worker process; the last number is this worker's pool index.
+            worker_name = multiprocessing.current_process().name
+            worker_number = int(worker_name.rsplit("-", 1)[-1].split(":")[-1]) - 1
             try:
                 openclDevice = loaded_wallet.opencl_devices[worker_number % len(loaded_wallet.opencl_devices)]
             except Exception:
