@@ -1,0 +1,11 @@
+mkdocs==1.6.1
+mkdocs-material==9.7.6
+mkdocs-include-markdown-plugin==7.2.2
+mkdocs-autolinks-plugin==0.7.1
+mkdocs-git-committers-plugin-2==2.5.0
+mkdocs-material-extensions==1.3.1
+pymdown-extensions==10.21.2
+mkdocs-get-deps==0.2.2
+ghp-import==2.1.0
+pyyaml==6.0.3
+pyyaml-env-tag==1.1
