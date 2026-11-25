@@ -36,11 +36,7 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "macOS" ]; then
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          # NOTE: do not install swig here. wallycore's sdist ships a
-          # pre-generated SWIG wrapper that builds cleanly (incl. Python 3.14);
-          # a brew-installed swig makes wallycore regenerate it into code that
-          # still calls the Python 2 PyInt_/PyString_ APIs and fails to compile.
-          brew install autoconf automake libffi libtool pkg-config gnu-sed
+          brew install autoconf automake libffi libtool pkg-config gnu-sed swig
         fi
       shell: bash
     - name: Install dependencies
@@ -57,7 +53,17 @@ jobs:
         # Exclude that subtree on 3.14 so the install succeeds using the wallycore
         # fallback instead of failing on a coincurve source build.
         if [ "${{ matrix.python-version }}" = "3.14" ]; then
-          grep -viE 'bip-utils|py_crypto_hd_wallet|slip10|stellar_sdk' "$RUNNER_TEMP/btcr-reqs.txt" > "$RUNNER_TEMP/btcr-reqs-3.14.txt"
+          exclude_314='bip-utils|py_crypto_hd_wallet|slip10|stellar_sdk'
+          # On macOS 3.14 neither C backend can be installed: coincurve has no
+          # wheel and cannot build, and wallycore must regenerate its SWIG
+          # wrapper, but the only available swig (Homebrew 4.5.1) emits removed
+          # Python 2 APIs that fail to compile. Linux has a compatible system
+          # swig, so this only affects macOS. Drop wallycore there and run on the
+          # bundled pure-Python secp256k1 backend instead.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            exclude_314="$exclude_314|wallycore"
+          fi
+          grep -viE "$exclude_314" "$RUNNER_TEMP/btcr-reqs.txt" > "$RUNNER_TEMP/btcr-reqs-3.14.txt"
           mv "$RUNNER_TEMP/btcr-reqs-3.14.txt" "$RUNNER_TEMP/btcr-reqs.txt"
         fi
         pip install -r "$RUNNER_TEMP/btcr-reqs.txt"
