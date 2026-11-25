@@ -132,6 +132,7 @@ tmp*-test-btcr*/                     # BTCRecover's own test-suite temp wallets 
 btcrecover/test/
 docs/Benchmarks.md
 docs/Benchmarks.md.template
+docs/Blockchain_v5_Format.md
 docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/firstcombination_bip39.txt
 docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_bip39.txt
 docs/Usage_Examples/2020-05-02_Descrambling_a_12_word_seed/lastcombination_electrum.txt

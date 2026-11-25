@@ -29,9 +29,8 @@ import btcrecover.btcrpass
 
 def _has_amd_unified_memory_gpu(platform_num):
     # AMD APUs with unified memory report system RAM as VRAM but can't run some
-    # kernels correctly (sCrypt hangs, PBKDF2-SHA256 saltlist silently returns
-    # wrong results). No discrete AMD GPU exceeds 32GB VRAM, so anything above
-    # that is unified memory.
+    # kernels correctly (sCrypt hangs). No discrete AMD GPU exceeds 32GB VRAM,
+    # so anything above that is unified memory.
     try:
         devices = pyopencl.get_platforms()[platform_num].get_devices()
         return any(
@@ -46,6 +45,7 @@ def _has_amd_unified_memory_gpu(platform_num):
 def auto_select_opencl_platform(loaded_wallet):
     best_device_worksize = 0
     best_score_sofar = -1
+    best_platform = None
     for i, platformNum in enumerate(pyopencl.get_platforms()):
         for device in platformNum.get_devices():
             cur_score = 0
@@ -70,6 +70,9 @@ def auto_select_opencl_platform(loaded_wallet):
                     if device.max_work_group_size > best_device_worksize:
                         best_device_worksize = device.max_work_group_size
 
+    if best_platform is None:
+        raise ValueError("no usable OpenCL platforms or devices found "
+                         "(run --opencl-info to diagnose)")
     loaded_wallet.opencl_platform = best_platform
     loaded_wallet.opencl_device_worksize = best_device_worksize
     print("OpenCL: Auto Selecting Best Platform")
@@ -81,41 +84,39 @@ def init_opencl_contexts(loaded_wallet, openclDevice=0):
     debug = 0
     write_combined_file = False
 
-    # Create three different objects to use for the contexts, this is required for things like warpwallet, as you can't
-    # have a single opencl_algo object that is re-used for multiple contexts that use a different algo.
+    # Create the main opencl_algos object. Additional ones are only created
+    # when a wallet needs multiple concurrent contexts using different algos
+    # (warpwallet); creating three for every wallet would triple worker
+    # startup time for no reason.
     wg = getattr(loaded_wallet, "chunksize", None)
-    loaded_wallet.opencl_algo = opencl.opencl_algos(
-        platform,
-        debug,
-        write_combined_file,
-        inv_memory_density=1,
-        openclDevice=openclDevice,
-        workgroupsize=wg,
-    )
-    loaded_wallet.opencl_algo_2 = opencl.opencl_algos(
-        platform,
-        debug,
-        write_combined_file,
-        inv_memory_density=1,
-        openclDevice=openclDevice,
-        workgroupsize=wg,
-    )
-    loaded_wallet.opencl_algo_3 = opencl.opencl_algos(
-        platform,
-        debug,
-        write_combined_file,
-        inv_memory_density=1,
-        openclDevice=openclDevice,
-        workgroupsize=wg,
-    )
+
+    def new_algo():
+        return opencl.opencl_algos(
+            platform,
+            debug,
+            write_combined_file,
+            inv_memory_density=1,
+            openclDevice=openclDevice,
+            workgroupsize=wg,
+        )
+
+    loaded_wallet.opencl_algo = new_algo()
 
     # Password recovery for blockchain.com wallet
     if type(loaded_wallet) is btcrecover.btcrpass.WalletBlockchain:
-        loaded_wallet.opencl_context_pbkdf2_sha1 = (
-            loaded_wallet.opencl_algo.cl_pbkdf2_init(
-                "sha1", len(loaded_wallet._salt_and_iv), 32
+        # v5 wallets stretch the password with SHA256; v0-v4 with SHA1
+        if getattr(loaded_wallet, "_crypto_prf", "sha1") == "sha256":
+            loaded_wallet.opencl_context_pbkdf2_sha256 = (
+                loaded_wallet.opencl_algo.cl_pbkdf2_init(
+                    "sha256", len(loaded_wallet._salt_and_iv), 32
+                )
             )
-        )
+        else:
+            loaded_wallet.opencl_context_pbkdf2_sha1 = (
+                loaded_wallet.opencl_algo.cl_pbkdf2_init(
+                    "sha1", len(loaded_wallet._salt_and_iv), 32
+                )
+            )
         return
 
     # Password Recovery for MultiBit Wallets
@@ -187,7 +188,11 @@ def init_opencl_contexts(loaded_wallet, openclDevice=0):
     elif type(loaded_wallet) is btcrecover.btcrpass.WalletBrainwallet:
         loaded_wallet.opencl_context_sha256 = loaded_wallet.opencl_algo.cl_sha256_init()
         if loaded_wallet.isWarpwallet:
+            # Warpwallet needs a second algo object: a single opencl_algo
+            # object cannot be re-used for multiple contexts of different
+            # algorithms (see above).
             # loaded_wallet.opencl_context_scrypt = loaded_wallet.opencl_algo_2.cl_scrypt_init(18, "sCrypt_Bip38forkN18.cl")
+            loaded_wallet.opencl_algo_3 = new_algo()
             loaded_wallet.opencl_context_pbkdf2_sha256 = (
                 loaded_wallet.opencl_algo_3.cl_pbkdf2_init(
                     rtype="sha256", saltlen=len(loaded_wallet.salt) + 1, dklen=32

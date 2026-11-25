@@ -10,6 +10,7 @@
 # If neither coincurve nor wallycore can be imported, the pure-python backend
 # is selected and a warning is printed at import time.
 
+import hashlib
 import os
 import warnings
 
@@ -230,9 +231,11 @@ def _make_wallycore_backend():
         if not _privkey_valid(priv):
             raise ValueError("Invalid private key")
         pub = w.ec_public_key_from_private_key(bytes(priv))
+        # libwally returns a bytearray; the backend contract is immutable bytes
+        # (consumers such as pylibscrypt reject bytearray), so coerce here.
         if compressed:
-            return pub
-        return w.ec_public_key_decompress(pub)
+            return bytes(pub)
+        return bytes(w.ec_public_key_decompress(pub))
 
     def pubkey_from_bytes(b):
         # wally operates on serialized keys; keep the bytes as the pubkey handle
@@ -254,7 +257,7 @@ def _make_wallycore_backend():
         p = bytes(p)
         if len(p) == PUBLIC_KEY_UNCOMPRESSED_LEN:
             return p
-        return w.ec_public_key_decompress(p)
+        return bytes(w.ec_public_key_decompress(p))
 
     def _compress(p):
         p = bytes(p)
@@ -295,8 +298,8 @@ def _make_wallycore_backend():
             # k*P == (k mod n)*P, so reducing here also handles scalar >= n.
             s = (bytes_to_int(scalar) * x) % GROUP_ORDER_INT
             if s:
-                return w.ec_sig_to_public_key(
-                    _ZERO_MSG, sig_prefix + int_to_bytes_padded(s, 32))
+                return bytes(w.ec_sig_to_public_key(
+                    _ZERO_MSG, sig_prefix + int_to_bytes_padded(s, 32)))
         # P.x >= n (~2^-128), or a scalar that degenerates to s == 0.
         return _purepython()["multiply_pubkey"](pub, scalar)
 
@@ -342,7 +345,7 @@ def _make_wallycore_backend():
 
     def tweak_pubkey(pub, scalar):
         # pub + scalar*G  (matches coincurve's LiftX(pub).combine([G.multiply(h)]))
-        return w.ec_public_key_tweak(_normalize_compressed(pub), bytes(scalar))
+        return bytes(w.ec_public_key_tweak(_normalize_compressed(pub), bytes(scalar)))
 
     return dict(
         name="wallycore",
@@ -404,3 +407,29 @@ pubkey_point = _backend["pubkey_point"]
 multiply_pubkey = _backend["multiply_pubkey"]
 lift_x = _backend["lift_x"]
 tweak_pubkey = _backend["tweak_pubkey"]
+
+
+def ripemd160_available():
+    """True when hashlib provides a (C-backed) ripemd160, i.e. when address
+    hashing will not fall back to the much slower pure-Python implementation."""
+    try:
+        hashlib.new("ripemd160")
+        return True
+    except Exception:
+        return False
+
+
+def startup_banner_lines():
+    """Lines describing the active crypto backends for the run banner.
+
+    A pure-Python secp256k1 or ripemd160 fallback can make recovery 10-100x
+    slower; the import-time warnings are easy to miss (workers don't emit them
+    at all), so the run banner states the active choices up front."""
+    lines = ["Crypto backend: " + BACKEND_NAME]
+    if BACKEND_NAME == "purepython":
+        lines.append("Warning: using the pure-Python secp256k1 backend; install coincurve "
+                     "or wallycore for a large (10-100x) speedup")
+    if not ripemd160_available():
+        lines.append("Warning: hashlib has no ripemd160 on this system (OpenSSL 3 without the "
+                     "legacy provider); using the pure-Python fallback for address hashing")
+    return lines

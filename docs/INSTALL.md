@@ -111,7 +111,7 @@ source, `import coincurve` fails at runtime with
 `wallycore` package also has no Android/aarch64 wheel and its source build fails.
 As a result, the only secp256k1 backend that works on Termux is the bundled
 **pure-Python** implementation — which is correct but around 100× slower for
-public-key derivation (see [secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+public-key derivation (see [secp256k1 Backends](#secp256k1-backends)).
 
 Two practical consequences:
 
@@ -201,7 +201,7 @@ If neither coincurve nor wallycore can be installed, BTCRecover falls back to
 the bundled pure-Python implementation (with a startup warning) — correct, but
 around 100× slower for public-key derivation. You can force a backend with the
 `BTCR_BACKEND` environment variable (see
-[secp256k1 Backends](#secp256k1-backends-coincurve--wallycore--pure-python)).
+[secp256k1 Backends](#secp256k1-backends)).
 
 **Caveat for `requirements-full.txt` on Python 3.14:** the HD-wallet packages
 `bip-utils` (and the packages that depend on it — `py_crypto_hd_wallet`,
@@ -278,7 +278,12 @@ Locate your wallet type in the list below, and follow the instructions for only 
  * Eth2 Validator Seed Recovery: [staking-deposit](https://github.com/ethereum/staking-deposit-cli/)
  * Groestlecoin BIP39 Wallets: [groestlcoin_hash](https://pypi.org/project/groestlcoin-hash/)
 
-* BIP38 Encrypted Private Keys: [ecdsa](https://pypi.org/project/ecdsa/)
+* BIP38 Encrypted Private Keys: [scrypt](#scrypt); recommended for speed:
+  [coincurve or wallycore](#secp256k1-backends)
+  and [PyCryptoDome](#pycryptodome). BIP38 uses bundled Python fallbacks when the
+  native ECC or AES libraries are unavailable; `ecdsa` is no longer required
+  for BIP38. Optional [CUDA acceleration](GPU_Acceleration.md#cuda-acceleration-for-bip38-nvidia)
+  is available for NVIDIA GPUs.
 
 ### scrypt
 
@@ -289,10 +294,13 @@ on scrypt.
 
 ----------
 
+<a id="secp256k1-backends"></a>
+
 ### secp256k1 Backends (coincurve / wallycore / pure-Python)
 
 BTCRecover no longer hard-depends on `coincurve` for secp256k1 operations
-(public-key derivation, P2TR taproot tweaking, and Electrum 2.8 ECIES). It
+(public-key derivation, including BIP38 verification, P2TR taproot tweaking,
+and Electrum 2.8 ECIES). It
 selects a backend automatically, in this order:
 
  1. **coincurve** — Used when the `coincurve` package is installed (this is the

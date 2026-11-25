@@ -17,13 +17,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# Only the modules btcrecover actually uses are vendored here (encoding,
+# networks, and their config/main dependencies). The upstream wallet/database/
+# service modules have been removed to keep the bundled dependency minimal.
 import lib.bitcoinlib.encoding
-#import bitcoinlib.mnemonic
-#import bitcoinlib.keys
-#import bitcoinlib.transactions
-#import bitcoinlib.wallets
-#import bitcoinlib.tools
-#import bitcoinlib.blocks
-#import bitcoinlib.values
 
-__all__ = ["keys", "transactions", "wallets", "encoding", "mnemonic", "tools", "blocks", "values"]
+__all__ = ["encoding", "networks"]
